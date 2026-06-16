@@ -1,0 +1,168 @@
+{
+  "title": "Steel Thunder",
+  "artist": "IronKeys",
+  "bpm": 160,
+  "difficulty": "medium",
+  "notes": [
+    {
+      "time": 0.5,
+      "key": "A3",
+      "duration": 0.938
+    },
+    {
+      "time": 1.438,
+      "key": "B3",
+      "duration": 0.262
+    },
+    {
+      "time": 1.813,
+      "key": "C4",
+      "duration": 0.262
+    },
+    {
+      "time": 2.188,
+      "key": "D4",
+      "duration": 0.262
+    },
+    {
+      "time": 2.563,
+      "key": "E4",
+      "duration": 0.938
+    },
+    {
+      "time": 3.5,
+      "key": "D4",
+      "duration": 0.262
+    },
+    {
+      "time": 3.875,
+      "key": "C4",
+      "duration": 0.262
+    },
+    {
+      "time": 4.25,
+      "key": "B3",
+      "duration": 0.938
+    },
+    {
+      "time": 5.188,
+      "key": "C4",
+      "duration": 0.938
+    },
+    {
+      "time": 6.125,
+      "key": "D4",
+      "duration": 0.262
+    },
+    {
+      "time": 6.5,
+      "key": "E4",
+      "duration": 0.262
+    },
+    {
+      "time": 6.875,
+      "key": "F4",
+      "duration": 0.262
+    },
+    {
+      "time": 7.25,
+      "key": "G4",
+      "duration": 0.938
+    },
+    {
+      "time": 8.188,
+      "key": "F4",
+      "duration": 0.262
+    },
+    {
+      "time": 8.563,
+      "key": "E4",
+      "duration": 0.938
+    },
+    {
+      "time": 9.5,
+      "key": "D4",
+      "duration": 0.262
+    },
+    {
+      "time": 9.875,
+      "key": "A3",
+      "duration": 0.938
+    },
+    {
+      "time": 10.813,
+      "key": "C4",
+      "duration": 0.262
+    },
+    {
+      "time": 11.188,
+      "key": "E4",
+      "duration": 0.262
+    },
+    {
+      "time": 11.563,
+      "key": "A4",
+      "duration": 0.262
+    },
+    {
+      "time": 11.938,
+      "key": "E4",
+      "duration": 0.938
+    },
+    {
+      "time": 12.875,
+      "key": "C4",
+      "duration": 0.938
+    },
+    {
+      "time": 13.813,
+      "key": "A3",
+      "duration": 0.262
+    },
+    {
+      "time": 14.188,
+      "key": "C4",
+      "duration": 0.262
+    },
+    {
+      "time": 14.563,
+      "key": "D3",
+      "duration": 0.938
+    },
+    {
+      "time": 15.5,
+      "key": "F3",
+      "duration": 0.262
+    },
+    {
+      "time": 15.875,
+      "key": "A3",
+      "duration": 0.262
+    },
+    {
+      "time": 16.25,
+      "key": "D4",
+      "duration": 0.262
+    },
+    {
+      "time": 16.625,
+      "key": "A3",
+      "duration": 0.938
+    },
+    {
+      "time": 17.563,
+      "key": "F3",
+      "duration": 0.262
+    },
+    {
+      "time": 17.938,
+      "key": "D3",
+      "duration": 0.262
+    },
+    {
+      "time": 18.313,
+      "key": "F3",
+      "duration": 0.262
+    }
+  ]
+}

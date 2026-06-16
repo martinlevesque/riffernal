@@ -1,0 +1,168 @@
+{
+  "title": "Night Rider",
+  "artist": "IronKeys",
+  "bpm": 60,
+  "difficulty": "easy",
+  "notes": [
+    {
+      "time": 0.5,
+      "key": "E3",
+      "duration": 3
+    },
+    {
+      "time": 3.5,
+      "key": "E3",
+      "duration": 0.6
+    },
+    {
+      "time": 4.5,
+      "key": "E3",
+      "duration": 0.6
+    },
+    {
+      "time": 5.5,
+      "key": "D3",
+      "duration": 0.6
+    },
+    {
+      "time": 6.5,
+      "key": "C3",
+      "duration": 0.6
+    },
+    {
+      "time": 7.5,
+      "key": "D3",
+      "duration": 3
+    },
+    {
+      "time": 10.5,
+      "key": "E3",
+      "duration": 0.6
+    },
+    {
+      "time": 11.5,
+      "key": "G3",
+      "duration": 0.6
+    },
+    {
+      "time": 12.5,
+      "key": "A3",
+      "duration": 0.6
+    },
+    {
+      "time": 13.5,
+      "key": "A3",
+      "duration": 0.6
+    },
+    {
+      "time": 14.5,
+      "key": "A3",
+      "duration": 3
+    },
+    {
+      "time": 17.5,
+      "key": "G3",
+      "duration": 0.6
+    },
+    {
+      "time": 18.5,
+      "key": "F3",
+      "duration": 0.6
+    },
+    {
+      "time": 19.5,
+      "key": "G3",
+      "duration": 0.6
+    },
+    {
+      "time": 20.5,
+      "key": "A3",
+      "duration": 0.6
+    },
+    {
+      "time": 21.5,
+      "key": "C4",
+      "duration": 3
+    },
+    {
+      "time": 24.5,
+      "key": "E3",
+      "duration": 0.6
+    },
+    {
+      "time": 25.5,
+      "key": "G3",
+      "duration": 0.6
+    },
+    {
+      "time": 26.5,
+      "key": "C4",
+      "duration": 0.6
+    },
+    {
+      "time": 27.5,
+      "key": "E4",
+      "duration": 0.6
+    },
+    {
+      "time": 28.5,
+      "key": "C4",
+      "duration": 3
+    },
+    {
+      "time": 31.5,
+      "key": "G3",
+      "duration": 0.6
+    },
+    {
+      "time": 32.5,
+      "key": "E3",
+      "duration": 0.6
+    },
+    {
+      "time": 33.5,
+      "key": "G3",
+      "duration": 0.6
+    },
+    {
+      "time": 34.5,
+      "key": "C3",
+      "duration": 0.6
+    },
+    {
+      "time": 35.5,
+      "key": "E3",
+      "duration": 3
+    },
+    {
+      "time": 38.5,
+      "key": "G3",
+      "duration": 0.6
+    },
+    {
+      "time": 39.5,
+      "key": "C4",
+      "duration": 0.6
+    },
+    {
+      "time": 40.5,
+      "key": "G3",
+      "duration": 0.6
+    },
+    {
+      "time": 41.5,
+      "key": "E3",
+      "duration": 0.6
+    },
+    {
+      "time": 42.5,
+      "key": "C3",
+      "duration": 3
+    },
+    {
+      "time": 45.5,
+      "key": "E3",
+      "duration": 0.6
+    }
+  ]
+}

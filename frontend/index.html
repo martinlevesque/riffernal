@@ -1,0 +1,58 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>IronKeys</title>
+  <link rel="stylesheet" href="css/style.css">
+</head>
+<body>
+  <div id="app">
+    <canvas id="gameCanvas"></canvas>
+
+    <div id="ui-overlay">
+      <div id="menu-screen" class="screen active">
+        <div class="menu-content">
+          <h1 class="title">IRON<span class="accent">KEYS</span></h1>
+          <p class="subtitle">Keyboard Hero - Metal Edition</p>
+          <div id="song-list"></div>
+          <div class="controls-info">
+            <h3>Controls</h3>
+            <p>White keys: <kbd>A</kbd><kbd>S</kbd><kbd>D</kbd><kbd>F</kbd><kbd>G</kbd><kbd>H</kbd><kbd>J</kbd><kbd>K</kbd><kbd>L</kbd></p>
+            <p>Black keys: <kbd>W</kbd><kbd>E</kbd><kbd>T</kbd><kbd>Y</kbd><kbd>U</kbd><kbd>O</kbd><kbd>P</kbd></p>
+          </div>
+          <button id="btn-start" class="btn btn-primary">START</button>
+          <div id="midi-status" class="midi-status"></div>
+        </div>
+      </div>
+
+      <div id="play-screen" class="screen">
+        <div id="score-display">
+          <span id="score-value">0</span>
+          <span id="combo-display"></span>
+          <span id="accuracy-display"></span>
+        </div>
+        <div id="hit-feedback"></div>
+        <div id="speed-control">
+          <button id="btn-restart" class="speed-btn">[R] RESTART</button>
+          <button id="speed-down" class="speed-btn">[-]</button>
+          <span id="speed-value">100%</span>
+          <button id="speed-up" class="speed-btn">[+]</button>
+        </div>
+      </div>
+
+      <div id="results-screen" class="screen">
+        <div class="results-content">
+          <h2 id="result-title">RESULTS</h2>
+          <div id="result-grade"></div>
+          <div id="result-stats"></div>
+          <button id="btn-retry" class="btn btn-primary">RETRY</button>
+          <button id="btn-menu" class="btn btn-secondary">MENU</button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <script type="module" src="js/main.js"></script>
+</body>
+</html>
