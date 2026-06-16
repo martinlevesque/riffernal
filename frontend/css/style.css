@@ -250,7 +250,7 @@ kbd {
 
 #score-display {
   position: absolute;
-  top: 1rem;
+  top: 60px;
   left: 0;
   width: 100%;
   text-align: center;
@@ -281,7 +281,7 @@ kbd {
 
 #speed-control {
   position: absolute;
-  top: 1rem;
+  top: 60px;
   right: 1rem;
   display: flex;
   align-items: center;

@@ -114,6 +114,12 @@ export class NoteManager {
     return Math.round(weighted * 10) / 10;
   }
 
+  getSongDuration() {
+    if (this.notes.length === 0) return 0;
+    const last = this.notes[this.notes.length - 1];
+    return last.time + last.duration;
+  }
+
   isComplete() {
     return this.notes.every(n => n.hit || n.missed);
   }

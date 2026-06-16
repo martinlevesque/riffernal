@@ -171,6 +171,82 @@ export class Renderer {
     ctx.globalAlpha = 1;
   }
 
+  drawTimeline(notes, currentTime, songDuration) {
+    if (!notes.length || songDuration <= 0) return;
+    const ctx = this.ctx;
+    const margin = 10;
+    const labelW = 28;
+    const timelineTop = 2;
+    const rowH = 5;
+    const rightNotes = NOTE_NAMES.filter(n => n >= 'C4');
+    const leftNotes = NOTE_NAMES.filter(n => !n.includes('#') && n < 'C4');
+    const rightH = rightNotes.length * rowH;
+    const leftH = leftNotes.length * rowH;
+    const gap = 4;
+    const totalH = rightH + gap + leftH + 8;
+    const barX = margin + labelW;
+    const barW = this.width - barX - margin;
+
+    ctx.fillStyle = '#0e0e0e';
+    ctx.fillRect(0, timelineTop, this.width, totalH);
+
+    ctx.fillStyle = '#1a1a1a';
+    ctx.fillRect(barX, timelineTop, barW, rightH);
+    ctx.fillRect(barX, timelineTop + rightH + gap, barW, leftH);
+
+    const drawSection = (sectionNotes, yStart, label) => {
+      ctx.fillStyle = '#555';
+      ctx.font = '8px Courier New';
+      ctx.textAlign = 'left';
+      ctx.fillText(label, margin, yStart + 9);
+
+      for (let i = 0; i < sectionNotes.length; i++) {
+        const noteName = sectionNotes[i];
+        const rowY = yStart + i * rowH;
+
+        if (i % 2 === 0) {
+          ctx.fillStyle = '#1e1e1e';
+          ctx.fillRect(barX, rowY, barW, rowH);
+        }
+
+        const displayName = noteName.replace(/\d/, '');
+        ctx.fillStyle = '#444';
+        ctx.font = '7px Courier New';
+        ctx.textAlign = 'right';
+        ctx.fillText(displayName, margin + labelW - 3, rowY + rowH - 1);
+
+        for (const note of notes) {
+          if (note.key !== noteName) continue;
+          const x = barX + (note.time / songDuration) * barW;
+          const noteW = Math.max(4, (note.duration / songDuration) * barW);
+          const noteColor = NOTE_COLORS[note.key] || '#ffffff';
+          ctx.fillStyle = noteColor;
+          ctx.globalAlpha = note.hit ? 0.5 : 1;
+          ctx.shadowColor = noteColor;
+          ctx.shadowBlur = note.hit ? 0 : 3;
+          const noteY = rowY + 0.5;
+          const noteH = rowH - 1;
+          const r = Math.min(noteH / 2, 3);
+          ctx.beginPath();
+          ctx.roundRect(x, noteY, noteW, noteH, r);
+          ctx.fill();
+          ctx.shadowBlur = 0;
+        }
+        ctx.globalAlpha = 1;
+      }
+    };
+
+    drawSection(rightNotes, timelineTop, 'R');
+    drawSection(leftNotes, timelineTop + rightH + gap, 'L');
+
+    const cursorX = barX + (Math.max(0, currentTime) / songDuration) * barW;
+    ctx.fillStyle = '#fff';
+    ctx.shadowColor = '#fff';
+    ctx.shadowBlur = 4;
+    ctx.fillRect(cursorX - 0.5, timelineTop, 1.5, totalH);
+    ctx.shadowBlur = 0;
+  }
+
   drawParticles() {
     const ctx = this.ctx;
     for (let i = this.particles.length - 1; i >= 0; i--) {

@@ -82,6 +82,14 @@ async function init() {
 
   document.getElementById('btn-retry').addEventListener('click', () => game.retry());
   document.getElementById('btn-menu').addEventListener('click', () => game.backToMenu());
+  document.getElementById('btn-restart').addEventListener('click', () => game.retry());
+
+  document.addEventListener('keydown', (e) => {
+    if (game.state !== 'playing') return;
+    if (e.code === 'KeyR') {
+      game.retry();
+    }
+  });
 }
 
 init();

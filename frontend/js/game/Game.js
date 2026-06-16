@@ -16,6 +16,8 @@ export class Game {
     this.currentSong = null;
     this.currentTime = 0;
     this.startTime = 0;
+    this.refGameTime = 0;
+    this.refRealTime = 0;
     this.paused = false;
     this.animationId = null;
     this.pressedLanes = new Set();
@@ -39,6 +41,8 @@ export class Game {
     this.noteManager.loadSong(song);
     this.currentTime = -1.5;
     this.startTime = performance.now() / 1000 + 1.5;
+    this.refGameTime = -1.5;
+    this.refRealTime = this.startTime;
     this.state = 'playing';
     this.pressedLanes.clear();
 
@@ -54,6 +58,11 @@ export class Game {
     this.keyboardInput.start();
     this.synth.init();
     this.synth.resume();
+
+    this.noteManager.onMiss = (note) => {
+      this.synth.noteOn(note.key);
+      setTimeout(() => this.synth.noteOff(note.key), note.duration * 1000);
+    };
 
     if (!this.animationId) {
       this._loop();
@@ -98,7 +107,7 @@ export class Game {
 
   _loop() {
     const now = performance.now() / 1000;
-    this.currentTime = (now - this.startTime) * this.speedMultiplier;
+    this.currentTime = this.refGameTime + (now - this.refRealTime) * this.speedMultiplier;
     this.scrollOffset += (SCROLL_SPEED / 60) * this.speedMultiplier;
 
     this.renderer.clear();
@@ -107,6 +116,9 @@ export class Game {
 
     if (this.state === 'playing') {
       this.noteManager.update(this.currentTime, this.renderer.height);
+
+      const songDuration = this.noteManager.getSongDuration();
+      this.renderer.drawTimeline(this.noteManager.notes, this.currentTime, songDuration);
 
       const activeNotes = this.noteManager.getActiveNotes(this.currentTime, this.renderer.height);
       for (const note of activeNotes) {
@@ -169,6 +181,8 @@ export class Game {
   }
 
   setSpeed(multiplier) {
+    this.refGameTime = this.currentTime;
+    this.refRealTime = performance.now() / 1000;
     this.speedMultiplier = Math.max(0.1, Math.min(2.0, multiplier));
   }
 }
