@@ -1,0 +1,12 @@
+{
+  "name": "ironkeys",
+  "version": "0.1.0",
+  "description": "Keyboard Hero - Metal Edition. Play piano along to metal songs.",
+  "private": true,
+  "scripts": {
+    "dev": "npx serve frontend -p 3000",
+    "start": "npx serve frontend"
+  },
+  "keywords": ["piano", "midi", "keyboard-hero", "metal"],
+  "license": "MIT"
+}
