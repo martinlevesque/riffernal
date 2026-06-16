@@ -7,6 +7,7 @@ import { ScoreDisplay } from './ui/ScoreDisplay.js';
 
 const SONG_FILES = [
   'assets/songs/bed-of-razors.json',
+  'assets/songs/frere-jacques.json',
   'assets/songs/iron-rain.json',
   'assets/songs/steel-thunder.json',
   'assets/songs/night-rider.json',

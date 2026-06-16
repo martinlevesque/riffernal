@@ -59,7 +59,8 @@ export class NoteManager {
     this.activeNotes = this.activeNotes.filter(n => {
       if (n.hit || n.missed) return false;
       const timeDiff = n.time - currentTime;
-      const y = hitZoneY - timeDiff * SCROLL_SPEED;
+      const noteHeight = Math.max(12, n.duration * SCROLL_SPEED);
+      const y = hitZoneY - timeDiff * SCROLL_SPEED - noteHeight;
       return y < height + 50;
     });
   }
@@ -140,11 +141,10 @@ export class NoteManager {
     for (const note of this.activeNotes) {
       if (note.hit || note.missed) continue;
       const timeDiff = note.time - currentTime;
-      const y = hitZoneY - timeDiff * SCROLL_SPEED;
-
-      const noteHeight = Math.max(12, Math.min(40, note.duration * SCROLL_SPEED));
+      const noteHeight = Math.max(12, note.duration * SCROLL_SPEED);
+      const y = hitZoneY - timeDiff * SCROLL_SPEED - noteHeight;
       const color = NOTE_COLORS[note.key] || '#ffffff';
-      const alpha = y < 0 ? 0 : 1;
+      const alpha = y + noteHeight < 0 ? 0 : 1;
 
       results.push({
         lane: note.lane,
