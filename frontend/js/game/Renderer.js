@@ -1,4 +1,37 @@
-import { WHITE_KEY_NOTES, BLACK_KEY_NOTES, NOTE_COLORS, HIT_ZONE_Y_RATIO, PIANO_HEIGHT_RATIO, NOTE_NAMES } from '../utils/constants.js';
+import { WHITE_KEY_NOTES, BLACK_KEY_NOTES, NOTE_COLORS, HIT_ZONE_Y_RATIO, PIANO_HEIGHT_RATIO, NOTE_NAMES, KEYBOARD_MAP, STAFF_LINE_SPACING, STAFF_TOP_MARGIN, STAFF_LEFT_MARGIN, STAFF_RIGHT_MARGIN, CLEF_TYPES, BASS_STAFF_POSITIONS, TREBLE_STAFF_POSITIONS, NOTE_TO_CLEF, NOTE_DURATION_TYPES } from '../utils/constants.js';
+
+const SHEET_HEIGHT = 80;
+const SHEET_STAFF_LINE_SPACING = 5;
+const SHEET_NOTE_RADIUS = 2;
+const SHEET_BEATS_VISIBLE = 18;
+const SHEET_PX_PER_BEAT = 13;
+const SHEET_BEATS_PER_MEASURE = 4;
+
+function roundRect(ctx, x, y, w, h, r) {
+  ctx.beginPath();
+  ctx.moveTo(x + r, y);
+  ctx.lineTo(x + w - r, y);
+  ctx.arcTo(x + w, y, x + w, y + r, r);
+  ctx.lineTo(x + w, y + h - r);
+  ctx.arcTo(x + w, y + h, x + w - r, y + h, r);
+  ctx.lineTo(x + r, y + h);
+  ctx.arcTo(x, y + h, x, y + h - r, r);
+  ctx.lineTo(x, y + r);
+  ctx.arcTo(x, y, x + r, y, r);
+  ctx.closePath();
+}
+
+function codeToDisplay(code) {
+  if (code.startsWith('Key')) return code.slice(3);
+  if (code.startsWith('Digit')) return code.slice(5);
+  const special = { Semicolon: ';', Comma: ',', Period: '.', Slash: '/', Backslash: '\\', BracketLeft: '[', BracketRight: ']', Minus: '-', Equal: '=', Quote: "'", Backquote: '`' };
+  return special[code] || '';
+}
+
+const SHEET_NOTE_POSITIONS = Object.assign(
+  Object.fromEntries(Object.entries(BASS_STAFF_POSITIONS).map(([k, v]) => [k, v - 3])),
+  TREBLE_STAFF_POSITIONS
+);
 
 export class Renderer {
   constructor(canvas) {
@@ -8,6 +41,10 @@ export class Renderer {
     this.height = 0;
     this.pressedKeys = new Set();
     this.particles = [];
+    this.sheetBottom = 0;
+    this._keyDisplayMap = Object.fromEntries(
+      Object.entries(KEYBOARD_MAP).map(([code, note]) => [note, codeToDisplay(code)])
+    );
     this.resize();
   }
 
@@ -27,7 +64,6 @@ export class Renderer {
 
   drawHighway(laneCount, scrollOffset) {
     const ctx = this.ctx;
-    const pianoH = this.height * PIANO_HEIGHT_RATIO;
     const hitZoneY = this.height * HIT_ZONE_Y_RATIO;
     const highwayTop = 0;
     const highwayBottom = hitZoneY + 10;
@@ -140,111 +176,167 @@ export class Renderer {
   }
 
   _getKeyForNote(noteName) {
-    const map = { 'C3': 'A', 'C#3': 'W', 'D3': 'S', 'D#3': 'E', 'E3': 'D', 'F3': 'F', 'F#3': 'T', 'G3': 'G', 'G#3': 'Y', 'A3': 'H', 'A#3': 'U', 'B3': 'J', 'C4': 'K', 'C#4': 'O', 'D4': 'L', 'D#4': 'P', 'E4': ';' };
-    return map[noteName] || '';
+    return this._keyDisplayMap[noteName] || '';
   }
 
-  drawNote(laneIndex, y, noteHeight, color, alpha) {
+  drawNote(laneIndex, y, noteHeight, color, alpha, sheetBottom) {
     const ctx = this.ctx;
     const laneWidth = this.width / NOTE_NAMES.length;
     const x = laneIndex * laneWidth;
     const padding = 2;
 
+    const hitZoneY = this.height * HIT_ZONE_Y_RATIO;
+    const scaleRange = hitZoneY - sheetBottom;
+    const clampedY = Math.max(sheetBottom, Math.min(y, hitZoneY));
+    const scale = 0.45 + 0.55 * ((clampedY - sheetBottom) / scaleRange);
+
+    const scaledHeight = noteHeight * scale;
+    const scaledWidth = (laneWidth - padding * 2) * scale;
+    const centerX = x + laneWidth / 2;
+    const drawX = centerX - scaledWidth / 2;
+    const centerY = y + noteHeight / 2;
+    const drawY = centerY - scaledHeight / 2;
+
     ctx.globalAlpha = alpha;
 
     ctx.shadowColor = color;
-    ctx.shadowBlur = 8;
+    ctx.shadowBlur = 8 * scale;
     ctx.fillStyle = color;
-    ctx.beginPath();
-    ctx.roundRect(x + padding, y, laneWidth - padding * 2, noteHeight, 3);
+    roundRect(ctx, drawX, drawY, scaledWidth, scaledHeight, 3 * scale);
     ctx.fill();
 
-    const gradient = ctx.createLinearGradient(x, y, x, y + noteHeight);
+    const gradient = ctx.createLinearGradient(drawX, drawY, drawX, drawY + scaledHeight);
     gradient.addColorStop(0, 'rgba(255,255,255,0.25)');
     gradient.addColorStop(0.5, 'rgba(255,255,255,0)');
     ctx.fillStyle = gradient;
-    ctx.beginPath();
-    ctx.roundRect(x + padding, y, laneWidth - padding * 2, noteHeight, 3);
+    roundRect(ctx, drawX, drawY, scaledWidth, scaledHeight, 3 * scale);
     ctx.fill();
 
     ctx.shadowBlur = 0;
     ctx.globalAlpha = 1;
   }
 
-  drawTimeline(notes, currentTime, songDuration) {
+  drawSheetMusic(notes, currentTime, songDuration) {
     if (!notes.length || songDuration <= 0) return;
     const ctx = this.ctx;
-    const margin = 10;
-    const labelW = 28;
-    const timelineTop = 2;
-    const rowH = 5;
-    const rightNotes = NOTE_NAMES.filter(n => n >= 'C4');
-    const leftNotes = NOTE_NAMES.filter(n => !n.includes('#') && n < 'C4');
-    const rightH = rightNotes.length * rowH;
-    const leftH = leftNotes.length * rowH;
-    const gap = 4;
-    const totalH = rightH + gap + leftH + 8;
-    const barX = margin + labelW;
+    const sheetTop = 0;
+    const staffLineSpacing = SHEET_STAFF_LINE_SPACING;
+    const staffH = 4 * staffLineSpacing;
+    const clefW = 25;
+    const margin = 8;
+
+    const trebleTop = sheetTop + 5;
+    const bassTop = trebleTop + staffH + 8;
+    const sheetBottom = bassTop + staffH + 5;
+    this.sheetBottom = sheetBottom;
+
+    ctx.fillStyle = '#0a0a0a';
+    ctx.fillRect(0, sheetTop, this.width, sheetBottom);
+
+    ctx.strokeStyle = '#444';
+    ctx.lineWidth = 0.5;
+    for (let i = 0; i < 5; i++) {
+      ctx.beginPath();
+      ctx.moveTo(margin, trebleTop + i * staffLineSpacing);
+      ctx.lineTo(this.width - margin, trebleTop + i * staffLineSpacing);
+      ctx.stroke();
+    }
+    for (let i = 0; i < 5; i++) {
+      ctx.beginPath();
+      ctx.moveTo(margin, bassTop + i * staffLineSpacing);
+      ctx.lineTo(this.width - margin, bassTop + i * staffLineSpacing);
+      ctx.stroke();
+    }
+
+    ctx.fillStyle = '#888';
+    ctx.font = `bold ${staffLineSpacing * 5}px serif`;
+    ctx.textAlign = 'left';
+    ctx.textBaseline = 'middle';
+    ctx.fillText('\uD834\uDD1E', margin + 2, trebleTop + 2 * staffLineSpacing);
+    ctx.fillText('\uD834\uDD22', margin + 2, bassTop + 2 * staffLineSpacing);
+
+    const barX = margin + clefW;
     const barW = this.width - barX - margin;
+    const bpm = 120;
+    const viewStart = currentTime - 0.5;
+    const viewEnd = currentTime + SHEET_BEATS_VISIBLE * (60 / bpm);
 
-    ctx.fillStyle = '#0e0e0e';
-    ctx.fillRect(0, timelineTop, this.width, totalH);
+    const firstBeat = Math.ceil(viewStart / (60 / bpm));
+    const lastBeat = Math.floor(viewEnd / (60 / bpm));
+    for (let beat = firstBeat; beat <= lastBeat; beat++) {
+      const beatTime = beat * (60 / bpm);
+      const x = barX + ((beatTime - viewStart) / (viewEnd - viewStart)) * barW;
+      const isMeasure = beat % SHEET_BEATS_PER_MEASURE === 0;
+      ctx.strokeStyle = isMeasure ? '#555' : '#222';
+      ctx.lineWidth = isMeasure ? 1 : 0.5;
+      ctx.beginPath();
+      ctx.moveTo(x, sheetTop);
+      ctx.lineTo(x, sheetBottom);
+      ctx.stroke();
+    }
 
-    ctx.fillStyle = '#1a1a1a';
-    ctx.fillRect(barX, timelineTop, barW, rightH);
-    ctx.fillRect(barX, timelineTop + rightH + gap, barW, leftH);
+    const drawSheetNote = (note, staffTop) => {
+      const pos = SHEET_NOTE_POSITIONS[note.key];
+      if (pos === undefined) return;
+      const noteY = staffTop + (7 - pos) * (staffLineSpacing / 2);
 
-    const drawSection = (sectionNotes, yStart, label) => {
-      ctx.fillStyle = '#555';
-      ctx.font = '8px Courier New';
-      ctx.textAlign = 'left';
-      ctx.fillText(label, margin, yStart + 9);
+      const noteTime = note.time;
+      if (noteTime < viewStart || noteTime > viewEnd) return;
 
-      for (let i = 0; i < sectionNotes.length; i++) {
-        const noteName = sectionNotes[i];
-        const rowY = yStart + i * rowH;
+      const x = barX + ((noteTime - viewStart) / (viewEnd - viewStart)) * barW;
+      const r = SHEET_NOTE_RADIUS;
+      const color = NOTE_COLORS[note.key] || '#ffffff';
+      const filled = note.duration < 0.75;
 
-        if (i % 2 === 0) {
-          ctx.fillStyle = '#1e1e1e';
-          ctx.fillRect(barX, rowY, barW, rowH);
-        }
+      ctx.fillStyle = note.hit ? '#555' : color;
+      ctx.strokeStyle = note.hit ? '#555' : color;
+      ctx.lineWidth = 1;
+      ctx.beginPath();
+      ctx.ellipse(x, noteY, r + 0.5, r, -0.2, 0, Math.PI * 2);
+      if (filled) {
+        ctx.fill();
+      } else {
+        ctx.lineWidth = 1.5;
+        ctx.stroke();
+      }
 
-        const displayName = noteName.replace(/\d/, '');
-        ctx.fillStyle = '#444';
-        ctx.font = '7px Courier New';
-        ctx.textAlign = 'right';
-        ctx.fillText(displayName, margin + labelW - 3, rowY + rowH - 1);
+      const stemLen = staffLineSpacing * 2.5;
+      const stemUp = pos <= 3;
+      const stemDir = stemUp ? -1 : 1;
+      const stemX = stemUp ? x + r : x - r;
+      ctx.lineWidth = 1;
+      ctx.beginPath();
+      ctx.moveTo(stemX, noteY);
+      ctx.lineTo(stemX, noteY + stemDir * stemLen);
+      ctx.stroke();
 
-        for (const note of notes) {
-          if (note.key !== noteName) continue;
-          const x = barX + (note.time / songDuration) * barW;
-          const noteW = Math.max(4, (note.duration / songDuration) * barW);
-          const noteColor = NOTE_COLORS[note.key] || '#ffffff';
-          ctx.fillStyle = noteColor;
-          ctx.globalAlpha = note.hit ? 0.5 : 1;
-          ctx.shadowColor = noteColor;
-          ctx.shadowBlur = note.hit ? 0 : 3;
-          const noteY = rowY + 0.5;
-          const noteH = rowH - 1;
-          const r = Math.min(noteH / 2, 3);
-          ctx.beginPath();
-          ctx.roundRect(x, noteY, noteW, noteH, r);
-          ctx.fill();
-          ctx.shadowBlur = 0;
-        }
-        ctx.globalAlpha = 1;
+      if (note.duration < 0.3) {
+        const flagBaseY = noteY + stemDir * stemLen;
+        ctx.beginPath();
+        ctx.moveTo(stemX, flagBaseY);
+        ctx.quadraticCurveTo(stemX + 6, flagBaseY + stemDir * 4, stemX + 2, flagBaseY + stemDir * 9);
+        ctx.stroke();
       }
     };
 
-    drawSection(rightNotes, timelineTop, 'R');
-    drawSection(leftNotes, timelineTop + rightH + gap, 'L');
+    const trebleNotes = notes.filter(n => NOTE_TO_CLEF[n.key] === CLEF_TYPES.TREBLE);
+    const bassNotes = notes.filter(n => NOTE_TO_CLEF[n.key] === CLEF_TYPES.BASS);
+    for (const note of trebleNotes) drawSheetNote(note, trebleTop);
+    for (const note of bassNotes) drawSheetNote(note, bassTop);
 
-    const cursorX = barX + (Math.max(0, currentTime) / songDuration) * barW;
-    ctx.fillStyle = '#fff';
-    ctx.shadowColor = '#fff';
+    const cursorX = barX;
+    ctx.fillStyle = '#ff2244';
+    ctx.shadowColor = '#ff2244';
     ctx.shadowBlur = 4;
-    ctx.fillRect(cursorX - 0.5, timelineTop, 1.5, totalH);
+    ctx.fillRect(cursorX - 0.5, sheetTop, 1.5, sheetBottom - sheetTop);
     ctx.shadowBlur = 0;
+
+    ctx.strokeStyle = '#333';
+    ctx.lineWidth = 0.5;
+    ctx.beginPath();
+    ctx.moveTo(0, sheetBottom);
+    ctx.lineTo(this.width, sheetBottom);
+    ctx.stroke();
   }
 
   drawParticles() {

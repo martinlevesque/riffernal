@@ -3,6 +3,8 @@ import { NoteManager } from './NoteManager.js';
 import { KEYBOARD_MAP, NOTE_NAMES, NOTE_COLORS, FEEDBACK_COLORS, HIT_ZONE_Y_RATIO, SCROLL_SPEED } from '../utils/constants.js';
 import { formatScore } from '../utils/helpers.js';
 
+const COUNTDOWN_SECONDS = 1.5;
+
 export class Game {
   constructor(canvas, synth, keyboardInput, midiInput) {
     this.canvas = canvas;
@@ -15,7 +17,6 @@ export class Game {
     this.state = 'menu';
     this.currentSong = null;
     this.currentTime = 0;
-    this.startTime = 0;
     this.refGameTime = 0;
     this.refRealTime = 0;
     this.paused = false;
@@ -39,10 +40,8 @@ export class Game {
   start(song) {
     this.currentSong = song;
     this.noteManager.loadSong(song);
-    this.currentTime = -1.5;
-    this.startTime = performance.now() / 1000 + 1.5;
-    this.refGameTime = -1.5;
-    this.refRealTime = this.startTime;
+    this.refGameTime = -COUNTDOWN_SECONDS;
+    this.refRealTime = performance.now() / 1000;
     this.state = 'playing';
     this.pressedLanes.clear();
 
@@ -64,9 +63,7 @@ export class Game {
       setTimeout(() => this.synth.noteOff(note.key), note.duration * 1000);
     };
 
-    if (!this.animationId) {
-      this._loop();
-    }
+    this._loop();
   }
 
   _handleNoteOn(noteName, id) {
@@ -93,6 +90,8 @@ export class Game {
             15
           );
         }
+      } else {
+        this.scoreDisplay.showFeedback('MISS', FEEDBACK_COLORS.MISS);
       }
     }
   }
@@ -118,15 +117,15 @@ export class Game {
       this.noteManager.update(this.currentTime, this.renderer.height);
 
       const songDuration = this.noteManager.getSongDuration();
-      this.renderer.drawTimeline(this.noteManager.notes, this.currentTime, songDuration);
+      this.renderer.drawSheetMusic(this.noteManager.notes, this.currentTime, songDuration);
 
       const activeNotes = this.noteManager.getActiveNotes(this.currentTime, this.renderer.height);
       for (const note of activeNotes) {
-        this.renderer.drawNote(note.lane, note.y, note.height, note.color, note.alpha);
+        this.renderer.drawNote(note.lane, note.y, note.height, note.color, note.alpha, this.renderer.sheetBottom);
       }
 
-      if (window._scoreDisplay) {
-        window._scoreDisplay.update(this.noteManager);
+      if (this.scoreDisplay) {
+        this.scoreDisplay.update(this.noteManager);
       }
 
       if (this.noteManager.isComplete()) {
@@ -137,7 +136,9 @@ export class Game {
     this.renderer.drawParticles();
     this.renderer.drawPiano(NOTE_NAMES.length, this.pressedLanes);
 
-    this.animationId = requestAnimationFrame(() => this._loop());
+    if (this.state !== 'menu') {
+      this.animationId = requestAnimationFrame(() => this._loop());
+    }
   }
 
   _showResults() {
@@ -160,6 +161,9 @@ export class Game {
     `;
 
     this.keyboardInput.stop();
+    this.midiInput.stop();
+    this.midiInput.onNoteOn = null;
+    this.midiInput.onNoteOff = null;
     this.synth.releaseAll();
   }
 
@@ -175,9 +179,14 @@ export class Game {
     this.playScreen.classList.remove('active');
     this.menuScreen.classList.add('active');
     this.keyboardInput.stop();
+    this.midiInput.stop();
     this.synth.releaseAll();
     this.keyboardInput.onNoteOn = null;
     this.keyboardInput.onNoteOff = null;
+    this.midiInput.onNoteOn = null;
+    this.midiInput.onNoteOff = null;
+    cancelAnimationFrame(this.animationId);
+    this.animationId = null;
   }
 
   setSpeed(multiplier) {

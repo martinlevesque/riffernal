@@ -28,38 +28,14 @@ export const KEYBOARD_MAP = {
   'Semicolon': 'E4',
 };
 
-export const LANE_COLORS = [
-  '#ff2244',
-  '#ff6622',
-  '#ffaa22',
-  '#ffdd22',
-  '#22ff66',
-  '#22ddaa',
-  '#2288ff',
-  '#4466ff',
-  '#aa44ff',
-  '#ff44aa',
+const BASE_NOTE_COLORS = [
+  '#ff2244', '#ff4466', '#ff6622', '#ff8844', '#ffaa22', '#ffdd22',
+  '#ddff22', '#22ff66', '#22ddaa', '#2288ff', '#4466ff', '#aa44ff',
 ];
 
-export const NOTE_COLORS = {
-  'C3': '#ff2244',
-  'C#3': '#ff4466',
-  'D3': '#ff6622',
-  'D#3': '#ff8844',
-  'E3': '#ffaa22',
-  'F3': '#ffdd22',
-  'F#3': '#ddff22',
-  'G3': '#22ff66',
-  'G#3': '#22ddaa',
-  'A3': '#2288ff',
-  'A#3': '#4466ff',
-  'B3': '#aa44ff',
-  'C4': '#ff2244',
-  'C#4': '#ff4466',
-  'D4': '#ff6622',
-  'D#4': '#ff8844',
-  'E4': '#ffaa22',
-};
+export const NOTE_COLORS = Object.fromEntries(
+  NOTE_NAMES.map((name, i) => [name, BASE_NOTE_COLORS[i % 12]])
+);
 
 export const TIMING = {
   PERFECT: 0.030,
@@ -88,3 +64,40 @@ export const HIT_ZONE_Y_RATIO = 0.82;
 export const PIANO_HEIGHT_RATIO = 0.12;
 
 export const NOTE_WIDTH_RATIO = 0.07;
+
+export const STAFF_LINE_SPACING = 12;
+export const STAFF_TOP_MARGIN = 80;
+export const STAFF_LEFT_MARGIN = 60;
+export const STAFF_RIGHT_MARGIN = 30;
+
+export const CLEF_TYPES = {
+  BASS: 'bass',
+  TREBLE: 'treble',
+};
+
+export const BASS_STAFF_POSITIONS = {
+  'C3': 4, 'C#3': 4, 'D3': 5, 'D#3': 5, 'E3': 6, 'F3': 7, 'F#3': 7,
+  'G3': 8, 'G#3': 8, 'A3': 9, 'A#3': 9, 'B3': 10,
+};
+
+export const TREBLE_STAFF_POSITIONS = {
+  'C4': 1, 'C#4': 1, 'D4': 2, 'D#4': 2, 'E4': 3, 'F4': 4, 'F#4': 4,
+  'G4': 5, 'G#4': 5, 'A4': 6, 'A#4': 6, 'B4': 7,
+};
+
+export const NOTE_TO_CLEF = {
+  'C3': CLEF_TYPES.BASS, 'C#3': CLEF_TYPES.BASS, 'D3': CLEF_TYPES.BASS, 'D#3': CLEF_TYPES.BASS,
+  'E3': CLEF_TYPES.BASS, 'F3': CLEF_TYPES.BASS, 'F#3': CLEF_TYPES.BASS, 'G3': CLEF_TYPES.BASS,
+  'G#3': CLEF_TYPES.BASS, 'A3': CLEF_TYPES.BASS, 'A#3': CLEF_TYPES.BASS, 'B3': CLEF_TYPES.BASS,
+  'C4': CLEF_TYPES.TREBLE, 'C#4': CLEF_TYPES.TREBLE, 'D4': CLEF_TYPES.TREBLE, 'D#4': CLEF_TYPES.TREBLE,
+  'E4': CLEF_TYPES.TREBLE, 'F4': CLEF_TYPES.TREBLE, 'F#4': CLEF_TYPES.TREBLE, 'G4': CLEF_TYPES.TREBLE,
+  'G#4': CLEF_TYPES.TREBLE, 'A4': CLEF_TYPES.TREBLE, 'A#4': CLEF_TYPES.TREBLE, 'B4': CLEF_TYPES.TREBLE,
+};
+
+export const NOTE_DURATION_TYPES = {
+  WHOLE: { minDuration: 1.5, flags: 0, filled: false },
+  HALF: { minDuration: 0.75, flags: 0, filled: false },
+  QUARTER: { minDuration: 0.375, flags: 0, filled: true },
+  EIGHTH: { minDuration: 0.1875, flags: 1, filled: true },
+  SIXTEENTH: { minDuration: 0, flags: 2, filled: true },
+};

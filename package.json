@@ -5,8 +5,29 @@
   "private": true,
   "scripts": {
     "dev": "npx serve frontend -p 3000",
-    "start": "npx serve frontend"
+    "start": "npx serve frontend",
+    "test": "npx playwright test",
+    "test:ui": "npx playwright test --ui",
+    "test:report": "npx playwright show-report"
   },
-  "keywords": ["piano", "midi", "keyboard-hero", "metal"],
-  "license": "MIT"
+  "keywords": [
+    "piano",
+    "midi",
+    "keyboard-hero",
+    "metal"
+  ],
+  "license": "MIT",
+  "main": "index.js",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/martinlevesque/ironkeys.git"
+  },
+  "author": "",
+  "bugs": {
+    "url": "https://github.com/martinlevesque/ironkeys/issues"
+  },
+  "homepage": "https://github.com/martinlevesque/ironkeys#readme",
+  "devDependencies": {
+    "@playwright/test": "^1.61.0"
+  }
 }

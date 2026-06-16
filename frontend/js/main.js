@@ -36,7 +36,6 @@ async function init() {
 
   const game = new Game(canvas, synth, keyboardInput, midiInput);
   const scoreDisplay = new ScoreDisplay();
-  window._scoreDisplay = scoreDisplay;
   game.scoreDisplay = scoreDisplay;
 
   const speedValue = document.getElementById('speed-value');
@@ -68,6 +67,10 @@ async function init() {
   updateSpeedDisplay();
 
   const songs = await loadSongs();
+  if (songs.length === 0) {
+    document.getElementById('song-list').innerHTML = '<p class="error">Failed to load songs. Please refresh the page.</p>';
+    document.getElementById('btn-start').disabled = true;
+  }
   const menu = new Menu(songs);
   menu.onStart = (song) => game.start(song);
 

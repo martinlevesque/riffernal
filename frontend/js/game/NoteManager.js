@@ -12,7 +12,6 @@ export class NoteManager {
     this.goods = 0;
     this.misses = 0;
     this.totalNotes = 0;
-    this.onHit = null;
     this.onMiss = null;
   }
 
@@ -104,7 +103,6 @@ export class NoteManager {
     const comboMultiplier = Math.floor(this.combo / 10);
     this.score += comboMultiplier * 10;
 
-    if (this.onHit) this.onHit(bestNote, result);
     return { note: bestNote, result };
   }
 
@@ -122,7 +120,7 @@ export class NoteManager {
   }
 
   isComplete() {
-    return this.notes.every(n => n.hit || n.missed);
+    return this.notes.length > 0 && this.notes.every(n => n.hit || n.missed);
   }
 
   getGrade() {
@@ -152,6 +150,7 @@ export class NoteManager {
         height: noteHeight,
         color,
         alpha,
+        duration: note.duration,
       });
     }
 
