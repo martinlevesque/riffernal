@@ -1,5 +1,13 @@
 import { test, expect } from '@playwright/test';
 
+async function importMidiFile(page, name, buffer) {
+  await page.waitForFunction(() => document.getElementById('midi-status').textContent.length > 0);
+  const fileChooserPromise = page.waitForEvent('filechooser', { timeout: 5000 });
+  await page.locator('#btn-import-midi').click();
+  const fileChooser = await fileChooserPromise;
+  await fileChooser.setFiles({ name, mimeType: 'audio/midi', buffer });
+}
+
 function buildMidiBuffer() {
   const header = [
     0x4D, 0x54, 0x68, 0x64,
@@ -65,15 +73,10 @@ test.describe('MIDI Import', () => {
   test('importing a valid MIDI file adds a song to the list', async ({ page }) => {
     await page.goto('/');
 
-    await page.locator('#midi-import-input').setInputFiles({
-      name: 'test-song.mid',
-      mimeType: 'audio/midi',
-      buffer: buildMidiBuffer(),
-    });
-    await page.locator('#midi-import-input').dispatchEvent('change');
+    await importMidiFile(page, 'test-song.mid', buildMidiBuffer());
 
     const importedItem = page.locator('.song-item.imported');
-    await expect(importedItem).toBeVisible({ timeout: 5000 });
+    await expect(importedItem).toHaveCount(1, { timeout: 5000 });
     await expect(importedItem).toContainText('test-song');
     await expect(importedItem.locator('.song-difficulty')).toContainText('medium');
   });
@@ -82,12 +85,8 @@ test.describe('MIDI Import', () => {
     await page.goto('/');
 
     for (let i = 0; i < 2; i++) {
-      await page.locator('#midi-import-input').setInputFiles({
-        name: `song-${i}.mid`,
-        mimeType: 'audio/midi',
-        buffer: buildMidiBuffer(),
-      });
-      await page.locator('#midi-import-input').dispatchEvent('change');
+      await importMidiFile(page, `song-${i}.mid`, buildMidiBuffer());
+      await expect(page.locator('.song-item.imported')).toHaveCount(i + 1, { timeout: 5000 });
     }
 
     const importedItems = page.locator('.song-item.imported');
@@ -99,15 +98,10 @@ test.describe('MIDI Import', () => {
   test('imported song can be selected and played', async ({ page }) => {
     await page.goto('/');
 
-    await page.locator('#midi-import-input').setInputFiles({
-      name: 'playable.mid',
-      mimeType: 'audio/midi',
-      buffer: buildMidiBuffer(),
-    });
-    await page.locator('#midi-import-input').dispatchEvent('change');
+    await importMidiFile(page, 'playable.mid', buildMidiBuffer());
 
     const importedItem = page.locator('.song-item.imported');
-    await expect(importedItem).toBeVisible({ timeout: 5000 });
+    await expect(importedItem).toHaveCount(1, { timeout: 5000 });
     await importedItem.click();
 
     const startBtn = page.locator('#btn-start');
@@ -124,12 +118,7 @@ test.describe('MIDI Import', () => {
       await dialog.dismiss();
     });
 
-    await page.locator('#midi-import-input').setInputFiles({
-      name: 'bad.mid',
-      mimeType: 'audio/midi',
-      buffer: Buffer.from([0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00]),
-    });
-    await page.locator('#midi-import-input').dispatchEvent('change');
+    await importMidiFile(page, 'bad.mid', Buffer.from([0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00]));
 
     await expect(page.locator('.song-item.imported')).toHaveCount(0, { timeout: 3000 });
   });
@@ -161,12 +150,7 @@ test.describe('MIDI Import', () => {
       trackLength & 0xFF,
     ];
 
-    await page.locator('#midi-import-input').setInputFiles({
-      name: 'empty.mid',
-      mimeType: 'audio/midi',
-      buffer: Buffer.from([...header, ...trackHeader, ...trackEvents]),
-    });
-    await page.locator('#midi-import-input').dispatchEvent('change');
+    await importMidiFile(page, 'empty.mid', Buffer.from([...header, ...trackHeader, ...trackEvents]));
 
     await expect(page.locator('.song-item.imported')).toHaveCount(0, { timeout: 3000 });
   });
@@ -179,12 +163,7 @@ test.describe('MIDI Import', () => {
       0x78, 0x0C, 0x00,
     ];
 
-    await page.locator('#midi-import-input').setInputFiles({
-      name: 'low-notes.mid',
-      mimeType: 'audio/midi',
-      buffer: buildMidiBufferWithNotes(noteOnOff),
-    });
-    await page.locator('#midi-import-input').dispatchEvent('change');
+    await importMidiFile(page, 'low-notes.mid', buildMidiBufferWithNotes(noteOnOff));
 
     await expect(page.locator('.song-item.imported')).toHaveCount(1, { timeout: 5000 });
     await expect(page.locator('.song-item.imported')).toContainText('low-notes');
