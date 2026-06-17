@@ -1,22 +1,28 @@
-import { TIMING, SCORE_VALUES, FEEDBACK_COLORS, SCROLL_SPEED, HIT_ZONE_Y_RATIO, NOTE_NAMES, NOTE_COLORS } from '../utils/constants.js';
+import { TIMING, SCORE_VALUES, SCROLL_SPEED, HIT_ZONE_Y_RATIO, NOTE_NAMES, NOTE_COLORS } from '../utils/constants.js';
+import type { Song, SongNote, ActiveNoteRender, HitResult, Grade, Note } from '../types.js';
+
+interface HitCounts {
+  perfects: number;
+  greats: number;
+  goods: number;
+  misses: number;
+}
 
 export class NoteManager {
-  constructor() {
-    this.notes = [];
-    this.activeNotes = [];
-    this.score = 0;
-    this.combo = 0;
-    this.maxCombo = 0;
-    this.perfects = 0;
-    this.greats = 0;
-    this.goods = 0;
-    this.misses = 0;
-    this.totalNotes = 0;
-    this.onMiss = null;
-  }
+  notes: SongNote[] = [];
+  activeNotes: SongNote[] = [];
+  score = 0;
+  combo = 0;
+  maxCombo = 0;
+  perfects = 0;
+  greats = 0;
+  goods = 0;
+  misses = 0;
+  totalNotes = 0;
+  onMiss: ((note: SongNote) => void) | null = null;
 
-  loadSong(songData) {
-    this.notes = songData.notes.map(n => ({
+  loadSong(songData: Song): void {
+    this.notes = songData.notes.map((n: Note) => ({
       ...n,
       hit: false,
       missed: false,
@@ -33,7 +39,7 @@ export class NoteManager {
     this.misses = 0;
   }
 
-  update(currentTime, height) {
+  update(currentTime: number, height: number): void {
     const hitZoneY = height * HIT_ZONE_Y_RATIO;
     const lookAhead = hitZoneY / SCROLL_SPEED;
 
@@ -64,8 +70,8 @@ export class NoteManager {
     });
   }
 
-  checkHit(currentTime, lane) {
-    let bestNote = null;
+  checkHit(currentTime: number, lane: number): HitResult | null {
+    let bestNote: SongNote | null = null;
     let bestDiff = Infinity;
 
     for (const note of this.activeNotes) {
@@ -81,7 +87,7 @@ export class NoteManager {
     if (!bestNote) return null;
 
     bestNote.hit = true;
-    let result;
+    let result: 'PERFECT' | 'GREAT' | 'GOOD';
 
     if (bestDiff <= TIMING.PERFECT) {
       result = 'PERFECT';
@@ -106,24 +112,24 @@ export class NoteManager {
     return { note: bestNote, result };
   }
 
-  getAccuracy() {
+  getAccuracy(): number {
     const total = this.perfects + this.greats + this.goods + this.misses;
     if (total === 0) return 100;
     const weighted = (this.perfects * 100 + this.greats * 80 + this.goods * 50) / total;
     return Math.round(weighted * 10) / 10;
   }
 
-  getSongDuration() {
+  getSongDuration(): number {
     if (this.notes.length === 0) return 0;
     const last = this.notes[this.notes.length - 1];
     return last.time + last.duration;
   }
 
-  isComplete() {
+  isComplete(): boolean {
     return this.notes.length > 0 && this.notes.every(n => n.hit || n.missed);
   }
 
-  getGrade() {
+  getGrade(): Grade {
     const acc = this.getAccuracy();
     if (acc >= 95) return { grade: 'S', class: 'grade-s' };
     if (acc >= 85) return { grade: 'A', class: 'grade-a' };
@@ -132,9 +138,9 @@ export class NoteManager {
     return { grade: 'D', class: 'grade-d' };
   }
 
-  getActiveNotes(currentTime, height) {
+  getActiveNotes(currentTime: number, height: number): ActiveNoteRender[] {
     const hitZoneY = height * HIT_ZONE_Y_RATIO;
-    const results = [];
+    const results: ActiveNoteRender[] = [];
 
     for (const note of this.activeNotes) {
       if (note.hit || note.missed) continue;

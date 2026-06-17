@@ -1,5 +1,6 @@
-import { midiToNoteName, noteNameToMidi } from './helpers.js';
-import { NOTE_NAMES } from './constants.js';
+import { midiToNoteName, noteNameToMidi } from '../utils/helpers.js';
+import { NOTE_NAMES } from '../utils/constants.js';
+import type { Song, Note } from '../types.js';
 
 const META_EVENT = 0xFF;
 const META_TEMPO = 0x51;
@@ -7,30 +8,50 @@ const META_TRACK_NAME = 0x03;
 const NOTE_ON = 0x90;
 const NOTE_OFF = 0x80;
 
+interface TempoEvent {
+  tick: number;
+  usPerQuarter: number;
+}
+
+interface RawNote {
+  tick: number;
+  type: number;
+  note: number;
+  velocity: number;
+  channel: number;
+}
+
+interface NoteOnEntry {
+  time: number;
+  noteName: string;
+}
+
 class MidiReader {
-  constructor(buffer) {
+  private data: Uint8Array;
+  pos = 0;
+
+  constructor(buffer: ArrayBuffer) {
     this.data = new Uint8Array(buffer);
-    this.pos = 0;
   }
 
-  readByte() {
+  readByte(): number {
     return this.data[this.pos++];
   }
 
-  readUint16BE() {
+  readUint16BE(): number {
     return (this.data[this.pos++] << 8) | this.data[this.pos++];
   }
 
-  readUint32BE() {
+  readUint32BE(): number {
     return (this.data[this.pos++] << 24) |
            (this.data[this.pos++] << 16) |
            (this.data[this.pos++] << 8) |
            this.data[this.pos++];
   }
 
-  readVarLen() {
+  readVarLen(): number {
     let value = 0;
-    let b;
+    let b: number;
     for (let i = 0; i < 4; i++) {
       b = this.readByte();
       value = (value << 7) | (b & 0x7F);
@@ -39,29 +60,29 @@ class MidiReader {
     return value;
   }
 
-  skip(n) {
+  skip(n: number): void {
     this.pos += n;
   }
 
-  eof() {
+  eof(): boolean {
     return this.pos >= this.data.length;
   }
 }
 
-function buildTempoMap(tempoEvents, ticksPerQuarter) {
+function buildTempoMap(tempoEvents: TempoEvent[], _ticksPerQuarter: number): TempoEvent[] {
   if (tempoEvents.length === 0) {
     return [{ tick: 0, usPerQuarter: 500000 }];
   }
 
   const sorted = [...tempoEvents].sort((a, b) => a.tick - b.tick);
-  const map = [];
+  const map: TempoEvent[] = [];
   for (const ev of sorted) {
     map.push({ tick: ev.tick, usPerQuarter: ev.usPerQuarter });
   }
   return map;
 }
 
-function ticksToSeconds(tick, tempoMap, ticksPerQuarter) {
+function ticksToSeconds(tick: number, tempoMap: TempoEvent[], ticksPerQuarter: number): number {
   let seconds = 0;
   let segmentStart = 0;
   let usPerQuarter = 500000;
@@ -84,13 +105,13 @@ function ticksToSeconds(tick, tempoMap, ticksPerQuarter) {
   return seconds;
 }
 
-function extractBpm(tempoMap) {
+function extractBpm(tempoMap: TempoEvent[]): number {
   if (tempoMap.length === 0) return 120;
   const first = tempoMap[0].usPerQuarter;
   return Math.round(60_000_000 / first);
 }
 
-function transposeIntoRange(noteName) {
+function transposeIntoRange(noteName: string): string {
   const midiNum = noteNameToMidi(noteName);
   const lowestMidi = noteNameToMidi(NOTE_NAMES[0]);
   const highestMidi = noteNameToMidi(NOTE_NAMES[NOTE_NAMES.length - 1]);
@@ -106,7 +127,7 @@ function transposeIntoRange(noteName) {
   return noteName;
 }
 
-export function parseMidi(arrayBuffer, filename) {
+export function parseMidi(arrayBuffer: ArrayBuffer, filename: string): Song {
   const reader = new MidiReader(arrayBuffer);
 
   const headerType = String.fromCharCode(reader.readByte(), reader.readByte(), reader.readByte(), reader.readByte());
@@ -119,11 +140,11 @@ export function parseMidi(arrayBuffer, filename) {
     throw new Error('Invalid MIDI header length');
   }
 
-  const format = reader.readUint16BE();
+  const _format = reader.readUint16BE();
   const numTracks = reader.readUint16BE();
   const division = reader.readUint16BE();
 
-  if (format > 1) {
+  if (_format > 1) {
     throw new Error('MIDI format 2 not supported');
   }
 
@@ -132,8 +153,8 @@ export function parseMidi(arrayBuffer, filename) {
     throw new Error('SMPTE time division not supported');
   }
 
-  const tempoEvents = [];
-  const rawNotes = [];
+  const tempoEvents: TempoEvent[] = [];
+  const rawNotes: RawNote[] = [];
   let trackName = '';
 
   for (let t = 0; t < numTracks; t++) {
@@ -208,8 +229,8 @@ export function parseMidi(arrayBuffer, filename) {
 
   const tempoMap = buildTempoMap(tempoEvents, ticksPerQuarter);
 
-  const noteOns = {};
-  const notes = [];
+  const noteOns: Record<string, NoteOnEntry[]> = {};
+  const notes: Note[] = [];
   let skipped = 0;
   let transposed = 0;
 
@@ -236,7 +257,7 @@ export function parseMidi(arrayBuffer, filename) {
     } else if (raw.type === NOTE_OFF || (raw.type === NOTE_ON && raw.velocity === 0)) {
       const key = `${noteName}_${raw.channel}`;
       if (noteOns[key] && noteOns[key].length > 0) {
-        const on = noteOns[key].shift();
+        const on = noteOns[key].shift()!;
         const duration = Math.max(0.01, time - on.time);
         notes.push({ time: on.time, key: on.noteName, duration });
       }

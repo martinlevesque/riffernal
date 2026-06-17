@@ -1,17 +1,22 @@
 import { noteNameToMidi } from '../utils/helpers.js';
 
-export class Synth {
-  constructor() {
-    this.ctx = null;
-    this.masterGain = null;
-    this.compressor = null;
-    this.activeNotes = new Map();
-    this.initialized = false;
-  }
+interface ActiveNote {
+  osc1: OscillatorNode;
+  osc2: OscillatorNode;
+  osc3: OscillatorNode;
+  gainNode: GainNode;
+}
 
-  init() {
+export class Synth {
+  private ctx: AudioContext | null = null;
+  private masterGain: GainNode | null = null;
+  private compressor: DynamicsCompressorNode | null = null;
+  private activeNotes: Map<string, ActiveNote> = new Map();
+  private initialized = false;
+
+  init(): void {
     if (this.initialized) return;
-    this.ctx = new (window.AudioContext || window.webkitAudioContext)();
+    this.ctx = new (window.AudioContext || (window as any).webkitAudioContext)();
 
     this.compressor = this.ctx.createDynamicsCompressor();
     this.compressor.threshold.value = -24;
@@ -29,13 +34,13 @@ export class Synth {
     this.initialized = true;
   }
 
-  resume() {
+  resume(): void {
     if (this.ctx && this.ctx.state === 'suspended') {
       this.ctx.resume();
     }
   }
 
-  noteOn(noteName) {
+  noteOn(noteName: string): void {
     this.init();
     this.resume();
 
@@ -46,12 +51,12 @@ export class Synth {
     const midi = noteNameToMidi(noteName);
     if (midi < 0) return;
     const freq = 440 * Math.pow(2, (midi - 69) / 12);
-    const now = this.ctx.currentTime;
+    const now = this.ctx!.currentTime;
 
-    const osc1 = this.ctx.createOscillator();
-    const osc2 = this.ctx.createOscillator();
-    const osc3 = this.ctx.createOscillator();
-    const gainNode = this.ctx.createGain();
+    const osc1 = this.ctx!.createOscillator();
+    const osc2 = this.ctx!.createOscillator();
+    const osc3 = this.ctx!.createOscillator();
+    const gainNode = this.ctx!.createGain();
 
     osc1.type = 'triangle';
     osc1.frequency.value = freq;
@@ -62,9 +67,9 @@ export class Synth {
     osc3.type = 'sine';
     osc3.frequency.value = freq * 3;
 
-    const gain1 = this.ctx.createGain();
-    const gain2 = this.ctx.createGain();
-    const gain3 = this.ctx.createGain();
+    const gain1 = this.ctx!.createGain();
+    const gain2 = this.ctx!.createGain();
+    const gain3 = this.ctx!.createGain();
     gain1.gain.value = 0.6;
     gain2.gain.value = 0.2;
     gain3.gain.value = 0.05;
@@ -81,7 +86,7 @@ export class Synth {
     gainNode.gain.exponentialRampToValueAtTime(0.5, now + 0.1);
     gainNode.gain.exponentialRampToValueAtTime(0.2, now + 0.5);
 
-    gainNode.connect(this.masterGain);
+    gainNode.connect(this.masterGain!);
 
     osc1.start(now);
     osc2.start(now);
@@ -90,11 +95,11 @@ export class Synth {
     this.activeNotes.set(noteName, { osc1, osc2, osc3, gainNode });
   }
 
-  noteOff(noteName) {
+  noteOff(noteName: string): void {
     const note = this.activeNotes.get(noteName);
     if (!note) return;
 
-    const now = this.ctx.currentTime;
+    const now = this.ctx!.currentTime;
     note.gainNode.gain.cancelScheduledValues(now);
     note.gainNode.gain.setValueAtTime(note.gainNode.gain.value, now);
     note.gainNode.gain.exponentialRampToValueAtTime(0.001, now + 0.15);
@@ -107,13 +112,13 @@ export class Synth {
     this.activeNotes.delete(noteName);
   }
 
-  releaseAll() {
+  releaseAll(): void {
     for (const noteName of this.activeNotes.keys()) {
       this.noteOff(noteName);
     }
   }
 
-  setVolume(value) {
+  setVolume(value: number): void {
     if (this.masterGain) {
       this.masterGain.gain.value = value;
     }

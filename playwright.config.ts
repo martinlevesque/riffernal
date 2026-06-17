@@ -12,10 +12,12 @@ export default defineConfig({
     trace: 'on-first-retry',
   },
   webServer: {
-    command: 'npx serve frontend -p 3000',
+    command: process.env.CI
+      ? 'bun run build && bun run start'
+      : 'bun run dev',
     url: 'http://localhost:3000',
     reuseExistingServer: !process.env.CI,
-    timeout: 10000,
+    timeout: 30000,
   },
   projects: [
     {

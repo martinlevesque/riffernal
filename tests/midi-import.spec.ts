@@ -1,14 +1,14 @@
 import { test, expect } from '@playwright/test';
 
-async function importMidiFile(page, name, buffer) {
-  await page.waitForFunction(() => document.getElementById('midi-status').textContent.length > 0);
+async function importMidiFile(page: import('@playwright/test').Page, name: string, buffer: Buffer) {
+  await page.waitForFunction(() => (document.getElementById('midi-status') as HTMLElement).textContent.length > 0);
   const fileChooserPromise = page.waitForEvent('filechooser', { timeout: 5000 });
   await page.locator('#btn-import-midi').click();
   const fileChooser = await fileChooserPromise;
   await fileChooser.setFiles({ name, mimeType: 'audio/midi', buffer });
 }
 
-function buildMidiBuffer() {
+function buildMidiBuffer(): Buffer {
   const header = [
     0x4D, 0x54, 0x68, 0x64,
     0x00, 0x00, 0x00, 0x06,
@@ -36,7 +36,7 @@ function buildMidiBuffer() {
   return Buffer.from([...header, ...trackHeader, ...trackEvents]);
 }
 
-function buildMidiBufferWithNotes(noteEvents) {
+function buildMidiBufferWithNotes(noteEvents: number[]): Buffer {
   const header = [
     0x4D, 0x54, 0x68, 0x64,
     0x00, 0x00, 0x00, 0x06,

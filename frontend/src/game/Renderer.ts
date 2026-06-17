@@ -1,4 +1,5 @@
 import { WHITE_KEY_NOTES, BLACK_KEY_NOTES, NOTE_COLORS, HIT_ZONE_Y_RATIO, PIANO_HEIGHT_RATIO, NOTE_NAMES, KEYBOARD_MAP, STAFF_LINE_SPACING, STAFF_TOP_MARGIN, STAFF_LEFT_MARGIN, STAFF_RIGHT_MARGIN, CLEF_TYPES, BASS_STAFF_POSITIONS, TREBLE_STAFF_POSITIONS, NOTE_TO_CLEF, NOTE_DURATION_TYPES } from '../utils/constants.js';
+import type { SongNote, Particle } from '../types.js';
 
 const SHEET_HEIGHT = 140;
 const SHEET_STAFF_LINE_SPACING = 10;
@@ -7,7 +8,7 @@ const SHEET_BEATS_VISIBLE = 18;
 const SHEET_PX_PER_BEAT = 13;
 const SHEET_BEATS_PER_MEASURE = 4;
 
-function roundRect(ctx, x, y, w, h, r) {
+function roundRect(ctx: CanvasRenderingContext2D, x: number, y: number, w: number, h: number, r: number): void {
   ctx.beginPath();
   ctx.moveTo(x + r, y);
   ctx.lineTo(x + w - r, y);
@@ -21,38 +22,59 @@ function roundRect(ctx, x, y, w, h, r) {
   ctx.closePath();
 }
 
-function codeToDisplay(code) {
+function codeToDisplay(code: string): string {
   if (code.startsWith('Key')) return code.slice(3);
   if (code.startsWith('Digit')) return code.slice(5);
-  const special = { Semicolon: ';', Comma: ',', Period: '.', Slash: '/', Backslash: '\\', BracketLeft: '[', BracketRight: ']', Minus: '-', Equal: '=', Quote: "'", Backquote: '`' };
+  const special: Record<string, string> = { Semicolon: ';', Comma: ',', Period: '.', Slash: '/', Backslash: '\\', BracketLeft: '[', BracketRight: ']', Minus: '-', Equal: '=', Quote: "'", Backquote: '`' };
   return special[code] || '';
 }
 
-const SHEET_NOTE_POSITIONS = Object.assign(
+const SHEET_NOTE_POSITIONS: Record<string, number> = Object.assign(
   Object.fromEntries(Object.entries(BASS_STAFF_POSITIONS).map(([k, v]) => [k, v - 3])),
   TREBLE_STAFF_POSITIONS
 );
 
-const NOTE_TAIL_GRADIENT = [[0, 'rgba(255,255,255,0.10)'], [1, 'rgba(255,255,255,0)']];
-const NOTE_HEAD_GRADIENT = [[0, 'rgba(255,255,255,0)'], [0.4, 'rgba(255,255,255,0.15)'], [1, 'rgba(255,255,255,0.40)']];
+const NOTE_TAIL_GRADIENT: [number, string][] = [[0, 'rgba(255,255,255,0.10)'], [1, 'rgba(255,255,255,0)']];
+const NOTE_HEAD_GRADIENT: [number, string][] = [[0, 'rgba(255,255,255,0)'], [0.4, 'rgba(255,255,255,0.15)'], [1, 'rgba(255,255,255,0.40)']];
+
+interface NoteLayout {
+  drawX: number;
+  drawY: number;
+  scaledWidth: number;
+  scaledHeadHeight: number;
+  scaledTailHeight: number;
+  cornerRadius: number;
+  scale: number;
+}
+
+interface NotePixelBounds {
+  minY: number | null;
+  maxY: number | null;
+  bottomY: number | null;
+  topY: number | null;
+}
 
 export class Renderer {
-  constructor(canvas) {
+  canvas: HTMLCanvasElement;
+  ctx: CanvasRenderingContext2D;
+  width = 0;
+  height = 0;
+  pressedKeys = new Set<string>();
+  particles: Particle[] = [];
+  sheetBottom = 0;
+  sheetScale = 1.0;
+  private _keyDisplayMap: Record<string, string>;
+
+  constructor(canvas: HTMLCanvasElement) {
     this.canvas = canvas;
-    this.ctx = canvas.getContext('2d');
-    this.width = 0;
-    this.height = 0;
-    this.pressedKeys = new Set();
-    this.particles = [];
-    this.sheetBottom = 0;
-    this.sheetScale = 1.0;
+    this.ctx = canvas.getContext('2d')!;
     this._keyDisplayMap = Object.fromEntries(
       Object.entries(KEYBOARD_MAP).map(([code, note]) => [note, codeToDisplay(code)])
     );
     this.resize();
   }
 
-  resize() {
+  resize(): void {
     const dpr = window.devicePixelRatio || 1;
     this.canvas.width = window.innerWidth * dpr;
     this.canvas.height = window.innerHeight * dpr;
@@ -61,12 +83,12 @@ export class Renderer {
     this.height = window.innerHeight;
   }
 
-  clear() {
+  clear(): void {
     this.ctx.fillStyle = '#0a0a0a';
     this.ctx.fillRect(0, 0, this.width, this.height);
   }
 
-  drawHighway(laneCount, scrollOffset) {
+  drawHighway(laneCount: number, scrollOffset: number): void {
     const ctx = this.ctx;
     const hitZoneY = this.height * HIT_ZONE_Y_RATIO;
     const highwayTop = 0;
@@ -98,7 +120,7 @@ export class Renderer {
     }
   }
 
-  drawHitZone(laneCount, pressedLanes) {
+  drawHitZone(laneCount: number, pressedLanes: Set<number>): void {
     const ctx = this.ctx;
     const hitZoneY = this.height * HIT_ZONE_Y_RATIO;
     const laneWidth = this.width / laneCount;
@@ -121,7 +143,7 @@ export class Renderer {
     ctx.globalAlpha = 1;
   }
 
-  drawPiano(laneCount, pressedLanes) {
+  drawPiano(laneCount: number, pressedLanes: Set<number>): void {
     const ctx = this.ctx;
     const pianoTop = this.height - this.height * PIANO_HEIGHT_RATIO;
     const pianoH = this.height * PIANO_HEIGHT_RATIO;
@@ -179,11 +201,11 @@ export class Renderer {
     }
   }
 
-  _getKeyForNote(noteName) {
+  private _getKeyForNote(noteName: string): string {
     return this._keyDisplayMap[noteName] || '';
   }
 
-  _noteLayout(laneIndex, y, noteHeight, sheetBottom) {
+  private _noteLayout(laneIndex: number, y: number, noteHeight: number, sheetBottom: number): NoteLayout {
     const laneWidth = this.width / NOTE_NAMES.length;
     const x = laneIndex * laneWidth;
     const padding = 2;
@@ -211,19 +233,19 @@ export class Renderer {
     };
   }
 
-  _drawNotePart(ctx, drawX, drawY, w, h, r, color) {
+  private _drawNotePart(ctx: CanvasRenderingContext2D, drawX: number, drawY: number, w: number, h: number, r: number, color: string | CanvasGradient): void {
     ctx.fillStyle = color;
     roundRect(ctx, drawX, drawY, w, h, r);
     ctx.fill();
   }
 
-  _noteOverlay(ctx, x, y, w, h, stops) {
+  private _noteOverlay(ctx: CanvasRenderingContext2D, x: number, y: number, w: number, h: number, stops: [number, string][]): CanvasGradient {
     const grad = ctx.createLinearGradient(x, y, x, y + h);
     for (const [pos, color] of stops) grad.addColorStop(pos, color);
     return grad;
   }
 
-  drawNote(laneIndex, y, noteHeight, color, alpha, sheetBottom, noteName) {
+  drawNote(laneIndex: number, y: number, noteHeight: number, color: string, alpha: number, sheetBottom: number, noteName?: string): void {
     const ctx = this.ctx;
     const L = this._noteLayout(laneIndex, y, noteHeight, sheetBottom);
 
@@ -250,7 +272,7 @@ export class Renderer {
     ctx.globalAlpha = 1;
   }
 
-  _drawNoteLabel(ctx, noteName, drawX, drawY, width, height) {
+  private _drawNoteLabel(ctx: CanvasRenderingContext2D, noteName: string, drawX: number, drawY: number, width: number, height: number): void {
     const shortName = noteName.replace(/\d/g, '');
     const fontSize = Math.max(8, width * 0.45);
     ctx.font = `bold ${fontSize}px Courier New`;
@@ -262,7 +284,7 @@ export class Renderer {
     ctx.fillText(shortName, drawX + width / 2, drawY + height);
   }
 
-  drawSheetMusic(notes, currentTime, songDuration) {
+  drawSheetMusic(notes: SongNote[], currentTime: number, songDuration: number): void {
     if (!notes.length || songDuration <= 0) return;
     const ctx = this.ctx;
     const sheetTop = 0;
@@ -321,7 +343,7 @@ export class Renderer {
       ctx.stroke();
     }
 
-    const drawSheetNote = (note, staffTop) => {
+    const drawSheetNote = (note: SongNote, staffTop: number) => {
       const pos = SHEET_NOTE_POSITIONS[note.key];
       if (pos === undefined) return;
       const noteY = staffTop + (7 - pos) * (staffLineSpacing / 2);
@@ -385,7 +407,7 @@ export class Renderer {
     ctx.stroke();
   }
 
-  drawParticles() {
+  drawParticles(): void {
     const ctx = this.ctx;
     for (let i = this.particles.length - 1; i >= 0; i--) {
       const p = this.particles[i];
@@ -408,7 +430,7 @@ export class Renderer {
     ctx.globalAlpha = 1;
   }
 
-  spawnParticles(x, y, color, count) {
+  spawnParticles(x: number, y: number, color: string, count: number): void {
     for (let i = 0; i < count; i++) {
       this.particles.push({
         x,
