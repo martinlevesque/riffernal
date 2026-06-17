@@ -257,8 +257,8 @@ export class Renderer {
     ctx.textAlign = 'center';
     ctx.textBaseline = 'bottom';
     ctx.fillStyle = '#000';
-    ctx.shadowColor = 'rgba(0,0,0,0.8)';
-    ctx.shadowBlur = 3;
+    ctx.shadowColor = 'rgba(255,255,255,0.6)';
+    ctx.shadowBlur = 1;
     ctx.fillText(shortName, drawX + width / 2, drawY + height);
   }
 
