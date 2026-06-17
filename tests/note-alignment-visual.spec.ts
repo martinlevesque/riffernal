@@ -4,34 +4,31 @@ test('chord notes have heads at same vertical position', async ({ page }) => {
   await page.goto('/');
 
   const result = await page.evaluate(async () => {
+    // @ts-expect-error browser-side dynamic import
     const { Renderer } = await import('/js/game/Renderer.js');
+    // @ts-expect-error browser-side dynamic import
     const { NoteManager } = await import('/js/game/NoteManager.js');
 
-    // Create a test song with chord notes
     const song = {
       title: 'Head Alignment Test',
       artist: 'Test',
       bpm: 120,
       difficulty: 'easy',
       notes: [
-        { time: 1.0, key: 'C3', duration: 0.05 },   // very short (near head-only)
-        { time: 1.0, key: 'E3', duration: 0.5 },    // medium
-        { time: 1.0, key: 'G3', duration: 1.0 },    // long
+        { time: 1.0, key: 'C3', duration: 0.05 },
+        { time: 1.0, key: 'E3', duration: 0.5 },
+        { time: 1.0, key: 'G3', duration: 1.0 },
       ],
     };
 
     const nm = new NoteManager();
     nm.loadSong(song);
 
-    // Advance to 0.5s before the chord
     const height = 800;
     const currentTime = 0.5;
     nm.update(currentTime, height);
     const active = nm.getActiveNotes(currentTime, height);
 
-    // The NoteManager returns top-aligned y. All 3 notes have same time so same bottom.
-
-    // Create canvas and render
     const canvas = document.createElement('canvas');
     canvas.width = 960;
     canvas.height = 800;
@@ -48,19 +45,17 @@ test('chord notes have heads at same vertical position', async ({ page }) => {
       renderer.drawNote(note.lane, note.y, note.height, note.color, note.alpha, renderer.sheetBottom);
     }
 
-    // Find the bottom pixel of each note (the head reaches the hit zone)
     const ctx = renderer.ctx;
     const imageData = ctx.getImageData(0, 0, 960, 800);
     const pixels = imageData.data;
     const laneWidth = 960 / 48;
 
-    function findNotePixelBounds(laneIndex) {
+    function findNotePixelBounds(laneIndex: number): { bottomY: number | null; topY: number | null } {
       const xStart = Math.floor(laneIndex * laneWidth + 1);
       const xEnd = Math.floor((laneIndex + 1) * laneWidth - 1);
-      let minY = null;
-      let maxY = null;
+      let minY: number | null = null;
+      let maxY: number | null = null;
 
-      // Scan each y for any BRIGHT pixel in this lane (filter out dark background #0a0a0a)
       for (let y = 0; y < 800; y++) {
         let hasPixel = false;
         for (let x = xStart; x < xEnd && !hasPixel; x++) {
@@ -73,12 +68,12 @@ test('chord notes have heads at same vertical position', async ({ page }) => {
           maxY = y;
         }
       }
-      return { minY, maxY, bottomY: maxY, topY: minY };
+      return { bottomY: maxY, topY: minY };
     }
 
-    const bounds = active.map(n => findNotePixelBounds(n.lane));
-    const bottoms = bounds.map(b => b.bottomY);
-    const tops = bounds.map(b => b.topY);
+    const bounds = active.map((n: any) => findNotePixelBounds(n.lane));
+    const bottoms = bounds.map((b: any) => b.bottomY);
+    const tops = bounds.map((b: any) => b.topY);
 
     return {
       bottomUnique: new Set(bottoms).size,
@@ -88,7 +83,6 @@ test('chord notes have heads at same vertical position', async ({ page }) => {
     };
   });
 
-  // All bottoms (heads) should be at the same Y within 1.5px
-  const bottomMaxDiff = Math.max(...result.bottoms) - Math.min(...result.bottoms);
+  const bottomMaxDiff = Math.max(...(result.bottoms as number[])) - Math.min(...(result.bottoms as number[]));
   expect(bottomMaxDiff).toBeLessThanOrEqual(1.5);
 });

@@ -4,11 +4,13 @@
   "description": "Keyboard Hero - Metal Edition. Play piano along to metal songs.",
   "private": true,
   "scripts": {
-    "dev": "npx serve frontend -p 3000",
-    "start": "npx serve frontend",
-    "test": "npx playwright test",
-    "test:ui": "npx playwright test --ui",
-    "test:report": "npx playwright show-report"
+    "dev": "bun run scripts/dev.ts",
+    "start": "bun run scripts/serve.ts",
+    "build": "bun run scripts/build.ts",
+    "test": "bun x playwright test",
+    "test:ui": "bun x playwright test --ui",
+    "test:report": "bun x playwright show-report",
+    "typecheck": "bun x tsc --noEmit"
   },
   "keywords": [
     "piano",
@@ -17,7 +19,6 @@
     "metal"
   ],
   "license": "MIT",
-  "main": "index.js",
   "repository": {
     "type": "git",
     "url": "git+https://github.com/martinlevesque/ironkeys.git"
@@ -28,6 +29,9 @@
   },
   "homepage": "https://github.com/martinlevesque/ironkeys#readme",
   "devDependencies": {
-    "@playwright/test": "^1.61.0"
+    "@playwright/test": "^1.61.0",
+    "@types/bun": "^1.3.14",
+    "typescript": "^6.0.3"
   }
+}
 }

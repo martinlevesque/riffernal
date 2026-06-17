@@ -1,12 +1,20 @@
+import type { Song } from '../types.js';
+
 export class Menu {
-  constructor(songs) {
+  private songs: Song[];
+  private selectedSong: Song | null = null;
+  onStart: ((song: Song) => void) | null = null;
+  private songListEl: HTMLElement;
+  private startBtn: HTMLButtonElement;
+  private menuScreen: HTMLElement;
+  private midiStatusEl: HTMLElement;
+
+  constructor(songs: Song[]) {
     this.songs = songs;
-    this.selectedSong = null;
-    this.onStart = null;
-    this.songListEl = document.getElementById('song-list');
-    this.startBtn = document.getElementById('btn-start');
-    this.menuScreen = document.getElementById('menu-screen');
-    this.midiStatusEl = document.getElementById('midi-status');
+    this.songListEl = document.getElementById('song-list')!;
+    this.startBtn = document.getElementById('btn-start') as HTMLButtonElement;
+    this.menuScreen = document.getElementById('menu-screen')!;
+    this.midiStatusEl = document.getElementById('midi-status')!;
     this._render();
     this.startBtn.addEventListener('click', () => {
       if (this.selectedSong && this.onStart) {
@@ -15,7 +23,7 @@ export class Menu {
     });
   }
 
-  _render() {
+  private _render(): void {
     this.songListEl.innerHTML = '';
     for (const song of this.songs) {
       const el = document.createElement('div');
@@ -35,24 +43,24 @@ export class Menu {
     }
     if (this.songs.length > 0) {
       this.selectedSong = this.songs[0];
-      this.songListEl.children[0].classList.add('selected');
+      (this.songListEl.children[0] as HTMLElement).classList.add('selected');
     }
   }
 
-  show() {
+  show(): void {
     this.menuScreen.classList.add('active');
   }
 
-  hide() {
+  hide(): void {
     this.menuScreen.classList.remove('active');
   }
 
-  addSong(song) {
+  addSong(song: Song): void {
     this.songs.push(song);
     this._render();
   }
 
-  setMidiStatus(connected, message) {
+  setMidiStatus(connected: boolean, message: string): void {
     this.midiStatusEl.textContent = message;
     this.midiStatusEl.className = 'midi-status' + (connected ? ' connected' : '');
   }

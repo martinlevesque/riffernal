@@ -4,6 +4,7 @@ test('getActiveNotes returns key property for label rendering', async ({ page })
   await page.goto('/');
 
   const result = await page.evaluate(async () => {
+    // @ts-expect-error browser-side dynamic import
     const { NoteManager } = await import('/js/game/NoteManager.js');
     const nm = new NoteManager();
     nm.loadSong({
@@ -15,7 +16,7 @@ test('getActiveNotes returns key property for label rendering', async ({ page })
       ],
     });
     nm.update(1.0, 800);
-    return nm.getActiveNotes(1.0, 800).map(n => n.key);
+    return nm.getActiveNotes(1.0, 800).map((n: any) => n.key);
   });
 
   expect(result).toEqual(['C2', 'F#4', 'B5']);

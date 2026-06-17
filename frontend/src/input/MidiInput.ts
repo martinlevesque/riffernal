@@ -1,18 +1,21 @@
 import { midiToNoteName } from '../utils/helpers.js';
 import { NOTE_NAMES } from '../utils/constants.js';
+import type { NoteCallback, ConnectionChangeCallback } from '../types.js';
 
 export class MidiInput {
+  onNoteOn: NoteCallback | null = null;
+  onNoteOff: NoteCallback | null = null;
+  onConnectionChange: ConnectionChangeCallback | null = null;
+  private midiAccess: MIDIAccess | null = null;
+  enabled = true;
+  connected = false;
+  private _onMidiMessage: (event: MIDIMessageEvent) => void;
+
   constructor() {
-    this.onNoteOn = null;
-    this.onNoteOff = null;
-    this.onConnectionChange = null;
-    this.midiAccess = null;
-    this.enabled = true;
-    this.connected = false;
-    this._onMidiMessage = this._onMidiMessage.bind(this);
+    this._onMidiMessage = (event) => this._handleMidiMessage(event);
   }
 
-  async start() {
+  async start(): Promise<boolean> {
     if (!navigator.requestMIDIAccess) {
       this._updateStatus(false, 'Web MIDI not supported');
       return false;
@@ -29,7 +32,7 @@ export class MidiInput {
     }
   }
 
-  stop() {
+  stop(): void {
     if (this.midiAccess) {
       for (const input of this.midiAccess.inputs.values()) {
         input.onmidimessage = null;
@@ -38,7 +41,7 @@ export class MidiInput {
     this.connected = false;
   }
 
-  _connectInputs() {
+  private _connectInputs(): void {
     if (!this.midiAccess) return;
 
     let found = false;
@@ -56,14 +59,14 @@ export class MidiInput {
     }
   }
 
-  _onStateChange() {
+  private _onStateChange(): void {
     this._connectInputs();
   }
 
-  _onMidiMessage(event) {
+  private _handleMidiMessage(event: MIDIMessageEvent): void {
     if (!this.enabled) return;
 
-    const [status, data1, data2] = event.data;
+    const [status, data1, data2] = event.data ?? [];
     const command = status & 0xf0;
     const noteNumber = data1;
     const velocity = data2;
@@ -78,7 +81,7 @@ export class MidiInput {
     }
   }
 
-  _updateStatus(connected, message) {
+  private _updateStatus(connected: boolean, message: string): void {
     if (this.onConnectionChange) {
       this.onConnectionChange(connected, message);
     }

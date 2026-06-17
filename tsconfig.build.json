@@ -1,0 +1,10 @@
+{
+  "extends": "./tsconfig.json",
+  "include": ["frontend/src/**/*.ts"],
+  "compilerOptions": {
+    "noEmit": false,
+    "outDir": "dist/js",
+    "rootDir": "frontend/src",
+    "allowImportingTsExtensions": false
+  }
+}

@@ -1,27 +1,31 @@
 import { KEYBOARD_MAP } from '../utils/constants.js';
+import type { NoteCallback } from '../types.js';
 
 export class KeyboardInput {
+  onNoteOn: NoteCallback | null = null;
+  onNoteOff: NoteCallback | null = null;
+  private pressedKeys = new Set<string>();
+  enabled = true;
+  private _handleKeyDown: (e: KeyboardEvent) => void;
+  private _handleKeyUp: (e: KeyboardEvent) => void;
+
   constructor() {
-    this.onNoteOn = null;
-    this.onNoteOff = null;
-    this.pressedKeys = new Set();
-    this.enabled = true;
-    this._handleKeyDown = this._handleKeyDown.bind(this);
-    this._handleKeyUp = this._handleKeyUp.bind(this);
+    this._handleKeyDown = (e) => this._onKeyDown(e);
+    this._handleKeyUp = (e) => this._onKeyUp(e);
   }
 
-  start() {
+  start(): void {
     window.addEventListener('keydown', this._handleKeyDown);
     window.addEventListener('keyup', this._handleKeyUp);
   }
 
-  stop() {
+  stop(): void {
     window.removeEventListener('keydown', this._handleKeyDown);
     window.removeEventListener('keyup', this._handleKeyUp);
     this.pressedKeys.clear();
   }
 
-  _handleKeyDown(e) {
+  private _onKeyDown(e: KeyboardEvent): void {
     if (!this.enabled) return;
     if (e.repeat) return;
 
@@ -35,7 +39,7 @@ export class KeyboardInput {
     if (this.onNoteOn) this.onNoteOn(note, e.code);
   }
 
-  _handleKeyUp(e) {
+  private _onKeyUp(e: KeyboardEvent): void {
     if (!this.enabled) return;
 
     const note = KEYBOARD_MAP[e.code];

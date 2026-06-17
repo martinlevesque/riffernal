@@ -2,11 +2,39 @@ import { Renderer } from './Renderer.js';
 import { NoteManager } from './NoteManager.js';
 import { KEYBOARD_MAP, NOTE_NAMES, NOTE_COLORS, FEEDBACK_COLORS, HIT_ZONE_Y_RATIO, SCROLL_SPEED } from '../utils/constants.js';
 import { formatScore } from '../utils/helpers.js';
+import { Synth } from '../audio/Synth.js';
+import { KeyboardInput } from '../input/KeyboardInput.js';
+import { MidiInput } from '../input/MidiInput.js';
+import { ScoreDisplay } from '../ui/ScoreDisplay.js';
+import type { Song, GameState } from '../types.js';
 
 const COUNTDOWN_SECONDS = 1.5;
 
 export class Game {
-  constructor(canvas, synth, keyboardInput, midiInput) {
+  canvas: HTMLCanvasElement;
+  renderer: Renderer;
+  noteManager: NoteManager;
+  private synth: Synth;
+  private keyboardInput: KeyboardInput;
+  private midiInput: MidiInput;
+  state: GameState = 'menu';
+  private currentSong: Song | null = null;
+  currentTime = 0;
+  private refGameTime = 0;
+  private refRealTime = 0;
+  private paused = false;
+  private animationId: number | null = null;
+  private pressedLanes = new Set<number>();
+  scrollOffset = 0;
+  speedMultiplier = 1.0;
+  scoreDisplay: ScoreDisplay | null = null;
+
+  private playScreen: HTMLElement;
+  private resultsScreen: HTMLElement;
+  private menuScreen: HTMLElement;
+  private _onResize: () => void;
+
+  constructor(canvas: HTMLCanvasElement, synth: Synth, keyboardInput: KeyboardInput, midiInput: MidiInput) {
     this.canvas = canvas;
     this.renderer = new Renderer(canvas);
     this.noteManager = new NoteManager();
@@ -14,30 +42,15 @@ export class Game {
     this.keyboardInput = keyboardInput;
     this.midiInput = midiInput;
 
-    this.state = 'menu';
-    this.currentSong = null;
-    this.currentTime = 0;
-    this.refGameTime = 0;
-    this.refRealTime = 0;
-    this.paused = false;
-    this.animationId = null;
-    this.pressedLanes = new Set();
-    this.scrollOffset = 0;
-    this.speedMultiplier = 1.0;
+    this.playScreen = document.getElementById('play-screen')!;
+    this.resultsScreen = document.getElementById('results-screen')!;
+    this.menuScreen = document.getElementById('menu-screen')!;
 
-    this.playScreen = document.getElementById('play-screen');
-    this.resultsScreen = document.getElementById('results-screen');
-    this.menuScreen = document.getElementById('menu-screen');
-
-    this._onResize = this._onResize.bind(this);
+    this._onResize = () => this.renderer.resize();
     window.addEventListener('resize', this._onResize);
   }
 
-  _onResize() {
-    this.renderer.resize();
-  }
-
-  start(song) {
+  start(song: Song): void {
     this.currentSong = song;
     this.noteManager.loadSong(song);
     this.refGameTime = -COUNTDOWN_SECONDS;
@@ -66,7 +79,7 @@ export class Game {
     this._loop();
   }
 
-  _handleNoteOn(noteName, id) {
+  private _handleNoteOn(noteName: string, _id: string): void {
     const lane = NOTE_NAMES.indexOf(noteName);
     if (lane < 0) return;
 
@@ -77,7 +90,7 @@ export class Game {
       const result = this.noteManager.checkHit(this.currentTime, lane);
       if (result) {
         const color = FEEDBACK_COLORS[result.result];
-        this.scoreDisplay.showFeedback(result.result, color);
+        this.scoreDisplay?.showFeedback(result.result, color);
 
         const laneWidth = this.renderer.width / NOTE_NAMES.length;
         const hitZoneY = this.renderer.height * HIT_ZONE_Y_RATIO;
@@ -91,12 +104,12 @@ export class Game {
           );
         }
       } else {
-        this.scoreDisplay.showFeedback('MISS', FEEDBACK_COLORS.MISS);
+        this.scoreDisplay?.showFeedback('MISS', FEEDBACK_COLORS.MISS);
       }
     }
   }
 
-  _handleNoteOff(noteName, id) {
+  private _handleNoteOff(noteName: string, _id: string): void {
     const lane = NOTE_NAMES.indexOf(noteName);
     if (lane < 0) return;
 
@@ -104,7 +117,7 @@ export class Game {
     this.synth.noteOff(noteName);
   }
 
-  _loop() {
+  private _loop(): void {
     const now = performance.now() / 1000;
     this.currentTime = this.refGameTime + (now - this.refRealTime) * this.speedMultiplier;
     this.scrollOffset += (SCROLL_SPEED / 60) * this.speedMultiplier;
@@ -123,19 +136,15 @@ export class Game {
         this.renderer.drawNote(note.lane, note.y, note.height, note.color, note.alpha, this.renderer.sheetBottom, note.key);
       }
 
-      if (this.scoreDisplay) {
-        this.scoreDisplay.update(this.noteManager);
-      }
+      this.scoreDisplay?.update(this.noteManager);
 
       if (this.noteManager.isComplete()) {
         this._showResults();
       }
     }
 
-    const handle = document.getElementById('sheet-resize-handle');
-    if (handle) {
-      handle.style.top = this.renderer.sheetBottom + 'px';
-    }
+    const handle = document.getElementById('sheet-resize-handle')!;
+    handle.style.top = this.renderer.sheetBottom + 'px';
 
     this.renderer.drawParticles();
     this.renderer.drawPiano(NOTE_NAMES.length, this.pressedLanes);
@@ -146,16 +155,17 @@ export class Game {
     }
   }
 
-  _showResults() {
+  private _showResults(): void {
     this.state = 'results';
     this.playScreen.classList.remove('active');
     this.resultsScreen.classList.add('active');
 
     const gradeInfo = this.noteManager.getGrade();
-    document.getElementById('result-grade').textContent = gradeInfo.grade;
-    document.getElementById('result-grade').className = gradeInfo.class;
+    const gradeEl = document.getElementById('result-grade')!;
+    gradeEl.textContent = gradeInfo.grade;
+    gradeEl.className = gradeInfo.class;
 
-    document.getElementById('result-stats').innerHTML = `
+    document.getElementById('result-stats')!.innerHTML = `
       Score: <span class="stat-value">${formatScore(this.noteManager.score)}</span><br>
       Perfect: <span class="stat-value">${this.noteManager.perfects}</span><br>
       Great: <span class="stat-value">${this.noteManager.greats}</span><br>
@@ -172,13 +182,13 @@ export class Game {
     this.synth.releaseAll();
   }
 
-  retry() {
+  retry(): void {
     if (this.currentSong) {
       this.start(this.currentSong);
     }
   }
 
-  backToMenu() {
+  backToMenu(): void {
     this.state = 'menu';
     this.resultsScreen.classList.remove('active');
     this.playScreen.classList.remove('active');
@@ -190,11 +200,13 @@ export class Game {
     this.keyboardInput.onNoteOff = null;
     this.midiInput.onNoteOn = null;
     this.midiInput.onNoteOff = null;
-    cancelAnimationFrame(this.animationId);
-    this.animationId = null;
+    if (this.animationId !== null) {
+      cancelAnimationFrame(this.animationId);
+      this.animationId = null;
+    }
   }
 
-  setSpeed(multiplier) {
+  setSpeed(multiplier: number): void {
     this.refGameTime = this.currentTime;
     this.refRealTime = performance.now() / 1000;
     this.speedMultiplier = Math.max(0.1, Math.min(2.0, multiplier));

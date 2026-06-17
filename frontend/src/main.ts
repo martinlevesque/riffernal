@@ -5,6 +5,7 @@ import { MidiInput } from './input/MidiInput.js';
 import { Menu } from './ui/Menu.js';
 import { ScoreDisplay } from './ui/ScoreDisplay.js';
 import { parseMidi } from './utils/MidiParser.js';
+import type { Song } from './types.js';
 
 const SHEET_STAFF_LINE_SPACING = 10;
 const BASE_SHEET_HEIGHT = 5 + 4 * SHEET_STAFF_LINE_SPACING + 8 + 4 * SHEET_STAFF_LINE_SPACING + 5;
@@ -17,8 +18,8 @@ const SONG_FILES = [
   'assets/songs/night-rider.json',
 ];
 
-async function loadSongs() {
-  const songs = [];
+async function loadSongs(): Promise<Song[]> {
+  const songs: Song[] = [];
   for (const file of SONG_FILES) {
     try {
       const res = await fetch(file);
@@ -32,8 +33,8 @@ async function loadSongs() {
   return songs;
 }
 
-async function init() {
-  const canvas = document.getElementById('gameCanvas');
+async function init(): Promise<void> {
+  const canvas = document.getElementById('gameCanvas') as HTMLCanvasElement;
   const synth = new Synth();
   const keyboardInput = new KeyboardInput();
   const midiInput = new MidiInput();
@@ -42,15 +43,15 @@ async function init() {
   const scoreDisplay = new ScoreDisplay();
   game.scoreDisplay = scoreDisplay;
 
-  const speedValue = document.getElementById('speed-value');
-  const speedDown = document.getElementById('speed-down');
-  const speedUp = document.getElementById('speed-up');
+  const speedValue = document.getElementById('speed-value')!;
+  const speedDown = document.getElementById('speed-down')!;
+  const speedUp = document.getElementById('speed-up')!;
 
-  function updateSpeedDisplay() {
+  function updateSpeedDisplay(): void {
     speedValue.textContent = Math.round(game.speedMultiplier * 100) + '%';
   }
 
-  function changeSpeed(delta) {
+  function changeSpeed(delta: number): void {
     const newSpeed = Math.round((game.speedMultiplier + delta) * 10) / 10;
     game.setSpeed(newSpeed);
     updateSpeedDisplay();
@@ -72,8 +73,8 @@ async function init() {
 
   const songs = await loadSongs();
   if (songs.length === 0) {
-    document.getElementById('song-list').innerHTML = '<p class="error">Failed to load songs. Please refresh the page.</p>';
-    document.getElementById('btn-start').disabled = true;
+    document.getElementById('song-list')!.innerHTML = '<p class="error">Failed to load songs. Please refresh the page.</p>';
+    (document.getElementById('btn-start') as HTMLButtonElement).disabled = true;
   }
   const menu = new Menu(songs);
   menu.onStart = (song) => game.start(song);
@@ -88,28 +89,29 @@ async function init() {
     menu.setMidiStatus(connected, message);
   };
 
-  document.getElementById('btn-retry').addEventListener('click', () => game.retry());
-  document.getElementById('btn-menu').addEventListener('click', () => game.backToMenu());
-  document.getElementById('btn-restart').addEventListener('click', () => game.retry());
+  document.getElementById('btn-retry')!.addEventListener('click', () => game.retry());
+  document.getElementById('btn-menu')!.addEventListener('click', () => game.backToMenu());
+  document.getElementById('btn-restart')!.addEventListener('click', () => game.retry());
 
-  const importBtn = document.getElementById('btn-import-midi');
-  const importInput = document.getElementById('midi-import-input');
+  const importBtn = document.getElementById('btn-import-midi')! as HTMLButtonElement;
+  const importInput = document.getElementById('midi-import-input')! as HTMLInputElement;
 
   importBtn.addEventListener('click', () => {
     importInput.click();
   });
 
   importInput.addEventListener('change', () => {
-    const file = importInput.files[0];
+    const file = importInput.files?.[0];
     if (!file) return;
 
     const reader = new FileReader();
     reader.onload = () => {
       try {
-        const song = parseMidi(reader.result, file.name);
+        const song = parseMidi(reader.result as ArrayBuffer, file.name);
         menu.addSong(song);
-      } catch (err) {
-        alert('Failed to import MIDI: ' + err.message);
+      } catch (err: unknown) {
+        const message = err instanceof Error ? err.message : String(err);
+        alert('Failed to import MIDI: ' + message);
         console.error(err);
       }
       importInput.value = '';
@@ -121,7 +123,7 @@ async function init() {
     reader.readAsArrayBuffer(file);
   });
 
-  const resizeHandle = document.getElementById('sheet-resize-handle');
+  const resizeHandle = document.getElementById('sheet-resize-handle')!;
   let resizing = false;
 
   resizeHandle.addEventListener('pointerdown', (e) => {
