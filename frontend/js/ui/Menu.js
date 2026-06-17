@@ -19,7 +19,7 @@ export class Menu {
     this.songListEl.innerHTML = '';
     for (const song of this.songs) {
       const el = document.createElement('div');
-      el.className = 'song-item';
+      el.className = 'song-item' + (song.imported ? ' imported' : '');
       el.innerHTML = `
         <div class="song-title">${song.title}</div>
         <div class="song-artist">${song.artist}</div>
@@ -45,6 +45,11 @@ export class Menu {
 
   hide() {
     this.menuScreen.classList.remove('active');
+  }
+
+  addSong(song) {
+    this.songs.push(song);
+    this._render();
   }
 
   setMidiStatus(connected, message) {

@@ -1,3 +1,7 @@
+/* ============================================
+   RESET & VARIABLES
+   ============================================ */
+
 * {
   margin: 0;
   padding: 0;
@@ -19,6 +23,10 @@
   --glow-red: 0 0 20px rgba(255, 34, 68, 0.5);
   --glow-blue: 0 0 20px rgba(34, 136, 255, 0.5);
 }
+
+/* ============================================
+   BASE LAYOUT
+   ============================================ */
 
 body {
   background: var(--bg-dark);
@@ -73,6 +81,7 @@ body {
   pointer-events: auto;
   align-items: center;
   justify-content: center;
+  overflow-y: auto;
 }
 
 #results-screen.active {
@@ -85,6 +94,10 @@ body {
 #play-screen.active {
   display: block;
 }
+
+/* ============================================
+   MENU SCREEN
+   ============================================ */
 
 .menu-content {
   text-align: center;
@@ -113,11 +126,60 @@ body {
 }
 
 #song-list {
-  margin: 2rem 0;
+  margin: 1.5rem 0;
 }
 
+#btn-import-midi {
+  margin: 0 0 1rem 0;
+}
+
+.visually-hidden {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  padding: 0;
+  margin: -1px;
+  overflow: hidden;
+  clip: rect(0, 0, 0, 0);
+  white-space: nowrap;
+  border: 0;
+}
+
+/* ============================================
+   SHEET RESIZE HANDLE
+   ============================================ */
+
+#sheet-resize-handle {
+  left: 0;
+  width: 100%;
+  height: 6px;
+  cursor: ns-resize;
+  z-index: 20;
+  display: none;
+  pointer-events: auto;
+}
+
+#play-screen.active #sheet-resize-handle {
+  display: block;
+}
+
+#sheet-resize-handle::after {
+  content: '';
+  position: absolute;
+  left: 50%;
+  top: 50%;
+  transform: translate(-50%, -50%);
+  width: 40px;
+  height: 3px;
+  background: #666;
+  border-radius: 2px;
+}
+
+/* ============================================
+   SONG LIST ITEMS
+   ============================================ */
+
 .song-item {
-  background: var(--bg-surface);
   border: 1px solid #333;
   border-radius: 4px;
   padding: 1rem 1.5rem;
@@ -137,6 +199,20 @@ body {
 .song-item.selected {
   border-color: var(--accent-red);
   background: var(--bg-surface-2);
+}
+
+.song-item.imported {
+  border-color: var(--accent-blue);
+}
+
+.song-item.imported:hover {
+  border-color: var(--accent-blue);
+  box-shadow: var(--glow-blue);
+}
+
+.song-item.imported.selected {
+  border-color: var(--accent-blue);
+  box-shadow: var(--glow-blue);
 }
 
 .song-title {
@@ -165,8 +241,11 @@ body {
 .difficulty-medium { background: #4a4a1a; color: var(--accent-yellow); }
 .difficulty-hard { background: #4a1a1a; color: var(--accent-red); }
 
+/* ============================================
+   CONTROLS INFO & KEYBOARD KEYS
+   ============================================ */
+
 .controls-info {
-  margin: 2rem 0;
   padding: 1rem;
   background: var(--bg-surface);
   border-radius: 4px;
@@ -201,8 +280,11 @@ kbd {
   text-align: center;
 }
 
+/* ============================================
+   BUTTONS
+   ============================================ */
+
 .btn {
-  font-family: inherit;
   font-size: 1rem;
   padding: 0.8rem 3rem;
   border: 2px solid;
@@ -237,8 +319,11 @@ kbd {
   color: var(--text-primary);
 }
 
+/* ============================================
+   MIDI STATUS
+   ============================================ */
+
 .midi-status {
-  margin-top: 1rem;
   font-size: 0.75rem;
   color: var(--text-secondary);
   letter-spacing: 0.1em;
@@ -248,8 +333,11 @@ kbd {
   color: var(--accent-green);
 }
 
+/* ============================================
+   GAMEPLAY HUD
+   ============================================ */
+
 #score-display {
-  position: absolute;
   top: 60px;
   left: 0;
   width: 100%;
@@ -337,8 +425,11 @@ kbd {
   opacity: 1;
 }
 
+/* ============================================
+   RESULTS SCREEN
+   ============================================ */
+
 .results-content {
-  text-align: center;
 }
 
 #result-title {

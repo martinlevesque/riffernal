@@ -1,8 +1,8 @@
 import { WHITE_KEY_NOTES, BLACK_KEY_NOTES, NOTE_COLORS, HIT_ZONE_Y_RATIO, PIANO_HEIGHT_RATIO, NOTE_NAMES, KEYBOARD_MAP, STAFF_LINE_SPACING, STAFF_TOP_MARGIN, STAFF_LEFT_MARGIN, STAFF_RIGHT_MARGIN, CLEF_TYPES, BASS_STAFF_POSITIONS, TREBLE_STAFF_POSITIONS, NOTE_TO_CLEF, NOTE_DURATION_TYPES } from '../utils/constants.js';
 
-const SHEET_HEIGHT = 80;
-const SHEET_STAFF_LINE_SPACING = 5;
-const SHEET_NOTE_RADIUS = 2;
+const SHEET_HEIGHT = 140;
+const SHEET_STAFF_LINE_SPACING = 10;
+const SHEET_NOTE_RADIUS = 4.5;
 const SHEET_BEATS_VISIBLE = 18;
 const SHEET_PX_PER_BEAT = 13;
 const SHEET_BEATS_PER_MEASURE = 4;
@@ -42,6 +42,7 @@ export class Renderer {
     this.pressedKeys = new Set();
     this.particles = [];
     this.sheetBottom = 0;
+    this.sheetScale = 1.0;
     this._keyDisplayMap = Object.fromEntries(
       Object.entries(KEYBOARD_MAP).map(([code, note]) => [note, codeToDisplay(code)])
     );
@@ -220,14 +221,14 @@ export class Renderer {
     if (!notes.length || songDuration <= 0) return;
     const ctx = this.ctx;
     const sheetTop = 0;
-    const staffLineSpacing = SHEET_STAFF_LINE_SPACING;
+    const staffLineSpacing = SHEET_STAFF_LINE_SPACING * this.sheetScale;
     const staffH = 4 * staffLineSpacing;
-    const clefW = 25;
-    const margin = 8;
+    const clefW = 25 * this.sheetScale;
+    const margin = 8 * this.sheetScale;
 
-    const trebleTop = sheetTop + 5;
-    const bassTop = trebleTop + staffH + 8;
-    const sheetBottom = bassTop + staffH + 5;
+    const trebleTop = sheetTop + 5 * this.sheetScale;
+    const bassTop = trebleTop + staffH + 8 * this.sheetScale;
+    const sheetBottom = bassTop + staffH + 5 * this.sheetScale;
     this.sheetBottom = sheetBottom;
 
     ctx.fillStyle = '#0a0a0a';
@@ -284,7 +285,7 @@ export class Renderer {
       if (noteTime < viewStart || noteTime > viewEnd) return;
 
       const x = barX + ((noteTime - viewStart) / (viewEnd - viewStart)) * barW;
-      const r = SHEET_NOTE_RADIUS;
+      const r = SHEET_NOTE_RADIUS * this.sheetScale;
       const color = NOTE_COLORS[note.key] || '#ffffff';
       const filled = note.duration < 0.75;
 
@@ -314,7 +315,7 @@ export class Renderer {
         const flagBaseY = noteY + stemDir * stemLen;
         ctx.beginPath();
         ctx.moveTo(stemX, flagBaseY);
-        ctx.quadraticCurveTo(stemX + 6, flagBaseY + stemDir * 4, stemX + 2, flagBaseY + stemDir * 9);
+        ctx.quadraticCurveTo(stemX + 6 * this.sheetScale, flagBaseY + stemDir * 4 * this.sheetScale, stemX + 2 * this.sheetScale, flagBaseY + stemDir * 9 * this.sheetScale);
         ctx.stroke();
       }
     };

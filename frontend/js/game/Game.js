@@ -133,6 +133,11 @@ export class Game {
       }
     }
 
+    const handle = document.getElementById('sheet-resize-handle');
+    if (handle) {
+      handle.style.top = this.renderer.sheetBottom + 'px';
+    }
+
     this.renderer.drawParticles();
     this.renderer.drawPiano(NOTE_NAMES.length, this.pressedLanes);
 
