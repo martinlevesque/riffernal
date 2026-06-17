@@ -33,6 +33,9 @@ const SHEET_NOTE_POSITIONS = Object.assign(
   TREBLE_STAFF_POSITIONS
 );
 
+const NOTE_TAIL_GRADIENT = [[0, 'rgba(255,255,255,0.10)'], [1, 'rgba(255,255,255,0)']];
+const NOTE_HEAD_GRADIENT = [[0, 'rgba(255,255,255,0)'], [0.4, 'rgba(255,255,255,0.15)'], [1, 'rgba(255,255,255,0.40)']];
+
 export class Renderer {
   constructor(canvas) {
     this.canvas = canvas;
@@ -180,38 +183,64 @@ export class Renderer {
     return this._keyDisplayMap[noteName] || '';
   }
 
-  drawNote(laneIndex, y, noteHeight, color, alpha, sheetBottom) {
-    const ctx = this.ctx;
+  _noteLayout(laneIndex, y, noteHeight, sheetBottom) {
     const laneWidth = this.width / NOTE_NAMES.length;
     const x = laneIndex * laneWidth;
     const padding = 2;
 
     const hitZoneY = this.height * HIT_ZONE_Y_RATIO;
     const scaleRange = hitZoneY - sheetBottom;
-    const clampedY = Math.max(sheetBottom, Math.min(y, hitZoneY));
+    const headBottom = y + noteHeight;
+    const clampedY = Math.max(sheetBottom, Math.min(headBottom, hitZoneY));
     const scale = 0.45 + 0.55 * ((clampedY - sheetBottom) / scaleRange);
 
-    const scaledHeight = noteHeight * scale;
+    const HEAD_HEIGHT = 12;
+    const scaledHeadHeight = HEAD_HEIGHT * scale;
+    const scaledTailHeight = Math.max(0, noteHeight * scale - scaledHeadHeight);
     const scaledWidth = (laneWidth - padding * 2) * scale;
     const centerX = x + laneWidth / 2;
-    const drawX = centerX - scaledWidth / 2;
-    const centerY = y + noteHeight / 2;
-    const drawY = centerY - scaledHeight / 2;
+
+    return {
+      drawX: centerX - scaledWidth / 2,
+      drawY: headBottom - scaledHeadHeight - scaledTailHeight,
+      scaledWidth,
+      scaledHeadHeight,
+      scaledTailHeight,
+      cornerRadius: 3 * scale,
+      scale,
+    };
+  }
+
+  _drawNotePart(ctx, drawX, drawY, w, h, r, color) {
+    ctx.fillStyle = color;
+    roundRect(ctx, drawX, drawY, w, h, r);
+    ctx.fill();
+  }
+
+  _noteOverlay(ctx, x, y, w, h, stops) {
+    const grad = ctx.createLinearGradient(x, y, x, y + h);
+    for (const [pos, color] of stops) grad.addColorStop(pos, color);
+    return grad;
+  }
+
+  drawNote(laneIndex, y, noteHeight, color, alpha, sheetBottom) {
+    const ctx = this.ctx;
+    const L = this._noteLayout(laneIndex, y, noteHeight, sheetBottom);
 
     ctx.globalAlpha = alpha;
-
     ctx.shadowColor = color;
-    ctx.shadowBlur = 8 * scale;
-    ctx.fillStyle = color;
-    roundRect(ctx, drawX, drawY, scaledWidth, scaledHeight, 3 * scale);
-    ctx.fill();
+    ctx.shadowBlur = 8 * L.scale;
 
-    const gradient = ctx.createLinearGradient(drawX, drawY, drawX, drawY + scaledHeight);
-    gradient.addColorStop(0, 'rgba(255,255,255,0.25)');
-    gradient.addColorStop(0.5, 'rgba(255,255,255,0)');
-    ctx.fillStyle = gradient;
-    roundRect(ctx, drawX, drawY, scaledWidth, scaledHeight, 3 * scale);
-    ctx.fill();
+    if (L.scaledTailHeight > 0.5) {
+      this._drawNotePart(ctx, L.drawX, L.drawY, L.scaledWidth, L.scaledTailHeight, L.cornerRadius, color);
+      this._drawNotePart(ctx, L.drawX, L.drawY, L.scaledWidth, L.scaledTailHeight, L.cornerRadius,
+        this._noteOverlay(ctx, L.drawX, L.drawY, L.scaledWidth, L.scaledTailHeight, NOTE_TAIL_GRADIENT));
+    }
+
+    const headDrawY = L.drawY + L.scaledTailHeight;
+    this._drawNotePart(ctx, L.drawX, headDrawY, L.scaledWidth, L.scaledHeadHeight, L.cornerRadius, color);
+    this._drawNotePart(ctx, L.drawX, headDrawY, L.scaledWidth, L.scaledHeadHeight, L.cornerRadius,
+      this._noteOverlay(ctx, L.drawX, headDrawY, L.scaledWidth, L.scaledHeadHeight, NOTE_HEAD_GRADIENT));
 
     ctx.shadowBlur = 0;
     ctx.globalAlpha = 1;

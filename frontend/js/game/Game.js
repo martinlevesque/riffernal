@@ -111,7 +111,6 @@ export class Game {
 
     this.renderer.clear();
     this.renderer.drawHighway(NOTE_NAMES.length, this.scrollOffset);
-    this.renderer.drawHitZone(NOTE_NAMES.length, this.pressedLanes);
 
     if (this.state === 'playing') {
       this.noteManager.update(this.currentTime, this.renderer.height);
@@ -140,6 +139,7 @@ export class Game {
 
     this.renderer.drawParticles();
     this.renderer.drawPiano(NOTE_NAMES.length, this.pressedLanes);
+    this.renderer.drawHitZone(NOTE_NAMES.length, this.pressedLanes);
 
     if (this.state !== 'menu') {
       this.animationId = requestAnimationFrame(() => this._loop());
