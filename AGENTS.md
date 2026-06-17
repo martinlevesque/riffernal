@@ -10,6 +10,8 @@ npm test
 
 If the project is not yet set up, run `npm install` first.
 
+When a GitHub URL is pasted, use `gh` CLI (e.g., `gh issue view`, `gh pr view`) to access it instead of webfetch.
+
 ## Testing
 
 - **Framework**: Playwright

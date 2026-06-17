@@ -1,4 +1,4 @@
-import { midiToNoteName } from './helpers.js';
+import { midiToNoteName, noteNameToMidi } from './helpers.js';
 import { NOTE_NAMES } from './constants.js';
 
 const META_EVENT = 0xFF;
@@ -88,6 +88,22 @@ function extractBpm(tempoMap) {
   if (tempoMap.length === 0) return 120;
   const first = tempoMap[0].usPerQuarter;
   return Math.round(60_000_000 / first);
+}
+
+function transposeIntoRange(noteName) {
+  const midiNum = noteNameToMidi(noteName);
+  const lowestMidi = noteNameToMidi(NOTE_NAMES[0]);
+  const highestMidi = noteNameToMidi(NOTE_NAMES[NOTE_NAMES.length - 1]);
+
+  if (midiNum < lowestMidi) {
+    const octaves = Math.ceil((lowestMidi - midiNum) / 12);
+    return midiToNoteName(midiNum + octaves * 12);
+  }
+  if (midiNum > highestMidi) {
+    const octaves = Math.ceil((midiNum - highestMidi) / 12);
+    return midiToNoteName(midiNum - octaves * 12);
+  }
+  return noteName;
 }
 
 export function parseMidi(arrayBuffer, filename) {
@@ -195,14 +211,20 @@ export function parseMidi(arrayBuffer, filename) {
   const noteOns = {};
   const notes = [];
   let skipped = 0;
+  let transposed = 0;
 
   for (const raw of rawNotes) {
     const time = ticksToSeconds(raw.tick, tempoMap, ticksPerQuarter);
-    const noteName = midiToNoteName(raw.note);
+    let noteName = midiToNoteName(raw.note);
 
     if (!NOTE_NAMES.includes(noteName)) {
-      skipped++;
-      continue;
+      const transposedName = transposeIntoRange(noteName);
+      if (!NOTE_NAMES.includes(transposedName)) {
+        skipped++;
+        continue;
+      }
+      transposed++;
+      noteName = transposedName;
     }
 
     if (raw.type === NOTE_ON && raw.velocity > 0) {
@@ -228,11 +250,14 @@ export function parseMidi(arrayBuffer, filename) {
   }
 
   if (notes.length === 0) {
-    throw new Error('No playable notes found in MIDI file' + (skipped > 0 ? ` (${skipped} notes outside C3-B4 range)` : ''));
+    throw new Error('No playable notes found in MIDI file' + (skipped > 0 ? ` (${skipped} notes outside C2-B5 range)` : ''));
   }
 
   if (skipped > 0) {
-    console.warn(`Skipped ${skipped} notes outside the C3–B4 range`);
+    console.warn(`Skipped ${skipped} notes outside the C2–B5 range`);
+  }
+  if (transposed > 0) {
+    console.warn(`Transposed ${transposed} notes into the C2–B5 range`);
   }
 
   notes.sort((a, b) => a.time - b.time);

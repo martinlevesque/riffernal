@@ -134,12 +134,45 @@ test.describe('MIDI Import', () => {
     await expect(page.locator('.song-item.imported')).toHaveCount(0, { timeout: 3000 });
   });
 
-  test('shows error alert for MIDI with no in-range notes', async ({ page }) => {
+  test('shows error alert for MIDI with no playable notes', async ({ page }) => {
     await page.goto('/');
 
     page.on('dialog', async dialog => {
       await dialog.dismiss();
     });
+
+    const header = [
+      0x4D, 0x54, 0x68, 0x64,
+      0x00, 0x00, 0x00, 0x06,
+      0x00, 0x00,
+      0x00, 0x01,
+      0x01, 0xE0,
+    ];
+    const trackEvents = [
+      0x00, 0xFF, 0x51, 0x03, 0x07, 0xA1, 0x20,
+      0x00, 0xFF, 0x2F, 0x00,
+    ];
+    const trackLength = trackEvents.length;
+    const trackHeader = [
+      0x4D, 0x54, 0x72, 0x6B,
+      (trackLength >> 24) & 0xFF,
+      (trackLength >> 16) & 0xFF,
+      (trackLength >> 8) & 0xFF,
+      trackLength & 0xFF,
+    ];
+
+    await page.locator('#midi-import-input').setInputFiles({
+      name: 'empty.mid',
+      mimeType: 'audio/midi',
+      buffer: Buffer.from([...header, ...trackHeader, ...trackEvents]),
+    });
+    await page.locator('#midi-import-input').dispatchEvent('change');
+
+    await expect(page.locator('.song-item.imported')).toHaveCount(0, { timeout: 3000 });
+  });
+
+  test('out-of-range notes are transposed into playable range', async ({ page }) => {
+    await page.goto('/');
 
     const noteOnOff = [
       0x78, 0x90, 0x0C, 0x64,
@@ -153,6 +186,7 @@ test.describe('MIDI Import', () => {
     });
     await page.locator('#midi-import-input').dispatchEvent('change');
 
-    await expect(page.locator('.song-item.imported')).toHaveCount(0, { timeout: 3000 });
+    await expect(page.locator('.song-item.imported')).toHaveCount(1, { timeout: 5000 });
+    await expect(page.locator('.song-item.imported')).toContainText('low-notes');
   });
 });
