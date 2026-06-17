@@ -120,7 +120,7 @@ export class Game {
 
       const activeNotes = this.noteManager.getActiveNotes(this.currentTime, this.renderer.height);
       for (const note of activeNotes) {
-        this.renderer.drawNote(note.lane, note.y, note.height, note.color, note.alpha, this.renderer.sheetBottom);
+        this.renderer.drawNote(note.lane, note.y, note.height, note.color, note.alpha, this.renderer.sheetBottom, note.key);
       }
 
       if (this.scoreDisplay) {
