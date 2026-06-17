@@ -11,10 +11,13 @@
     <canvas id="gameCanvas"></canvas>
 
     <div id="ui-overlay">
+      <div id="sheet-resize-handle"></div>
       <div id="menu-screen" class="screen active">
         <div class="menu-content">
           <h1 class="title">IRON<span class="accent">KEYS</span></h1>
           <p class="subtitle">Keyboard Hero - Metal Edition</p>
+          <button id="btn-import-midi" class="btn btn-secondary">IMPORT MIDI</button>
+          <input type="file" id="midi-import-input" accept=".mid,.midi" class="visually-hidden">
           <div id="song-list"></div>
           <div class="controls-info">
             <h3>Controls</h3>

@@ -4,6 +4,10 @@ import { KeyboardInput } from './input/KeyboardInput.js';
 import { MidiInput } from './input/MidiInput.js';
 import { Menu } from './ui/Menu.js';
 import { ScoreDisplay } from './ui/ScoreDisplay.js';
+import { parseMidi } from './utils/MidiParser.js';
+
+const SHEET_STAFF_LINE_SPACING = 10;
+const BASE_SHEET_HEIGHT = 5 + 4 * SHEET_STAFF_LINE_SPACING + 8 + 4 * SHEET_STAFF_LINE_SPACING + 5;
 
 const SONG_FILES = [
   'assets/songs/bed-of-razors.json',
@@ -87,6 +91,59 @@ async function init() {
   document.getElementById('btn-retry').addEventListener('click', () => game.retry());
   document.getElementById('btn-menu').addEventListener('click', () => game.backToMenu());
   document.getElementById('btn-restart').addEventListener('click', () => game.retry());
+
+  const importBtn = document.getElementById('btn-import-midi');
+  const importInput = document.getElementById('midi-import-input');
+
+  importBtn.addEventListener('click', () => {
+    importInput.click();
+  });
+
+  importInput.addEventListener('change', () => {
+    const file = importInput.files[0];
+    if (!file) return;
+
+    const reader = new FileReader();
+    reader.onload = () => {
+      try {
+        const song = parseMidi(reader.result, file.name);
+        menu.addSong(song);
+      } catch (err) {
+        alert('Failed to import MIDI: ' + err.message);
+        console.error(err);
+      }
+      importInput.value = '';
+    };
+    reader.onerror = () => {
+      alert('Failed to read file');
+      importInput.value = '';
+    };
+    reader.readAsArrayBuffer(file);
+  });
+
+  const resizeHandle = document.getElementById('sheet-resize-handle');
+  let resizing = false;
+
+  resizeHandle.addEventListener('pointerdown', (e) => {
+    resizing = true;
+    resizeHandle.setPointerCapture(e.pointerId);
+    e.preventDefault();
+  });
+
+  window.addEventListener('pointermove', (e) => {
+    if (!resizing) return;
+    if (game.state !== 'playing') return;
+    const rect = canvas.getBoundingClientRect();
+    const y = e.clientY - rect.top;
+    const minSheetHeight = BASE_SHEET_HEIGHT * 0.5;
+    const maxSheetHeight = canvas.height * 0.35;
+    const targetHeight = Math.max(minSheetHeight, Math.min(maxSheetHeight, y));
+    game.renderer.sheetScale = targetHeight / BASE_SHEET_HEIGHT;
+  });
+
+  window.addEventListener('pointerup', () => {
+    resizing = false;
+  });
 
   document.addEventListener('keydown', (e) => {
     if (game.state !== 'playing') return;
