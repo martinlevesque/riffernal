@@ -223,7 +223,7 @@ export class Renderer {
     return grad;
   }
 
-  drawNote(laneIndex, y, noteHeight, color, alpha, sheetBottom) {
+  drawNote(laneIndex, y, noteHeight, color, alpha, sheetBottom, noteName) {
     const ctx = this.ctx;
     const L = this._noteLayout(laneIndex, y, noteHeight, sheetBottom);
 
@@ -242,8 +242,24 @@ export class Renderer {
     this._drawNotePart(ctx, L.drawX, headDrawY, L.scaledWidth, L.scaledHeadHeight, L.cornerRadius,
       this._noteOverlay(ctx, L.drawX, headDrawY, L.scaledWidth, L.scaledHeadHeight, NOTE_HEAD_GRADIENT));
 
+    if (noteName) {
+      this._drawNoteLabel(ctx, noteName, L.drawX, headDrawY, L.scaledWidth, L.scaledHeadHeight);
+    }
+
     ctx.shadowBlur = 0;
     ctx.globalAlpha = 1;
+  }
+
+  _drawNoteLabel(ctx, noteName, drawX, drawY, width, height) {
+    const shortName = noteName.replace(/\d/g, '');
+    const fontSize = Math.max(8, width * 0.45);
+    ctx.font = `bold ${fontSize}px Courier New`;
+    ctx.textAlign = 'center';
+    ctx.textBaseline = 'bottom';
+    ctx.fillStyle = '#000';
+    ctx.shadowColor = 'rgba(255,255,255,0.6)';
+    ctx.shadowBlur = 1;
+    ctx.fillText(shortName, drawX + width / 2, drawY + height);
   }
 
   drawSheetMusic(notes, currentTime, songDuration) {

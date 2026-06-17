@@ -151,6 +151,7 @@ export class NoteManager {
         color,
         alpha,
         duration: note.duration,
+        key: note.key,
       });
     }
 
