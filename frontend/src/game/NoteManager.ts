@@ -1,11 +1,81 @@
-import { TIMING, SCORE_VALUES, SCROLL_SPEED, HIT_ZONE_Y_RATIO, NOTE_NAMES, NOTE_COLORS } from '../utils/constants.js';
-import type { Song, SongNote, ActiveNoteRender, HitResult, Grade, Note } from '../types.js';
+import { NOTE_NAMES, NOTE_COLORS } from '../utils/notes.js';
+import type { Song, Note } from '../utils/MidiParser.js';
 
-interface HitCounts {
-  perfects: number;
-  greats: number;
-  goods: number;
-  misses: number;
+export enum NoteGrade {
+  PERFECT = 'PERFECT',
+  GREAT = 'GREAT',
+  GOOD = 'GOOD',
+}
+
+export const TIMING: Record<NoteGrade, number> = {
+  [NoteGrade.PERFECT]: 0.030,
+  [NoteGrade.GREAT]: 0.060,
+  [NoteGrade.GOOD]: 0.100,
+};
+
+export const TAP_NOTE_THRESHOLD = 0.4;
+
+export const SCORE_VALUES: Record<NoteGrade | 'MISS', number> = {
+  [NoteGrade.PERFECT]: 300,
+  [NoteGrade.GREAT]: 200,
+  [NoteGrade.GOOD]: 100,
+  MISS: 0,
+};
+
+export const SCROLL_SPEED = 400;
+
+export const HIT_ZONE_Y_RATIO = 0.82;
+
+export function gradeLabel(grade: NoteGrade): string {
+  if (grade === NoteGrade.GOOD) return 'Good!';
+  return grade.charAt(0) + grade.slice(1).toLowerCase();
+}
+
+export interface SongNote extends Note {
+  hit: boolean;
+  missed: boolean;
+  lane: number;
+  holding: boolean;
+  pressStartTime: number;
+  failing: boolean;
+  grade: NoteGrade | null;
+  earnedScore: number;
+  resolved: boolean;
+}
+
+export interface ActiveNoteRender {
+  lane: number;
+  y: number;
+  height: number;
+  color: string;
+  alpha: number;
+  duration: number;
+  key: string;
+  holding: boolean;
+  failing: boolean;
+}
+
+export interface HitResult {
+  note: SongNote;
+  result: NoteGrade;
+}
+
+export interface ReleaseResult {
+  note: SongNote;
+  penalty: number;
+  holdRatio: number;
+  grade: NoteGrade;
+}
+
+export interface ResolveResult {
+  note: SongNote;
+  score: number;
+  grade: NoteGrade | null;
+}
+
+export interface Grade {
+  grade: string;
+  class: string;
 }
 
 export class NoteManager {
@@ -18,8 +88,11 @@ export class NoteManager {
   greats = 0;
   goods = 0;
   misses = 0;
+  failures = 0;
+  failureWeight = 0;
   totalNotes = 0;
   onMiss: ((note: SongNote) => void) | null = null;
+  onResolve: ((result: ResolveResult) => void) | null = null;
 
   loadSong(songData: Song): void {
     this.notes = songData.notes.map((n: Note) => ({
@@ -27,6 +100,12 @@ export class NoteManager {
       hit: false,
       missed: false,
       lane: NOTE_NAMES.indexOf(n.key),
+      holding: false,
+      pressStartTime: 0,
+      failing: false,
+      grade: null,
+      earnedScore: 0,
+      resolved: false,
     })).sort((a, b) => a.time - b.time);
     this.totalNotes = this.notes.length;
     this.activeNotes = [];
@@ -37,6 +116,8 @@ export class NoteManager {
     this.greats = 0;
     this.goods = 0;
     this.misses = 0;
+    this.failures = 0;
+    this.failureWeight = 0;
   }
 
   update(currentTime: number, height: number): void {
@@ -44,15 +125,37 @@ export class NoteManager {
     const lookAhead = hitZoneY / SCROLL_SPEED;
 
     for (const note of this.notes) {
-      if (note.hit || note.missed) continue;
+      if (note.resolved) continue;
+
+      if (note.holding) {
+        if (currentTime >= note.time + note.duration) {
+          note.hit = true;
+          note.holding = false;
+          note.resolved = true;
+          if (this.onResolve) this.onResolve({ note, score: note.earnedScore, grade: note.grade });
+        }
+        continue;
+      }
+
+      if (note.failing) {
+        if (currentTime >= note.time + note.duration) {
+          note.resolved = true;
+          if (this.onResolve) this.onResolve({ note, score: note.earnedScore, grade: note.grade });
+        }
+        continue;
+      }
 
       const timeDiff = note.time - currentTime;
 
       if (timeDiff < -TIMING.GOOD) {
         note.missed = true;
+        note.failing = true;
+        note.resolved = true;
+        note.earnedScore = 0;
         this.combo = 0;
         this.misses++;
         if (this.onMiss) this.onMiss(note);
+        if (this.onResolve) this.onResolve({ note, score: 0, grade: null });
         continue;
       }
 
@@ -62,7 +165,7 @@ export class NoteManager {
     }
 
     this.activeNotes = this.activeNotes.filter(n => {
-      if (n.hit || n.missed) return false;
+      if ((n.hit || n.missed) && !n.failing) return false;
       const timeDiff = n.time - currentTime;
       const noteHeight = Math.max(12, n.duration * SCROLL_SPEED);
       const y = hitZoneY - timeDiff * SCROLL_SPEED - noteHeight;
@@ -75,7 +178,7 @@ export class NoteManager {
     let bestDiff = Infinity;
 
     for (const note of this.activeNotes) {
-      if (note.hit || note.missed) continue;
+      if (note.hit || note.missed || note.holding || note.failing) continue;
       if (note.lane !== lane) continue;
       const diff = Math.abs(note.time - currentTime);
       if (diff < bestDiff && diff <= TIMING.GOOD) {
@@ -86,21 +189,32 @@ export class NoteManager {
 
     if (!bestNote) return null;
 
-    bestNote.hit = true;
-    let result: 'PERFECT' | 'GREAT' | 'GOOD';
+    let result: NoteGrade;
 
     if (bestDiff <= TIMING.PERFECT) {
-      result = 'PERFECT';
+      result = NoteGrade.PERFECT;
       this.perfects++;
-      this.score += SCORE_VALUES.PERFECT;
+      this.score += SCORE_VALUES[NoteGrade.PERFECT];
     } else if (bestDiff <= TIMING.GREAT) {
-      result = 'GREAT';
+      result = NoteGrade.GREAT;
       this.greats++;
-      this.score += SCORE_VALUES.GREAT;
+      this.score += SCORE_VALUES[NoteGrade.GREAT];
     } else {
-      result = 'GOOD';
+      result = NoteGrade.GOOD;
       this.goods++;
-      this.score += SCORE_VALUES.GOOD;
+      this.score += SCORE_VALUES[NoteGrade.GOOD];
+    }
+
+    bestNote.grade = result;
+    bestNote.earnedScore = SCORE_VALUES[result];
+
+    if (bestNote.duration <= TAP_NOTE_THRESHOLD) {
+      bestNote.hit = true;
+      bestNote.resolved = true;
+      if (this.onResolve) this.onResolve({ note: bestNote, score: bestNote.earnedScore, grade: result });
+    } else {
+      bestNote.holding = true;
+      bestNote.pressStartTime = currentTime;
     }
 
     this.combo++;
@@ -112,11 +226,52 @@ export class NoteManager {
     return { note: bestNote, result };
   }
 
+  checkRelease(currentTime: number, lane: number): ReleaseResult | null {
+    let holdingNote: SongNote | null = null;
+    for (const note of this.activeNotes) {
+      if (note.holding && note.lane === lane) {
+        holdingNote = note;
+        break;
+      }
+    }
+
+    if (!holdingNote) return null;
+
+    const heldDuration = currentTime - holdingNote.pressStartTime;
+    const holdRatio = Math.min(1, Math.max(0, heldDuration / holdingNote.duration));
+
+    if (holdRatio >= 1) {
+      holdingNote.hit = true;
+      holdingNote.holding = false;
+      holdingNote.resolved = true;
+      if (this.onResolve) this.onResolve({ note: holdingNote, score: holdingNote.earnedScore, grade: holdingNote.grade });
+      return null;
+    }
+
+    const baseScore = SCORE_VALUES[holdingNote.grade!];
+    const penalty = Math.round(baseScore * (1 - holdRatio));
+    this.score -= penalty;
+    holdingNote.earnedScore = baseScore - penalty;
+
+    if (holdingNote.grade === NoteGrade.PERFECT) this.perfects--;
+    else if (holdingNote.grade === NoteGrade.GREAT) this.greats--;
+    else this.goods--;
+
+    const weight = holdingNote.grade === NoteGrade.PERFECT ? 100 : holdingNote.grade === NoteGrade.GREAT ? 80 : 50;
+    this.failureWeight += holdRatio * weight;
+
+    holdingNote.failing = true;
+    holdingNote.holding = false;
+    this.failures++;
+
+    return { note: holdingNote, penalty, holdRatio, grade: holdingNote.grade! };
+  }
+
   getAccuracy(): number {
-    const total = this.perfects + this.greats + this.goods + this.misses;
+    const total = this.perfects + this.greats + this.goods + this.misses + this.failures;
     if (total === 0) return 100;
-    const weighted = (this.perfects * 100 + this.greats * 80 + this.goods * 50) / total;
-    return Math.round(weighted * 10) / 10;
+    const weighted = this.perfects * 100 + this.greats * 80 + this.goods * 50 + this.failureWeight;
+    return Math.round((weighted / total) * 10) / 10;
   }
 
   getSongDuration(): number {
@@ -126,7 +281,7 @@ export class NoteManager {
   }
 
   isComplete(): boolean {
-    return this.notes.length > 0 && this.notes.every(n => n.hit || n.missed);
+    return this.notes.length > 0 && this.notes.every(n => n.resolved);
   }
 
   getGrade(): Grade {
@@ -143,22 +298,40 @@ export class NoteManager {
     const results: ActiveNoteRender[] = [];
 
     for (const note of this.activeNotes) {
-      if (note.hit || note.missed) continue;
-      const timeDiff = note.time - currentTime;
-      const noteHeight = Math.max(12, note.duration * SCROLL_SPEED);
-      const y = hitZoneY - timeDiff * SCROLL_SPEED - noteHeight;
+      if ((note.hit || note.missed) && !note.failing) continue;
       const color = NOTE_COLORS[note.key] || '#ffffff';
-      const alpha = y + noteHeight < 0 ? 0 : 1;
 
-      results.push({
-        lane: note.lane,
-        y,
-        height: noteHeight,
-        color,
-        alpha,
-        duration: note.duration,
-        key: note.key,
-      });
+      if (note.holding) {
+        const remaining = Math.max(12, (note.time + note.duration - currentTime) * SCROLL_SPEED);
+        const y = hitZoneY - remaining;
+        results.push({
+          lane: note.lane,
+          y,
+          height: remaining,
+          color,
+          alpha: 1,
+          duration: note.duration,
+          key: note.key,
+          holding: true,
+          failing: false,
+        });
+      } else {
+        const timeDiff = note.time - currentTime;
+        const noteHeight = Math.max(12, note.duration * SCROLL_SPEED);
+        const y = hitZoneY - timeDiff * SCROLL_SPEED - noteHeight;
+        const alpha = y + noteHeight < 0 ? 0 : 1;
+        results.push({
+          lane: note.lane,
+          y,
+          height: noteHeight,
+          color,
+          alpha,
+          duration: note.duration,
+          key: note.key,
+          holding: false,
+          failing: note.failing,
+        });
+      }
     }
 
     return results;

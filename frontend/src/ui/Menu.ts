@@ -1,4 +1,4 @@
-import type { Song } from '../types.js';
+import type { Song } from '../utils/MidiParser.js';
 
 export class Menu {
   private songs: Song[];

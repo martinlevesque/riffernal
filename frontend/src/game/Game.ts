@@ -1,12 +1,23 @@
 import { Renderer } from './Renderer.js';
-import { NoteManager } from './NoteManager.js';
-import { KEYBOARD_MAP, NOTE_NAMES, NOTE_COLORS, FEEDBACK_COLORS, HIT_ZONE_Y_RATIO, SCROLL_SPEED } from '../utils/constants.js';
+import { NoteManager, NoteGrade, SCROLL_SPEED, HIT_ZONE_Y_RATIO, gradeLabel } from './NoteManager.js';
+import { NOTE_NAMES, NOTE_COLORS } from '../utils/notes.js';
 import { formatScore } from '../utils/helpers.js';
 import { Synth } from '../audio/Synth.js';
 import { KeyboardInput } from '../input/KeyboardInput.js';
 import { MidiInput } from '../input/MidiInput.js';
 import { ScoreDisplay } from '../ui/ScoreDisplay.js';
-import type { Song, GameState } from '../types.js';
+import type { Song } from '../utils/MidiParser.js';
+import type { ReleaseResult } from './NoteManager.js';
+
+export type GameState = 'menu' | 'playing' | 'results';
+
+const FEEDBACK_COLORS: Record<NoteGrade | 'MISS' | 'FAIL', string> = {
+  [NoteGrade.PERFECT]: '#ffdd22',
+  [NoteGrade.GREAT]: '#22ff66',
+  [NoteGrade.GOOD]: '#2288ff',
+  MISS: '#ff2244',
+  FAIL: '#ff8822',
+};
 
 const COUNTDOWN_SECONDS = 1.5;
 
@@ -76,6 +87,28 @@ export class Game {
       setTimeout(() => this.synth.noteOff(note.key), note.duration * 1000);
     };
 
+    this.noteManager.onResolve = (result) => {
+      const grade = result.grade;
+      if (grade === null) {
+        this.scoreDisplay?.showFeedback('Miss', FEEDBACK_COLORS.MISS);
+        return;
+      }
+      const label = gradeLabel(grade);
+      const color = FEEDBACK_COLORS[grade];
+      this.scoreDisplay?.showFeedback(`+${result.score} ${label}`, color);
+
+      if (result.note.failing) {
+        const laneWidth = this.renderer.width / NOTE_NAMES.length;
+        const hitZoneY = this.renderer.height * HIT_ZONE_Y_RATIO;
+        this.renderer.spawnParticles(
+          result.note.lane * laneWidth + laneWidth / 2,
+          hitZoneY,
+          FEEDBACK_COLORS.FAIL,
+          10
+        );
+      }
+    };
+
     this._loop();
   }
 
@@ -89,12 +122,9 @@ export class Game {
     if (this.state === 'playing') {
       const result = this.noteManager.checkHit(this.currentTime, lane);
       if (result) {
-        const color = FEEDBACK_COLORS[result.result];
-        this.scoreDisplay?.showFeedback(result.result, color);
-
         const laneWidth = this.renderer.width / NOTE_NAMES.length;
         const hitZoneY = this.renderer.height * HIT_ZONE_Y_RATIO;
-        if (result.result === 'PERFECT') {
+        if (result.result === NoteGrade.PERFECT) {
           const noteColor = NOTE_COLORS[result.note.key] || '#ffffff';
           this.renderer.spawnParticles(
             lane * laneWidth + laneWidth / 2,
@@ -104,7 +134,7 @@ export class Game {
           );
         }
       } else {
-        this.scoreDisplay?.showFeedback('MISS', FEEDBACK_COLORS.MISS);
+        this.scoreDisplay?.showFeedback('Miss', FEEDBACK_COLORS.MISS);
       }
     }
   }
@@ -115,6 +145,10 @@ export class Game {
 
     this.pressedLanes.delete(lane);
     this.synth.noteOff(noteName);
+
+    if (this.state === 'playing') {
+      this.noteManager.checkRelease(this.currentTime, lane);
+    }
   }
 
   private _loop(): void {
@@ -133,7 +167,7 @@ export class Game {
 
       const activeNotes = this.noteManager.getActiveNotes(this.currentTime, this.renderer.height);
       for (const note of activeNotes) {
-        this.renderer.drawNote(note.lane, note.y, note.height, note.color, note.alpha, this.renderer.sheetBottom, note.key);
+        this.renderer.drawNote(note.lane, note.y, note.height, note.color, note.alpha, this.renderer.sheetBottom, note.key, note.holding, note.failing);
       }
 
       this.scoreDisplay?.update(this.noteManager);
@@ -171,6 +205,7 @@ export class Game {
       Great: <span class="stat-value">${this.noteManager.greats}</span><br>
       Good: <span class="stat-value">${this.noteManager.goods}</span><br>
       Miss: <span class="stat-value">${this.noteManager.misses}</span><br>
+      Dropped: <span class="stat-value">${this.noteManager.failures}</span><br>
       Max Combo: <span class="stat-value">${this.noteManager.maxCombo}</span><br>
       Accuracy: <span class="stat-value">${this.noteManager.getAccuracy()}%</span>
     `;

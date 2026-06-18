@@ -1,5 +1,53 @@
-import { WHITE_KEY_NOTES, BLACK_KEY_NOTES, NOTE_COLORS, HIT_ZONE_Y_RATIO, PIANO_HEIGHT_RATIO, NOTE_NAMES, KEYBOARD_MAP, STAFF_LINE_SPACING, STAFF_TOP_MARGIN, STAFF_LEFT_MARGIN, STAFF_RIGHT_MARGIN, CLEF_TYPES, BASS_STAFF_POSITIONS, TREBLE_STAFF_POSITIONS, NOTE_TO_CLEF, NOTE_DURATION_TYPES } from '../utils/constants.js';
-import type { SongNote, Particle } from '../types.js';
+import { NOTE_NAMES, NOTE_COLORS } from '../utils/notes.js';
+import { KEYBOARD_MAP } from '../input/KeyboardInput.js';
+import { HIT_ZONE_Y_RATIO } from './NoteManager.js';
+import type { SongNote } from './NoteManager.js';
+
+export const PIANO_HEIGHT_RATIO = 0.12;
+
+export const CLEF_TYPES = {
+  BASS: 'bass',
+  TREBLE: 'treble',
+} as const;
+
+export const BASS_STAFF_POSITIONS: Record<string, number> = {
+  'C2': -3, 'C#2': -3, 'D2': -2, 'D#2': -2, 'E2': -1, 'F2': 0, 'F#2': 0,
+  'G2': 1, 'G#2': 1, 'A2': 2, 'A#2': 2, 'B2': 3,
+  'C3': 4, 'C#3': 4, 'D3': 5, 'D#3': 5, 'E3': 6, 'F3': 7, 'F#3': 7,
+  'G3': 8, 'G#3': 8, 'A3': 9, 'A#3': 9, 'B3': 10,
+};
+
+export const TREBLE_STAFF_POSITIONS: Record<string, number> = {
+  'C4': 1, 'C#4': 1, 'D4': 2, 'D#4': 2, 'E4': 3, 'F4': 4, 'F#4': 4,
+  'G4': 5, 'G#4': 5, 'A4': 6, 'A#4': 6, 'B4': 7,
+  'C5': 8, 'C#5': 8, 'D5': 9, 'D#5': 9, 'E5': 10, 'F5': 11, 'F#5': 11,
+  'G5': 12, 'G#5': 12, 'A5': 13, 'A#5': 13, 'B5': 14,
+};
+
+export const NOTE_TO_CLEF: Record<string, string> = {
+  'C2': CLEF_TYPES.BASS, 'C#2': CLEF_TYPES.BASS, 'D2': CLEF_TYPES.BASS, 'D#2': CLEF_TYPES.BASS,
+  'E2': CLEF_TYPES.BASS, 'F2': CLEF_TYPES.BASS, 'F#2': CLEF_TYPES.BASS, 'G2': CLEF_TYPES.BASS,
+  'G#2': CLEF_TYPES.BASS, 'A2': CLEF_TYPES.BASS, 'A#2': CLEF_TYPES.BASS, 'B2': CLEF_TYPES.BASS,
+  'C3': CLEF_TYPES.BASS, 'C#3': CLEF_TYPES.BASS, 'D3': CLEF_TYPES.BASS, 'D#3': CLEF_TYPES.BASS,
+  'E3': CLEF_TYPES.BASS, 'F3': CLEF_TYPES.BASS, 'F#3': CLEF_TYPES.BASS, 'G3': CLEF_TYPES.BASS,
+  'G#3': CLEF_TYPES.BASS, 'A3': CLEF_TYPES.BASS, 'A#3': CLEF_TYPES.BASS, 'B3': CLEF_TYPES.BASS,
+  'C4': CLEF_TYPES.TREBLE, 'C#4': CLEF_TYPES.TREBLE, 'D4': CLEF_TYPES.TREBLE, 'D#4': CLEF_TYPES.TREBLE,
+  'E4': CLEF_TYPES.TREBLE, 'F4': CLEF_TYPES.TREBLE, 'F#4': CLEF_TYPES.TREBLE, 'G4': CLEF_TYPES.TREBLE,
+  'G#4': CLEF_TYPES.TREBLE, 'A4': CLEF_TYPES.TREBLE, 'A#4': CLEF_TYPES.TREBLE, 'B4': CLEF_TYPES.TREBLE,
+  'C5': CLEF_TYPES.TREBLE, 'C#5': CLEF_TYPES.TREBLE, 'D5': CLEF_TYPES.TREBLE, 'D#5': CLEF_TYPES.TREBLE,
+  'E5': CLEF_TYPES.TREBLE, 'F5': CLEF_TYPES.TREBLE, 'F#5': CLEF_TYPES.TREBLE, 'G5': CLEF_TYPES.TREBLE,
+  'G#5': CLEF_TYPES.TREBLE, 'A5': CLEF_TYPES.TREBLE, 'A#5': CLEF_TYPES.TREBLE, 'B5': CLEF_TYPES.TREBLE,
+};
+
+export interface Particle {
+  x: number;
+  y: number;
+  vx: number;
+  vy: number;
+  size: number;
+  color: string;
+  life: number;
+}
 
 const SHEET_HEIGHT = 140;
 const SHEET_STAFF_LINE_SPACING = 10;
@@ -245,26 +293,33 @@ export class Renderer {
     return grad;
   }
 
-  drawNote(laneIndex: number, y: number, noteHeight: number, color: string, alpha: number, sheetBottom: number, noteName?: string): void {
+  drawNote(laneIndex: number, y: number, noteHeight: number, color: string, alpha: number, sheetBottom: number, noteName?: string, holding?: boolean, failing?: boolean): void {
     const ctx = this.ctx;
+    const drawColor = failing ? '#aa3322' : color;
     const L = this._noteLayout(laneIndex, y, noteHeight, sheetBottom);
 
     ctx.globalAlpha = alpha;
-    ctx.shadowColor = color;
+    ctx.shadowColor = drawColor;
     ctx.shadowBlur = 8 * L.scale;
 
     if (L.scaledTailHeight > 0.5) {
-      this._drawNotePart(ctx, L.drawX, L.drawY, L.scaledWidth, L.scaledTailHeight, L.cornerRadius, color);
+      this._drawNotePart(ctx, L.drawX, L.drawY, L.scaledWidth, L.scaledTailHeight, L.cornerRadius, drawColor);
       this._drawNotePart(ctx, L.drawX, L.drawY, L.scaledWidth, L.scaledTailHeight, L.cornerRadius,
         this._noteOverlay(ctx, L.drawX, L.drawY, L.scaledWidth, L.scaledTailHeight, NOTE_TAIL_GRADIENT));
     }
 
     const headDrawY = L.drawY + L.scaledTailHeight;
-    this._drawNotePart(ctx, L.drawX, headDrawY, L.scaledWidth, L.scaledHeadHeight, L.cornerRadius, color);
+    this._drawNotePart(ctx, L.drawX, headDrawY, L.scaledWidth, L.scaledHeadHeight, L.cornerRadius, drawColor);
     this._drawNotePart(ctx, L.drawX, headDrawY, L.scaledWidth, L.scaledHeadHeight, L.cornerRadius,
       this._noteOverlay(ctx, L.drawX, headDrawY, L.scaledWidth, L.scaledHeadHeight, NOTE_HEAD_GRADIENT));
 
-    if (noteName) {
+    if (holding) {
+      const cx = L.drawX + L.scaledWidth / 2;
+      const baseY = headDrawY + L.scaledHeadHeight / 2;
+      this._drawFlame(ctx, cx, baseY, L.scaledWidth);
+    }
+
+    if (noteName && !failing) {
       this._drawNoteLabel(ctx, noteName, L.drawX, headDrawY, L.scaledWidth, L.scaledHeadHeight);
     }
 
@@ -282,6 +337,54 @@ export class Renderer {
     ctx.shadowColor = 'rgba(255,255,255,0.6)';
     ctx.shadowBlur = 1;
     ctx.fillText(shortName, drawX + width / 2, drawY + height);
+  }
+
+  private _drawFlame(ctx: CanvasRenderingContext2D, cx: number, baseY: number, width: number): void {
+    const t = performance.now() / 120;
+    const flicker = 0.75 + 0.25 * Math.sin(t * 4.7) * Math.sin(t * 2.1);
+    const sway = 0.08 * Math.sin(t * 3.3);
+
+    const h = width * 2.5 * flicker;
+    const w = width * 0.6 * flicker;
+
+    ctx.save();
+
+    ctx.shadowColor = '#ff6600';
+    ctx.shadowBlur = 12;
+
+    const grad = ctx.createRadialGradient(cx, baseY, 0, cx, baseY, h);
+    grad.addColorStop(0, '#ffaa33');
+    grad.addColorStop(0.3, '#ff6600');
+    grad.addColorStop(0.6, '#cc3300');
+    grad.addColorStop(1, 'rgba(200, 50, 0, 0)');
+
+    ctx.beginPath();
+    ctx.moveTo(cx - w, baseY);
+    ctx.quadraticCurveTo(cx - w + sway * w, baseY - h * 0.6, cx + sway * w * 0.5, baseY - h);
+    ctx.quadraticCurveTo(cx + w + sway * w, baseY - h * 0.6, cx + w, baseY);
+    ctx.closePath();
+    ctx.fillStyle = grad;
+    ctx.fill();
+
+    ctx.shadowBlur = 6;
+    ctx.shadowColor = '#ffdd44';
+    const innerH = h * 0.45;
+    const innerW = w * 0.4;
+    const innerFlicker = 0.8 + 0.2 * Math.sin(t * 5.3 + 1.4);
+    const grad2 = ctx.createRadialGradient(cx, baseY - innerH * 0.3, 0, cx, baseY, innerH);
+    grad2.addColorStop(0, '#ffeecc');
+    grad2.addColorStop(0.4, '#ffaa44');
+    grad2.addColorStop(1, 'rgba(255, 100, 0, 0)');
+
+    ctx.beginPath();
+    ctx.moveTo(cx - innerW * innerFlicker, baseY);
+    ctx.quadraticCurveTo(cx - innerW * innerFlicker, baseY - innerH * 0.5, cx, baseY - innerH * innerFlicker);
+    ctx.quadraticCurveTo(cx + innerW * innerFlicker, baseY - innerH * 0.5, cx + innerW * innerFlicker, baseY);
+    ctx.closePath();
+    ctx.fillStyle = grad2;
+    ctx.fill();
+
+    ctx.restore();
   }
 
   drawSheetMusic(notes: SongNote[], currentTime: number, songDuration: number): void {
@@ -356,8 +459,16 @@ export class Renderer {
       const color = NOTE_COLORS[note.key] || '#ffffff';
       const filled = note.duration < 0.75;
 
-      ctx.fillStyle = note.hit ? '#555' : color;
-      ctx.strokeStyle = note.hit ? '#555' : color;
+      if (note.failing) {
+        ctx.fillStyle = '#882222';
+        ctx.strokeStyle = '#882222';
+      } else if (note.hit) {
+        ctx.fillStyle = '#555';
+        ctx.strokeStyle = '#555';
+      } else {
+        ctx.fillStyle = color;
+        ctx.strokeStyle = color;
+      }
       ctx.lineWidth = 1;
       ctx.beginPath();
       ctx.ellipse(x, noteY, r + 0.5, r, -0.2, 0, Math.PI * 2);
