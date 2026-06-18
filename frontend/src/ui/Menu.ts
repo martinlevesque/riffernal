@@ -27,7 +27,7 @@ export class Menu {
     this.songListEl.innerHTML = '';
     for (const song of this.songs) {
       const el = document.createElement('div');
-      el.className = 'song-item' + (song.imported ? ' imported' : '');
+      el.className = `song-item${song.imported ? ' imported' : ''}`;
       el.innerHTML = `
         <div class="song-title">${song.title}</div>
         <div class="song-artist">${song.artist}</div>
@@ -35,7 +35,9 @@ export class Menu {
       `;
       el.addEventListener('click', () => {
         this.selectedSong = song;
-        this.songListEl.querySelectorAll('.song-item').forEach(s => s.classList.remove('selected'));
+        this.songListEl.querySelectorAll('.song-item').forEach(s => {
+          s.classList.remove('selected');
+        });
         el.classList.add('selected');
         this.startBtn.disabled = false;
       });
@@ -62,6 +64,6 @@ export class Menu {
 
   setMidiStatus(connected: boolean, message: string): void {
     this.midiStatusEl.textContent = message;
-    this.midiStatusEl.className = 'midi-status' + (connected ? ' connected' : '');
+    this.midiStatusEl.className = `midi-status${connected ? ' connected' : ''}`;
   }
 }

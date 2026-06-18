@@ -2,12 +2,11 @@ import { Renderer } from './Renderer.js';
 import { NoteManager, NoteGrade, SCROLL_SPEED, HIT_ZONE_Y_RATIO, gradeLabel } from './NoteManager.js';
 import { NOTE_NAMES, NOTE_COLORS } from '../utils/notes.js';
 import { formatScore } from '../utils/helpers.js';
-import { Synth } from '../audio/Synth.js';
-import { KeyboardInput } from '../input/KeyboardInput.js';
-import { MidiInput } from '../input/MidiInput.js';
-import { ScoreDisplay } from '../ui/ScoreDisplay.js';
+import type { Synth } from '../audio/Synth.js';
+import type { KeyboardInput } from '../input/KeyboardInput.js';
+import type { MidiInput } from '../input/MidiInput.js';
+import type { ScoreDisplay } from '../ui/ScoreDisplay.js';
 import type { Song } from '../utils/MidiParser.js';
-import type { ReleaseResult } from './NoteManager.js';
 
 export type GameState = 'menu' | 'playing' | 'results';
 
@@ -33,7 +32,6 @@ export class Game {
   currentTime = 0;
   private refGameTime = 0;
   private refRealTime = 0;
-  private paused = false;
   private animationId: number | null = null;
   private pressedLanes = new Set<number>();
   scrollOffset = 0;
@@ -178,7 +176,7 @@ export class Game {
     }
 
     const handle = document.getElementById('sheet-resize-handle')!;
-    handle.style.top = this.renderer.sheetBottom + 'px';
+    handle.style.top = `${this.renderer.sheetBottom}px`;
 
     this.renderer.drawParticles();
     this.renderer.drawPiano(NOTE_NAMES.length, this.pressedLanes);

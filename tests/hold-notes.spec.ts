@@ -1,4 +1,5 @@
 import { test, expect } from '@playwright/test';
+import type { ResolveResult } from '../frontend/src/game/NoteManager.js';
 
 test.describe('Hold notes', () => {
   test('full hold gives full base score, no failing flag', async ({ page }) => {
@@ -244,7 +245,6 @@ test.describe('Hold notes', () => {
       const { NOTE_NAMES } = await import('/js/utils/notes.js');
 
       const c3 = NOTE_NAMES.indexOf('C3');
-      const e3 = NOTE_NAMES.indexOf('E3');
       const nm = new NoteManager();
       nm.loadSong({
         title: 'Visible Fails', artist: 'Test', bpm: 120, difficulty: 'easy',
@@ -297,7 +297,7 @@ test.describe('Hold notes', () => {
       const c3 = NOTE_NAMES.indexOf('C3');
       const nm = new NoteManager();
       const resolves: any[] = [];
-      nm.onResolve = (r) => resolves.push({ score: r.score, grade: r.grade, failing: r.note.failing });
+      nm.onResolve = (r: ResolveResult) => resolves.push({ score: r.score, grade: r.grade, failing: r.note.failing });
 
       nm.loadSong({
         title: 'Resolve Test', artist: 'Test', bpm: 120, difficulty: 'easy',
@@ -329,13 +329,10 @@ test.describe('Hold notes', () => {
     const result = await page.evaluate(async () => {
       // @ts-expect-error browser-side dynamic import
       const { NoteManager } = await import('/js/game/NoteManager.js');
-      // @ts-expect-error browser-side dynamic import
-      const { NOTE_NAMES } = await import('/js/utils/notes.js');
 
-      const c3 = NOTE_NAMES.indexOf('C3');
       const nm = new NoteManager();
       const resolves: any[] = [];
-      nm.onResolve = (r) => resolves.push({ score: r.score, grade: r.grade });
+      nm.onResolve = (r: ResolveResult) => resolves.push({ score: r.score, grade: r.grade });
 
       nm.loadSong({
         title: 'Missed Resolve', artist: 'Test', bpm: 120, difficulty: 'easy',
@@ -364,7 +361,7 @@ test.describe('Hold notes', () => {
       const c3 = NOTE_NAMES.indexOf('C3');
       const nm = new NoteManager();
       const resolves: any[] = [];
-      nm.onResolve = (r) => resolves.push({ score: r.score, grade: r.grade });
+      nm.onResolve = (r: ResolveResult) => resolves.push({ score: r.score, grade: r.grade });
 
       nm.loadSong({
         title: 'Tap Resolve', artist: 'Test', bpm: 120, difficulty: 'easy',

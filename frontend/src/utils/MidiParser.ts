@@ -285,7 +285,7 @@ export function parseMidi(arrayBuffer: ArrayBuffer, filename: string): Song {
   }
 
   if (notes.length === 0) {
-    throw new Error('No playable notes found in MIDI file' + (skipped > 0 ? ` (${skipped} notes outside C2-B5 range)` : ''));
+    throw new Error(`No playable notes found in MIDI file${skipped > 0 ? ` (${skipped} notes outside C2-B5 range)` : ''}`);
   }
 
   if (skipped > 0) {

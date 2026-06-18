@@ -48,7 +48,7 @@ async function init(): Promise<void> {
   const speedUp = document.getElementById('speed-up')!;
 
   function updateSpeedDisplay(): void {
-    speedValue.textContent = Math.round(game.speedMultiplier * 100) + '%';
+    speedValue.textContent = `${Math.round(game.speedMultiplier * 100)}%`;
   }
 
   function changeSpeed(delta: number): void {
@@ -111,7 +111,7 @@ async function init(): Promise<void> {
         menu.addSong(song);
       } catch (err: unknown) {
         const message = err instanceof Error ? err.message : String(err);
-        alert('Failed to import MIDI: ' + message);
+        alert(`Failed to import MIDI: ${message}`);
         console.error(err);
       }
       importInput.value = '';

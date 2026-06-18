@@ -26,7 +26,7 @@ export class MidiInput {
       this.midiAccess.onstatechange = () => this._onStateChange();
       this._connectInputs();
       return true;
-    } catch (err) {
+    } catch (_err) {
       this._updateStatus(false, 'MIDI access denied');
       return false;
     }

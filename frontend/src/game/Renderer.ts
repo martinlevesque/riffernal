@@ -49,11 +49,9 @@ export interface Particle {
   life: number;
 }
 
-const SHEET_HEIGHT = 140;
 const SHEET_STAFF_LINE_SPACING = 10;
 const SHEET_NOTE_RADIUS = 4.5;
 const SHEET_BEATS_VISIBLE = 18;
-const SHEET_PX_PER_BEAT = 13;
 const SHEET_BEATS_PER_MEASURE = 4;
 
 function roundRect(ctx: CanvasRenderingContext2D, x: number, y: number, w: number, h: number, r: number): void {
@@ -93,13 +91,6 @@ interface NoteLayout {
   scaledTailHeight: number;
   cornerRadius: number;
   scale: number;
-}
-
-interface NotePixelBounds {
-  minY: number | null;
-  maxY: number | null;
-  bottomY: number | null;
-  topY: number | null;
 }
 
 export class Renderer {
@@ -287,7 +278,7 @@ export class Renderer {
     ctx.fill();
   }
 
-  private _noteOverlay(ctx: CanvasRenderingContext2D, x: number, y: number, w: number, h: number, stops: [number, string][]): CanvasGradient {
+  private _noteOverlay(ctx: CanvasRenderingContext2D, x: number, y: number, _w: number, h: number, stops: [number, string][]): CanvasGradient {
     const grad = ctx.createLinearGradient(x, y, x, y + h);
     for (const [pos, color] of stops) grad.addColorStop(pos, color);
     return grad;

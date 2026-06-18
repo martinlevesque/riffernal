@@ -5,6 +5,8 @@
 Whenever a change is made to the codebase, always run the end-to-end tests at the end to verify nothing is broken:
 
 ```bash
+bun run lint
+bun run typecheck
 bun run test
 ```
 
@@ -29,3 +31,14 @@ Tests start a local dev server automatically, no manual server startup needed.
   - JS: `dist/js/` (from tsc)
   - Static assets copied from `frontend/`: `dist/index.html`, `dist/css/`, `dist/assets/`
 - Run `bun run typecheck` to type-check without emitting
+
+## Linting
+
+- **Tool**: Biome
+- **Command**: `bun run lint`
+- **Config**: `biome.json`
+- **CI**: GitHub Actions (`.github/workflows/lint.yml`)
+- **Auto-fix**: `bun run lint:fix`
+- **Format**: `bun run format` (check) / `bun run format:fix` (write)
+- `noNonNullAssertion` is disabled (idiomatic `getElementById!` DOM pattern)
+- `noExplicitAny` is disabled in `tests/` (browser-side dynamic imports)

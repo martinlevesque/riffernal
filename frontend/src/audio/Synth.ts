@@ -16,6 +16,7 @@ export class Synth {
 
   init(): void {
     if (this.initialized) return;
+    // biome-ignore lint/suspicious/noExplicitAny: vendor-prefixed AudioContext not in lib.dom types
     this.ctx = new (window.AudioContext || (window as any).webkitAudioContext)();
 
     this.compressor = this.ctx.createDynamicsCompressor();
@@ -50,7 +51,7 @@ export class Synth {
 
     const midi = noteNameToMidi(noteName);
     if (midi < 0) return;
-    const freq = 440 * Math.pow(2, (midi - 69) / 12);
+    const freq = 440 * 2 ** ((midi - 69) / 12);
     const now = this.ctx!.currentTime;
 
     const osc1 = this.ctx!.createOscillator();
