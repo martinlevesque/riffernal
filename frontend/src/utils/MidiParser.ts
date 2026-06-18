@@ -285,14 +285,14 @@ export function parseMidi(arrayBuffer: ArrayBuffer, filename: string): Song {
   }
 
   if (notes.length === 0) {
-    throw new Error(`No playable notes found in MIDI file${skipped > 0 ? ` (${skipped} notes outside C2-B5 range)` : ''}`);
+    throw new Error(`No playable notes found in MIDI file${skipped > 0 ? ` (${skipped} notes outside A0–C8 range)` : ''}`);
   }
 
   if (skipped > 0) {
-    console.warn(`Skipped ${skipped} notes outside the C2–B5 range`);
+    console.warn(`Skipped ${skipped} notes outside the A0–C8 range`);
   }
   if (transposed > 0) {
-    console.warn(`Transposed ${transposed} notes into the C2–B5 range`);
+    console.warn(`Transposed ${transposed} notes into the A0–C8 range`);
   }
 
   notes.sort((a, b) => a.time - b.time);

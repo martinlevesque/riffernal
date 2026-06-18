@@ -10,6 +10,8 @@ test('game renders chord notes at same center Y', async ({ page }) => {
     const { NoteManager } = await import('/js/game/NoteManager.js');
     // @ts-expect-error browser-side dynamic import
     const { Renderer } = await import('/js/game/Renderer.js');
+    // @ts-expect-error browser-side dynamic import
+    const { getPianoKeyLayout } = await import('/js/utils/notes.js');
 
     const song = {
       title: 'Full Pipeline Test',
@@ -50,17 +52,17 @@ test('game renders chord notes at same center Y', async ({ page }) => {
 
     renderer.clear();
     for (const note of chordNotes) {
-      renderer.drawNote(note.lane, note.y, note.height, note.color, note.alpha, renderer.sheetBottom);
+      renderer.drawNote(note.lane, note.y, note.height, note.color, note.alpha, renderer.sheetBottom, note.key);
     }
 
     const ctx = renderer.ctx;
     const imageData = ctx.getImageData(0, 0, 960, 800);
     const pixels = imageData.data;
-    const laneWidth = 960 / 48;
 
-    function findNoteCenter(laneIndex: number): number | null {
-      const xStart = Math.floor(laneIndex * laneWidth + 1);
-      const xEnd = Math.floor((laneIndex + 1) * laneWidth - 1);
+    function findNoteCenter(noteName: string): number | null {
+      const layout = getPianoKeyLayout(noteName, 960);
+      const xStart = Math.floor(layout.x + 1);
+      const xEnd = Math.floor(layout.x + layout.width - 1);
       const ys: number[] = [];
       for (let y = 0; y < 800; y++) {
         let hasPixel = false;
@@ -74,7 +76,7 @@ test('game renders chord notes at same center Y', async ({ page }) => {
       return (ys[0] + ys[ys.length - 1]) / 2;
     }
 
-    const centers = chordNotes.map((n: any) => findNoteCenter(n.lane));
+    const centers = chordNotes.map((n: any) => findNoteCenter(n.key));
 
     return {
       yUniqueCount: yValues.length,
