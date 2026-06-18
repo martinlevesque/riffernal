@@ -1,5 +1,5 @@
 import { midiToNoteName } from '../utils/helpers.js';
-import { NOTE_NAMES } from '../utils/notes.js';
+import { NOTE_TO_LANE } from '../utils/notes.js';
 import type { NoteCallback, ConnectionChangeCallback } from './types.js';
 
 export class MidiInput {
@@ -72,7 +72,7 @@ export class MidiInput {
     const velocity = data2;
 
     const noteName = midiToNoteName(noteNumber);
-    if (!noteName || !NOTE_NAMES.includes(noteName)) return;
+    if (!noteName || !NOTE_TO_LANE.has(noteName)) return;
 
     if (command === 0x90 && velocity > 0) {
       if (this.onNoteOn) this.onNoteOn(noteName, `midi_${noteNumber}`);

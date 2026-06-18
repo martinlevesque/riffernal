@@ -10,6 +10,10 @@ export const NOTE_NAMES: string[] = [
   'C8',
 ];
 
+export const NOTE_TO_LANE: Map<string, number> = new Map(
+  NOTE_NAMES.map((name, i) => [name, i])
+);
+
 const BASE_NOTE_COLORS = [
   '#ff2244', '#ff4466', '#ff6622', '#ff8844', '#ffaa22', '#ffdd22',
   '#ddff22', '#22ff66', '#22ddaa', '#2288ff', '#4466ff', '#aa44ff',
@@ -43,15 +47,30 @@ export interface PianoKeyLayout {
   isBlack: boolean;
 }
 
+const _layoutCache = new Map<string, PianoKeyLayout>();
+let _cachedWidth = -1;
+
 export function getPianoKeyLayout(noteName: string, totalWidth: number): PianoKeyLayout {
+  if (totalWidth !== _cachedWidth) {
+    _layoutCache.clear();
+    _cachedWidth = totalWidth;
+  }
+
+  const cached = _layoutCache.get(noteName);
+  if (cached) return cached;
+
   const whiteKeyWidth = totalWidth / WHITE_KEY_COUNT;
   const blackKeyWidth = whiteKeyWidth * BLACK_KEY_WIDTH_RATIO;
 
+  let result: PianoKeyLayout;
   if (!noteName.includes('#')) {
     const idx = WHITE_KEY_INDEX[noteName] ?? 0;
-    return { x: idx * whiteKeyWidth, width: whiteKeyWidth, isBlack: false };
+    result = { x: idx * whiteKeyWidth, width: whiteKeyWidth, isBlack: false };
+  } else {
+    const leftIdx = BLACK_KEY_LEFT_WHITE[noteName] ?? 0;
+    const centerX = (leftIdx + 0.5) * whiteKeyWidth;
+    result = { x: centerX - blackKeyWidth / 2, width: blackKeyWidth, isBlack: true };
   }
-  const leftIdx = BLACK_KEY_LEFT_WHITE[noteName] ?? 0;
-  const centerX = (leftIdx + 0.5) * whiteKeyWidth;
-  return { x: centerX - blackKeyWidth / 2, width: blackKeyWidth, isBlack: true };
+  _layoutCache.set(noteName, result);
+  return result;
 }

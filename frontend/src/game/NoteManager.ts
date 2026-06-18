@@ -1,4 +1,4 @@
-import { NOTE_NAMES, NOTE_COLORS } from '../utils/notes.js';
+import { NOTE_TO_LANE, NOTE_COLORS } from '../utils/notes.js';
 import type { Song, Note } from '../utils/MidiParser.js';
 import { Scoring, TIMING, TAP_NOTE_THRESHOLD, SCORE_VALUES } from './scoring.js';
 import type { NoteGrade } from './scoring.js';
@@ -17,6 +17,7 @@ export interface SongNote extends Note {
   grade: NoteGrade | null;
   earnedScore: number;
   resolved: boolean;
+  activated: boolean;
 }
 
 export interface ActiveNoteRender {
@@ -53,38 +54,59 @@ export class NoteManager {
   scoring = new Scoring();
   notes: SongNote[] = [];
   activeNotes: SongNote[] = [];
+  trebleNotes: SongNote[] = [];
+  bassNotes: SongNote[] = [];
   onMiss: ((note: SongNote) => void) | null = null;
   onResolve: ((result: ResolveResult) => void) | null = null;
+  private _nextNoteIndex = 0;
+  private _resolvedCount = 0;
 
   loadSong(songData: Song): void {
     this.notes = songData.notes.map((n: Note) => ({
       ...n,
       hit: false,
       missed: false,
-      lane: NOTE_NAMES.indexOf(n.key),
+      lane: NOTE_TO_LANE.get(n.key) ?? -1,
       holding: false,
       pressStartTime: 0,
       failing: false,
       grade: null,
       earnedScore: 0,
       resolved: false,
+      activated: false,
     })).sort((a, b) => a.time - b.time);
     this.scoring.reset(this.notes.length);
     this.activeNotes = [];
+    this._nextNoteIndex = 0;
+    this._resolvedCount = 0;
+    this.trebleNotes = [];
+    this.bassNotes = [];
+    for (const note of this.notes) {
+      if (note.key <= 'B3') {
+        this.bassNotes.push(note);
+      } else {
+        this.trebleNotes.push(note);
+      }
+    }
   }
 
   update(currentTime: number, height: number): void {
     const hitZoneY = height * HIT_ZONE_Y_RATIO;
     const lookAhead = hitZoneY / SCROLL_SPEED;
 
-    for (const note of this.notes) {
-      if (note.resolved) continue;
+    for (let i = this._nextNoteIndex; i < this.notes.length; i++) {
+      const note = this.notes[i];
+      if (note.resolved) {
+        this._nextNoteIndex = i + 1;
+        continue;
+      }
 
       if (note.holding) {
         if (currentTime >= note.time + note.duration) {
           note.hit = true;
           note.holding = false;
           note.resolved = true;
+          this._resolvedCount++;
           if (this.onResolve) this.onResolve({ note, score: note.earnedScore, grade: note.grade });
         }
         continue;
@@ -93,6 +115,7 @@ export class NoteManager {
       if (note.failing) {
         if (currentTime >= note.time + note.duration) {
           note.resolved = true;
+          this._resolvedCount++;
           if (this.onResolve) this.onResolve({ note, score: note.earnedScore, grade: note.grade });
         }
         continue;
@@ -104,6 +127,7 @@ export class NoteManager {
         note.missed = true;
         note.failing = true;
         note.resolved = true;
+        this._resolvedCount++;
         note.earnedScore = 0;
         this.scoring.registerMiss();
         if (this.onMiss) this.onMiss(note);
@@ -111,18 +135,22 @@ export class NoteManager {
         continue;
       }
 
-      if (timeDiff <= lookAhead && !this.activeNotes.includes(note)) {
+      if (timeDiff <= lookAhead && !note.activated) {
+        note.activated = true;
         this.activeNotes.push(note);
       }
     }
 
-    this.activeNotes = this.activeNotes.filter(n => {
-      if ((n.hit || n.missed) && !n.failing) return false;
-      const timeDiff = n.time - currentTime;
+    let writeIdx = 0;
+    for (let i = 0; i < this.activeNotes.length; i++) {
+      const n = this.activeNotes[i];
+      if ((n.hit || n.missed) && !n.failing) continue;
       const noteHeight = Math.max(12, n.duration * SCROLL_SPEED);
-      const y = hitZoneY - timeDiff * SCROLL_SPEED - noteHeight;
-      return y < height + 50;
-    });
+      const y = hitZoneY - (n.time - currentTime) * SCROLL_SPEED - noteHeight;
+      if (y >= height + 50) continue;
+      this.activeNotes[writeIdx++] = n;
+    }
+    this.activeNotes.length = writeIdx;
   }
 
   checkHit(currentTime: number, lane: number): HitResult | null {
@@ -149,6 +177,7 @@ export class NoteManager {
     if (bestNote.duration <= TAP_NOTE_THRESHOLD) {
       bestNote.hit = true;
       bestNote.resolved = true;
+      this._resolvedCount++;
       if (this.onResolve) this.onResolve({ note: bestNote, score: bestNote.earnedScore, grade: result });
     } else {
       bestNote.holding = true;
@@ -176,6 +205,7 @@ export class NoteManager {
       holdingNote.hit = true;
       holdingNote.holding = false;
       holdingNote.resolved = true;
+      this._resolvedCount++;
       if (this.onResolve) this.onResolve({ note: holdingNote, score: holdingNote.earnedScore, grade: holdingNote.grade });
       return null;
     }
@@ -196,7 +226,7 @@ export class NoteManager {
   }
 
   isComplete(): boolean {
-    return this.notes.length > 0 && this.notes.every(n => n.resolved);
+    return this._resolvedCount >= this.notes.length && this.notes.length > 0;
   }
 
   getActiveNotes(currentTime: number, height: number): ActiveNoteRender[] {

@@ -1,7 +1,7 @@
 import { Renderer } from './Renderer.js';
 import { NoteManager, SCROLL_SPEED, HIT_ZONE_Y_RATIO } from './NoteManager.js';
 import { NoteGrade, gradeLabel } from './scoring.js';
-import { NOTE_NAMES, NOTE_COLORS, getPianoKeyLayout } from '../utils/notes.js';
+import { NOTE_TO_LANE, NOTE_COLORS, getPianoKeyLayout } from '../utils/notes.js';
 import { formatScore } from '../utils/helpers.js';
 import type { Synth } from '../audio/Synth.js';
 import type { KeyboardInput } from '../input/KeyboardInput.js';
@@ -42,7 +42,10 @@ export class Game {
   private playScreen: HTMLElement;
   private resultsScreen: HTMLElement;
   private menuScreen: HTMLElement;
+  private resizeHandle: HTMLElement;
   private _onResize: () => void;
+  private _boundLoop: () => void;
+  private _lastFrameTime = 0;
 
   constructor(canvas: HTMLCanvasElement, synth: Synth, keyboardInput: KeyboardInput, midiInput: MidiInput) {
     this.canvas = canvas;
@@ -55,9 +58,49 @@ export class Game {
     this.playScreen = document.getElementById('play-screen')!;
     this.resultsScreen = document.getElementById('results-screen')!;
     this.menuScreen = document.getElementById('menu-screen')!;
+    this.resizeHandle = document.getElementById('sheet-resize-handle')!;
 
     this._onResize = () => this.renderer.resize();
     window.addEventListener('resize', this._onResize);
+
+    this._boundLoop = (): void => {
+      const now = performance.now() / 1000;
+      const delta = this._lastFrameTime ? now - this._lastFrameTime : 1 / 60;
+      this._lastFrameTime = now;
+      this.currentTime = this.refGameTime + (now - this.refRealTime) * this.speedMultiplier;
+      this.scrollOffset += SCROLL_SPEED * delta * this.speedMultiplier;
+
+      this.renderer.clear();
+      this.renderer.drawHighway(this.scrollOffset);
+
+      if (this.state === 'playing') {
+        this.noteManager.update(this.currentTime, this.renderer.height);
+
+        const songDuration = this.noteManager.getSongDuration();
+        this.renderer.drawSheetMusic(this.noteManager.trebleNotes, this.noteManager.bassNotes, this.currentTime, songDuration);
+
+        const activeNotes = this.noteManager.getActiveNotes(this.currentTime, this.renderer.height);
+        for (const note of activeNotes) {
+          this.renderer.drawNote(note.lane, note.y, note.height, note.color, note.alpha, this.renderer.sheetBottom, note.key, note.holding, note.failing);
+        }
+
+        this.scoreDisplay?.update(this.noteManager.scoring);
+
+        if (this.noteManager.isComplete()) {
+          this._showResults();
+        }
+      }
+
+      this.resizeHandle.style.top = `${this.renderer.sheetBottom}px`;
+
+      this.renderer.drawParticles();
+      this.renderer.drawPiano(this.pressedLanes);
+      this.renderer.drawHitZone(this.pressedLanes);
+
+      if (this.state !== 'menu') {
+        this.animationId = requestAnimationFrame(this._boundLoop);
+      }
+    };
   }
 
   start(song: Song): void {
@@ -108,12 +151,13 @@ export class Game {
       }
     };
 
-    this._loop();
+    this._lastFrameTime = 0;
+    this._boundLoop();
   }
 
   private _handleNoteOn(noteName: string, _id: string): void {
-    const lane = NOTE_NAMES.indexOf(noteName);
-    if (lane < 0) return;
+    const lane = NOTE_TO_LANE.get(noteName);
+    if (lane === undefined) return;
 
     this.pressedLanes.add(lane);
     this.synth.noteOn(noteName);
@@ -139,52 +183,14 @@ export class Game {
   }
 
   private _handleNoteOff(noteName: string, _id: string): void {
-    const lane = NOTE_NAMES.indexOf(noteName);
-    if (lane < 0) return;
+    const lane = NOTE_TO_LANE.get(noteName);
+    if (lane === undefined) return;
 
     this.pressedLanes.delete(lane);
     this.synth.noteOff(noteName);
 
     if (this.state === 'playing') {
       this.noteManager.checkRelease(this.currentTime, lane);
-    }
-  }
-
-  private _loop(): void {
-    const now = performance.now() / 1000;
-    this.currentTime = this.refGameTime + (now - this.refRealTime) * this.speedMultiplier;
-    this.scrollOffset += (SCROLL_SPEED / 60) * this.speedMultiplier;
-
-    this.renderer.clear();
-    this.renderer.drawHighway(this.scrollOffset);
-
-    if (this.state === 'playing') {
-      this.noteManager.update(this.currentTime, this.renderer.height);
-
-      const songDuration = this.noteManager.getSongDuration();
-      this.renderer.drawSheetMusic(this.noteManager.notes, this.currentTime, songDuration);
-
-      const activeNotes = this.noteManager.getActiveNotes(this.currentTime, this.renderer.height);
-      for (const note of activeNotes) {
-        this.renderer.drawNote(note.lane, note.y, note.height, note.color, note.alpha, this.renderer.sheetBottom, note.key, note.holding, note.failing);
-      }
-
-      this.scoreDisplay?.update(this.noteManager.scoring);
-
-      if (this.noteManager.isComplete()) {
-        this._showResults();
-      }
-    }
-
-    const handle = document.getElementById('sheet-resize-handle')!;
-    handle.style.top = `${this.renderer.sheetBottom}px`;
-
-    this.renderer.drawParticles();
-    this.renderer.drawPiano(this.pressedLanes);
-    this.renderer.drawHitZone(this.pressedLanes);
-
-    if (this.state !== 'menu') {
-      this.animationId = requestAnimationFrame(() => this._loop());
     }
   }
 
