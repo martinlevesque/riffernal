@@ -122,6 +122,13 @@ export class Renderer {
   sheetBottom = 0;
   sheetScale = 1.0;
   private _keyDisplayMap: Record<string, string>;
+  private _staffCache: HTMLCanvasElement | null = null;
+  private _cachedStaffScale = -1;
+  private _cachedStaffWidth = -1;
+  private _flameCache = new Map<number, HTMLCanvasElement>();
+  private _pianoCache: HTMLCanvasElement | null = null;
+  private _cachedPianoState = '';
+  private _cachedPianoWidth = -1;
 
   constructor(canvas: HTMLCanvasElement) {
     this.canvas = canvas;
@@ -146,7 +153,7 @@ export class Renderer {
     this.ctx.fillRect(0, 0, this.width, this.height);
   }
 
-  drawHighway(scrollOffset: number): void {
+  drawHighway(_scrollOffset: number): void {
     const ctx = this.ctx;
     const hitZoneY = this.height * HIT_ZONE_Y_RATIO;
     const highwayTop = 0;
@@ -166,50 +173,62 @@ export class Renderer {
       ctx.stroke();
     }
 
-    const lineSpacing = 50;
-    const lineOffset = scrollOffset % lineSpacing;
-    ctx.strokeStyle = '#151515';
-    ctx.lineWidth = 0.5;
-    for (let y = -lineOffset; y < highwayBottom; y += lineSpacing) {
-      ctx.beginPath();
-      ctx.moveTo(0, y);
-      ctx.lineTo(this.width, y);
-      ctx.stroke();
-    }
   }
 
   drawHitZone(pressedLanes: Set<number>): void {
-    const ctx = this.ctx;
     const hitZoneY = this.height * HIT_ZONE_Y_RATIO;
-
-    for (let i = 0; i < NOTE_NAMES.length; i++) {
-      const layout = getPianoKeyLayout(NOTE_NAMES[i], this.width);
-      const isPressed = pressedLanes.has(i);
-      const color = NOTE_COLORS[NOTE_NAMES[i]] || '#ffffff';
-
-      ctx.globalAlpha = isPressed ? 0.5 : 0.8;
-      ctx.fillStyle = isPressed ? color : '#222';
-      ctx.fillRect(layout.x, hitZoneY - 4, layout.width, 8);
-
-      if (isPressed) {
-        ctx.globalAlpha = 0.15;
-        ctx.fillStyle = color;
-        ctx.fillRect(layout.x, hitZoneY - 30, layout.width, 60);
-      }
+    const offsetY = hitZoneY - 30;
+    this._ensureBottomCache(pressedLanes);
+    if (this._pianoCache) {
+      const regionH = 34;
+      this.ctx.drawImage(this._pianoCache, 0, 0, this.width, regionH, 0, offsetY, this.width, regionH);
     }
-    ctx.globalAlpha = 1;
   }
 
-  drawPiano(pressedLanes: Set<number>): void {
-    const ctx = this.ctx;
+  private _ensureBottomCache(pressedLanes: Set<number>): void {
+    const state = [...pressedLanes].sort((a, b) => a - b).join(',');
+    if (state === this._cachedPianoState && this.width === this._cachedPianoWidth && this._pianoCache) return;
+    this._cachedPianoState = state;
+    this._cachedPianoWidth = this.width;
+
+    const hitZoneY = this.height * HIT_ZONE_Y_RATIO;
     const pianoTop = this.height - this.height * PIANO_HEIGHT_RATIO;
     const pianoH = this.height * PIANO_HEIGHT_RATIO;
+    const totalH = this.height - hitZoneY + 30;
+    const offsetY = hitZoneY - 30;
+
+    if (!this._pianoCache || this._pianoCache.width !== this.width || this._pianoCache.height !== totalH) {
+      this._pianoCache = document.createElement('canvas');
+      this._pianoCache.width = this.width;
+      this._pianoCache.height = Math.ceil(totalH);
+    }
+    const ctx = this._pianoCache.getContext('2d')!;
+    ctx.clearRect(0, 0, this.width, totalH);
+
     const whiteKeyWidth = this.width / WHITE_KEY_COUNT;
     const blackKeyWidth = whiteKeyWidth * BLACK_KEY_WIDTH_RATIO;
     const blackKeyHeight = pianoH * 0.56;
 
+    for (let i = 0; i < NOTE_NAMES.length; i++) {
+      const noteName = NOTE_NAMES[i];
+      const layout = getPianoKeyLayout(noteName, this.width);
+      const isPressed = pressedLanes.has(i);
+      const color = NOTE_COLORS[noteName] || '#ffffff';
+
+      ctx.globalAlpha = isPressed ? 0.5 : 0.8;
+      ctx.fillStyle = isPressed ? color : '#222';
+      ctx.fillRect(layout.x, hitZoneY - 4 - offsetY, layout.width, 8);
+
+      if (isPressed) {
+        ctx.globalAlpha = 0.15;
+        ctx.fillStyle = color;
+        ctx.fillRect(layout.x, hitZoneY - 30 - offsetY, layout.width, 60);
+      }
+    }
+    ctx.globalAlpha = 1;
+
     ctx.fillStyle = '#0a0a0a';
-    ctx.fillRect(0, pianoTop - 2, this.width, pianoH + 2);
+    ctx.fillRect(0, pianoTop - 2 - offsetY, this.width, pianoH + 2);
 
     for (let i = 0; i < NOTE_NAMES.length; i++) {
       const noteName = NOTE_NAMES[i];
@@ -220,25 +239,25 @@ export class Renderer {
       const color = NOTE_COLORS[noteName] || '#ffffff';
 
       ctx.fillStyle = isPressed ? '#555' : '#2a2a2a';
-      ctx.fillRect(layout.x + 1, pianoTop + 1, whiteKeyWidth - 2, pianoH - 2);
+      ctx.fillRect(layout.x + 1, pianoTop + 1 - offsetY, whiteKeyWidth - 2, pianoH - 2);
 
       if (isPressed) {
         ctx.shadowColor = color;
         ctx.shadowBlur = 15;
         ctx.strokeStyle = color;
         ctx.lineWidth = 2;
-        ctx.strokeRect(layout.x + 1, pianoTop + 1, whiteKeyWidth - 2, pianoH - 2);
+        ctx.strokeRect(layout.x + 1, pianoTop + 1 - offsetY, whiteKeyWidth - 2, pianoH - 2);
         ctx.shadowBlur = 0;
       }
 
       ctx.strokeStyle = '#333';
       ctx.lineWidth = 1;
       ctx.beginPath();
-      ctx.moveTo(layout.x, pianoTop);
-      ctx.lineTo(layout.x, this.height);
+      ctx.moveTo(layout.x, pianoTop - offsetY);
+      ctx.lineTo(layout.x, this.height - offsetY);
       ctx.stroke();
 
-      const labelY = pianoTop + pianoH * 0.72;
+      const labelY = pianoTop - offsetY + pianoH * 0.72;
       const shortName = noteName.replace(/\d/g, '');
       ctx.fillStyle = isPressed ? '#fff' : '#666';
       ctx.font = `${Math.max(11, whiteKeyWidth * 0.3)}px Courier New`;
@@ -261,30 +280,31 @@ export class Renderer {
       const isPressed = pressedLanes.has(i);
 
       ctx.fillStyle = isPressed ? '#666' : '#111';
-      roundRect(ctx, layout.x, pianoTop, blackKeyWidth, blackKeyHeight, 2);
+      const ctxR = ctx as CanvasRenderingContext2D;
+      roundRect(ctxR, layout.x, pianoTop - offsetY, blackKeyWidth, blackKeyHeight, 2);
       ctx.fill();
 
       if (isPressed) {
-        const color = NOTE_COLORS[noteName] || '#ffffff';
-        ctx.shadowColor = color;
+        const bcolor = NOTE_COLORS[noteName] || '#ffffff';
+        ctx.shadowColor = bcolor;
         ctx.shadowBlur = 12;
-        ctx.strokeStyle = color;
+        ctx.strokeStyle = bcolor;
         ctx.lineWidth = 1.5;
-        roundRect(ctx, layout.x + 1, pianoTop + 1, blackKeyWidth - 2, blackKeyHeight - 2, 1);
+        roundRect(ctxR, layout.x + 1, pianoTop + 1 - offsetY, blackKeyWidth - 2, blackKeyHeight - 2, 1);
         ctx.stroke();
         ctx.shadowBlur = 0;
       }
 
       ctx.strokeStyle = '#000';
       ctx.lineWidth = 1;
-      roundRect(ctx, layout.x, pianoTop, blackKeyWidth, blackKeyHeight, 2);
+      roundRect(ctxR, layout.x, pianoTop - offsetY, blackKeyWidth, blackKeyHeight, 2);
       ctx.stroke();
 
       ctx.save();
-      roundRect(ctx, layout.x + 1, pianoTop + 1, blackKeyWidth - 2, blackKeyHeight - 2, 1);
+      roundRect(ctxR, layout.x + 1, pianoTop + 1 - offsetY, blackKeyWidth - 2, blackKeyHeight - 2, 1);
       ctx.clip();
 
-      const blkLabelY = pianoTop + blackKeyHeight - 13;
+      const blkLabelY = pianoTop - offsetY + blackKeyHeight - 13;
       const blkShort = noteName.replace(/\d/g, '');
       ctx.fillStyle = isPressed ? '#ddd' : '#666';
       ctx.font = `${Math.max(6, blackKeyWidth * 0.35)}px Courier New`;
@@ -300,13 +320,15 @@ export class Renderer {
 
       ctx.restore();
     }
+  }
 
-    ctx.strokeStyle = '#333';
-    ctx.lineWidth = 1;
-    ctx.beginPath();
-    ctx.moveTo(this.width, pianoTop);
-    ctx.lineTo(this.width, this.height);
-    ctx.stroke();
+  drawPiano(pressedLanes: Set<number>): void {
+    const hitZoneY = this.height * HIT_ZONE_Y_RATIO;
+    const offsetY = hitZoneY - 30;
+    this._ensureBottomCache(pressedLanes);
+    if (this._pianoCache) {
+      this.ctx.drawImage(this._pianoCache, 0, offsetY);
+    }
   }
 
   private _getKeyForNote(noteName: string): string {
@@ -348,9 +370,9 @@ export class Renderer {
     ctx.fill();
   }
 
-  private _noteOverlay(ctx: CanvasRenderingContext2D, x: number, y: number, _w: number, h: number, stops: [number, string][]): CanvasGradient {
+  private _getGradient(ctx: CanvasRenderingContext2D, x: number, y: number, _w: number, h: number, _stops: [number, string][]): CanvasGradient {
     const grad = ctx.createLinearGradient(x, y, x, y + h);
-    for (const [pos, color] of stops) grad.addColorStop(pos, color);
+    for (const [pos, color] of _stops) grad.addColorStop(pos, color);
     return grad;
   }
 
@@ -360,19 +382,17 @@ export class Renderer {
     const L = this._noteLayout(laneIndex, y, noteHeight, sheetBottom, noteName);
 
     ctx.globalAlpha = alpha;
-    ctx.shadowColor = drawColor;
-    ctx.shadowBlur = 8 * L.scale;
 
     if (L.scaledTailHeight > 0.5) {
       this._drawNotePart(ctx, L.drawX, L.drawY, L.scaledWidth, L.scaledTailHeight, L.cornerRadius, drawColor);
       this._drawNotePart(ctx, L.drawX, L.drawY, L.scaledWidth, L.scaledTailHeight, L.cornerRadius,
-        this._noteOverlay(ctx, L.drawX, L.drawY, L.scaledWidth, L.scaledTailHeight, NOTE_TAIL_GRADIENT));
+        this._getGradient(ctx, L.drawX, L.drawY, L.scaledWidth, L.scaledTailHeight, NOTE_TAIL_GRADIENT));
     }
 
     const headDrawY = L.drawY + L.scaledTailHeight;
     this._drawNotePart(ctx, L.drawX, headDrawY, L.scaledWidth, L.scaledHeadHeight, L.cornerRadius, drawColor);
     this._drawNotePart(ctx, L.drawX, headDrawY, L.scaledWidth, L.scaledHeadHeight, L.cornerRadius,
-      this._noteOverlay(ctx, L.drawX, headDrawY, L.scaledWidth, L.scaledHeadHeight, NOTE_HEAD_GRADIENT));
+      this._getGradient(ctx, L.drawX, headDrawY, L.scaledWidth, L.scaledHeadHeight, NOTE_HEAD_GRADIENT));
 
     if (holding) {
       const cx = L.drawX + L.scaledWidth / 2;
@@ -384,7 +404,6 @@ export class Renderer {
       this._drawNoteLabel(ctx, noteName, L.drawX, headDrawY, L.scaledWidth, L.scaledHeadHeight);
     }
 
-    ctx.shadowBlur = 0;
     ctx.globalAlpha = 1;
   }
 
@@ -400,56 +419,122 @@ export class Renderer {
     ctx.fillText(shortName, drawX + width / 2, drawY + height);
   }
 
-  private _drawFlame(ctx: CanvasRenderingContext2D, cx: number, baseY: number, width: number): void {
-    const t = performance.now() / 120;
-    const flicker = 0.75 + 0.25 * Math.sin(t * 4.7) * Math.sin(t * 2.1);
-    const sway = 0.08 * Math.sin(t * 3.3);
+  private _getFlameSprite(w: number): HTMLCanvasElement {
+    const bucket = Math.round(w / 2) * 2;
+    const cached = this._flameCache.get(bucket);
+    if (cached) return cached;
 
-    const h = width * 2.5 * flicker;
-    const w = width * 0.6 * flicker;
+    const baseW = Math.max(4, bucket);
+    const baseH = baseW * 3.5;
 
-    ctx.save();
+    const sprite = document.createElement('canvas');
+    sprite.width = Math.ceil(baseW * 2);
+    sprite.height = Math.ceil(baseH);
+    const fctx = sprite.getContext('2d')!;
+    const cx = baseW;
+    const baseY = baseH;
 
-    ctx.shadowColor = '#ff6600';
-    ctx.shadowBlur = 12;
-
-    const grad = ctx.createRadialGradient(cx, baseY, 0, cx, baseY, h);
+    const grad = fctx.createRadialGradient(cx, baseY, 0, cx, baseY, baseH);
     grad.addColorStop(0, '#ffaa33');
     grad.addColorStop(0.3, '#ff6600');
     grad.addColorStop(0.6, '#cc3300');
     grad.addColorStop(1, 'rgba(200, 50, 0, 0)');
 
-    ctx.beginPath();
-    ctx.moveTo(cx - w, baseY);
-    ctx.quadraticCurveTo(cx - w + sway * w, baseY - h * 0.6, cx + sway * w * 0.5, baseY - h);
-    ctx.quadraticCurveTo(cx + w + sway * w, baseY - h * 0.6, cx + w, baseY);
-    ctx.closePath();
-    ctx.fillStyle = grad;
-    ctx.fill();
+    fctx.beginPath();
+    fctx.moveTo(cx - baseW * 0.6, baseY);
+    fctx.quadraticCurveTo(cx, baseY - baseH * 0.6, cx, baseY - baseH);
+    fctx.quadraticCurveTo(cx, baseY - baseH * 0.6, cx + baseW * 0.6, baseY);
+    fctx.closePath();
+    fctx.fillStyle = grad;
+    fctx.fill();
 
-    ctx.shadowBlur = 6;
-    ctx.shadowColor = '#ffdd44';
-    const innerH = h * 0.45;
-    const innerW = w * 0.4;
-    const innerFlicker = 0.8 + 0.2 * Math.sin(t * 5.3 + 1.4);
-    const grad2 = ctx.createRadialGradient(cx, baseY - innerH * 0.3, 0, cx, baseY, innerH);
+    const innerH = baseH * 0.45;
+    const innerW = baseW * 0.4;
+    const grad2 = fctx.createRadialGradient(cx, baseY - innerH * 0.3, 0, cx, baseY, innerH);
     grad2.addColorStop(0, '#ffeecc');
     grad2.addColorStop(0.4, '#ffaa44');
     grad2.addColorStop(1, 'rgba(255, 100, 0, 0)');
 
-    ctx.beginPath();
-    ctx.moveTo(cx - innerW * innerFlicker, baseY);
-    ctx.quadraticCurveTo(cx - innerW * innerFlicker, baseY - innerH * 0.5, cx, baseY - innerH * innerFlicker);
-    ctx.quadraticCurveTo(cx + innerW * innerFlicker, baseY - innerH * 0.5, cx + innerW * innerFlicker, baseY);
-    ctx.closePath();
-    ctx.fillStyle = grad2;
-    ctx.fill();
+    fctx.beginPath();
+    fctx.moveTo(cx - innerW, baseY);
+    fctx.quadraticCurveTo(cx - innerW, baseY - innerH * 0.5, cx, baseY - innerH);
+    fctx.quadraticCurveTo(cx + innerW, baseY - innerH * 0.5, cx + innerW, baseY);
+    fctx.closePath();
+    fctx.fillStyle = grad2;
+    fctx.fill();
 
-    ctx.restore();
+    this._flameCache.set(bucket, sprite);
+    return sprite;
   }
 
-  drawSheetMusic(notes: SongNote[], currentTime: number, songDuration: number): void {
-    if (!notes.length || songDuration <= 0) return;
+  private _drawFlame(ctx: CanvasRenderingContext2D, cx: number, baseY: number, width: number): void {
+    const sprite = this._getFlameSprite(width);
+    const scale = width / Math.max(4, Math.round(width / 2) * 2);
+    const flicker = 0.85 + 0.15 * Math.sin(performance.now() / 120 * 4.7);
+    ctx.globalAlpha = flicker;
+    ctx.drawImage(
+      sprite,
+      cx - sprite.width / 2 * scale,
+      baseY - sprite.height * scale * flicker,
+      sprite.width * scale,
+      sprite.height * scale * flicker
+    );
+    ctx.globalAlpha = 1;
+  }
+
+  private _findFirstIndex(notes: SongNote[], time: number): number {
+    let lo = 0;
+    let hi = notes.length;
+    while (lo < hi) {
+      const mid = (lo + hi) >>> 1;
+      if (notes[mid].time < time) {
+        lo = mid + 1;
+      } else {
+        hi = mid;
+      }
+    }
+    return lo;
+  }
+
+  private _renderStaffCache(sheetTop: number, trebleTop: number, bassTop: number, staffLineSpacing: number, _clefW: number, margin: number, sheetBottom: number): void {
+    const w = this.canvas.width;
+    const h = sheetBottom;
+    this._staffCache = document.createElement('canvas');
+    this._staffCache.width = w;
+    this._staffCache.height = h;
+    const ctx = this._staffCache.getContext('2d')!;
+
+    ctx.fillStyle = '#0a0a0a';
+    ctx.fillRect(0, sheetTop, w, sheetBottom);
+
+    ctx.strokeStyle = '#444';
+    ctx.lineWidth = 0.5;
+    for (let i = 0; i < 5; i++) {
+      ctx.beginPath();
+      ctx.moveTo(margin, trebleTop + i * staffLineSpacing);
+      ctx.lineTo(w - margin, trebleTop + i * staffLineSpacing);
+      ctx.stroke();
+    }
+    for (let i = 0; i < 5; i++) {
+      ctx.beginPath();
+      ctx.moveTo(margin, bassTop + i * staffLineSpacing);
+      ctx.lineTo(w - margin, bassTop + i * staffLineSpacing);
+      ctx.stroke();
+    }
+
+    ctx.fillStyle = '#888';
+    ctx.font = `bold ${staffLineSpacing * 5}px serif`;
+    ctx.textAlign = 'left';
+    ctx.textBaseline = 'middle';
+    ctx.fillText('\uD834\uDD1E', margin + 2, trebleTop + 2 * staffLineSpacing);
+    ctx.fillText('\uD834\uDD22', margin + 2, bassTop + 2 * staffLineSpacing);
+
+    this._cachedStaffScale = this.sheetScale;
+    this._cachedStaffWidth = this.width;
+  }
+
+  drawSheetMusic(trebleNotes: SongNote[], bassNotes: SongNote[], currentTime: number, songDuration: number): void {
+    if (!trebleNotes.length && !bassNotes.length || songDuration <= 0) return;
     const ctx = this.ctx;
     const sheetTop = 0;
     const staffLineSpacing = SHEET_STAFF_LINE_SPACING * this.sheetScale;
@@ -462,30 +547,10 @@ export class Renderer {
     const sheetBottom = bassTop + staffH + 5 * this.sheetScale;
     this.sheetBottom = sheetBottom;
 
-    ctx.fillStyle = '#0a0a0a';
-    ctx.fillRect(0, sheetTop, this.width, sheetBottom);
-
-    ctx.strokeStyle = '#444';
-    ctx.lineWidth = 0.5;
-    for (let i = 0; i < 5; i++) {
-      ctx.beginPath();
-      ctx.moveTo(margin, trebleTop + i * staffLineSpacing);
-      ctx.lineTo(this.width - margin, trebleTop + i * staffLineSpacing);
-      ctx.stroke();
+    if (!this._staffCache || this._cachedStaffScale !== this.sheetScale || this._cachedStaffWidth !== this.width) {
+      this._renderStaffCache(sheetTop, trebleTop, bassTop, staffLineSpacing, clefW, margin, sheetBottom);
     }
-    for (let i = 0; i < 5; i++) {
-      ctx.beginPath();
-      ctx.moveTo(margin, bassTop + i * staffLineSpacing);
-      ctx.lineTo(this.width - margin, bassTop + i * staffLineSpacing);
-      ctx.stroke();
-    }
-
-    ctx.fillStyle = '#888';
-    ctx.font = `bold ${staffLineSpacing * 5}px serif`;
-    ctx.textAlign = 'left';
-    ctx.textBaseline = 'middle';
-    ctx.fillText('\uD834\uDD1E', margin + 2, trebleTop + 2 * staffLineSpacing);
-    ctx.fillText('\uD834\uDD22', margin + 2, bassTop + 2 * staffLineSpacing);
+    ctx.drawImage(this._staffCache!, 0, 0);
 
     const barX = margin + clefW;
     const barW = this.width - barX - margin;
@@ -512,10 +577,7 @@ export class Renderer {
       if (pos === undefined) return;
       const noteY = staffTop + (7 - pos) * (staffLineSpacing / 2);
 
-      const noteTime = note.time;
-      if (noteTime < viewStart || noteTime > viewEnd) return;
-
-      const x = barX + ((noteTime - viewStart) / (viewEnd - viewStart)) * barW;
+      const x = barX + ((note.time - viewStart) / (viewEnd - viewStart)) * barW;
       const r = SHEET_NOTE_RADIUS * this.sheetScale;
       const color = NOTE_COLORS[note.key] || '#ffffff';
       const filled = note.duration < 0.75;
@@ -559,10 +621,18 @@ export class Renderer {
       }
     };
 
-    const trebleNotes = notes.filter(n => NOTE_TO_CLEF[n.key] === CLEF_TYPES.TREBLE);
-    const bassNotes = notes.filter(n => NOTE_TO_CLEF[n.key] === CLEF_TYPES.BASS);
-    for (const note of trebleNotes) drawSheetNote(note, trebleTop);
-    for (const note of bassNotes) drawSheetNote(note, bassTop);
+    const trebleStart = this._findFirstIndex(trebleNotes, viewStart);
+    for (let i = trebleStart; i < trebleNotes.length; i++) {
+      const note = trebleNotes[i];
+      if (note.time > viewEnd) break;
+      drawSheetNote(note, trebleTop);
+    }
+    const bassStart = this._findFirstIndex(bassNotes, viewStart);
+    for (let i = bassStart; i < bassNotes.length; i++) {
+      const note = bassNotes[i];
+      if (note.time > viewEnd) break;
+      drawSheetNote(note, bassTop);
+    }
 
     const cursorX = barX;
     ctx.fillStyle = '#ff2244';
