@@ -24,10 +24,10 @@ test.describe('Hold notes', () => {
       return {
         hitHit: !!hit,
         releaseNull: release === null,
-        score: nm.score,
+        score: nm.scoring.score,
         failing: nm.notes[0].failing,
         hit: nm.notes[0].hit,
-        failures: nm.failures,
+        failures: nm.scoring.failures,
       };
     });
 
@@ -63,11 +63,11 @@ test.describe('Hold notes', () => {
         releaseNull: release === null,
         penalty: release ? release.penalty : null,
         holdRatio: release ? release.holdRatio : null,
-        score: nm.score,
-        combo: nm.combo,
+        score: nm.scoring.score,
+        combo: nm.scoring.combo,
         failing: nm.notes[0].failing,
         hit: nm.notes[0].hit,
-        failures: nm.failures,
+        failures: nm.scoring.failures,
       };
     });
 
@@ -106,7 +106,7 @@ test.describe('Hold notes', () => {
         hit: nm.notes[0].hit,
         holding: nm.notes[0].holding,
         failing: nm.notes[0].failing,
-        score: nm.score,
+        score: nm.scoring.score,
         isComplete: nm.isComplete(),
       };
     });
@@ -182,9 +182,9 @@ test.describe('Hold notes', () => {
         release1Null: release1 === null,
         hit2Hit: !!hit2,
         release2Null: release2 === null,
-        accuracy: nm.getAccuracy(),
-        failures: nm.failures,
-        score: nm.score,
+        accuracy: nm.scoring.getAccuracy(),
+        failures: nm.scoring.failures,
+        score: nm.scoring.score,
       };
     });
 
@@ -222,8 +222,8 @@ test.describe('Hold notes', () => {
         hit: nm.notes[0].hit,
         holding: nm.notes[0].holding,
         failing: nm.notes[0].failing,
-        failures: nm.failures,
-        score: nm.score,
+        failures: nm.scoring.failures,
+        score: nm.scoring.score,
       };
     });
 
