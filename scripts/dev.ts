@@ -1,6 +1,6 @@
 import { spawn, spawnSync } from "bun";
-import { cpSync, watch } from "fs";
-import { join } from "path";
+import { cpSync, watch } from "node:fs";
+import { join } from "node:path";
 
 const ROOT = join(import.meta.dir, "..");
 const SRC = join(ROOT, "frontend");

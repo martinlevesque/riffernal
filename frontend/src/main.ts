@@ -5,7 +5,7 @@ import { MidiInput } from './input/MidiInput.js';
 import { Menu } from './ui/Menu.js';
 import { ScoreDisplay } from './ui/ScoreDisplay.js';
 import { parseMidi } from './utils/MidiParser.js';
-import type { Song } from './types.js';
+import type { Song } from './utils/MidiParser.js';
 
 const SHEET_STAFF_LINE_SPACING = 10;
 const BASE_SHEET_HEIGHT = 5 + 4 * SHEET_STAFF_LINE_SPACING + 8 + 4 * SHEET_STAFF_LINE_SPACING + 5;
@@ -48,7 +48,7 @@ async function init(): Promise<void> {
   const speedUp = document.getElementById('speed-up')!;
 
   function updateSpeedDisplay(): void {
-    speedValue.textContent = Math.round(game.speedMultiplier * 100) + '%';
+    speedValue.textContent = `${Math.round(game.speedMultiplier * 100)}%`;
   }
 
   function changeSpeed(delta: number): void {
@@ -111,7 +111,7 @@ async function init(): Promise<void> {
         menu.addSong(song);
       } catch (err: unknown) {
         const message = err instanceof Error ? err.message : String(err);
-        alert('Failed to import MIDI: ' + message);
+        alert(`Failed to import MIDI: ${message}`);
         console.error(err);
       }
       importInput.value = '';

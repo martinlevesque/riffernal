@@ -1,6 +1,20 @@
 import { midiToNoteName, noteNameToMidi } from '../utils/helpers.js';
-import { NOTE_NAMES } from '../utils/constants.js';
-import type { Song, Note } from '../types.js';
+import { NOTE_NAMES } from './notes.js';
+
+export interface Note {
+  time: number;
+  key: string;
+  duration: number;
+}
+
+export interface Song {
+  title: string;
+  artist: string;
+  bpm: number;
+  difficulty: string;
+  notes: Note[];
+  imported?: boolean;
+}
 
 const META_EVENT = 0xFF;
 const META_TEMPO = 0x51;
@@ -271,7 +285,7 @@ export function parseMidi(arrayBuffer: ArrayBuffer, filename: string): Song {
   }
 
   if (notes.length === 0) {
-    throw new Error('No playable notes found in MIDI file' + (skipped > 0 ? ` (${skipped} notes outside C2-B5 range)` : ''));
+    throw new Error(`No playable notes found in MIDI file${skipped > 0 ? ` (${skipped} notes outside C2-B5 range)` : ''}`);
   }
 
   if (skipped > 0) {

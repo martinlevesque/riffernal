@@ -20,7 +20,8 @@ export function noteNameToMidi(name: string): number {
   const match = name.match(/^([A-G]#?)(\d)$/);
   if (!match) return -1;
   const noteMap: Record<string, number> = { 'C': 0, 'C#': 1, 'D': 2, 'D#': 3, 'E': 4, 'F': 5, 'F#': 6, 'G': 7, 'G#': 8, 'A': 9, 'A#': 10, 'B': 11 };
-  return noteMap[match[1]] + (parseInt(match[2]) + 1) * 12;
+
+  return noteMap[match[1]] + (parseInt(match[2], 10) + 1) * 12;
 }
 
 export function midiToNoteName(midi: number): string {
