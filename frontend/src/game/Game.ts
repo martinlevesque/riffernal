@@ -1,7 +1,7 @@
 import { Renderer } from './Renderer.js';
 import { NoteManager, SCROLL_SPEED, HIT_ZONE_Y_RATIO } from './NoteManager.js';
 import { NoteGrade, gradeLabel } from './scoring.js';
-import { NOTE_NAMES, NOTE_COLORS } from '../utils/notes.js';
+import { NOTE_NAMES, NOTE_COLORS, getPianoKeyLayout } from '../utils/notes.js';
 import { formatScore } from '../utils/helpers.js';
 import type { Synth } from '../audio/Synth.js';
 import type { KeyboardInput } from '../input/KeyboardInput.js';
@@ -97,10 +97,10 @@ export class Game {
       this.scoreDisplay?.showFeedback(`+${result.score} ${label}`, color);
 
       if (result.note.failing) {
-        const laneWidth = this.renderer.width / NOTE_NAMES.length;
         const hitZoneY = this.renderer.height * HIT_ZONE_Y_RATIO;
+        const keyLayout = getPianoKeyLayout(result.note.key, this.renderer.width);
         this.renderer.spawnParticles(
-          result.note.lane * laneWidth + laneWidth / 2,
+          keyLayout.x + keyLayout.width / 2,
           hitZoneY,
           FEEDBACK_COLORS.FAIL,
           10
@@ -121,12 +121,12 @@ export class Game {
     if (this.state === 'playing') {
       const result = this.noteManager.checkHit(this.currentTime, lane);
       if (result) {
-        const laneWidth = this.renderer.width / NOTE_NAMES.length;
         const hitZoneY = this.renderer.height * HIT_ZONE_Y_RATIO;
         if (result.result === NoteGrade.PERFECT) {
           const noteColor = NOTE_COLORS[result.note.key] || '#ffffff';
+          const keyLayout = getPianoKeyLayout(result.note.key, this.renderer.width);
           this.renderer.spawnParticles(
-            lane * laneWidth + laneWidth / 2,
+            keyLayout.x + keyLayout.width / 2,
             hitZoneY,
             noteColor,
             15
@@ -156,7 +156,7 @@ export class Game {
     this.scrollOffset += (SCROLL_SPEED / 60) * this.speedMultiplier;
 
     this.renderer.clear();
-    this.renderer.drawHighway(NOTE_NAMES.length, this.scrollOffset);
+    this.renderer.drawHighway(this.scrollOffset);
 
     if (this.state === 'playing') {
       this.noteManager.update(this.currentTime, this.renderer.height);
@@ -180,8 +180,8 @@ export class Game {
     handle.style.top = `${this.renderer.sheetBottom}px`;
 
     this.renderer.drawParticles();
-    this.renderer.drawPiano(NOTE_NAMES.length, this.pressedLanes);
-    this.renderer.drawHitZone(NOTE_NAMES.length, this.pressedLanes);
+    this.renderer.drawPiano(this.pressedLanes);
+    this.renderer.drawHitZone(this.pressedLanes);
 
     if (this.state !== 'menu') {
       this.animationId = requestAnimationFrame(() => this._loop());

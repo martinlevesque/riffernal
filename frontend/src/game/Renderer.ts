@@ -1,9 +1,9 @@
-import { NOTE_NAMES, NOTE_COLORS } from '../utils/notes.js';
+import { NOTE_NAMES, NOTE_COLORS, getPianoKeyLayout, WHITE_KEY_COUNT, BLACK_KEY_WIDTH_RATIO } from '../utils/notes.js';
 import { KEYBOARD_MAP } from '../input/KeyboardInput.js';
 import { HIT_ZONE_Y_RATIO } from './NoteManager.js';
 import type { SongNote } from './NoteManager.js';
 
-export const PIANO_HEIGHT_RATIO = 0.12;
+export const PIANO_HEIGHT_RATIO = 0.16;
 
 export const CLEF_TYPES = {
   BASS: 'bass',
@@ -11,6 +11,9 @@ export const CLEF_TYPES = {
 } as const;
 
 export const BASS_STAFF_POSITIONS: Record<string, number> = {
+  'A0': -12, 'A#0': -12, 'B0': -11,
+  'C1': -10, 'C#1': -10, 'D1': -9, 'D#1': -9, 'E1': -8, 'F1': -7, 'F#1': -7,
+  'G1': -6, 'G#1': -6, 'A1': -5, 'A#1': -5, 'B1': -4,
   'C2': -3, 'C#2': -3, 'D2': -2, 'D#2': -2, 'E2': -1, 'F2': 0, 'F#2': 0,
   'G2': 1, 'G#2': 1, 'A2': 2, 'A#2': 2, 'B2': 3,
   'C3': 4, 'C#3': 4, 'D3': 5, 'D#3': 5, 'E3': 6, 'F3': 7, 'F#3': 7,
@@ -22,9 +25,18 @@ export const TREBLE_STAFF_POSITIONS: Record<string, number> = {
   'G4': 5, 'G#4': 5, 'A4': 6, 'A#4': 6, 'B4': 7,
   'C5': 8, 'C#5': 8, 'D5': 9, 'D#5': 9, 'E5': 10, 'F5': 11, 'F#5': 11,
   'G5': 12, 'G#5': 12, 'A5': 13, 'A#5': 13, 'B5': 14,
+  'C6': 15, 'C#6': 15, 'D6': 16, 'D#6': 16, 'E6': 17, 'F6': 18, 'F#6': 18,
+  'G6': 19, 'G#6': 19, 'A6': 20, 'A#6': 20, 'B6': 21,
+  'C7': 22, 'C#7': 22, 'D7': 23, 'D#7': 23, 'E7': 24, 'F7': 25, 'F#7': 25,
+  'G7': 26, 'G#7': 26, 'A7': 27, 'A#7': 27, 'B7': 28,
+  'C8': 29,
 };
 
 export const NOTE_TO_CLEF: Record<string, string> = {
+  'A0': CLEF_TYPES.BASS, 'A#0': CLEF_TYPES.BASS, 'B0': CLEF_TYPES.BASS,
+  'C1': CLEF_TYPES.BASS, 'C#1': CLEF_TYPES.BASS, 'D1': CLEF_TYPES.BASS, 'D#1': CLEF_TYPES.BASS,
+  'E1': CLEF_TYPES.BASS, 'F1': CLEF_TYPES.BASS, 'F#1': CLEF_TYPES.BASS, 'G1': CLEF_TYPES.BASS,
+  'G#1': CLEF_TYPES.BASS, 'A1': CLEF_TYPES.BASS, 'A#1': CLEF_TYPES.BASS, 'B1': CLEF_TYPES.BASS,
   'C2': CLEF_TYPES.BASS, 'C#2': CLEF_TYPES.BASS, 'D2': CLEF_TYPES.BASS, 'D#2': CLEF_TYPES.BASS,
   'E2': CLEF_TYPES.BASS, 'F2': CLEF_TYPES.BASS, 'F#2': CLEF_TYPES.BASS, 'G2': CLEF_TYPES.BASS,
   'G#2': CLEF_TYPES.BASS, 'A2': CLEF_TYPES.BASS, 'A#2': CLEF_TYPES.BASS, 'B2': CLEF_TYPES.BASS,
@@ -37,6 +49,13 @@ export const NOTE_TO_CLEF: Record<string, string> = {
   'C5': CLEF_TYPES.TREBLE, 'C#5': CLEF_TYPES.TREBLE, 'D5': CLEF_TYPES.TREBLE, 'D#5': CLEF_TYPES.TREBLE,
   'E5': CLEF_TYPES.TREBLE, 'F5': CLEF_TYPES.TREBLE, 'F#5': CLEF_TYPES.TREBLE, 'G5': CLEF_TYPES.TREBLE,
   'G#5': CLEF_TYPES.TREBLE, 'A5': CLEF_TYPES.TREBLE, 'A#5': CLEF_TYPES.TREBLE, 'B5': CLEF_TYPES.TREBLE,
+  'C6': CLEF_TYPES.TREBLE, 'C#6': CLEF_TYPES.TREBLE, 'D6': CLEF_TYPES.TREBLE, 'D#6': CLEF_TYPES.TREBLE,
+  'E6': CLEF_TYPES.TREBLE, 'F6': CLEF_TYPES.TREBLE, 'F#6': CLEF_TYPES.TREBLE, 'G6': CLEF_TYPES.TREBLE,
+  'G#6': CLEF_TYPES.TREBLE, 'A6': CLEF_TYPES.TREBLE, 'A#6': CLEF_TYPES.TREBLE, 'B6': CLEF_TYPES.TREBLE,
+  'C7': CLEF_TYPES.TREBLE, 'C#7': CLEF_TYPES.TREBLE, 'D7': CLEF_TYPES.TREBLE, 'D#7': CLEF_TYPES.TREBLE,
+  'E7': CLEF_TYPES.TREBLE, 'F7': CLEF_TYPES.TREBLE, 'F#7': CLEF_TYPES.TREBLE, 'G7': CLEF_TYPES.TREBLE,
+  'G#7': CLEF_TYPES.TREBLE, 'A7': CLEF_TYPES.TREBLE, 'A#7': CLEF_TYPES.TREBLE, 'B7': CLEF_TYPES.TREBLE,
+  'C8': CLEF_TYPES.TREBLE,
 };
 
 export interface Particle {
@@ -127,20 +146,20 @@ export class Renderer {
     this.ctx.fillRect(0, 0, this.width, this.height);
   }
 
-  drawHighway(laneCount: number, scrollOffset: number): void {
+  drawHighway(scrollOffset: number): void {
     const ctx = this.ctx;
     const hitZoneY = this.height * HIT_ZONE_Y_RATIO;
     const highwayTop = 0;
     const highwayBottom = hitZoneY + 10;
-    const laneWidth = this.width / laneCount;
+    const whiteKeyWidth = this.width / WHITE_KEY_COUNT;
 
     ctx.fillStyle = '#0e0e0e';
     ctx.fillRect(0, highwayTop, this.width, highwayBottom - highwayTop);
 
     ctx.strokeStyle = '#1a1a1a';
     ctx.lineWidth = 1;
-    for (let i = 1; i < laneCount; i++) {
-      const x = i * laneWidth;
+    for (let i = 1; i < WHITE_KEY_COUNT; i++) {
+      const x = i * whiteKeyWidth;
       ctx.beginPath();
       ctx.moveTo(x, highwayTop);
       ctx.lineTo(x, highwayBottom);
@@ -159,95 +178,146 @@ export class Renderer {
     }
   }
 
-  drawHitZone(laneCount: number, pressedLanes: Set<number>): void {
+  drawHitZone(pressedLanes: Set<number>): void {
     const ctx = this.ctx;
     const hitZoneY = this.height * HIT_ZONE_Y_RATIO;
-    const laneWidth = this.width / laneCount;
 
-    for (let i = 0; i < laneCount; i++) {
-      const x = i * laneWidth;
+    for (let i = 0; i < NOTE_NAMES.length; i++) {
+      const layout = getPianoKeyLayout(NOTE_NAMES[i], this.width);
       const isPressed = pressedLanes.has(i);
       const color = NOTE_COLORS[NOTE_NAMES[i]] || '#ffffff';
 
-      ctx.fillStyle = isPressed ? color : '#222';
       ctx.globalAlpha = isPressed ? 0.5 : 0.8;
-      ctx.fillRect(x, hitZoneY - 4, laneWidth, 8);
+      ctx.fillStyle = isPressed ? color : '#222';
+      ctx.fillRect(layout.x, hitZoneY - 4, layout.width, 8);
 
       if (isPressed) {
         ctx.globalAlpha = 0.15;
         ctx.fillStyle = color;
-        ctx.fillRect(x, hitZoneY - 30, laneWidth, 60);
+        ctx.fillRect(layout.x, hitZoneY - 30, layout.width, 60);
       }
     }
     ctx.globalAlpha = 1;
   }
 
-  drawPiano(laneCount: number, pressedLanes: Set<number>): void {
+  drawPiano(pressedLanes: Set<number>): void {
     const ctx = this.ctx;
     const pianoTop = this.height - this.height * PIANO_HEIGHT_RATIO;
     const pianoH = this.height * PIANO_HEIGHT_RATIO;
-    const laneWidth = this.width / laneCount;
+    const whiteKeyWidth = this.width / WHITE_KEY_COUNT;
+    const blackKeyWidth = whiteKeyWidth * BLACK_KEY_WIDTH_RATIO;
+    const blackKeyHeight = pianoH * 0.56;
 
-    ctx.fillStyle = '#1a1a1a';
-    ctx.fillRect(0, pianoTop, this.width, pianoH);
+    ctx.fillStyle = '#0a0a0a';
+    ctx.fillRect(0, pianoTop - 2, this.width, pianoH + 2);
 
-    ctx.strokeStyle = '#333';
-    ctx.lineWidth = 1;
-    for (let i = 0; i <= laneCount; i++) {
-      const x = i * laneWidth;
-      ctx.beginPath();
-      ctx.moveTo(x, pianoTop);
-      ctx.lineTo(x, this.height);
-      ctx.stroke();
-    }
-
-    for (let i = 0; i < laneCount; i++) {
-      const x = i * laneWidth;
-      const isPressed = pressedLanes.has(i);
+    for (let i = 0; i < NOTE_NAMES.length; i++) {
       const noteName = NOTE_NAMES[i];
       const isBlack = noteName.includes('#');
+      if (isBlack) continue;
+      const layout = getPianoKeyLayout(noteName, this.width);
+      const isPressed = pressedLanes.has(i);
       const color = NOTE_COLORS[noteName] || '#ffffff';
 
-      if (isBlack) {
-        ctx.fillStyle = isPressed ? '#444' : '#1a1a1a';
-      } else {
-        ctx.fillStyle = isPressed ? '#555' : '#2a2a2a';
-      }
-      ctx.fillRect(x + 1, pianoTop + 1, laneWidth - 2, pianoH - 2);
+      ctx.fillStyle = isPressed ? '#555' : '#2a2a2a';
+      ctx.fillRect(layout.x + 1, pianoTop + 1, whiteKeyWidth - 2, pianoH - 2);
 
       if (isPressed) {
         ctx.shadowColor = color;
         ctx.shadowBlur = 15;
         ctx.strokeStyle = color;
         ctx.lineWidth = 2;
-        ctx.strokeRect(x + 1, pianoTop + 1, laneWidth - 2, pianoH - 2);
+        ctx.strokeRect(layout.x + 1, pianoTop + 1, whiteKeyWidth - 2, pianoH - 2);
         ctx.shadowBlur = 0;
       }
 
-      const labelY = pianoTop + pianoH * 0.65;
-      const keyLabel = noteName.replace(/\d/, '');
-      ctx.fillStyle = isPressed ? '#fff' : '#555';
-      ctx.font = `${Math.max(10, laneWidth * 0.22)}px Courier New`;
+      ctx.strokeStyle = '#333';
+      ctx.lineWidth = 1;
+      ctx.beginPath();
+      ctx.moveTo(layout.x, pianoTop);
+      ctx.lineTo(layout.x, this.height);
+      ctx.stroke();
+
+      const labelY = pianoTop + pianoH * 0.72;
+      const shortName = noteName.replace(/\d/g, '');
+      ctx.fillStyle = isPressed ? '#fff' : '#666';
+      ctx.font = `${Math.max(11, whiteKeyWidth * 0.3)}px Courier New`;
       ctx.textAlign = 'center';
-      ctx.fillText(keyLabel, x + laneWidth / 2, labelY);
+      ctx.fillText(shortName, layout.x + whiteKeyWidth / 2, labelY);
 
       const kbKey = this._getKeyForNote(noteName);
       if (kbKey) {
         ctx.fillStyle = isPressed ? '#aaa' : '#444';
-        ctx.font = `bold ${Math.max(9, laneWidth * 0.18)}px Courier New`;
-        ctx.fillText(`[${kbKey}]`, x + laneWidth / 2, labelY + 14);
+        ctx.font = `bold ${Math.max(9, whiteKeyWidth * 0.22)}px Courier New`;
+        ctx.fillText(`[${kbKey}]`, layout.x + whiteKeyWidth / 2, labelY + 13);
       }
     }
+
+    for (let i = 0; i < NOTE_NAMES.length; i++) {
+      const noteName = NOTE_NAMES[i];
+      const isBlack = noteName.includes('#');
+      if (!isBlack) continue;
+      const layout = getPianoKeyLayout(noteName, this.width);
+      const isPressed = pressedLanes.has(i);
+
+      ctx.fillStyle = isPressed ? '#666' : '#111';
+      roundRect(ctx, layout.x, pianoTop, blackKeyWidth, blackKeyHeight, 2);
+      ctx.fill();
+
+      if (isPressed) {
+        const color = NOTE_COLORS[noteName] || '#ffffff';
+        ctx.shadowColor = color;
+        ctx.shadowBlur = 12;
+        ctx.strokeStyle = color;
+        ctx.lineWidth = 1.5;
+        roundRect(ctx, layout.x + 1, pianoTop + 1, blackKeyWidth - 2, blackKeyHeight - 2, 1);
+        ctx.stroke();
+        ctx.shadowBlur = 0;
+      }
+
+      ctx.strokeStyle = '#000';
+      ctx.lineWidth = 1;
+      roundRect(ctx, layout.x, pianoTop, blackKeyWidth, blackKeyHeight, 2);
+      ctx.stroke();
+
+      ctx.save();
+      roundRect(ctx, layout.x + 1, pianoTop + 1, blackKeyWidth - 2, blackKeyHeight - 2, 1);
+      ctx.clip();
+
+      const blkLabelY = pianoTop + blackKeyHeight - 13;
+      const blkShort = noteName.replace(/\d/g, '');
+      ctx.fillStyle = isPressed ? '#ddd' : '#666';
+      ctx.font = `${Math.max(6, blackKeyWidth * 0.35)}px Courier New`;
+      ctx.textAlign = 'center';
+      ctx.fillText(blkShort, layout.x + blackKeyWidth / 2, blkLabelY);
+
+      const blkKb = this._getKeyForNote(noteName);
+      if (blkKb) {
+        ctx.fillStyle = isPressed ? '#999' : '#444';
+        ctx.font = `bold ${Math.max(5, blackKeyWidth * 0.25)}px Courier New`;
+        ctx.fillText(`[${blkKb}]`, layout.x + blackKeyWidth / 2, blkLabelY + 7);
+      }
+
+      ctx.restore();
+    }
+
+    ctx.strokeStyle = '#333';
+    ctx.lineWidth = 1;
+    ctx.beginPath();
+    ctx.moveTo(this.width, pianoTop);
+    ctx.lineTo(this.width, this.height);
+    ctx.stroke();
   }
 
   private _getKeyForNote(noteName: string): string {
     return this._keyDisplayMap[noteName] || '';
   }
 
-  private _noteLayout(laneIndex: number, y: number, noteHeight: number, sheetBottom: number): NoteLayout {
-    const laneWidth = this.width / NOTE_NAMES.length;
-    const x = laneIndex * laneWidth;
-    const padding = 2;
+  private _noteLayout(laneIndex: number, y: number, noteHeight: number, sheetBottom: number, noteName?: string): NoteLayout {
+    const layout = getPianoKeyLayout(noteName ?? NOTE_NAMES[laneIndex] ?? 'C4', this.width);
+    const x = layout.x;
+    const keyWidth = layout.width;
+    const padding = Math.max(1, keyWidth * 0.06);
 
     const hitZoneY = this.height * HIT_ZONE_Y_RATIO;
     const scaleRange = hitZoneY - sheetBottom;
@@ -255,11 +325,11 @@ export class Renderer {
     const clampedY = Math.max(sheetBottom, Math.min(headBottom, hitZoneY));
     const scale = 0.45 + 0.55 * ((clampedY - sheetBottom) / scaleRange);
 
-    const HEAD_HEIGHT = 12;
+    const HEAD_HEIGHT = 14;
     const scaledHeadHeight = HEAD_HEIGHT * scale;
     const scaledTailHeight = Math.max(0, noteHeight * scale - scaledHeadHeight);
-    const scaledWidth = (laneWidth - padding * 2) * scale;
-    const centerX = x + laneWidth / 2;
+    const scaledWidth = (keyWidth - padding * 2) * scale;
+    const centerX = x + keyWidth / 2;
 
     return {
       drawX: centerX - scaledWidth / 2,
@@ -287,7 +357,7 @@ export class Renderer {
   drawNote(laneIndex: number, y: number, noteHeight: number, color: string, alpha: number, sheetBottom: number, noteName?: string, holding?: boolean, failing?: boolean): void {
     const ctx = this.ctx;
     const drawColor = failing ? '#aa3322' : color;
-    const L = this._noteLayout(laneIndex, y, noteHeight, sheetBottom);
+    const L = this._noteLayout(laneIndex, y, noteHeight, sheetBottom, noteName);
 
     ctx.globalAlpha = alpha;
     ctx.shadowColor = drawColor;
