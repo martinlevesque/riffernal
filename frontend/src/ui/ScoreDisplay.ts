@@ -1,4 +1,4 @@
-import type { NoteManager } from '../game/NoteManager.js';
+import type { Scoring } from '../game/scoring.js';
 
 export class ScoreDisplay {
   private scoreEl: HTMLElement;
@@ -14,10 +14,10 @@ export class ScoreDisplay {
     this.feedbackEl = document.getElementById('hit-feedback')!;
   }
 
-  update(noteManager: NoteManager): void {
-    this.scoreEl.textContent = noteManager.score.toLocaleString();
+  update(scoring: Scoring): void {
+    this.scoreEl.textContent = scoring.score.toLocaleString();
 
-    const combo = noteManager.combo;
+    const combo = scoring.combo;
     if (combo >= 5) {
       this.comboEl.textContent = `${combo}x COMBO`;
       this.comboEl.style.display = 'block';
@@ -25,7 +25,7 @@ export class ScoreDisplay {
       this.comboEl.style.display = 'none';
     }
 
-    this.accuracyEl.textContent = `${noteManager.getAccuracy()}%`;
+    this.accuracyEl.textContent = `${scoring.getAccuracy()}%`;
   }
 
   showFeedback(result: string, color: string): void {

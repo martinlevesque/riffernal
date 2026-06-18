@@ -1,5 +1,6 @@
 import { Renderer } from './Renderer.js';
-import { NoteManager, NoteGrade, SCROLL_SPEED, HIT_ZONE_Y_RATIO, gradeLabel } from './NoteManager.js';
+import { NoteManager, SCROLL_SPEED, HIT_ZONE_Y_RATIO } from './NoteManager.js';
+import { NoteGrade, gradeLabel } from './scoring.js';
 import { NOTE_NAMES, NOTE_COLORS } from '../utils/notes.js';
 import { formatScore } from '../utils/helpers.js';
 import type { Synth } from '../audio/Synth.js';
@@ -168,7 +169,7 @@ export class Game {
         this.renderer.drawNote(note.lane, note.y, note.height, note.color, note.alpha, this.renderer.sheetBottom, note.key, note.holding, note.failing);
       }
 
-      this.scoreDisplay?.update(this.noteManager);
+      this.scoreDisplay?.update(this.noteManager.scoring);
 
       if (this.noteManager.isComplete()) {
         this._showResults();
@@ -192,20 +193,21 @@ export class Game {
     this.playScreen.classList.remove('active');
     this.resultsScreen.classList.add('active');
 
-    const gradeInfo = this.noteManager.getGrade();
+    const scoring = this.noteManager.scoring;
+    const gradeInfo = scoring.getGrade();
     const gradeEl = document.getElementById('result-grade')!;
     gradeEl.textContent = gradeInfo.grade;
     gradeEl.className = gradeInfo.class;
 
     document.getElementById('result-stats')!.innerHTML = `
-      Score: <span class="stat-value">${formatScore(this.noteManager.score)}</span><br>
-      Perfect: <span class="stat-value">${this.noteManager.perfects}</span><br>
-      Great: <span class="stat-value">${this.noteManager.greats}</span><br>
-      Good: <span class="stat-value">${this.noteManager.goods}</span><br>
-      Miss: <span class="stat-value">${this.noteManager.misses}</span><br>
-      Dropped: <span class="stat-value">${this.noteManager.failures}</span><br>
-      Max Combo: <span class="stat-value">${this.noteManager.maxCombo}</span><br>
-      Accuracy: <span class="stat-value">${this.noteManager.getAccuracy()}%</span>
+      Score: <span class="stat-value">${formatScore(scoring.score)}</span><br>
+      Perfect: <span class="stat-value">${scoring.perfects}</span><br>
+      Great: <span class="stat-value">${scoring.greats}</span><br>
+      Good: <span class="stat-value">${scoring.goods}</span><br>
+      Miss: <span class="stat-value">${scoring.misses}</span><br>
+      Dropped: <span class="stat-value">${scoring.failures}</span><br>
+      Max Combo: <span class="stat-value">${scoring.maxCombo}</span><br>
+      Accuracy: <span class="stat-value">${scoring.getAccuracy()}%</span>
     `;
 
     this.keyboardInput.stop();
