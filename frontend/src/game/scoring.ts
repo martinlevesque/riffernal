@@ -5,9 +5,9 @@ export enum NoteGrade {
 }
 
 export const TIMING: Record<NoteGrade, number> = {
-  [NoteGrade.PERFECT]: 0.03, // seconds
-  [NoteGrade.GREAT]: 0.06,
-  [NoteGrade.GOOD]: 0.1,
+  [NoteGrade.PERFECT]: 0.045, // seconds
+  [NoteGrade.GREAT]: 0.08,
+  [NoteGrade.GOOD]: 0.13,
 };
 
 // Extra seconds allowed before the GOOD window for early hits (scores with penalty)
@@ -30,8 +30,8 @@ export const SCORE_VALUES: Record<NoteGrade | "MISS", number> = {
 
 export const ACCURACY_WEIGHTS: Record<NoteGrade, number> = {
   [NoteGrade.PERFECT]: 100,
-  [NoteGrade.GREAT]: 80,
-  [NoteGrade.GOOD]: 50,
+  [NoteGrade.GREAT]: 90,
+  [NoteGrade.GOOD]: 70,
 };
 
 export const COMBO_DIVISOR = 10;
@@ -39,10 +39,10 @@ export const COMBO_DIVISOR = 10;
 export const COMBO_BONUS_PER_STEP = 10;
 
 export const GRADE_THRESHOLDS = {
-  S: 95,
-  A: 85,
-  B: 70,
-  C: 50,
+  S: 93,
+  A: 80,
+  B: 65,
+  C: 45,
 } as const;
 
 export function gradeLabel(grade: NoteGrade): string {
