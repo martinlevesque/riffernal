@@ -370,12 +370,116 @@ test.describe('Hold notes', () => {
     expect(result.resolve.grade).toBe('PERFECT');
   });
 
-  test('wrong-key press shows Miss with no burning', async ({ page }) => {
+  test('wrong-key press shows Wrong with no burning', async ({ page }) => {
     await startGame(page);
     await page.waitForTimeout(1800);
 
     await page.keyboard.press('KeyK');
-    await expect(page.locator('#hit-feedback')).toHaveText('Miss', { timeout: 1000 });
+    await expect(page.locator('#hit-feedback')).toHaveText('Wrong', { timeout: 1000 });
+  });
+
+  test('wrong-key press breaks combo, deducts score, counts as wrongNote', async ({ page }) => {
+    await page.goto('/');
+    // Two quick tap notes in C3 lane to build combo, then a wrong key
+    const songData = makeSong([
+      { time: 2.0, key: 'C3', duration: 0.2 },
+      { time: 2.4, key: 'C3', duration: 0.2 },
+    ], 'Combo Break');
+    const result = await page.evaluate(async ({ song, H }) => {
+      // @ts-expect-error browser-side dynamic import
+      const { NoteManager } = await import('/js/game/NoteManager.js');
+      // @ts-expect-error browser-side dynamic import
+      const { NOTE_NAMES } = await import('/js/utils/notes.js');
+      // @ts-expect-error browser-side dynamic import
+      const { WRONG_PRESS_PENALTY } = await import('/js/game/scoring.js');
+
+      const c3 = NOTE_NAMES.indexOf('C3');
+      const d3 = NOTE_NAMES.indexOf('D3'); // a different lane
+      const nm = new NoteManager();
+      nm.loadSong(song);
+
+      nm.update(1.5, H);
+      // Hit both tap notes to build combo and earn score
+      nm.checkHit(2.0, c3);
+      nm.checkHit(2.4, c3);
+      const comboBefore = nm.scoring.combo;
+      const scoreBefore = nm.scoring.score;
+
+      // Wrong press: D3 lane has no active note
+      nm.checkHit(2.5, d3);
+
+      return {
+        comboBefore,
+        scoreBefore,
+        comboAfter: nm.scoring.combo,
+        scoreAfter: nm.scoring.score,
+        wrongNotes: nm.scoring.wrongNotes,
+        penalty: WRONG_PRESS_PENALTY,
+        misses: nm.scoring.misses,
+      };
+    }, { song: songData, H });
+
+    expect(result.comboBefore).toBe(2);
+    expect(result.comboAfter).toBe(0);
+    expect(result.wrongNotes).toBe(1);
+    expect(result.misses).toBe(0); // wrong press does not inflate miss counter
+    expect(result.scoreAfter).toBe(result.scoreBefore - result.penalty);
+  });
+
+  test('wrong-key score deduction clamps at 0', async ({ page }) => {
+    await page.goto('/');
+    const songData = makeSong([], 'No Notes');
+    const result = await page.evaluate(async ({ song }) => {
+      // @ts-expect-error browser-side dynamic import
+      const { NoteManager } = await import('/js/game/NoteManager.js');
+      // @ts-expect-error browser-side dynamic import
+      const { NOTE_NAMES } = await import('/js/utils/notes.js');
+
+      const c3 = NOTE_NAMES.indexOf('C3');
+      const nm = new NoteManager();
+      nm.loadSong(song);
+
+      // No notes to hit — every press is wrong. Mash 10 times.
+      for (let i = 0; i < 10; i++) nm.checkHit(1.0, c3);
+
+      return {
+        score: nm.scoring.score,
+        wrongNotes: nm.scoring.wrongNotes,
+      };
+    }, { song: songData });
+
+    expect(result.score).toBe(0); // never goes negative
+    expect(result.wrongNotes).toBe(10);
+  });
+
+  test('wrong-key press lowers accuracy', async ({ page }) => {
+    await page.goto('/');
+    const songData = makeSong([{ time: 2.0, key: 'C3', duration: 0.2 }], 'Accuracy');
+    const result = await page.evaluate(async ({ song, H }) => {
+      // @ts-expect-error browser-side dynamic import
+      const { NoteManager } = await import('/js/game/NoteManager.js');
+      // @ts-expect-error browser-side dynamic import
+      const { NOTE_NAMES } = await import('/js/utils/notes.js');
+
+      const c3 = NOTE_NAMES.indexOf('C3');
+      const d3 = NOTE_NAMES.indexOf('D3');
+      const nm = new NoteManager();
+      nm.loadSong(song);
+
+      nm.update(1.5, H);
+      nm.checkHit(2.0, c3); // PERFECT hit
+      const accuracyBefore = nm.scoring.getAccuracy();
+
+      // Two wrong presses
+      nm.checkHit(2.5, d3);
+      nm.checkHit(2.6, d3);
+      const accuracyAfter = nm.scoring.getAccuracy();
+
+      return { accuracyBefore, accuracyAfter };
+    }, { song: songData, H });
+
+    expect(result.accuracyBefore).toBe(100);
+    expect(result.accuracyAfter).toBeLessThan(100);
   });
 
   test('early-buffer tap scores GOOD with penalty', async ({ page }) => {

@@ -193,7 +193,7 @@ export class Game {
           );
         }
       } else {
-        this.scoreDisplay?.showFeedback('Miss', FEEDBACK_COLORS.MISS);
+        this.scoreDisplay?.showFeedback('Wrong', FEEDBACK_COLORS.MISS);
       }
     }
   }
@@ -227,6 +227,7 @@ export class Game {
       Great: <span class="stat-value">${scoring.greats}</span><br>
       Good: <span class="stat-value">${scoring.goods}</span><br>
       Miss: <span class="stat-value">${scoring.misses}</span><br>
+      Wrong: <span class="stat-value">${scoring.wrongNotes}</span><br>
       Dropped: <span class="stat-value">${scoring.failures}</span><br>
       Max Combo: <span class="stat-value">${scoring.maxCombo}</span><br>
       Accuracy: <span class="stat-value">${scoring.getAccuracy()}%</span>

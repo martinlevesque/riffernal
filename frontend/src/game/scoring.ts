@@ -11,12 +11,15 @@ export const TIMING: Record<NoteGrade, number> = {
 };
 
 // Extra seconds allowed before the GOOD window for early hits (scores with penalty)
-export const EARLY_HIT_WINDOW = 0.2;
+export const EARLY_HIT_WINDOW = 0.1;
 
 // Multiplier applied to score for early-buffer hits (0.5 = 50% of GOOD score)
 export const EARLY_PENALTY_RATIO = 0.5;
 
 export const TAP_NOTE_THRESHOLD = 0.4; // seconds — notes shorter than this are instant taps
+
+// Score deducted for pressing a key that doesn't match any active note
+export const WRONG_PRESS_PENALTY = 50;
 
 // Minimum hold ratio for a failing note to emit a satisfying particle burst at its end
 export const SUCCESS_PARTICLE_HOLD_RATIO = 0.75;
@@ -85,6 +88,7 @@ export class Scoring {
   greats = 0;
   goods = 0;
   misses = 0;
+  wrongNotes = 0;
   failures = 0;
   failureWeight = 0;
   totalNotes = 0;
@@ -97,6 +101,7 @@ export class Scoring {
     this.greats = 0;
     this.goods = 0;
     this.misses = 0;
+    this.wrongNotes = 0;
     this.failures = 0;
     this.failureWeight = 0;
     this.totalNotes = totalNotes;
@@ -106,6 +111,12 @@ export class Scoring {
     this.combo++;
     if (this.combo > this.maxCombo) this.maxCombo = this.combo;
     this.score += comboBonus(this.combo);
+  }
+
+  recordWrongPress(): void {
+    this.combo = 0;
+    this.wrongNotes++;
+    this.score = Math.max(0, this.score - WRONG_PRESS_PENALTY);
   }
 
   finalizeNote(
@@ -137,7 +148,7 @@ export class Scoring {
 
   getAccuracy(): number {
     const total =
-      this.perfects + this.greats + this.goods + this.misses + this.failures;
+      this.perfects + this.greats + this.goods + this.misses + this.failures + this.wrongNotes;
     if (total === 0) return 100;
     const weighted =
       this.perfects * accuracyWeight(NoteGrade.PERFECT) +
