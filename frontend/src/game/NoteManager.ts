@@ -168,7 +168,11 @@ export class NoteManager {
   }
 
   checkHit(currentTime: number, lane: number): HitResult | null {
-    return this._tryRecoverFailingNote(currentTime, lane) ?? this._tryNormalHit(currentTime, lane);
+    const result = this._tryRecoverFailingNote(currentTime, lane) ?? this._tryNormalHit(currentTime, lane);
+    if (result === null) {
+      this.scoring.recordWrongPress();
+    }
+    return result;
   }
 
   private _beginHold(note: SongNote, currentTime: number): void {
