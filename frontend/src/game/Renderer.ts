@@ -1,9 +1,17 @@
-import { NOTE_NAMES, NOTE_COLORS, getPianoKeyLayout, WHITE_KEY_COUNT, BLACK_KEY_WIDTH_RATIO } from '../utils/notes.js';
+import { NOTE_NAMES, NOTE_COLORS, getPianoKeyLayout, WHITE_KEY_COUNT, BLACK_KEY_WIDTH_RATIO, handForKey, handColor, HandSide } from '../utils/notes.js';
 import { KEYBOARD_MAP } from '../input/KeyboardInput.js';
 import { HIT_ZONE_Y_RATIO } from './NoteManager.js';
 import type { SongNote } from './NoteManager.js';
 
 export const PIANO_HEIGHT_RATIO = 0.16;
+
+export const FAIL_COLOR_LEFT = '#aa2266';
+export const FAIL_COLOR_RIGHT = '#aa3322';
+export const FAIL_COLOR_SHEET_LEFT = '#662244';
+export const FAIL_COLOR_SHEET_RIGHT = '#882222';
+
+export const FAIL_PARTICLE_LEFT = '#ff44aa';
+export const FAIL_PARTICLE_RIGHT = '#ff8822';
 
 export const CLEF_TYPES = {
   BASS: 'bass',
@@ -378,7 +386,9 @@ export class Renderer {
 
   drawNote(laneIndex: number, y: number, noteHeight: number, color: string, alpha: number, sheetBottom: number, noteName?: string, holding?: boolean, failing?: boolean): void {
     const ctx = this.ctx;
-    const drawColor = failing ? '#aa3322' : color;
+    const drawColor = failing && noteName
+      ? (handForKey(noteName) === HandSide.Left ? FAIL_COLOR_LEFT : FAIL_COLOR_RIGHT)
+      : color;
     const L = this._noteLayout(laneIndex, y, noteHeight, sheetBottom, noteName);
 
     ctx.globalAlpha = alpha;
@@ -400,7 +410,7 @@ export class Renderer {
       this._drawFlame(ctx, cx, baseY, L.scaledWidth);
     }
 
-    if (noteName && !failing) {
+    if (noteName) {
       this._drawNoteLabel(ctx, noteName, L.drawX, headDrawY, L.scaledWidth, L.scaledHeadHeight);
     }
 
@@ -579,12 +589,13 @@ export class Renderer {
 
       const x = barX + ((note.time - viewStart) / (viewEnd - viewStart)) * barW;
       const r = SHEET_NOTE_RADIUS * this.sheetScale;
-      const color = NOTE_COLORS[note.key] || '#ffffff';
+      const color = handColor(note.key);
       const filled = note.duration < 0.75;
 
       if (note.failing) {
-        ctx.fillStyle = '#882222';
-        ctx.strokeStyle = '#882222';
+        const sheetColor = handForKey(note.key) === HandSide.Left ? FAIL_COLOR_SHEET_LEFT : FAIL_COLOR_SHEET_RIGHT;
+        ctx.fillStyle = sheetColor;
+        ctx.strokeStyle = sheetColor;
       } else if (note.hit) {
         ctx.fillStyle = '#555';
         ctx.strokeStyle = '#555';

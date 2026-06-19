@@ -26,6 +26,35 @@ export const NOTE_COLORS: Record<string, string> = Object.fromEntries(
 export const WHITE_KEY_COUNT = 52;
 export const BLACK_KEY_WIDTH_RATIO = 0.6;
 
+export enum HandSide {
+  Left = 'left',
+  Right = 'right',
+}
+
+const HAND_SPLIT_MIDI = 59; // B3
+
+const LEFT_HAND_COLORS = ['#2288ff', '#4466ff', '#6644ff', '#8844ff', '#aa44ff', '#22ddaa'];
+const RIGHT_HAND_COLORS = ['#ff2244', '#ff6622', '#ffaa22', '#ffdd22', '#ddff22', '#22ff66'];
+
+const _chromaticMap: Record<string, number> = { C: 0, 'C#': 1, D: 2, 'D#': 3, E: 4, F: 5, 'F#': 6, G: 7, 'G#': 8, A: 9, 'A#': 10, B: 11 };
+
+export function handForKey(noteKey: string): HandSide {
+  const match = noteKey.match(/^([A-G]#?)(\d)$/);
+  if (!match) return HandSide.Right;
+  const midi = _chromaticMap[match[1]] + (parseInt(match[2], 10) + 1) * 12;
+  return midi <= HAND_SPLIT_MIDI ? HandSide.Left : HandSide.Right;
+}
+
+export function handColor(noteKey: string): string {
+  const match = noteKey.match(/^([A-G]#?)(\d)$/);
+  if (!match) return '#ffffff';
+  const chromatic = _chromaticMap[match[1]];
+  if (handForKey(noteKey) === HandSide.Left) {
+    return LEFT_HAND_COLORS[chromatic % LEFT_HAND_COLORS.length];
+  }
+  return RIGHT_HAND_COLORS[chromatic % RIGHT_HAND_COLORS.length];
+}
+
 const WHITE_KEY_INDEX: Record<string, number> = {};
 const BLACK_KEY_LEFT_WHITE: Record<string, number> = {};
 
