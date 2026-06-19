@@ -11,7 +11,6 @@ const SHEET_STAFF_LINE_SPACING = 10;
 const BASE_SHEET_HEIGHT = 5 + 4 * SHEET_STAFF_LINE_SPACING + 8 + 4 * SHEET_STAFF_LINE_SPACING + 5;
 
 const SONG_FILES = [
-  'assets/songs/bed-of-razors.json',
   'assets/songs/frere-jacques.json',
   'assets/songs/iron-rain.json',
   'assets/songs/steel-thunder.json',

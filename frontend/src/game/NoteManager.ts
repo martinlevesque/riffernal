@@ -193,6 +193,23 @@ export class NoteManager {
       const noteEnd = note.time + note.duration;
       if (currentTime >= noteEnd) continue;
 
+      // Don't recover an old failing note if a fresher un-hit note in the same
+      // lane is within the timing window — let _tryNormalHit handle the new note.
+      // Fixes consecutive same-note sequences (e.g. C3 C3) where re-pressing the
+      // key for the second note would otherwise recover the first note instead.
+      const hasFreshNote = this.activeNotes.some(
+        (n) =>
+          n !== note &&
+          n.lane === lane &&
+          !n.hit &&
+          !n.missed &&
+          !n.holding &&
+          !n.failing &&
+          !n.resolved &&
+          Math.abs(n.time - currentTime) <= TIMING.GOOD + EARLY_HIT_WINDOW,
+      );
+      if (hasFreshNote) continue;
+
       const isRepress = note.accumulatedHeldDuration > 0;
       const grade = isRepress ? note.grade! : NoteGrade.GOOD;
 

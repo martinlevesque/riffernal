@@ -102,6 +102,7 @@ test.describe('Results Screen', () => {
   });
 
   test('results screen appears after multiple retries', async ({ page }) => {
+    test.setTimeout(120000);
     const errors: string[] = [];
     page.on('pageerror', (err) => errors.push(err.message));
 

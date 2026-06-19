@@ -374,7 +374,7 @@ test.describe('Hold notes', () => {
     await startGame(page);
     await page.waitForTimeout(1800);
 
-    await page.keyboard.press('KeyA');
+    await page.keyboard.press('KeyK');
     await expect(page.locator('#hit-feedback')).toHaveText('Miss', { timeout: 1000 });
   });
 
