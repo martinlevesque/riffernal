@@ -1,7 +1,7 @@
-import { Renderer, FAIL_PARTICLE_LEFT, FAIL_PARTICLE_RIGHT } from './Renderer.js';
+import { Renderer } from './Renderer.js';
 import { NoteManager, SCROLL_SPEED, HIT_ZONE_Y_RATIO } from './NoteManager.js';
-import { NoteGrade, gradeLabel } from './scoring.js';
-import { NOTE_TO_LANE, NOTE_COLORS, getPianoKeyLayout, handForKey, HandSide } from '../utils/notes.js';
+import { NoteGrade, gradeLabel, TAP_NOTE_THRESHOLD, SUCCESS_PARTICLE_HOLD_RATIO } from './scoring.js';
+import { NOTE_TO_LANE, NOTE_COLORS, getPianoKeyLayout } from '../utils/notes.js';
 import { formatScore } from '../utils/helpers.js';
 import type { Synth } from '../audio/Synth.js';
 import type { KeyboardInput } from '../input/KeyboardInput.js';
@@ -19,6 +19,7 @@ const FEEDBACK_COLORS: Record<NoteGrade | 'MISS', string> = {
 };
 
 const COUNTDOWN_SECONDS = 1.5;
+const RESULTS_DELAY_SECONDS = 1;
 
 export class Game {
   canvas: HTMLCanvasElement;
@@ -45,6 +46,7 @@ export class Game {
   private _onResize: () => void;
   private _boundLoop: () => void;
   private _lastFrameTime = 0;
+  private _completionTime: number | null = null;
 
   constructor(canvas: HTMLCanvasElement, synth: Synth, keyboardInput: KeyboardInput, midiInput: MidiInput) {
     this.canvas = canvas;
@@ -86,7 +88,11 @@ export class Game {
         this.scoreDisplay?.update(this.noteManager.scoring);
 
         if (this.noteManager.isComplete()) {
-          this._showResults();
+          if (this._completionTime === null) {
+            this._completionTime = this.currentTime;
+          } else if (this.currentTime - this._completionTime >= RESULTS_DELAY_SECONDS) {
+            this._showResults();
+          }
         }
       }
 
@@ -114,6 +120,7 @@ export class Game {
     this.refRealTime = performance.now() / 1000;
     this.state = 'playing';
     this.pressedLanes.clear();
+    this._completionTime = null;
 
     this.menuScreen.classList.remove('active');
     this.resultsScreen.classList.remove('active');
@@ -143,14 +150,19 @@ export class Game {
       const color = FEEDBACK_COLORS[grade];
       this.scoreDisplay?.showFeedback(`+${result.score} ${label}`, color);
 
-      if (result.note.failing) {
+      const note = result.note;
+      const holdRatio = note.duration > 0 ? note.accumulatedHeldDuration / note.duration : 0;
+      const isTapNote = note.duration <= TAP_NOTE_THRESHOLD;
+
+      if ((note.failing && holdRatio >= SUCCESS_PARTICLE_HOLD_RATIO) || isTapNote) {
         const hitZoneY = this.renderer.height * HIT_ZONE_Y_RATIO;
-        const keyLayout = getPianoKeyLayout(result.note.key, this.renderer.width);
+        const keyLayout = getPianoKeyLayout(note.key, this.renderer.width);
+        const noteColor = NOTE_COLORS[note.key] || '#ffffff';
         this.renderer.spawnParticles(
           keyLayout.x + keyLayout.width / 2,
           hitZoneY,
-          handForKey(result.note.key) === HandSide.Left ? FAIL_PARTICLE_LEFT : FAIL_PARTICLE_RIGHT,
-          10
+          noteColor,
+          10,
         );
       }
     };

@@ -18,6 +18,9 @@ export const EARLY_PENALTY_RATIO = 0.5;
 
 export const TAP_NOTE_THRESHOLD = 0.4; // seconds — notes shorter than this are instant taps
 
+// Minimum hold ratio for a failing note to emit a satisfying particle burst at its end
+export const SUCCESS_PARTICLE_HOLD_RATIO = 0.75;
+
 export const SCORE_VALUES: Record<NoteGrade | "MISS", number> = {
   [NoteGrade.PERFECT]: 300,
   [NoteGrade.GREAT]: 200,
