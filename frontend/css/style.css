@@ -79,8 +79,6 @@ body {
 #menu-screen.active {
   background: rgba(10, 10, 10, 0.95);
   pointer-events: auto;
-  align-items: center;
-  justify-content: center;
   overflow-y: auto;
 }
 
@@ -103,6 +101,7 @@ body {
   text-align: center;
   max-width: 600px;
   width: 90%;
+  margin: auto;
 }
 
 .title {
