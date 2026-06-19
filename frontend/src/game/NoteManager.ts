@@ -1,4 +1,4 @@
-import { NOTE_TO_LANE, NOTE_COLORS } from '../utils/notes.js';
+import { NOTE_TO_LANE, handForKey, handColor, HandSide } from '../utils/notes.js';
 import type { Song, Note } from '../utils/MidiParser.js';
 import { Scoring, TIMING, TAP_NOTE_THRESHOLD, SCORE_VALUES } from './scoring.js';
 import type { NoteGrade } from './scoring.js';
@@ -82,7 +82,7 @@ export class NoteManager {
     this.trebleNotes = [];
     this.bassNotes = [];
     for (const note of this.notes) {
-      if (note.key <= 'B3') {
+      if (handForKey(note.key) === HandSide.Left) {
         this.bassNotes.push(note);
       } else {
         this.trebleNotes.push(note);
@@ -235,7 +235,7 @@ export class NoteManager {
 
     for (const note of this.activeNotes) {
       if ((note.hit || note.missed) && !note.failing) continue;
-      const color = NOTE_COLORS[note.key] || '#ffffff';
+      const color = handColor(note.key);
 
       if (note.holding) {
         const remaining = Math.max(12, (note.time + note.duration - currentTime) * SCROLL_SPEED);

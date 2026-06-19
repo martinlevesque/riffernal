@@ -1,7 +1,7 @@
-import { Renderer } from './Renderer.js';
+import { Renderer, FAIL_PARTICLE_LEFT, FAIL_PARTICLE_RIGHT } from './Renderer.js';
 import { NoteManager, SCROLL_SPEED, HIT_ZONE_Y_RATIO } from './NoteManager.js';
 import { NoteGrade, gradeLabel } from './scoring.js';
-import { NOTE_TO_LANE, NOTE_COLORS, getPianoKeyLayout } from '../utils/notes.js';
+import { NOTE_TO_LANE, NOTE_COLORS, getPianoKeyLayout, handForKey, HandSide } from '../utils/notes.js';
 import { formatScore } from '../utils/helpers.js';
 import type { Synth } from '../audio/Synth.js';
 import type { KeyboardInput } from '../input/KeyboardInput.js';
@@ -11,12 +11,11 @@ import type { Song } from '../utils/MidiParser.js';
 
 export type GameState = 'menu' | 'playing' | 'results';
 
-const FEEDBACK_COLORS: Record<NoteGrade | 'MISS' | 'FAIL', string> = {
+const FEEDBACK_COLORS: Record<NoteGrade | 'MISS', string> = {
   [NoteGrade.PERFECT]: '#ffdd22',
   [NoteGrade.GREAT]: '#22ff66',
   [NoteGrade.GOOD]: '#2288ff',
   MISS: '#ff2244',
-  FAIL: '#ff8822',
 };
 
 const COUNTDOWN_SECONDS = 1.5;
@@ -145,7 +144,7 @@ export class Game {
         this.renderer.spawnParticles(
           keyLayout.x + keyLayout.width / 2,
           hitZoneY,
-          FEEDBACK_COLORS.FAIL,
+          handForKey(result.note.key) === HandSide.Left ? FAIL_PARTICLE_LEFT : FAIL_PARTICLE_RIGHT,
           10
         );
       }

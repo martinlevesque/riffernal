@@ -1,34 +1,28 @@
 import { test, expect } from '@playwright/test';
+import { H, makeSong } from './helpers.js';
 
 test('notes with same start time share same Y coordinate', async ({ page }) => {
   await page.goto('/');
 
-  const result = await page.evaluate(async () => {
-    // @ts-expect-error browser-side dynamic import
-    const { NoteManager } = await import('/js/game/NoteManager.js');
+  const songData = makeSong([
+    { time: 2.0, key: 'C3', duration: 0.5 },
+    { time: 2.0, key: 'E3', duration: 0.1 },
+    { time: 2.0, key: 'G3', duration: 0.8 },
+  ], 'Chord Test');
 
-    const song = {
-      title: 'Chord Test',
-      artist: 'Test',
-      bpm: 120,
-      difficulty: 'easy',
-      notes: [
-        { time: 2.0, key: 'C3', duration: 0.5 },
-        { time: 2.0, key: 'E3', duration: 0.1 },
-        { time: 2.0, key: 'G3', duration: 0.8 },
-      ],
-    };
+  const result = await page.evaluate(async ({ song, H }) => {
+    // @ts-expect-error browser-side dynamic import
+    const { NoteManager } = (await import('/js/game/NoteManager.js'));
 
     const nm = new NoteManager();
     nm.loadSong(song);
 
-    const height = 800;
     const currentTime = 1.0;
-    nm.update(currentTime, height);
-    const active = nm.getActiveNotes(currentTime, height);
+    nm.update(currentTime, H);
+    const active = nm.getActiveNotes(currentTime, H);
 
     return active.map((n: any) => ({ y: n.y, height: n.height, bottom: n.y + n.height }));
-  });
+  }, { song: songData, H });
 
   expect(result).toHaveLength(3);
 
