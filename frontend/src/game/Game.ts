@@ -103,6 +103,11 @@ export class Game {
   }
 
   start(song: Song): void {
+    if (this.animationId !== null) {
+      cancelAnimationFrame(this.animationId);
+      this.animationId = null;
+    }
+
     this.currentSong = song;
     this.noteManager.loadSong(song);
     this.refGameTime = -COUNTDOWN_SECONDS;
@@ -216,7 +221,6 @@ export class Game {
     `;
 
     this.keyboardInput.stop();
-    this.midiInput.stop();
     this.midiInput.onNoteOn = null;
     this.midiInput.onNoteOff = null;
     this.synth.releaseAll();
@@ -234,7 +238,6 @@ export class Game {
     this.playScreen.classList.remove('active');
     this.menuScreen.classList.add('active');
     this.keyboardInput.stop();
-    this.midiInput.stop();
     this.synth.releaseAll();
     this.keyboardInput.onNoteOn = null;
     this.keyboardInput.onNoteOff = null;
