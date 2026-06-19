@@ -1,10 +1,9 @@
 import { noteNameToMidi } from '../utils/helpers.js';
+import { metalPatch } from './patches/metalPatch.js';
+import type { Patch, PatchNote } from './patches/Patch.js';
 
 interface ActiveNote {
-  osc1: OscillatorNode;
-  osc2: OscillatorNode;
-  osc3: OscillatorNode;
-  gainNode: GainNode;
+  note: PatchNote;
 }
 
 export class Synth {
@@ -13,6 +12,7 @@ export class Synth {
   private compressor: DynamicsCompressorNode | null = null;
   private activeNotes: Map<string, ActiveNote> = new Map();
   private initialized = false;
+  private patch: Patch = metalPatch;
 
   init(): void {
     if (this.initialized) return;
@@ -41,6 +41,14 @@ export class Synth {
     }
   }
 
+  setPatch(patch: Patch): void {
+    this.patch = patch;
+  }
+
+  getPatch(): Patch {
+    return this.patch;
+  }
+
   noteOn(noteName: string): void {
     this.init();
     this.resume();
@@ -54,62 +62,17 @@ export class Synth {
     const freq = 440 * 2 ** ((midi - 69) / 12);
     const now = this.ctx!.currentTime;
 
-    const osc1 = this.ctx!.createOscillator();
-    const osc2 = this.ctx!.createOscillator();
-    const osc3 = this.ctx!.createOscillator();
-    const gainNode = this.ctx!.createGain();
-
-    osc1.type = 'triangle';
-    osc1.frequency.value = freq;
-
-    osc2.type = 'sine';
-    osc2.frequency.value = freq * 2;
-
-    osc3.type = 'sine';
-    osc3.frequency.value = freq * 3;
-
-    const gain1 = this.ctx!.createGain();
-    const gain2 = this.ctx!.createGain();
-    const gain3 = this.ctx!.createGain();
-    gain1.gain.value = 0.6;
-    gain2.gain.value = 0.2;
-    gain3.gain.value = 0.05;
-
-    osc1.connect(gain1);
-    osc2.connect(gain2);
-    osc3.connect(gain3);
-    gain1.connect(gainNode);
-    gain2.connect(gainNode);
-    gain3.connect(gainNode);
-
-    gainNode.gain.setValueAtTime(0, now);
-    gainNode.gain.linearRampToValueAtTime(1, now + 0.005);
-    gainNode.gain.exponentialRampToValueAtTime(0.5, now + 0.1);
-    gainNode.gain.exponentialRampToValueAtTime(0.2, now + 0.5);
-
-    gainNode.connect(this.masterGain!);
-
-    osc1.start(now);
-    osc2.start(now);
-    osc3.start(now);
-
-    this.activeNotes.set(noteName, { osc1, osc2, osc3, gainNode });
+    const patchNote = this.patch.build(this.ctx!, freq, now);
+    patchNote.output.connect(this.masterGain!);
+    this.activeNotes.set(noteName, { note: patchNote });
   }
 
   noteOff(noteName: string): void {
-    const note = this.activeNotes.get(noteName);
-    if (!note) return;
+    const active = this.activeNotes.get(noteName);
+    if (!active) return;
 
     const now = this.ctx!.currentTime;
-    note.gainNode.gain.cancelScheduledValues(now);
-    note.gainNode.gain.setValueAtTime(note.gainNode.gain.value, now);
-    note.gainNode.gain.exponentialRampToValueAtTime(0.001, now + 0.15);
-
-    const { osc1, osc2, osc3 } = note;
-    osc1.stop(now + 0.2);
-    osc2.stop(now + 0.2);
-    osc3.stop(now + 0.2);
-
+    active.note.release(this.ctx!, now);
     this.activeNotes.delete(noteName);
   }
 

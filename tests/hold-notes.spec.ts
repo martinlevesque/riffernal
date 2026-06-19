@@ -55,6 +55,9 @@ test.describe('Hold notes', () => {
       const hit = nm.checkHit(2.0, c3);
       const release = nm.checkRelease(2.5, c3);
 
+      // score is deferred — run past note end to finalize
+      nm.update(3.1, H);
+
       return {
         hitHit: !!hit,
         releaseNull: release === null,
@@ -62,7 +65,7 @@ test.describe('Hold notes', () => {
         holdRatio: release ? release.holdRatio : null,
         score: nm.scoring.score,
         combo: nm.scoring.combo,
-        failing: nm.notes[0].failing,
+        failingBeforeFinalize: release ? release.note.failing : null,
         hit: nm.notes[0].hit,
         failures: nm.scoring.failures,
       };
@@ -71,9 +74,9 @@ test.describe('Hold notes', () => {
     expect(result.hitHit).toBe(true);
     expect(result.releaseNull).toBe(false);
     expect(result.hit).toBe(false);
-    expect(result.failing).toBe(true);
+    expect(result.failingBeforeFinalize).toBe(true);
     expect(result.failures).toBe(1);
-    expect(result.penalty).toBe(150);
+    expect(result.penalty).toBe(0);
     expect(result.holdRatio).toBeCloseTo(0.5, 1);
     expect(result.combo).toBe(1);
     expect(result.score).toBe(150);
@@ -323,12 +326,22 @@ test.describe('Hold notes', () => {
       nm.update(1.5, H);
       nm.update(2.2, H);
 
-      return { count: resolves.length, resolve: resolves[0] };
+      const missed = nm.notes[0].missed;
+      const failing = nm.notes[0].failing;
+      const resolvedAtMiss = nm.notes[0].resolved;
+
+      // missed notes now resolve at note end, not at the miss moment
+      nm.update(3.1, H);
+
+      return { count: resolves.length, resolve: resolves[0], missed, failing, resolvedAtMiss };
     }, { song: songData, H });
 
     expect(result.count).toBe(1);
     expect(result.resolve.score).toBe(0);
     expect(result.resolve.grade).toBe(null);
+    expect(result.missed).toBe(true);
+    expect(result.failing).toBe(true);
+    expect(result.resolvedAtMiss).toBe(false);
   });
 
   test('onResolve fires once for tap note on press with full score', async ({ page }) => {
@@ -361,7 +374,193 @@ test.describe('Hold notes', () => {
     await startGame(page);
     await page.waitForTimeout(1800);
 
-    await page.keyboard.press('KeyA');
+    await page.keyboard.press('KeyK');
     await expect(page.locator('#hit-feedback')).toHaveText('Miss', { timeout: 1000 });
+  });
+
+  test('early-buffer tap scores GOOD with penalty', async ({ page }) => {
+    await page.goto('/');
+    const songData = makeSong([{ time: 2.0, key: 'C3', duration: 0.25 }], 'Early Tap');
+    const result = await page.evaluate(async ({ song, H }) => {
+      // @ts-expect-error browser-side dynamic import
+      const { NoteManager } = await import('/js/game/NoteManager.js');
+      // @ts-expect-error browser-side dynamic import
+      const { NOTE_NAMES } = await import('/js/utils/notes.js');
+
+      const c3 = NOTE_NAMES.indexOf('C3');
+      const nm = new NoteManager();
+      nm.loadSong(song);
+
+      nm.update(1.5, H);
+      // 160 ms early — within the 100 ms GOOD + 100 ms early buffer
+      const hit = nm.checkHit(1.84, c3);
+
+      return {
+        hitHit: !!hit,
+        grade: hit ? hit.result : null,
+        score: nm.scoring.score,
+        perfects: nm.scoring.perfects,
+        goods: nm.scoring.goods,
+        failures: nm.scoring.failures,
+      };
+    }, { song: songData, H });
+
+    expect(result.hitHit).toBe(true);
+    expect(result.grade).toBe('GOOD');
+    expect(result.score).toBe(50);
+    expect(result.perfects).toBe(0);
+    expect(result.failures).toBe(0);
+  });
+
+  test('missed note stays visible until duration ends, then resolves as miss', async ({ page }) => {
+    await page.goto('/');
+    const songData = makeSong([{ time: 2.0, key: 'C3', duration: 1.0 }], 'Stale Miss');
+    const result = await page.evaluate(async ({ song, H }) => {
+      // @ts-expect-error browser-side dynamic import
+      const { NoteManager } = await import('/js/game/NoteManager.js');
+
+      const nm = new NoteManager();
+      let missFired = false;
+      nm.onMiss = () => { missFired = true; };
+      const resolves: any[] = [];
+      // @ts-expect-error ResolveResult used as any
+      nm.onResolve = (r) => resolves.push({ score: r.score, grade: r.grade });
+
+      nm.loadSong(song);
+      nm.update(1.5, H);
+      nm.update(2.2, H);
+
+      const atMiss = {
+        missed: nm.notes[0].missed,
+        failing: nm.notes[0].failing,
+        resolved: nm.notes[0].resolved,
+        missFired,
+        resolvesBeforeEnd: resolves.length,
+        isCompleteMid: nm.isComplete(),
+      };
+
+      nm.update(3.1, H);
+
+      return {
+        atMiss,
+        resolvesAfterEnd: resolves.length,
+        resolveScore: resolves[0]?.score,
+        resolveGrade: resolves[0]?.grade,
+        isCompleteEnd: nm.isComplete(),
+        score: nm.scoring.score,
+        misses: nm.scoring.misses,
+        combo: nm.scoring.combo,
+      };
+    }, { song: songData, H });
+
+    expect(result.atMiss.missed).toBe(true);
+    expect(result.atMiss.failing).toBe(true);
+    expect(result.atMiss.resolved).toBe(false);
+    expect(result.atMiss.missFired).toBe(true);
+    expect(result.atMiss.resolvesBeforeEnd).toBe(0);
+    expect(result.atMiss.isCompleteMid).toBe(false);
+    expect(result.resolvesAfterEnd).toBe(1);
+    expect(result.resolveScore).toBe(0);
+    expect(result.resolveGrade).toBe(null);
+    expect(result.isCompleteEnd).toBe(true);
+    expect(result.misses).toBe(1);
+    expect(result.combo).toBe(0);
+  });
+
+  test('late recovery on missed note scores ratio-based', async ({ page }) => {
+    await page.goto('/');
+    const songData = makeSong([{ time: 2.0, key: 'C3', duration: 1.0 }], 'Late Recovery');
+    const result = await page.evaluate(async ({ song, H }) => {
+      // @ts-expect-error browser-side dynamic import
+      const { NoteManager } = await import('/js/game/NoteManager.js');
+      // @ts-expect-error browser-side dynamic import
+      const { NOTE_NAMES } = await import('/js/utils/notes.js');
+
+      const c3 = NOTE_NAMES.indexOf('C3');
+      const nm = new NoteManager();
+      nm.loadSong(song);
+
+      nm.update(1.5, H);
+      // note starts failing at 2.1
+      nm.update(2.2, H);
+
+      // recover at 2.5 (0.5 s remaining of 1.0 s duration)
+      const hit = nm.checkHit(2.5, c3);
+
+      // auto-complete hold at note end
+      nm.update(3.1, H);
+
+      return {
+        hitHit: !!hit,
+        grade: hit ? hit.result : null,
+        score: nm.scoring.score,
+        failures: nm.scoring.failures,
+        misses: nm.scoring.misses,
+        combo: nm.scoring.combo,
+      };
+    }, { song: songData, H });
+
+    expect(result.hitHit).toBe(true);
+    expect(result.grade).toBe('GOOD');
+    // held 0.5 of 1.0 = ratio 0.5, GOOD (100) × 0.5 = 50
+    expect(result.score).toBe(50);
+    expect(result.failures).toBe(1);
+    expect(result.misses).toBe(0);
+    expect(result.combo).toBe(1);
+  });
+
+  test('re-press of early-released hold resumes and accumulates held time', async ({ page }) => {
+    await page.goto('/');
+    const songData = makeSong([{ time: 2.0, key: 'C3', duration: 1.0 }], 'Re-press Hold');
+    const result = await page.evaluate(async ({ song, H }) => {
+      // @ts-expect-error browser-side dynamic import
+      const { NoteManager } = await import('/js/game/NoteManager.js');
+      // @ts-expect-error browser-side dynamic import
+      const { NOTE_NAMES } = await import('/js/utils/notes.js');
+
+      const c3 = NOTE_NAMES.indexOf('C3');
+      const nm = new NoteManager();
+      nm.loadSong(song);
+
+      nm.update(1.5, H);
+      // hit on time (PERFECT)
+      const hit = nm.checkHit(2.0, c3);
+
+      // release at 2.3 (0.3 s held)
+      const release = nm.checkRelease(2.3, c3);
+      const releaseFailing = release ? release.note.failing : null;
+
+      // re-press at 2.8 — resume holding
+      const repress = nm.checkHit(2.8, c3);
+
+      // auto-complete at note end (3.0)
+      nm.update(3.1, H);
+
+      return {
+        hitHit: !!hit,
+        releaseNull: release === null,
+        releaseHoldRatio: release ? release.holdRatio : null,
+        releaseFailing,
+        repressHit: !!repress,
+        repressGrade: repress ? repress.result : null,
+        noteFailingAfterRepress: nm.notes[0].failing,
+        score: nm.scoring.score,
+        failures: nm.scoring.failures,
+        perfects: nm.scoring.perfects,
+        combo: nm.scoring.combo,
+      };
+    }, { song: songData, H });
+
+    expect(result.hitHit).toBe(true);
+    expect(result.releaseNull).toBe(false);
+    expect(result.releaseHoldRatio).toBeCloseTo(0.3, 1);
+    expect(result.releaseFailing).toBe(true);
+    expect(result.repressHit).toBe(true);
+    expect(result.repressGrade).toBe('PERFECT');
+    expect(result.noteFailingAfterRepress).toBe(false);
+    // 0.3 + 0.2 = 0.5 of 1.0 → ratio 0.5, PERFECT (300) × 0.5 = 150
+    expect(result.score).toBe(150);
+    expect(result.failures).toBe(1);
+    expect(result.combo).toBe(1);
   });
 });

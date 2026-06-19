@@ -1,18 +1,27 @@
 export enum NoteGrade {
-  PERFECT = 'PERFECT',
-  GREAT = 'GREAT',
-  GOOD = 'GOOD',
+  PERFECT = "PERFECT",
+  GREAT = "GREAT",
+  GOOD = "GOOD",
 }
 
 export const TIMING: Record<NoteGrade, number> = {
-  [NoteGrade.PERFECT]: 0.030,
-  [NoteGrade.GREAT]: 0.060,
-  [NoteGrade.GOOD]: 0.100,
+  [NoteGrade.PERFECT]: 0.03, // seconds
+  [NoteGrade.GREAT]: 0.06,
+  [NoteGrade.GOOD]: 0.1,
 };
 
-export const TAP_NOTE_THRESHOLD = 0.4;
+// Extra seconds allowed before the GOOD window for early hits (scores with penalty)
+export const EARLY_HIT_WINDOW = 0.2;
 
-export const SCORE_VALUES: Record<NoteGrade | 'MISS', number> = {
+// Multiplier applied to score for early-buffer hits (0.5 = 50% of GOOD score)
+export const EARLY_PENALTY_RATIO = 0.5;
+
+export const TAP_NOTE_THRESHOLD = 0.4; // seconds — notes shorter than this are instant taps
+
+// Minimum hold ratio for a failing note to emit a satisfying particle burst at its end
+export const SUCCESS_PARTICLE_HOLD_RATIO = 0.75;
+
+export const SCORE_VALUES: Record<NoteGrade | "MISS", number> = {
   [NoteGrade.PERFECT]: 300,
   [NoteGrade.GREAT]: 200,
   [NoteGrade.GOOD]: 100,
@@ -37,7 +46,7 @@ export const GRADE_THRESHOLDS = {
 } as const;
 
 export function gradeLabel(grade: NoteGrade): string {
-  if (grade === NoteGrade.GOOD) return 'Good!';
+  if (grade === NoteGrade.GOOD) return "Good!";
   return grade.charAt(0) + grade.slice(1).toLowerCase();
 }
 
@@ -51,20 +60,16 @@ export function comboBonus(combo: number): number {
   return Math.floor(combo / COMBO_DIVISOR) * COMBO_BONUS_PER_STEP;
 }
 
-export function holdPenalty(grade: NoteGrade, holdRatio: number): number {
-  return Math.round(SCORE_VALUES[grade] * (1 - holdRatio));
-}
-
 export function accuracyWeight(grade: NoteGrade): number {
   return ACCURACY_WEIGHTS[grade];
 }
 
 export function letterGrade(accuracy: number): Grade {
-  if (accuracy >= GRADE_THRESHOLDS.S) return { grade: 'S', class: 'grade-s' };
-  if (accuracy >= GRADE_THRESHOLDS.A) return { grade: 'A', class: 'grade-a' };
-  if (accuracy >= GRADE_THRESHOLDS.B) return { grade: 'B', class: 'grade-b' };
-  if (accuracy >= GRADE_THRESHOLDS.C) return { grade: 'C', class: 'grade-c' };
-  return { grade: 'D', class: 'grade-d' };
+  if (accuracy >= GRADE_THRESHOLDS.S) return { grade: "S", class: "grade-s" };
+  if (accuracy >= GRADE_THRESHOLDS.A) return { grade: "A", class: "grade-a" };
+  if (accuracy >= GRADE_THRESHOLDS.B) return { grade: "B", class: "grade-b" };
+  if (accuracy >= GRADE_THRESHOLDS.C) return { grade: "C", class: "grade-c" };
+  return { grade: "D", class: "grade-d" };
 }
 
 export interface Grade {
@@ -97,42 +102,48 @@ export class Scoring {
     this.totalNotes = totalNotes;
   }
 
-  registerHit(diff: number): { grade: NoteGrade } {
-    const grade = gradeFromDiff(diff);
-    if (grade === NoteGrade.PERFECT) this.perfects++;
-    else if (grade === NoteGrade.GREAT) this.greats++;
-    else this.goods++;
-    this.score += SCORE_VALUES[grade];
+  recordNotePress(): void {
     this.combo++;
     if (this.combo > this.maxCombo) this.maxCombo = this.combo;
     this.score += comboBonus(this.combo);
-    return { grade };
   }
 
-  registerRelease(grade: NoteGrade, holdRatio: number): { penalty: number; earnedScore: number } {
+  finalizeNote(
+    grade: NoteGrade | null,
+    heldRatio: number,
+    earlyMultiplier = 1,
+  ): number {
+    if (grade === null || heldRatio <= 0) {
+      this.misses++;
+      this.combo = 0;
+      return 0;
+    }
+
     const baseScore = SCORE_VALUES[grade];
-    const penalty = holdPenalty(grade, holdRatio);
-    this.score -= penalty;
-    if (grade === NoteGrade.PERFECT) this.perfects--;
-    else if (grade === NoteGrade.GREAT) this.greats--;
-    else this.goods--;
-    this.failureWeight += holdRatio * accuracyWeight(grade);
-    this.failures++;
-    return { penalty, earnedScore: baseScore - penalty };
-  }
+    const earnedScore = Math.round(baseScore * heldRatio * earlyMultiplier);
+    this.score += earnedScore;
 
-  registerMiss(): void {
-    this.combo = 0;
-    this.misses++;
+    if (heldRatio >= 1) {
+      if (grade === NoteGrade.PERFECT) this.perfects++;
+      else if (grade === NoteGrade.GREAT) this.greats++;
+      else this.goods++;
+    } else {
+      this.failures++;
+      this.failureWeight += heldRatio * earlyMultiplier * accuracyWeight(grade);
+    }
+
+    return earnedScore;
   }
 
   getAccuracy(): number {
-    const total = this.perfects + this.greats + this.goods + this.misses + this.failures;
+    const total =
+      this.perfects + this.greats + this.goods + this.misses + this.failures;
     if (total === 0) return 100;
-    const weighted = this.perfects * accuracyWeight(NoteGrade.PERFECT)
-      + this.greats * accuracyWeight(NoteGrade.GREAT)
-      + this.goods * accuracyWeight(NoteGrade.GOOD)
-      + this.failureWeight;
+    const weighted =
+      this.perfects * accuracyWeight(NoteGrade.PERFECT) +
+      this.greats * accuracyWeight(NoteGrade.GREAT) +
+      this.goods * accuracyWeight(NoteGrade.GOOD) +
+      this.failureWeight;
     return Math.round((weighted / total) * 10) / 10;
   }
 
