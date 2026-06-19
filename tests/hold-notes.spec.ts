@@ -392,7 +392,7 @@ test.describe('Hold notes', () => {
       nm.loadSong(song);
 
       nm.update(1.5, H);
-      // 160 ms early — within the 100 ms GOOD + 100 ms early buffer
+      // 160 ms early — within the 130 ms GOOD + 200 ms early buffer
       const hit = nm.checkHit(1.84, c3);
 
       return {
