@@ -6,6 +6,14 @@ export const SCROLL_SPEED = 400;
 
 export const HIT_ZONE_Y_RATIO = 0.82;
 
+export const SIMULTANEOUS_WINDOW = 0.15;
+export const CHORD_GROUP_WINDOW = 0.1;
+
+export interface LearningHitOutcome {
+  results: HitResult[];
+  wrong: boolean;
+}
+
 export interface SongNote extends Note {
   hit: boolean;
   missed: boolean;
@@ -31,6 +39,7 @@ export interface ActiveNoteRender {
   key: string;
   holding: boolean;
   failing: boolean;
+  waiting: boolean;
 }
 
 export interface HitResult {
@@ -61,6 +70,10 @@ export class NoteManager {
   onResolve: ((result: ResolveResult) => void) | null = null;
   private _nextNoteIndex = 0;
   private _resolvedCount = 0;
+  private _learningAnchor: number | null = null;
+  private _learningChordLanes = new Set<number>();
+  private _learningChordPresses = new Map<number, number>();
+  private _learningChordDeadline = 0;
 
   loadSong(songData: Song): void {
     this.notes = songData.notes.map((n: Note) => ({
@@ -82,6 +95,10 @@ export class NoteManager {
     this.activeNotes = [];
     this._nextNoteIndex = 0;
     this._resolvedCount = 0;
+    this._learningAnchor = null;
+    this._learningChordLanes.clear();
+    this._learningChordPresses.clear();
+    this._learningChordDeadline = 0;
     this.trebleNotes = [];
     this.bassNotes = [];
     for (const note of this.notes) {
@@ -301,6 +318,81 @@ export class NoteManager {
     return { note: holdingNote, penalty: 0, holdRatio: cumulativeRatio, grade: holdingNote.grade! };
   }
 
+  private _expireStaleChordPresses(realTime: number): void {
+    if (realTime > this._learningChordDeadline && this._learningChordPresses.size > 0) {
+      this._learningChordPresses.clear();
+    }
+  }
+
+  getEarliestWaitTime(rawTime: number, realTime?: number): number | null {
+    if (this._learningAnchor !== null) {
+      if (realTime !== undefined) this._expireStaleChordPresses(realTime);
+
+      let allEngaged = true;
+      for (let i = this._nextNoteIndex; i < this.notes.length; i++) {
+        const note = this.notes[i];
+        if (note.time > this._learningAnchor + CHORD_GROUP_WINDOW) break;
+        if (note.resolved || note.holding || note.failing || note.hit) continue;
+        allEngaged = false;
+        break;
+      }
+      if (allEngaged) {
+        this._learningAnchor = null;
+        this._learningChordLanes.clear();
+        this._learningChordPresses.clear();
+      } else {
+        return this._learningAnchor;
+      }
+    }
+
+    for (let i = this._nextNoteIndex; i < this.notes.length; i++) {
+      const note = this.notes[i];
+      if (note.resolved || note.holding || note.failing || note.hit) continue;
+      if (note.time <= rawTime) {
+        this._learningAnchor = note.time;
+        this._learningChordLanes.clear();
+        this._learningChordPresses.clear();
+        this._learningChordDeadline = 0;
+        for (let j = i; j < this.notes.length; j++) {
+          const n = this.notes[j];
+          if (n.time > this._learningAnchor + CHORD_GROUP_WINDOW) break;
+          if (n.resolved || n.holding || n.failing || n.hit) continue;
+          this._learningChordLanes.add(n.lane);
+        }
+        return note.time;
+      }
+      return null;
+    }
+    return null;
+  }
+
+  checkLearningHit(currentTime: number, lane: number, realTime: number): LearningHitOutcome {
+    if (this._learningAnchor === null || !this._learningChordLanes.has(lane)) {
+      const result = this.checkHit(currentTime, lane);
+      return { results: result ? [result] : [], wrong: result === null };
+    }
+
+    this._expireStaleChordPresses(realTime);
+
+    if (this._learningChordPresses.size === 0) {
+      this._learningChordDeadline = realTime + SIMULTANEOUS_WINDOW * 1000;
+    }
+    this._learningChordPresses.set(lane, realTime);
+
+    if (this._learningChordPresses.size < this._learningChordLanes.size) {
+      return { results: [], wrong: false };
+    }
+
+    const results: HitResult[] = [];
+    for (const pressedLane of this._learningChordPresses.keys()) {
+      const r = this.checkHit(currentTime, pressedLane);
+      if (r) results.push(r);
+    }
+    this._learningChordPresses.clear();
+    this._learningChordDeadline = 0;
+    return { results, wrong: false };
+  }
+
   getSongDuration(): number {
     if (this.notes.length === 0) return 0;
     const last = this.notes[this.notes.length - 1];
@@ -311,7 +403,7 @@ export class NoteManager {
     return this._resolvedCount >= this.notes.length && this.notes.length > 0;
   }
 
-  getActiveNotes(currentTime: number, height: number): ActiveNoteRender[] {
+  getActiveNotes(currentTime: number, height: number, learningMode = false): ActiveNoteRender[] {
     const hitZoneY = height * HIT_ZONE_Y_RATIO;
     const results: ActiveNoteRender[] = [];
 
@@ -332,12 +424,14 @@ export class NoteManager {
           key: note.key,
           holding: true,
           failing: false,
+          waiting: false,
         });
       } else {
         const timeDiff = note.time - currentTime;
         const noteHeight = Math.max(12, note.duration * SCROLL_SPEED);
         const y = hitZoneY - timeDiff * SCROLL_SPEED - noteHeight;
         const alpha = y + noteHeight < 0 ? 0 : 1;
+        const waiting = learningMode && timeDiff <= 0;
         results.push({
           lane: note.lane,
           y,
@@ -348,6 +442,7 @@ export class NoteManager {
           key: note.key,
           holding: false,
           failing: note.failing,
+          waiting,
         });
       }
     }

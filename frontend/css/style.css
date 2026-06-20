@@ -337,7 +337,8 @@ kbd {
    ============================================ */
 
 #score-display {
-  top: 60px;
+  position: absolute;
+  top: 12px;
   left: 0;
   width: 100%;
   text-align: center;
@@ -368,7 +369,7 @@ kbd {
 
 #speed-control {
   position: absolute;
-  top: 60px;
+  top: 12px;
   right: 1rem;
   display: flex;
   align-items: center;
@@ -379,6 +380,58 @@ kbd {
   border: 1px solid #333;
   pointer-events: auto;
   z-index: 11;
+}
+
+#mode-control {
+  position: absolute;
+  top: 12px;
+  left: 1rem;
+  display: flex;
+  align-items: center;
+  gap: 0.4rem;
+  background: rgba(20, 20, 20, 0.8);
+  padding: 0.4rem 0.8rem;
+  border-radius: 4px;
+  border: 1px solid #333;
+  pointer-events: auto;
+  z-index: 11;
+}
+
+.mode-label {
+  font-size: 0.7rem;
+  color: var(--text-secondary);
+  letter-spacing: 0.15em;
+  margin-right: 0.2rem;
+}
+
+.mode-btn {
+  font-family: inherit;
+  font-size: 0.8rem;
+  background: transparent;
+  border: 1px solid #555;
+  color: var(--text-secondary);
+  padding: 0.2rem 0.6rem;
+  border-radius: 2px;
+  cursor: pointer;
+  transition: all 0.15s;
+  letter-spacing: 0.1em;
+}
+
+.mode-btn:hover {
+  border-color: var(--text-primary);
+  color: var(--text-primary);
+}
+
+#mode-play.active {
+  border-color: var(--accent-orange);
+  color: var(--accent-orange);
+  background: rgba(255, 102, 34, 0.12);
+}
+
+#mode-learn.active {
+  border-color: var(--accent-blue);
+  color: var(--accent-blue);
+  background: rgba(34, 136, 255, 0.12);
 }
 
 .speed-btn {
@@ -449,6 +502,7 @@ kbd {
 .grade-b { color: var(--accent-blue); }
 .grade-c { color: var(--accent-orange); }
 .grade-d { color: var(--accent-red); }
+.grade-practice { color: var(--accent-purple); }
 
 #result-stats {
   font-size: 0.9rem;

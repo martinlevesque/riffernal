@@ -5,6 +5,7 @@ import { MidiInput } from './input/MidiInput.js';
 import { Menu } from './ui/Menu.js';
 import { ScoreDisplay } from './ui/ScoreDisplay.js';
 import { parseMidi } from './utils/MidiParser.js';
+import { SHEET_TOP_OFFSET } from './game/Renderer.js';
 import type { Song } from './utils/MidiParser.js';
 
 const SHEET_STAFF_LINE_SPACING = 10;
@@ -46,6 +47,18 @@ async function init(): Promise<void> {
   const speedDown = document.getElementById('speed-down')!;
   const speedUp = document.getElementById('speed-up')!;
 
+  const modePlay = document.getElementById('mode-play')!;
+  const modeLearn = document.getElementById('mode-learn')!;
+
+  function setMode(learning: boolean): void {
+    game.setLearningMode(learning);
+    modePlay.classList.toggle('active', !learning);
+    modeLearn.classList.toggle('active', learning);
+  }
+
+  modePlay.addEventListener('click', () => setMode(false));
+  modeLearn.addEventListener('click', () => setMode(true));
+
   function updateSpeedDisplay(): void {
     speedValue.textContent = `${Math.round(game.speedMultiplier * 100)}%`;
   }
@@ -76,7 +89,10 @@ async function init(): Promise<void> {
     (document.getElementById('btn-start') as HTMLButtonElement).disabled = true;
   }
   const menu = new Menu(songs);
-  menu.onStart = (song) => game.start(song);
+  menu.onStart = (song) => {
+    setMode(false);
+    game.start(song);
+  };
 
   await midiInput.start();
   menu.setMidiStatus(
@@ -88,9 +104,9 @@ async function init(): Promise<void> {
     menu.setMidiStatus(connected, message);
   };
 
-  document.getElementById('btn-retry')!.addEventListener('click', () => game.retry());
+  document.getElementById('btn-retry')!.addEventListener('click', () => { game.retry(); setMode(game.learningMode); });
   document.getElementById('btn-menu')!.addEventListener('click', () => game.backToMenu());
-  document.getElementById('btn-restart')!.addEventListener('click', () => game.retry());
+  document.getElementById('btn-restart')!.addEventListener('click', () => { game.retry(); setMode(game.learningMode); });
 
   const importBtn = document.getElementById('btn-import-midi')! as HTMLButtonElement;
   const importInput = document.getElementById('midi-import-input')! as HTMLInputElement;
@@ -138,7 +154,7 @@ async function init(): Promise<void> {
     const y = e.clientY - rect.top;
     const minSheetHeight = BASE_SHEET_HEIGHT * 0.5;
     const maxSheetHeight = canvas.height * 0.35;
-    const targetHeight = Math.max(minSheetHeight, Math.min(maxSheetHeight, y));
+    const targetHeight = Math.max(minSheetHeight, Math.min(maxSheetHeight, y - SHEET_TOP_OFFSET));
     game.renderer.sheetScale = targetHeight / BASE_SHEET_HEIGHT;
   });
 
