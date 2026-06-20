@@ -5,6 +5,8 @@ import type { SongNote } from './NoteManager.js';
 
 export const PIANO_HEIGHT_RATIO = 0.16;
 
+export const SHEET_TOP_OFFSET = 84;
+
 export const FAIL_COLOR_LEFT = '#aa2266';
 export const FAIL_COLOR_RIGHT = '#aa3322';
 export const FAIL_COLOR_SHEET_LEFT = '#662244';
@@ -384,7 +386,7 @@ export class Renderer {
     return grad;
   }
 
-  drawNote(laneIndex: number, y: number, noteHeight: number, color: string, alpha: number, sheetBottom: number, noteName?: string, holding?: boolean, failing?: boolean): void {
+  drawNote(laneIndex: number, y: number, noteHeight: number, color: string, alpha: number, sheetBottom: number, noteName?: string, holding?: boolean, failing?: boolean, waiting?: boolean): void {
     const ctx = this.ctx;
     const drawColor = failing && noteName
       ? (handForKey(noteName) === HandSide.Left ? FAIL_COLOR_LEFT : FAIL_COLOR_RIGHT)
@@ -392,6 +394,12 @@ export class Renderer {
     const L = this._noteLayout(laneIndex, y, noteHeight, sheetBottom, noteName);
 
     ctx.globalAlpha = alpha;
+
+    if (waiting) {
+      const pulse = 0.5 + 0.5 * Math.sin(performance.now() / 200 * 3.2);
+      ctx.shadowColor = drawColor;
+      ctx.shadowBlur = 8 + pulse * 16;
+    }
 
     if (L.scaledTailHeight > 0.5) {
       this._drawNotePart(ctx, L.drawX, L.drawY, L.scaledWidth, L.scaledTailHeight, L.cornerRadius, drawColor);
@@ -403,6 +411,10 @@ export class Renderer {
     this._drawNotePart(ctx, L.drawX, headDrawY, L.scaledWidth, L.scaledHeadHeight, L.cornerRadius, drawColor);
     this._drawNotePart(ctx, L.drawX, headDrawY, L.scaledWidth, L.scaledHeadHeight, L.cornerRadius,
       this._getGradient(ctx, L.drawX, headDrawY, L.scaledWidth, L.scaledHeadHeight, NOTE_HEAD_GRADIENT));
+
+    if (waiting) {
+      ctx.shadowBlur = 0;
+    }
 
     if (holding) {
       const cx = L.drawX + L.scaledWidth / 2;
@@ -419,7 +431,7 @@ export class Renderer {
 
   private _drawNoteLabel(ctx: CanvasRenderingContext2D, noteName: string, drawX: number, drawY: number, width: number, height: number): void {
     const shortName = noteName.replace(/\d/g, '');
-    const fontSize = Math.max(8, width * 0.45);
+    const fontSize = Math.max(11, width * 0.6);
     ctx.font = `bold ${fontSize}px Courier New`;
     ctx.textAlign = 'center';
     ctx.textBaseline = 'bottom';
@@ -546,7 +558,7 @@ export class Renderer {
   drawSheetMusic(trebleNotes: SongNote[], bassNotes: SongNote[], currentTime: number, songDuration: number): void {
     if (!trebleNotes.length && !bassNotes.length || songDuration <= 0) return;
     const ctx = this.ctx;
-    const sheetTop = 0;
+    const sheetTop = SHEET_TOP_OFFSET;
     const staffLineSpacing = SHEET_STAFF_LINE_SPACING * this.sheetScale;
     const staffH = 4 * staffLineSpacing;
     const clefW = 25 * this.sheetScale;

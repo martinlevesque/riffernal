@@ -1,5 +1,6 @@
 import { Renderer } from './Renderer.js';
 import { NoteManager, SCROLL_SPEED, HIT_ZONE_Y_RATIO } from './NoteManager.js';
+import type { HitResult } from './NoteManager.js';
 import { NoteGrade, gradeLabel, TAP_NOTE_THRESHOLD, SUCCESS_PARTICLE_HOLD_RATIO } from './scoring.js';
 import { NOTE_TO_LANE, NOTE_COLORS, getPianoKeyLayout } from '../utils/notes.js';
 import { formatScore } from '../utils/helpers.js';
@@ -38,6 +39,8 @@ export class Game {
   scrollOffset = 0;
   speedMultiplier = 1.0;
   scoreDisplay: ScoreDisplay | null = null;
+  learningMode = false;
+  private _usedLearningMode = false;
 
   private playScreen: HTMLElement;
   private resultsScreen: HTMLElement;
@@ -65,10 +68,26 @@ export class Game {
     window.addEventListener('resize', this._onResize);
 
     this._boundLoop = (): void => {
-      const now = performance.now() / 1000;
+      const nowMs = performance.now();
+      const now = nowMs / 1000;
       const delta = this._lastFrameTime ? now - this._lastFrameTime : 1 / 60;
       this._lastFrameTime = now;
-      this.currentTime = this.refGameTime + (now - this.refRealTime) * this.speedMultiplier;
+      const rawTime = this.refGameTime + (now - this.refRealTime) * this.speedMultiplier;
+
+      let frameTime = rawTime;
+      if (this.learningMode && this.state === 'playing') {
+        const waitTime = this.noteManager.getEarliestWaitTime(rawTime, nowMs);
+        if (waitTime !== null) frameTime = Math.min(rawTime, waitTime);
+        if (frameTime < rawTime) {
+          // Frozen at a waiting note: re-anchor so rawTime doesn't race ahead
+          // while the player takes their time. Otherwise, on release the game
+          // time would snap forward by the full wait duration, causing the
+          // next notes to fail instantly and failing notes to scroll too fast.
+          this.refGameTime = frameTime;
+          this.refRealTime = now;
+        }
+      }
+      this.currentTime = frameTime;
       this.scrollOffset += SCROLL_SPEED * delta * this.speedMultiplier;
 
       this.renderer.clear();
@@ -80,9 +99,9 @@ export class Game {
         const songDuration = this.noteManager.getSongDuration();
         this.renderer.drawSheetMusic(this.noteManager.trebleNotes, this.noteManager.bassNotes, this.currentTime, songDuration);
 
-        const activeNotes = this.noteManager.getActiveNotes(this.currentTime, this.renderer.height);
+        const activeNotes = this.noteManager.getActiveNotes(this.currentTime, this.renderer.height, this.learningMode);
         for (const note of activeNotes) {
-          this.renderer.drawNote(note.lane, note.y, note.height, note.color, note.alpha, this.renderer.sheetBottom, note.key, note.holding, note.failing);
+          this.renderer.drawNote(note.lane, note.y, note.height, note.color, note.alpha, this.renderer.sheetBottom, note.key, note.holding, note.failing, note.waiting);
         }
 
         this.scoreDisplay?.update(this.noteManager.scoring);
@@ -121,6 +140,7 @@ export class Game {
     this.state = 'playing';
     this.pressedLanes.clear();
     this._completionTime = null;
+    this._usedLearningMode = false;
 
     this.menuScreen.classList.remove('active');
     this.resultsScreen.classList.remove('active');
@@ -179,9 +199,19 @@ export class Game {
     this.synth.noteOn(noteName);
 
     if (this.state === 'playing') {
-      const result = this.noteManager.checkHit(this.currentTime, lane);
-      if (result) {
-        const hitZoneY = this.renderer.height * HIT_ZONE_Y_RATIO;
+      let results: HitResult[];
+      if (this.learningMode) {
+        const outcome = this.noteManager.checkLearningHit(this.currentTime, lane, performance.now());
+        results = outcome.results;
+        if (outcome.wrong) this.scoreDisplay?.showFeedback('Wrong', FEEDBACK_COLORS.MISS);
+      } else {
+        const r = this.noteManager.checkHit(this.currentTime, lane);
+        if (r === null) this.scoreDisplay?.showFeedback('Wrong', FEEDBACK_COLORS.MISS);
+        results = r ? [r] : [];
+      }
+
+      const hitZoneY = this.renderer.height * HIT_ZONE_Y_RATIO;
+      for (const result of results) {
         if (result.result === NoteGrade.PERFECT) {
           const noteColor = NOTE_COLORS[result.note.key] || '#ffffff';
           const keyLayout = getPianoKeyLayout(result.note.key, this.renderer.width);
@@ -192,8 +222,6 @@ export class Game {
             15
           );
         }
-      } else {
-        this.scoreDisplay?.showFeedback('Wrong', FEEDBACK_COLORS.MISS);
       }
     }
   }
@@ -216,10 +244,15 @@ export class Game {
     this.resultsScreen.classList.add('active');
 
     const scoring = this.noteManager.scoring;
-    const gradeInfo = scoring.getGrade();
     const gradeEl = document.getElementById('result-grade')!;
-    gradeEl.textContent = gradeInfo.grade;
-    gradeEl.className = gradeInfo.class;
+    if (this._usedLearningMode) {
+      gradeEl.textContent = 'PRACTICE';
+      gradeEl.className = 'grade-practice';
+    } else {
+      const gradeInfo = scoring.getGrade();
+      gradeEl.textContent = gradeInfo.grade;
+      gradeEl.className = gradeInfo.class;
+    }
 
     document.getElementById('result-stats')!.innerHTML = `
       Score: <span class="stat-value">${formatScore(scoring.score)}</span><br>
@@ -266,5 +299,12 @@ export class Game {
     this.refGameTime = this.currentTime;
     this.refRealTime = performance.now() / 1000;
     this.speedMultiplier = Math.max(0.1, Math.min(2.0, multiplier));
+  }
+
+  setLearningMode(enabled: boolean): void {
+    this.learningMode = enabled;
+    if (enabled) this._usedLearningMode = true;
+    this.refGameTime = this.currentTime;
+    this.refRealTime = performance.now() / 1000;
   }
 }
