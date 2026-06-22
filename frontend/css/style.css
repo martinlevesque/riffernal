@@ -434,6 +434,31 @@ kbd {
   background: rgba(34, 136, 255, 0.12);
 }
 
+#hand-control {
+  display: none;
+  align-items: center;
+  gap: 0.4rem;
+  margin-left: 0.4rem;
+  padding-left: 0.6rem;
+  border-left: 1px solid #444;
+}
+
+#hand-control.active {
+  display: flex;
+}
+
+#hand-left.active {
+  border-color: var(--accent-blue);
+  color: var(--accent-blue);
+  background: rgba(34, 136, 255, 0.12);
+}
+
+#hand-right.active {
+  border-color: var(--accent-orange);
+  color: var(--accent-orange);
+  background: rgba(255, 102, 34, 0.12);
+}
+
 .speed-btn {
   font-family: inherit;
   font-size: 0.8rem;

@@ -1,13 +1,10 @@
-import { NOTE_TO_LANE, handForKey, handColor, HandSide } from '../utils/notes.js';
+import { NOTE_TO_LANE, handForKey, handColor, HandSide, PracticeHand } from '../utils/notes.js';
 import type { Song, Note } from '../utils/MidiParser.js';
-import { Scoring, TIMING, TAP_NOTE_THRESHOLD, EARLY_HIT_WINDOW, EARLY_PENALTY_RATIO, gradeFromDiff, NoteGrade } from './scoring.js';
+import { Scoring, TIMING, TAP_NOTE_THRESHOLD, EARLY_HIT_WINDOW, EARLY_PENALTY_RATIO, LEARNING_CHORD_WINDOW, gradeFromDiff, NoteGrade } from './scoring.js';
 
 export const SCROLL_SPEED = 400;
 
 export const HIT_ZONE_Y_RATIO = 0.82;
-
-export const SIMULTANEOUS_WINDOW = 0.15;
-export const CHORD_GROUP_WINDOW = 0.1;
 
 export interface LearningHitOutcome {
   results: HitResult[];
@@ -27,6 +24,7 @@ export interface SongNote extends Note {
   activated: boolean;
   accumulatedHeldDuration: number;
   earlyMultiplier: number;
+  autoPlayed: boolean;
 }
 
 export interface ActiveNoteRender {
@@ -68,12 +66,16 @@ export class NoteManager {
   bassNotes: SongNote[] = [];
   onMiss: ((note: SongNote) => void) | null = null;
   onResolve: ((result: ResolveResult) => void) | null = null;
+  onAutoPlayOn: ((note: SongNote) => void) | null = null;
+  learningMode = false;
+  practiceHand: PracticeHand = PracticeHand.Both;
   private _nextNoteIndex = 0;
   private _resolvedCount = 0;
   private _learningAnchor: number | null = null;
   private _learningChordLanes = new Set<number>();
-  private _learningChordPresses = new Map<number, number>();
-  private _learningChordDeadline = 0;
+  private _learningChordPresses = new Set<number>();
+  private _learningChordFirstPressRealTime = 0;
+  private _laneHand = new Map<number, HandSide>();
 
   loadSong(songData: Song): void {
     this.notes = songData.notes.map((n: Note) => ({
@@ -90,24 +92,46 @@ export class NoteManager {
       activated: false,
       accumulatedHeldDuration: 0,
       earlyMultiplier: 1,
+      autoPlayed: false,
     })).sort((a, b) => a.time - b.time);
     this.scoring.reset(this.notes.length);
     this.activeNotes = [];
     this._nextNoteIndex = 0;
     this._resolvedCount = 0;
-    this._learningAnchor = null;
-    this._learningChordLanes.clear();
-    this._learningChordPresses.clear();
-    this._learningChordDeadline = 0;
+    this.resetLearningState();
     this.trebleNotes = [];
     this.bassNotes = [];
+    this._laneHand.clear();
     for (const note of this.notes) {
-      if (handForKey(note.key) === HandSide.Left) {
+      const hand = handForKey(note.key);
+      if (hand === HandSide.Left) {
         this.bassNotes.push(note);
       } else {
         this.trebleNotes.push(note);
       }
+      if (!this._laneHand.has(note.lane)) {
+        this._laneHand.set(note.lane, hand);
+      }
     }
+  }
+
+  private _isAutoPlayLane(lane: number): boolean {
+    if (!this.learningMode || this.practiceHand === PracticeHand.Both) return false;
+    const hand = this._laneHand.get(lane);
+    if (hand === undefined) return false;
+    if (this.practiceHand === PracticeHand.Left) return hand === HandSide.Right;
+    return hand === HandSide.Left;
+  }
+
+  private _isAutoPlayNote(note: SongNote): boolean {
+    return this._isAutoPlayLane(note.lane);
+  }
+
+  resetLearningState(): void {
+    this._learningAnchor = null;
+    this._learningChordLanes.clear();
+    this._learningChordPresses.clear();
+    this._learningChordFirstPressRealTime = 0;
   }
 
   update(currentTime: number, height: number): void {
@@ -124,6 +148,23 @@ export class NoteManager {
         continue;
       }
 
+      if (this._isAutoPlayNote(note) && !note.autoPlayed) {
+        if (note.time - currentTime <= 0) {
+          note.autoPlayed = true;
+          if (this.onAutoPlayOn) this.onAutoPlayOn(note);
+          if (note.duration <= TAP_NOTE_THRESHOLD) {
+            note.hit = true;
+            note.holding = false;
+            note.resolved = true;
+            this._resolvedCount++;
+          } else {
+            note.holding = true;
+            note.pressStartTime = note.time;
+          }
+          continue;
+        }
+      }
+
       if (note.holding) {
         if (currentTime >= note.time + note.duration) {
           const noteEnd = note.time + note.duration;
@@ -135,8 +176,10 @@ export class NoteManager {
           note.holding = false;
           note.resolved = true;
           this._resolvedCount++;
-          note.earnedScore = this.scoring.finalizeNote(note.grade!, cumulativeRatio, note.earlyMultiplier);
-          if (this.onResolve) this.onResolve({ note, score: note.earnedScore, grade: note.grade! });
+          if (!note.autoPlayed) {
+            note.earnedScore = this.scoring.finalizeNote(note.grade!, cumulativeRatio, note.earlyMultiplier);
+            if (this.onResolve) this.onResolve({ note, score: note.earnedScore, grade: note.grade! });
+          }
         }
         continue;
       }
@@ -291,6 +334,7 @@ export class NoteManager {
     let holdingNote: SongNote | null = null;
     for (const note of this.activeNotes) {
       if (note.holding && note.lane === lane) {
+        if (note.autoPlayed) return null;
         holdingNote = note;
         break;
       }
@@ -318,20 +362,13 @@ export class NoteManager {
     return { note: holdingNote, penalty: 0, holdRatio: cumulativeRatio, grade: holdingNote.grade! };
   }
 
-  private _expireStaleChordPresses(realTime: number): void {
-    if (realTime > this._learningChordDeadline && this._learningChordPresses.size > 0) {
-      this._learningChordPresses.clear();
-    }
-  }
-
-  getEarliestWaitTime(rawTime: number, realTime?: number): number | null {
+  getEarliestWaitTime(rawTime: number): number | null {
     if (this._learningAnchor !== null) {
-      if (realTime !== undefined) this._expireStaleChordPresses(realTime);
-
       let allEngaged = true;
       for (let i = this._nextNoteIndex; i < this.notes.length; i++) {
         const note = this.notes[i];
-        if (note.time > this._learningAnchor + CHORD_GROUP_WINDOW) break;
+        if (note.time > this._learningAnchor) break;
+        if (this._isAutoPlayNote(note)) continue;
         if (note.resolved || note.holding || note.failing || note.hit) continue;
         allEngaged = false;
         break;
@@ -340,6 +377,7 @@ export class NoteManager {
         this._learningAnchor = null;
         this._learningChordLanes.clear();
         this._learningChordPresses.clear();
+        this._learningChordFirstPressRealTime = 0;
       } else {
         return this._learningAnchor;
       }
@@ -348,14 +386,16 @@ export class NoteManager {
     for (let i = this._nextNoteIndex; i < this.notes.length; i++) {
       const note = this.notes[i];
       if (note.resolved || note.holding || note.failing || note.hit) continue;
+      if (this._isAutoPlayNote(note)) continue;
       if (note.time <= rawTime) {
         this._learningAnchor = note.time;
         this._learningChordLanes.clear();
         this._learningChordPresses.clear();
-        this._learningChordDeadline = 0;
+        this._learningChordFirstPressRealTime = 0;
         for (let j = i; j < this.notes.length; j++) {
           const n = this.notes[j];
-          if (n.time > this._learningAnchor + CHORD_GROUP_WINDOW) break;
+          if (n.time > this._learningAnchor) break;
+          if (this._isAutoPlayNote(n)) continue;
           if (n.resolved || n.holding || n.failing || n.hit) continue;
           this._learningChordLanes.add(n.lane);
         }
@@ -366,30 +406,35 @@ export class NoteManager {
     return null;
   }
 
-  checkLearningHit(currentTime: number, lane: number, realTime: number): LearningHitOutcome {
+  checkLearningHit(currentTime: number, lane: number, realTime: number = performance.now()): LearningHitOutcome {
+    if (this._isAutoPlayLane(lane)) {
+      return { results: [], wrong: false };
+    }
     if (this._learningAnchor === null || !this._learningChordLanes.has(lane)) {
       const result = this.checkHit(currentTime, lane);
       return { results: result ? [result] : [], wrong: result === null };
     }
 
-    this._expireStaleChordPresses(realTime);
+    if (this._learningChordPresses.size > 0 && realTime - this._learningChordFirstPressRealTime > LEARNING_CHORD_WINDOW) {
+      this._learningChordPresses.clear();
+    }
 
     if (this._learningChordPresses.size === 0) {
-      this._learningChordDeadline = realTime + SIMULTANEOUS_WINDOW * 1000;
+      this._learningChordFirstPressRealTime = realTime;
     }
-    this._learningChordPresses.set(lane, realTime);
+
+    this._learningChordPresses.add(lane);
 
     if (this._learningChordPresses.size < this._learningChordLanes.size) {
       return { results: [], wrong: false };
     }
 
     const results: HitResult[] = [];
-    for (const pressedLane of this._learningChordPresses.keys()) {
+    for (const pressedLane of this._learningChordPresses) {
       const r = this.checkHit(currentTime, pressedLane);
       if (r) results.push(r);
     }
     this._learningChordPresses.clear();
-    this._learningChordDeadline = 0;
     return { results, wrong: false };
   }
 

@@ -1,8 +1,12 @@
+// Game orchestrates the main loop, rendering, input, and scoring.
+// Supports PLAY mode (full scoring) and LEARN mode (freezes at notes,
+// optional one-hand practice with auto-played accompaniment).
+
 import { Renderer } from './Renderer.js';
 import { NoteManager, SCROLL_SPEED, HIT_ZONE_Y_RATIO } from './NoteManager.js';
-import type { HitResult } from './NoteManager.js';
+import type { HitResult, SongNote } from './NoteManager.js';
 import { NoteGrade, gradeLabel, TAP_NOTE_THRESHOLD, SUCCESS_PARTICLE_HOLD_RATIO } from './scoring.js';
-import { NOTE_TO_LANE, NOTE_COLORS, getPianoKeyLayout } from '../utils/notes.js';
+import { NOTE_TO_LANE, NOTE_COLORS, getPianoKeyLayout, PracticeHand } from '../utils/notes.js';
 import { formatScore } from '../utils/helpers.js';
 import type { Synth } from '../audio/Synth.js';
 import type { KeyboardInput } from '../input/KeyboardInput.js';
@@ -40,6 +44,7 @@ export class Game {
   speedMultiplier = 1.0;
   scoreDisplay: ScoreDisplay | null = null;
   learningMode = false;
+  practiceHand: PracticeHand = PracticeHand.Both;
   private _usedLearningMode = false;
 
   private playScreen: HTMLElement;
@@ -68,15 +73,14 @@ export class Game {
     window.addEventListener('resize', this._onResize);
 
     this._boundLoop = (): void => {
-      const nowMs = performance.now();
-      const now = nowMs / 1000;
+      const now = performance.now() / 1000;
       const delta = this._lastFrameTime ? now - this._lastFrameTime : 1 / 60;
       this._lastFrameTime = now;
       const rawTime = this.refGameTime + (now - this.refRealTime) * this.speedMultiplier;
 
       let frameTime = rawTime;
       if (this.learningMode && this.state === 'playing') {
-        const waitTime = this.noteManager.getEarliestWaitTime(rawTime, nowMs);
+        const waitTime = this.noteManager.getEarliestWaitTime(rawTime);
         if (waitTime !== null) frameTime = Math.min(rawTime, waitTime);
         if (frameTime < rawTime) {
           // Frozen at a waiting note: re-anchor so rawTime doesn't race ahead
@@ -155,10 +159,9 @@ export class Game {
     this.synth.init();
     this.synth.resume();
 
-    this.noteManager.onMiss = (note) => {
-      this.synth.noteOn(note.key);
-      setTimeout(() => this.synth.noteOff(note.key), note.duration * 1000);
-    };
+    this.noteManager.onMiss = (note) => this._playNoteOnce(note);
+
+    this.noteManager.onAutoPlayOn = (note) => this._playNoteOnce(note);
 
     this.noteManager.onResolve = (result) => {
       const grade = result.grade;
@@ -295,6 +298,11 @@ export class Game {
     }
   }
 
+  private _playNoteOnce(note: SongNote): void {
+    this.synth.noteOn(note.key);
+    setTimeout(() => this.synth.noteOff(note.key), note.duration * 1000);
+  }
+
   setSpeed(multiplier: number): void {
     this.refGameTime = this.currentTime;
     this.refRealTime = performance.now() / 1000;
@@ -303,8 +311,16 @@ export class Game {
 
   setLearningMode(enabled: boolean): void {
     this.learningMode = enabled;
+    this.noteManager.learningMode = enabled;
     if (enabled) this._usedLearningMode = true;
+    this.noteManager.resetLearningState();
     this.refGameTime = this.currentTime;
     this.refRealTime = performance.now() / 1000;
+  }
+
+  setPracticeHand(hand: PracticeHand): void {
+    this.practiceHand = hand;
+    this.noteManager.practiceHand = hand;
+    this.noteManager.resetLearningState();
   }
 }

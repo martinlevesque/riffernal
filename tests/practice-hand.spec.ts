@@ -1,0 +1,311 @@
+import { test, expect } from '@playwright/test';
+import { startGame, makeSong, nmEval, freezeResumeBody, expectMode } from './helpers.js';
+
+// -- NoteManager unit tests --------------------------------------------------
+
+test.describe('Practice Hand - NoteManager', () => {
+  test('getEarliestWaitTime skips non-practiced hand notes (left practice)', async ({ page }) => {
+    await page.goto('/');
+    // Right-hand note at t=1.0, left-hand note at t=2.0; practicing left should
+    // skip the right-hand note (auto-played) and freeze only at the left-hand note.
+    const song = makeSong([
+      { time: 1.0, key: 'C5', duration: 0.25 },
+      { time: 2.0, key: 'C3', duration: 0.25 },
+    ]);
+    expect(await nmEval(page, song, `
+      const { PracticeHand } = await import('/js/utils/notes.js');
+      nm.learningMode = true;
+      nm.practiceHand = PracticeHand.Left;
+      nm.update(1.0, H);
+      const atRight = nm.getEarliestWaitTime(1.0);
+      nm.update(2.0, H);
+      const atLeft = nm.getEarliestWaitTime(2.0);
+      return { atRight, atLeft };
+    `)).toEqual({ atRight: null, atLeft: 2.0 });
+  });
+
+  test('getEarliestWaitTime skips non-practiced hand notes (right practice)', async ({ page }) => {
+    await page.goto('/');
+    const song = makeSong([
+      { time: 1.0, key: 'C3', duration: 0.25 },
+      { time: 2.0, key: 'C5', duration: 0.25 },
+    ]);
+    expect(await nmEval(page, song, `
+      const { PracticeHand } = await import('/js/utils/notes.js');
+      nm.learningMode = true;
+      nm.practiceHand = PracticeHand.Right;
+      nm.update(1.0, H);
+      const atLeft = nm.getEarliestWaitTime(1.0);
+      nm.update(2.0, H);
+      const atRight = nm.getEarliestWaitTime(2.0);
+      return { atLeft, atRight };
+    `)).toEqual({ atLeft: null, atRight: 2.0 });
+  });
+
+  test('auto-play tap note auto-resolves at note.time without scoring', async ({ page }) => {
+    await page.goto('/');
+    const song = makeSong([{ time: 1.0, key: 'C5', duration: 0.25 }]);
+    const result = await nmEval(page, song, `
+      const { PracticeHand } = await import('/js/utils/notes.js');
+      nm.learningMode = true;
+      nm.practiceHand = PracticeHand.Left;
+      nm.update(1.0, H);
+      const note = nm.notes[0];
+      return { autoPlayed: note.autoPlayed, hit: note.hit, resolved: note.resolved, score: nm.scoring.score };
+    `);
+    expect(result.autoPlayed).toBe(true);
+    expect(result.hit).toBe(true);
+    expect(result.resolved).toBe(true);
+    expect(result.score).toBe(0);
+  });
+
+  test('auto-play hold note triggers onAutoPlayOn and finalizes without scoring', async ({ page }) => {
+    await page.goto('/');
+    const song = makeSong([{ time: 1.0, key: 'C5', duration: 1.0 }]);
+    const result = await nmEval(page, song, `
+      const { PracticeHand } = await import('/js/utils/notes.js');
+      nm.learningMode = true;
+      nm.practiceHand = PracticeHand.Left;
+      let playedOn = 0;
+      nm.onAutoPlayOn = () => { playedOn++; };
+      nm.update(1.0, H);
+      const afterStart = { playedOn, holding: nm.notes[0].holding, autoPlayed: nm.notes[0].autoPlayed };
+      nm.update(2.0, H);
+      const afterEnd = { playedOn, hit: nm.notes[0].hit, resolved: nm.notes[0].resolved, score: nm.scoring.score };
+      return { afterStart, afterEnd };
+    `);
+    expect(result.afterStart.playedOn).toBe(1);
+    expect(result.afterStart.holding).toBe(true);
+    expect(result.afterStart.autoPlayed).toBe(true);
+    expect(result.afterEnd.playedOn).toBe(1);
+    expect(result.afterEnd.hit).toBe(true);
+    expect(result.afterEnd.resolved).toBe(true);
+    expect(result.afterEnd.score).toBe(0);
+  });
+
+  test('no auto-play when practiceHand is Both', async ({ page }) => {
+    await page.goto('/');
+    const song = makeSong([{ time: 1.0, key: 'C5', duration: 0.25 }]);
+    const result = await nmEval(page, song, `
+      const { PracticeHand } = await import('/js/utils/notes.js');
+      nm.learningMode = true;
+      nm.practiceHand = PracticeHand.Both;
+      nm.update(1.0, H);
+      return { autoPlayed: nm.notes[0].autoPlayed, hit: nm.notes[0].hit };
+    `);
+    expect(result.autoPlayed).toBe(false);
+    expect(result.hit).toBe(false);
+  });
+
+  test('no auto-play when learningMode is false (PLAY mode)', async ({ page }) => {
+    await page.goto('/');
+    const song = makeSong([{ time: 1.0, key: 'C5', duration: 0.25 }]);
+    const result = await nmEval(page, song, `
+      const { PracticeHand } = await import('/js/utils/notes.js');
+      nm.learningMode = false;
+      nm.practiceHand = PracticeHand.Left;
+      nm.update(1.0, H);
+      return { autoPlayed: nm.notes[0].autoPlayed, hit: nm.notes[0].hit };
+    `);
+    expect(result.autoPlayed).toBe(false);
+    expect(result.hit).toBe(false);
+  });
+
+  test('checkLearningHit silently ignores auto-play lane press (not wrong)', async ({ page }) => {
+    await page.goto('/');
+    // Practicing left; right-hand note is auto-played. Pressing the right-hand
+    // lane should return no results AND not be marked wrong.
+    const song = makeSong([{ time: 1.0, key: 'C5', duration: 0.25 }]);
+    const result = await nmEval(page, song, `
+      const { PracticeHand } = await import('/js/utils/notes.js');
+      nm.learningMode = true;
+      nm.practiceHand = PracticeHand.Left;
+      nm.update(0.5, H);
+      const lane = NOTE_TO_LANE.get('C5');
+      const o = nm.checkLearningHit(0.5, lane);
+      return { wrong: o.wrong, results: o.results.length };
+    `);
+    expect(result.wrong).toBe(false);
+    expect(result.results).toBe(0);
+  });
+
+  test('practiced hand note still freezes and registers hits normally', async ({ page }) => {
+    await page.goto('/');
+    const song = makeSong([{ time: 1.0, key: 'C3', duration: 0.25 }]);
+    const result = await nmEval(page, song, `
+      const { PracticeHand } = await import('/js/utils/notes.js');
+      nm.learningMode = true;
+      nm.practiceHand = PracticeHand.Left;
+      nm.update(1.0, H);
+      const waitTime = nm.getEarliestWaitTime(1.0);
+      const o = nm.checkLearningHit(1.0, NOTE_TO_LANE.get('C3'));
+      return { waitTime, committed: o.results.length, hit: nm.notes[0].hit };
+    `);
+    expect(result.waitTime).toBe(1.0);
+    expect(result.committed).toBe(1);
+    expect(result.hit).toBe(true);
+  });
+});
+
+// -- integration: freeze resume only stops at practiced hand -----------------
+
+test.describe('Practice Hand - freeze resume', () => {
+  test('right-hand note auto-plays without freezing; left-hand note freezes', async ({ page }) => {
+    test.setTimeout(15000);
+    const songJson = JSON.stringify(makeSong([
+      { time: 0.5, key: 'C5', duration: 0.25 },
+      { time: 3.0, key: 'C3', duration: 0.25 },
+    ], 'PracticeLeft'));
+
+    await page.goto('/');
+
+    const result = await page.evaluate(freezeResumeBody(songJson, `
+      const { PracticeHand } = await import('/js/utils/notes.js');
+      game.setPracticeHand(PracticeHand.Left);
+      await new Promise(r => setTimeout(r, 1200));
+      const rightAutoPlayed = game.noteManager.notes[0].autoPlayed;
+      const leftFailing = game.noteManager.notes[1].failing;
+      const leftMissed = game.noteManager.notes[1].missed;
+      return { frozenTime: game.currentTime, rightAutoPlayed, leftFailing, leftMissed };
+    `)) as { frozenTime: number; rightAutoPlayed: boolean; leftFailing: boolean; leftMissed: boolean };
+
+    // Frozen at the left-hand note (t=3.0), not racing past it.
+    expect(result.frozenTime).toBeLessThan(3.0);
+    // Right-hand note auto-played without user input.
+    expect(result.rightAutoPlayed).toBe(true);
+    // Left-hand note not yet failed/missed (frozen before it).
+    expect(result.leftFailing).toBe(false);
+    expect(result.leftMissed).toBe(false);
+  });
+
+  test('switching practiceHand during freeze rebuilds chord lanes', async ({ page }) => {
+    test.setTimeout(15000);
+    const songJson = JSON.stringify(makeSong([
+      { time: 0.5, key: 'C#4', duration: 1.499 },
+      { time: 0.5, key: 'E4', duration: 1.499 },
+      { time: 0.5, key: 'A2', duration: 1.999 },
+      { time: 0.5, key: 'A3', duration: 1.999 },
+      { time: 5.0, key: 'E4', duration: 0.25 },
+    ], 'Clockwork'));
+
+    await page.goto('/');
+
+    const result = await page.evaluate(freezeResumeBody(songJson, `
+      const { PracticeHand } = await import('/js/utils/notes.js');
+      const { NOTE_TO_LANE } = await import('/js/utils/notes.js');
+      const laneToKey = new Map([...NOTE_TO_LANE].map(([k, v]) => [v, k]));
+      const beforeLanes = [...game.noteManager._learningChordLanes].map(l => laneToKey.get(l));
+      game.setPracticeHand(PracticeHand.Right);
+      await new Promise(r => setTimeout(r, 200));
+      const afterLanes = [...game.noteManager._learningChordLanes].map(l => laneToKey.get(l));
+      const autoPlayed = game.noteManager.notes.slice(0, 4).map(n => ({ key: n.key, autoPlayed: n.autoPlayed }));
+      game._handleNoteOn('C#4', 't1');
+      game._handleNoteOn('E4', 't2');
+      await new Promise(r => setTimeout(r, 300));
+      const afterPress = {
+        currentTime: game.currentTime,
+        rightHolding: [0, 1].every(i => game.noteManager.notes[i].holding),
+      };
+      return { beforeLanes, afterLanes, autoPlayed, afterPress };
+    `)) as { frozenTime: number; beforeLanes: string[]; afterLanes: string[]; autoPlayed: { key: string; autoPlayed: boolean }[]; afterPress: { currentTime: number; rightHolding: boolean } };
+
+    expect(result.beforeLanes).toHaveLength(4);
+    expect(result.beforeLanes).toEqual(expect.arrayContaining(['C#4', 'E4', 'A2', 'A3']));
+    expect(result.afterLanes).toHaveLength(2);
+    expect(result.afterLanes).not.toContain('A2');
+    expect(result.afterLanes).not.toContain('A3');
+    expect(result.afterLanes).toEqual(expect.arrayContaining(['C#4', 'E4']));
+    expect(result.autoPlayed).toEqual([
+      { key: 'C#4', autoPlayed: false },
+      { key: 'E4', autoPlayed: false },
+      { key: 'A2', autoPlayed: true },
+      { key: 'A3', autoPlayed: true },
+    ]);
+    expect(result.afterPress.rightHolding).toBe(true);
+    expect(result.afterPress.currentTime).toBeGreaterThan(result.frozenTime);
+  });
+});
+
+// -- UI tests ----------------------------------------------------------------
+
+async function expectPracticeHand(page: import('@playwright/test').Page, hand: 'left' | 'right' | 'both'): Promise<void> {
+  await expect(page.locator('#hand-left')).toHaveClass(hand === 'left' ? /active/ : /^(?!.*\bactive\b).*$/);
+  await expect(page.locator('#hand-right')).toHaveClass(hand === 'right' ? /active/ : /^(?!.*\bactive\b).*$/);
+}
+
+test.describe('Practice Hand - UI', () => {
+  test('hand-control is hidden in PLAY mode and shown in LEARN mode', async ({ page }) => {
+    await startGame(page);
+    await expect(page.locator('#hand-control')).not.toHaveClass(/active/);
+    await page.locator('#mode-learn').click();
+    await expect(page.locator('#hand-control')).toHaveClass(/active/);
+  });
+
+  test('clicking LEFT toggles left practice on, then off', async ({ page }) => {
+    await startGame(page);
+    await page.locator('#mode-learn').click();
+    await page.locator('#hand-left').click();
+    await expectPracticeHand(page, 'left');
+    await page.locator('#hand-left').click();
+    await expectPracticeHand(page, 'both');
+  });
+
+  test('clicking RIGHT toggles right practice on, then off', async ({ page }) => {
+    await startGame(page);
+    await page.locator('#mode-learn').click();
+    await page.locator('#hand-right').click();
+    await expectPracticeHand(page, 'right');
+    await page.locator('#hand-right').click();
+    await expectPracticeHand(page, 'both');
+  });
+
+  test('LEFT and RIGHT are mutually exclusive', async ({ page }) => {
+    await startGame(page);
+    await page.locator('#mode-learn').click();
+    await page.locator('#hand-left').click();
+    await expectPracticeHand(page, 'left');
+    await page.locator('#hand-right').click();
+    await expectPracticeHand(page, 'right');
+  });
+
+  test('practice hand is preserved on restart', async ({ page }) => {
+    await startGame(page);
+    await page.locator('#mode-learn').click();
+    await page.locator('#hand-left').click();
+    await expectPracticeHand(page, 'left');
+    await page.locator('#btn-restart').click();
+    await expectMode(page, 'learn');
+    await expectPracticeHand(page, 'left');
+  });
+
+  test('practice hand is preserved on retry from results', async ({ page }) => {
+    await startGame(page);
+    await page.locator('#mode-learn').click();
+    await page.locator('#hand-right').click();
+    await expectPracticeHand(page, 'right');
+    await page.evaluate(() => document.getElementById('btn-retry')?.click());
+    await expectMode(page, 'learn');
+    await expectPracticeHand(page, 'right');
+  });
+
+  test('practice hand resets to both when starting fresh from menu', async ({ page }) => {
+    await startGame(page);
+    await page.locator('#mode-learn').click();
+    await page.locator('#hand-left').click();
+    await expectPracticeHand(page, 'left');
+    await page.evaluate(() => document.getElementById('btn-menu')?.click());
+    await expect(page.locator('#menu-screen')).toHaveClass(/active/, { timeout: 5000 });
+    await page.locator('.song-item').first().click();
+    await page.locator('#btn-start').click();
+    await expect(page.locator('#play-screen')).toHaveClass(/active/, { timeout: 5000 });
+    await expectPracticeHand(page, 'both');
+  });
+
+  test('switching back to PLAY mode hides hand-control', async ({ page }) => {
+    await startGame(page);
+    await page.locator('#mode-learn').click();
+    await expect(page.locator('#hand-control')).toHaveClass(/active/);
+    await page.locator('#mode-play').click();
+    await expect(page.locator('#hand-control')).not.toHaveClass(/active/);
+  });
+});
