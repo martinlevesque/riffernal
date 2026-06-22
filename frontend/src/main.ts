@@ -6,6 +6,7 @@ import { Menu } from './ui/Menu.js';
 import { ScoreDisplay } from './ui/ScoreDisplay.js';
 import { parseMidi } from './utils/MidiParser.js';
 import { SHEET_TOP_OFFSET } from './game/Renderer.js';
+import { PracticeHand } from './utils/notes.js';
 import type { Song } from './utils/MidiParser.js';
 
 const SHEET_STAFF_LINE_SPACING = 10;
@@ -49,15 +50,37 @@ async function init(): Promise<void> {
 
   const modePlay = document.getElementById('mode-play')!;
   const modeLearn = document.getElementById('mode-learn')!;
+  const handControl = document.getElementById('hand-control')!;
+  const handLeft = document.getElementById('hand-left')!;
+  const handRight = document.getElementById('hand-right')!;
+
+  function applyPracticeHandButtons(): void {
+    const hand = game.practiceHand;
+    handLeft.classList.toggle('active', hand === PracticeHand.Left);
+    handRight.classList.toggle('active', hand === PracticeHand.Right);
+  }
+
+  function setPracticeHand(hand: PracticeHand): void {
+    game.setPracticeHand(hand);
+    applyPracticeHandButtons();
+  }
 
   function setMode(learning: boolean): void {
     game.setLearningMode(learning);
     modePlay.classList.toggle('active', !learning);
     modeLearn.classList.toggle('active', learning);
+    handControl.classList.toggle('active', learning);
   }
 
   modePlay.addEventListener('click', () => setMode(false));
   modeLearn.addEventListener('click', () => setMode(true));
+
+  handLeft.addEventListener('click', () => {
+    setPracticeHand(game.practiceHand === PracticeHand.Left ? PracticeHand.Both : PracticeHand.Left);
+  });
+  handRight.addEventListener('click', () => {
+    setPracticeHand(game.practiceHand === PracticeHand.Right ? PracticeHand.Both : PracticeHand.Right);
+  });
 
   function updateSpeedDisplay(): void {
     speedValue.textContent = `${Math.round(game.speedMultiplier * 100)}%`;
@@ -91,6 +114,7 @@ async function init(): Promise<void> {
   const menu = new Menu(songs);
   menu.onStart = (song) => {
     setMode(false);
+    setPracticeHand(PracticeHand.Both);
     game.start(song);
   };
 
@@ -104,9 +128,9 @@ async function init(): Promise<void> {
     menu.setMidiStatus(connected, message);
   };
 
-  document.getElementById('btn-retry')!.addEventListener('click', () => { game.retry(); setMode(game.learningMode); });
+  document.getElementById('btn-retry')!.addEventListener('click', () => { game.retry(); setMode(game.learningMode); applyPracticeHandButtons(); });
   document.getElementById('btn-menu')!.addEventListener('click', () => game.backToMenu());
-  document.getElementById('btn-restart')!.addEventListener('click', () => { game.retry(); setMode(game.learningMode); });
+  document.getElementById('btn-restart')!.addEventListener('click', () => { game.retry(); setMode(game.learningMode); applyPracticeHandButtons(); });
 
   const importBtn = document.getElementById('btn-import-midi')! as HTMLButtonElement;
   const importInput = document.getElementById('midi-import-input')! as HTMLInputElement;

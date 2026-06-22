@@ -31,6 +31,12 @@ export enum HandSide {
   Right = 'right',
 }
 
+export enum PracticeHand {
+  Both = 'both',
+  Left = 'left',
+  Right = 'right',
+}
+
 const HAND_SPLIT_MIDI = 59; // B3
 
 const LEFT_HAND_COLORS = ['#2288ff', '#4466ff', '#6644ff', '#8844ff', '#aa44ff', '#22ddaa'];

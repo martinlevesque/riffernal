@@ -18,6 +18,9 @@ export const EARLY_PENALTY_RATIO = 0.5;
 
 export const TAP_NOTE_THRESHOLD = 0.4; // seconds — notes shorter than this are instant taps
 
+// ms — in LEARN mode, chord notes (same-time) must all be pressed within this real-time window
+export const LEARNING_CHORD_WINDOW = 200;
+
 // Score deducted for pressing a key that doesn't match any active note
 export const WRONG_PRESS_PENALTY = 50;
 

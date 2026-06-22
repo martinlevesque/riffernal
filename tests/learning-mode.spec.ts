@@ -59,7 +59,7 @@ test.describe('Learning Mode - NoteManager', () => {
     expect(await nmEval(page, song, `nm.update(0.5, H); return nm.getEarliestWaitTime(2.5);`)).toBe(1.0);
   });
 
-  test('chord: pressing one note at a time with pauses does NOT commit', async ({ page }) => {
+  test('chord: presses outside LEARNING_CHORD_WINDOW expire earlier presses', async ({ page }) => {
     await page.goto('/');
     const song = makeSong([
       { time: 2.0, key: 'C2', duration: 0.25 },
@@ -69,45 +69,39 @@ test.describe('Learning Mode - NoteManager', () => {
     ]);
     const result = await nmEval(page, song, `
       nm.update(1.5, H); nm.update(2.0, H);
-      const freezeTime = nm.getEarliestWaitTime(2.0, 1000);
-      const lane = k => NOTE_TO_LANE.get(k);
-      let o = nm.checkLearningHit(2.0, lane('C2'), 1000);
-      const afterOne = nm.getEarliestWaitTime(2.0, 1000);
-      const oneCommitted = o.results.length > 0;
-      // E2 at t=1200ms — past the 150ms deadline, C2 discarded
-      nm.checkLearningHit(2.0, lane('E2'), 1200);
-      nm.checkLearningHit(2.0, lane('G2'), 1205);
-      nm.checkLearningHit(2.0, lane('C5'), 1210);
-      const afterLateAll = nm.getEarliestWaitTime(2.0, 1210);
-      const lateAllCommitted = nm.notes.filter(n => n.hit).length;
-      return { freezeTime, afterOne, oneCommitted, afterLateAll, lateAllCommitted };
-    `);
-    expect(result.freezeTime).toBe(2.0);
-    expect(result.afterOne).toBe(2.0);
-    expect(result.oneCommitted).toBe(false);
-    // C2 was discarded; last 3 pressed within window but not all 4 hit
-    expect(result.lateAllCommitted).toBeLessThan(4);
-    expect(result.afterLateAll).toBe(2.0);
-  });
-
-  test('chord: pressing all notes within the window commits all and releases freeze', async ({ page }) => {
-    await page.goto('/');
-    const song = makeSong([
-      { time: 2.0, key: 'C2', duration: 0.25 },
-      { time: 2.0, key: 'E2', duration: 0.25 },
-      { time: 2.0, key: 'G2', duration: 0.25 },
-      { time: 2.0, key: 'C5', duration: 0.25 },
-    ]);
-    const result = await nmEval(page, song, `
-      nm.update(1.5, H); nm.update(2.0, H);
-      const freezeTime = nm.getEarliestWaitTime(2.0, 1000);
+      const freezeTime = nm.getEarliestWaitTime(2.0);
       const lane = k => NOTE_TO_LANE.get(k);
       const o1 = nm.checkLearningHit(2.0, lane('C2'), 1000);
-      const o2 = nm.checkLearningHit(2.0, lane('E2'), 1030);
-      const o3 = nm.checkLearningHit(2.0, lane('G2'), 1060);
-      const o4 = nm.checkLearningHit(2.0, lane('C5'), 1090);
-      const totalResults = o1.results.length + o2.results.length + o3.results.length + o4.results.length;
-      const afterAll = nm.getEarliestWaitTime(2.0, 1090);
+      nm.checkLearningHit(2.0, lane('E2'), 1300);
+      nm.checkLearningHit(2.0, lane('G2'), 1305);
+      nm.checkLearningHit(2.0, lane('C5'), 1310);
+      const afterAll = nm.getEarliestWaitTime(2.0);
+      const hitCount = nm.notes.filter(n => n.hit).length;
+      return { freezeTime, afterAll, hitCount };
+    `);
+    expect(result.freezeTime).toBe(2.0);
+    expect(result.hitCount).toBe(0);
+    expect(result.afterAll).toBe(2.0);
+  });
+
+  test('chord: pressing all notes within LEARNING_CHORD_WINDOW commits all and releases freeze', async ({ page }) => {
+    await page.goto('/');
+    const song = makeSong([
+      { time: 2.0, key: 'C2', duration: 0.25 },
+      { time: 2.0, key: 'E2', duration: 0.25 },
+      { time: 2.0, key: 'G2', duration: 0.25 },
+      { time: 2.0, key: 'C5', duration: 0.25 },
+    ]);
+    const result = await nmEval(page, song, `
+      nm.update(1.5, H); nm.update(2.0, H);
+      const freezeTime = nm.getEarliestWaitTime(2.0);
+      const lane = k => NOTE_TO_LANE.get(k);
+      nm.checkLearningHit(2.0, lane('C2'), 1000);
+      nm.checkLearningHit(2.0, lane('E2'), 1100);
+      nm.checkLearningHit(2.0, lane('G2'), 1150);
+      const o4 = nm.checkLearningHit(2.0, lane('C5'), 1190);
+      const totalResults = o4.results.length;
+      const afterAll = nm.getEarliestWaitTime(2.0);
       const allHit = nm.notes.every(n => n.hit);
       return { freezeTime, totalResults, afterAll, allHit };
     `);
@@ -117,7 +111,7 @@ test.describe('Learning Mode - NoteManager', () => {
     expect(result.afterAll).toBe(null);
   });
 
-  test('chord: strummed notes (slightly offset) are grouped together', async ({ page }) => {
+  test('chord: strummed notes (slightly offset) are sequential, not grouped', async ({ page }) => {
     await page.goto('/');
     const song = makeSong([
       { time: 2.0, key: 'C2', duration: 0.25 },
@@ -127,17 +121,18 @@ test.describe('Learning Mode - NoteManager', () => {
     ]);
     const result = await nmEval(page, song, `
       nm.update(1.5, H); nm.update(2.0, H);
-      const freezeTime = nm.getEarliestWaitTime(2.0, 1000);
+      const freezeTime = nm.getEarliestWaitTime(2.0);
       const lane = k => NOTE_TO_LANE.get(k);
-      nm.checkLearningHit(2.0, lane('C2'), 1000);
-      nm.checkLearningHit(2.0, lane('E2'), 1030);
-      nm.checkLearningHit(2.0, lane('G2'), 1060);
-      const o4 = nm.checkLearningHit(2.0, lane('C5'), 1090);
-      const afterAll = nm.getEarliestWaitTime(2.0, 1090);
-      return { freezeTime, resultsOnLast: o4.results.length, afterAll };
+      const o1 = nm.checkLearningHit(2.0, lane('C2'));
+      const o2 = nm.checkLearningHit(2.0, lane('E2'));
+      const o3 = nm.checkLearningHit(2.0, lane('G2'));
+      const o4 = nm.checkLearningHit(2.0, lane('C5'));
+      const totalResults = o1.results.length + o2.results.length + o3.results.length + o4.results.length;
+      const afterAll = nm.getEarliestWaitTime(2.0);
+      return { freezeTime, totalResults, afterAll };
     `);
     expect(result.freezeTime).toBe(2.0);
-    expect(result.resultsOnLast).toBe(4);
+    expect(result.totalResults).toBe(4);
     expect(result.afterAll).toBe(null);
   });
 
@@ -149,9 +144,9 @@ test.describe('Learning Mode - NoteManager', () => {
     ]);
     const result = await nmEval(page, song, `
       nm.update(1.5, H); nm.update(2.0, H);
-      const freezeTime = nm.getEarliestWaitTime(2.0, 1000);
-      const o = nm.checkLearningHit(2.0, NOTE_TO_LANE.get('C3'), 1000);
-      const afterPress = nm.getEarliestWaitTime(2.0, 1000);
+      const freezeTime = nm.getEarliestWaitTime(2.0);
+      const o = nm.checkLearningHit(2.0, NOTE_TO_LANE.get('C3'));
+      const afterPress = nm.getEarliestWaitTime(2.0);
       return { freezeTime, committed: o.results.length, afterPress };
     `);
     expect(result.freezeTime).toBe(2.0);
@@ -164,8 +159,8 @@ test.describe('Learning Mode - NoteManager', () => {
     const song = makeSong([{ time: 2.0, key: 'C3', duration: 0.25 }]);
     const result = await nmEval(page, song, `
       nm.update(1.5, H); nm.update(2.0, H);
-      nm.getEarliestWaitTime(2.0, 1000);
-      const o = nm.checkLearningHit(2.0, NOTE_TO_LANE.get('C3'), 1000);
+      nm.getEarliestWaitTime(2.0);
+      const o = nm.checkLearningHit(2.0, NOTE_TO_LANE.get('C3'));
       return { committed: o.results.length, hit: nm.notes[0].hit };
     `);
     expect(result.committed).toBe(1);
@@ -205,7 +200,7 @@ test.describe('Learning Mode - freeze resume', () => {
     expect(result.currentTime - result.frozenTime).toBeLessThan(0.5);
   });
 
-  test('strummed chord: pressing notes one-at-a-time with delay does NOT resume', async ({ page }) => {
+  test('strummed chord: pressing notes one-at-a-time with delay commits each sequentially', async ({ page }) => {
     test.setTimeout(15000);
     const songJson = JSON.stringify(makeSong([
       { time: 0.5, key: 'C2', duration: 0.25 },
@@ -236,10 +231,10 @@ test.describe('Learning Mode - freeze resume', () => {
     `)) as { frozenTime: number; afterOne: { currentTime: number; anyHit: boolean }; afterRest: { currentTime: number; allHit: boolean } };
 
     expect(result.frozenTime).toBeCloseTo(0.5, 1);
-    expect(result.afterOne.anyHit).toBe(false);
-    expect(result.afterOne.currentTime).toBeCloseTo(result.frozenTime, 1);
-    expect(result.afterRest.allHit).toBe(false);
-    expect(result.afterRest.currentTime).toBeCloseTo(result.frozenTime, 1);
+    expect(result.afterOne.anyHit).toBe(true);
+    expect(result.afterOne.currentTime).toBeGreaterThan(result.frozenTime);
+    expect(result.afterRest.allHit).toBe(true);
+    expect(result.afterRest.currentTime).toBeGreaterThan(result.frozenTime);
   });
 
   test('strummed chord: pressing all notes simultaneously resumes', async ({ page }) => {
