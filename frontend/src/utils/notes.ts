@@ -37,7 +37,10 @@ export enum PracticeHand {
   Right = 'right',
 }
 
-const HAND_SPLIT_MIDI = 59; // B3
+export const HAND_SPLIT_MIDI = 59; // B3
+
+/** GM standard: channel 10 (0-indexed) is percussion. */
+export const GM_DRUM_CHANNEL = 9;
 
 const LEFT_HAND_COLORS = ['#2288ff', '#4466ff', '#6644ff', '#8844ff', '#aa44ff', '#22ddaa'];
 const RIGHT_HAND_COLORS = ['#ff2244', '#ff6622', '#ffaa22', '#ffdd22', '#ddff22', '#22ff66'];

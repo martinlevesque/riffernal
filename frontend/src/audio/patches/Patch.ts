@@ -5,5 +5,5 @@ export interface PatchNote {
 
 export interface Patch {
   name: string;
-  build(ctx: AudioContext, freq: number, startTime: number): PatchNote;
+  build(ctx: AudioContext, freq: number, startTime: number, midi?: number): PatchNote;
 }

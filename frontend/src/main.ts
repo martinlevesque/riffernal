@@ -4,7 +4,8 @@ import { KeyboardInput } from './input/KeyboardInput.js';
 import { MidiInput } from './input/MidiInput.js';
 import { Menu } from './ui/Menu.js';
 import { ScoreDisplay } from './ui/ScoreDisplay.js';
-import { parseMidi } from './utils/MidiParser.js';
+import { TrackSelect } from './ui/TrackSelect.js';
+import { parseMidi, normalizeSong } from './utils/MidiParser.js';
 import { SHEET_TOP_OFFSET, Renderer, SHEET_BEATS_VISIBLE } from './game/Renderer.js';
 import type { SongNote } from './game/NoteManager.js';
 import { PracticeHand } from './utils/notes.js';
@@ -26,7 +27,7 @@ async function loadSongs(): Promise<Song[]> {
     try {
       const res = await fetch(file);
       if (res.ok) {
-        songs.push(await res.json());
+        songs.push(normalizeSong(await res.json()));
       }
     } catch (e) {
       console.warn(`Failed to load ${file}:`, e);
@@ -44,6 +45,7 @@ async function init(): Promise<void> {
   const game = new Game(canvas, synth, keyboardInput, midiInput);
   const scoreDisplay = new ScoreDisplay();
   game.scoreDisplay = scoreDisplay;
+  const trackSelect = new TrackSelect();
 
   const speedValue = document.getElementById('speed-value')!;
   const speedDown = document.getElementById('speed-down')!;
@@ -206,7 +208,24 @@ async function init(): Promise<void> {
     reader.onload = () => {
       try {
         const song = parseMidi(reader.result as ArrayBuffer, file.name);
-        menu.addSong(song);
+        const needsSelection = song.tracks && song.tracks.length > 2 && (song.selectedTrackIndices?.length ?? 0) === 0;
+        if (needsSelection) {
+          trackSelect.onConfirm = (selection) => {
+            song.selectedTrackIndices = selection.indices;
+            song.trackHands = selection.hands;
+            menu.addSong(song);
+            trackSelect.onConfirm = null;
+            trackSelect.onCancel = null;
+          };
+          trackSelect.onCancel = () => {
+            menu.setMidiStatus(false, 'Import cancelled');
+            trackSelect.onConfirm = null;
+            trackSelect.onCancel = null;
+          };
+          trackSelect.show(song);
+        } else {
+          menu.addSong(song);
+        }
       } catch (err: unknown) {
         const message = err instanceof Error ? err.message : String(err);
         alert(`Failed to import MIDI: ${message}`);

@@ -1,10 +1,21 @@
 import { midiToNoteName, noteNameToMidi } from '../utils/helpers.js';
-import { NOTE_NAMES } from './notes.js';
+import { NOTE_NAMES, HandSide, HAND_SPLIT_MIDI, GM_DRUM_CHANNEL } from './notes.js';
 
 export interface Note {
   time: number;
   key: string;
   duration: number;
+  track?: number;
+  channel?: number;
+  rawMidi?: number;
+  program?: number;
+}
+
+export interface TrackInfo {
+  index: number;
+  name: string;
+  noteCount: number;
+  program: number;
 }
 
 export interface Song {
@@ -14,6 +25,16 @@ export interface Song {
   difficulty: string;
   notes: Note[];
   imported?: boolean;
+  tracks?: TrackInfo[];
+  selectedTrackIndices?: number[];
+  trackHands?: Record<number, HandSide>;
+}
+
+export function normalizeSong(song: Song): Song {
+  if (!song.tracks) song.tracks = [];
+  if (!song.selectedTrackIndices) song.selectedTrackIndices = [];
+  if (!song.trackHands) song.trackHands = {};
+  return song;
 }
 
 const META_EVENT = 0xFF;
@@ -21,6 +42,42 @@ const META_TEMPO = 0x51;
 const META_TRACK_NAME = 0x03;
 const NOTE_ON = 0x90;
 const NOTE_OFF = 0x80;
+const PROGRAM_CHANGE = 0xC0;
+
+const GM_INSTRUMENTS: Record<number, string> = {
+  0: 'Piano', 1: 'Bright Piano', 2: 'Elec Grand Piano', 3: 'Honky-tonk Piano',
+  4: 'Elec Piano 1', 5: 'Elec Piano 2', 6: 'Harpsichord', 7: 'Clavinet',
+  8: 'Celesta', 9: 'Glockenspiel', 10: 'Music Box', 11: 'Vibraphone',
+  12: 'Marimba', 13: 'Xylophone', 14: 'Tubular Bells', 15: 'Dulcimer',
+  16: 'Drawbar Organ', 17: 'Perc Organ', 18: 'Rock Organ', 19: 'Church Organ',
+  20: 'Reed Organ', 21: 'Accordion', 22: 'Harmonica', 23: 'Tango Accordion',
+  24: 'Nylon Guitar', 25: 'Steel Guitar', 26: 'Jazz Guitar', 27: 'Clean Guitar',
+  28: 'Muted Guitar', 29: 'Overdriven Guitar', 30: 'Distortion Guitar', 31: 'Guitar Harmonics',
+  32: 'Acoustic Bass', 33: 'Finger Bass', 34: 'Pick Bass', 35: 'Fretless Bass',
+  36: 'Slap Bass 1', 37: 'Slap Bass 2', 38: 'Synth Bass 1', 39: 'Synth Bass 2',
+  40: 'Violin', 41: 'Viola', 42: 'Cello', 43: 'Contrabass',
+  44: 'Tremolo Strings', 45: 'Pizzicato Strings', 46: 'Orchestral Harp', 47: 'Timpani',
+  48: 'String Ensemble', 49: 'String Ens 2', 50: 'Synth Strings 1', 51: 'Synth Strings 2',
+  52: 'Choir Aahs', 53: 'Voice Oohs', 54: 'Synth Choir', 55: 'Orchestra Hit',
+  56: 'Trumpet', 57: 'Trombone', 58: 'Tuba', 59: 'Muted Trumpet',
+  60: 'French Horn', 61: 'Brass Section', 62: 'Synth Brass 1', 63: 'Synth Brass 2',
+  64: 'Soprano Sax', 65: 'Alto Sax', 66: 'Tenor Sax', 67: 'Baritone Sax',
+  68: 'Oboe', 69: 'English Horn', 70: 'Bassoon', 71: 'Clarinet',
+  72: 'Piccolo', 73: 'Flute', 74: 'Recorder', 75: 'Pan Flute',
+  76: 'Blown Bottle', 77: 'Shakuhachi', 78: 'Whistle', 79: 'Ocarina',
+  80: 'Square Lead', 81: 'Sawtooth Lead', 82: 'Calliope Lead', 83: 'Chiff Lead',
+  84: 'Charang Lead', 85: 'Voice Lead', 86: 'Fifths Lead', 87: 'Bass Lead',
+  88: 'New Age Pad', 89: 'Warm Pad', 90: 'Polysynth Pad', 91: 'Choir Pad',
+  92: 'Bowed Pad', 93: 'Metallic Pad', 94: 'Halo Pad', 95: 'Sweep Pad',
+  96: 'Rain FX', 97: 'Soundtrack FX', 98: 'Crystal FX', 99: 'Atmosphere FX',
+  100: 'Brightness FX', 101: 'Goblins FX', 102: 'Echoes FX', 103: 'Sci-fi FX',
+  104: 'Sitar', 105: 'Banjo', 106: 'Shamisen', 107: 'Koto',
+  108: 'Kalimba', 109: 'Bagpipe', 110: 'Fiddle', 111: 'Shanai',
+  112: 'Tinkle Bell', 113: 'Agogo', 114: 'Steel Drums', 115: 'Woodblock',
+  116: 'Taiko Drum', 117: 'Melodic Tom', 118: 'Synth Drum', 119: 'Reverse Cymbal',
+  120: 'Guitar Fret Noise', 121: 'Breath Noise', 122: 'Seashore', 123: 'Bird Tweet',
+  124: 'Telephone Ring', 125: 'Helicopter', 126: 'Applause', 127: 'Gunshot',
+};
 
 interface TempoEvent {
   tick: number;
@@ -35,9 +92,12 @@ interface RawNote {
   channel: number;
 }
 
-interface NoteOnEntry {
+interface TrackNoteOnEntry {
   time: number;
   noteName: string;
+  channel: number;
+  rawMidi: number;
+  program: number;
 }
 
 class MidiReader {
@@ -168,8 +228,10 @@ export function parseMidi(arrayBuffer: ArrayBuffer, filename: string): Song {
   }
 
   const tempoEvents: TempoEvent[] = [];
-  const rawNotes: RawNote[] = [];
-  let trackName = '';
+  const trackRawNotes: RawNote[][] = [];
+  const trackNames: string[] = [];
+  const trackChannels: Set<number>[] = [];
+  const trackPrograms: number[] = [];
 
   for (let t = 0; t < numTracks; t++) {
     const chunkType = String.fromCharCode(reader.readByte(), reader.readByte(), reader.readByte(), reader.readByte());
@@ -182,6 +244,9 @@ export function parseMidi(arrayBuffer: ArrayBuffer, filename: string): Song {
 
     let runningStatus = 0;
     let absTick = 0;
+    let hasTrackName = false;
+    const notes: RawNote[] = [];
+    const channels = new Set<number>();
 
     while (reader.pos < trackEnd) {
       const delta = reader.readVarLen();
@@ -204,12 +269,13 @@ export function parseMidi(arrayBuffer: ArrayBuffer, filename: string): Song {
         if (type === META_TEMPO && len >= 3) {
           const usPerQuarter = (reader.readByte() << 16) | (reader.readByte() << 8) | reader.readByte();
           tempoEvents.push({ tick: absTick, usPerQuarter });
-        } else if (type === META_TRACK_NAME && len > 0 && !trackName) {
+        } else if (type === META_TRACK_NAME && len > 0 && !hasTrackName) {
+          hasTrackName = true;
           let name = '';
           for (let i = 0; i < len; i++) {
             name += String.fromCharCode(reader.readByte());
           }
-          trackName = name.trim();
+          trackNames[t] = name.trim();
         }
 
         reader.pos = dataStart + len;
@@ -223,68 +289,71 @@ export function parseMidi(arrayBuffer: ArrayBuffer, filename: string): Song {
         if (eventType === NOTE_ON || eventType === NOTE_OFF) {
           const note = reader.readByte();
           const velocity = reader.readByte();
+          channels.add(channel);
 
-          rawNotes.push({
+          notes.push({
             tick: absTick,
             type: eventType,
             note,
             velocity,
             channel,
           });
+        } else if (eventType === PROGRAM_CHANGE) {
+          trackPrograms[t] = reader.readByte();
         } else {
-          const dataLen = (eventType === 0xC0 || eventType === 0xD0) ? 1 : 2;
+          const dataLen = (eventType === 0xD0) ? 1 : 2;
           reader.skip(dataLen);
         }
       }
     }
 
+    trackRawNotes[t] = notes;
+    trackChannels[t] = channels;
     reader.pos = trackEnd;
   }
 
   const tempoMap = buildTempoMap(tempoEvents, ticksPerQuarter);
 
-  const noteOns: Record<string, NoteOnEntry[]> = {};
-  const notes: Note[] = [];
+  const trackNoteOns: TrackNoteOnEntry[][] = trackRawNotes.map(() => []);
+  const allNotes: Note[] = [];
   let skipped = 0;
   let transposed = 0;
 
-  for (const raw of rawNotes) {
-    const time = ticksToSeconds(raw.tick, tempoMap, ticksPerQuarter);
-    let noteName = midiToNoteName(raw.note);
+  for (let t = 0; t < trackRawNotes.length; t++) {
+    for (const raw of trackRawNotes[t]) {
+      const time = ticksToSeconds(raw.tick, tempoMap, ticksPerQuarter);
+      let noteName = midiToNoteName(raw.note);
 
-    if (!NOTE_NAMES.includes(noteName)) {
-      const transposedName = transposeIntoRange(noteName);
-      if (!NOTE_NAMES.includes(transposedName)) {
-        skipped++;
-        continue;
+      if (!NOTE_NAMES.includes(noteName)) {
+        const transposedName = transposeIntoRange(noteName);
+        if (!NOTE_NAMES.includes(transposedName)) {
+          skipped++;
+          continue;
+        }
+        transposed++;
+        noteName = transposedName;
       }
-      transposed++;
-      noteName = transposedName;
-    }
 
-    if (raw.type === NOTE_ON && raw.velocity > 0) {
-      const key = `${noteName}_${raw.channel}`;
-      if (!noteOns[key]) {
-        noteOns[key] = [];
-      }
-      noteOns[key].push({ time, noteName });
-    } else if (raw.type === NOTE_OFF || (raw.type === NOTE_ON && raw.velocity === 0)) {
-      const key = `${noteName}_${raw.channel}`;
-      if (noteOns[key] && noteOns[key].length > 0) {
-        const on = noteOns[key].shift()!;
-        const duration = Math.max(0.01, time - on.time);
-        notes.push({ time: on.time, key: on.noteName, duration });
+      if (raw.type === NOTE_ON && raw.velocity > 0) {
+        trackNoteOns[t].push({ time, noteName, channel: raw.channel, rawMidi: raw.note, program: trackPrograms[t] ?? -1 });
+      } else if (raw.type === NOTE_OFF || (raw.type === NOTE_ON && raw.velocity === 0)) {
+        const on = trackNoteOns[t].find((e) => e.noteName === noteName);
+        if (on) {
+          trackNoteOns[t].splice(trackNoteOns[t].indexOf(on), 1);
+          const duration = Math.max(0.01, time - on.time);
+          allNotes.push({ time: on.time, key: on.noteName, duration, track: t, channel: raw.channel, rawMidi: raw.note, program: on.program });
+        }
       }
     }
   }
 
-  for (const key in noteOns) {
-    for (const on of noteOns[key]) {
-      notes.push({ time: on.time, key: on.noteName, duration: 0.1 });
+  for (let t = 0; t < trackNoteOns.length; t++) {
+    for (const on of trackNoteOns[t]) {
+      allNotes.push({ time: on.time, key: on.noteName, duration: 0.1, track: t, channel: on.channel, rawMidi: on.rawMidi, program: on.program });
     }
   }
 
-  if (notes.length === 0) {
+  if (allNotes.length === 0) {
     throw new Error(`No playable notes found in MIDI file${skipped > 0 ? ` (${skipped} notes outside A0–C8 range)` : ''}`);
   }
 
@@ -295,16 +364,65 @@ export function parseMidi(arrayBuffer: ArrayBuffer, filename: string): Song {
     console.warn(`Transposed ${transposed} notes into the A0–C8 range`);
   }
 
-  notes.sort((a, b) => a.time - b.time);
+  allNotes.sort((a, b) => a.time - b.time);
+
+  const tracks: TrackInfo[] = trackRawNotes.map((notes, i) => {
+    const isDrumTrack = trackChannels[i]?.size === 1 && trackChannels[i]?.has(GM_DRUM_CHANNEL);
+    return {
+    index: i,
+    name: isDrumTrack ? 'Drums' : (trackNames[i] || GM_INSTRUMENTS[trackPrograms[i]] || `Track ${i + 1}`),
+    noteCount: notes.filter((raw) => {
+      const noteName = midiToNoteName(raw.note);
+      return NOTE_NAMES.includes(noteName) || NOTE_NAMES.includes(transposeIntoRange(noteName));
+    }).length,
+    program: isDrumTrack ? -1 : (trackPrograms[i] ?? -1),
+    };
+  }).filter((t) => t.noteCount > 0);
+
+  // Remap original track indices to compact indices (0, 1, 2, ...)
+  // so non-playable tracks are excluded and indices are contiguous.
+  const oldToNew = new Map<number, number>();
+  for (let i = 0; i < tracks.length; i++) {
+    oldToNew.set(tracks[i].index, i);
+    tracks[i].index = i;
+  }
+
+  for (const note of allNotes) {
+    note.track = oldToNew.get(note.track!) ?? 0;
+  }
+
+  const trackHands: Record<number, HandSide> = {};
+  for (const track of tracks) {
+    const trackNotes = allNotes.filter((n) => n.track === track.index);
+    if (trackNotes.length > 0) {
+      let sum = 0;
+      for (const n of trackNotes) {
+        const match = n.key.match(/^([A-G]#?)(\d)$/);
+        if (match) {
+          const noteMap: Record<string, number> = { C: 0, 'C#': 1, D: 2, 'D#': 3, E: 4, F: 5, 'F#': 6, G: 7, 'G#': 8, A: 9, 'A#': 10, B: 11 };
+          sum += noteMap[match[1]] + (parseInt(match[2], 10) + 1) * 12;
+        }
+      }
+      const avg = sum / trackNotes.length;
+      trackHands[track.index] = avg <= HAND_SPLIT_MIDI ? HandSide.Left : HandSide.Right;
+    }
+  }
 
   const title = filename.replace(/\.[^.]+$/, '') || 'Imported';
+  const selectedTrackIndices = tracks.length <= 2 ? tracks.map((t) => t.index) : [];
+  const artist = tracks.length === 1
+    ? (trackNames.find((n) => n) || 'Imported')
+    : 'Imported';
 
   return {
     title,
-    artist: trackName || 'Imported',
+    artist,
     bpm: extractBpm(tempoMap),
     difficulty: 'medium',
-    notes,
+    notes: allNotes,
     imported: true,
+    tracks,
+    selectedTrackIndices,
+    trackHands,
   };
 }

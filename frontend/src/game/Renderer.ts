@@ -8,6 +8,8 @@ export const PIANO_HEIGHT_RATIO = 0.16;
 
 export const SHEET_TOP_OFFSET = 84;
 
+const BACKING_COLOR = '#555566';
+
 export const FAIL_COLOR_LEFT = '#aa2266';
 export const FAIL_COLOR_RIGHT = '#aa3322';
 export const FAIL_COLOR_SHEET_LEFT = '#662244';
@@ -628,7 +630,7 @@ export class Renderer {
 
       const x = barX + ((note.time - viewStart) / (viewEnd - viewStart)) * barW;
       const r = SHEET_NOTE_RADIUS * this.sheetScale;
-      const color = handColor(note.key);
+      const color = note.selected ? handColor(note.key) : BACKING_COLOR;
       const filled = note.duration < 0.75;
 
       if (note.failing) {

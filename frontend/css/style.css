@@ -717,3 +717,127 @@ kbd {
   color: var(--text-primary);
   font-weight: bold;
 }
+
+/* ============================================
+   TRACK SELECT SCREEN
+   ============================================ */
+
+#track-select-screen.active {
+  background: rgba(10, 10, 10, 0.95);
+  pointer-events: auto;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 20;
+}
+
+#track-select-card {
+  background: var(--bg-surface);
+  border: 1px solid #333;
+  border-radius: 6px;
+  padding: 2rem;
+  max-width: 500px;
+  width: 90%;
+  max-height: 80vh;
+  display: flex;
+  flex-direction: column;
+}
+
+#track-select-title {
+  font-size: 1.4rem;
+  letter-spacing: 0.2em;
+  text-align: center;
+  margin-bottom: 0.3rem;
+}
+
+#track-select-hint {
+  font-size: 0.8rem;
+  color: var(--text-secondary);
+  text-align: center;
+  margin-bottom: 1rem;
+}
+
+#track-list {
+  list-style: none;
+  overflow-y: auto;
+  flex: 1;
+  margin-bottom: 1rem;
+  max-height: 50vh;
+}
+
+.track-item {
+  display: flex;
+  align-items: center;
+  gap: 0.6rem;
+  padding: 0.6rem 0.8rem;
+  border: 1px solid #333;
+  border-radius: 4px;
+  margin-bottom: 0.4rem;
+  cursor: pointer;
+  transition: all 0.15s;
+}
+
+.track-item:hover {
+  border-color: var(--accent-blue);
+  background: var(--bg-surface-2);
+}
+
+.track-item.selected {
+  border-color: var(--accent-blue);
+  background: rgba(34, 136, 255, 0.12);
+}
+
+.track-select-btn {
+  font-family: inherit;
+  font-size: 0.9rem;
+  background: transparent;
+  border: 1px solid #555;
+  color: var(--text-primary);
+  padding: 0.2rem 0.6rem;
+  border-radius: 2px;
+  cursor: pointer;
+  transition: all 0.15s;
+  flex: 1;
+  text-align: left;
+}
+
+.track-item.selected .track-select-btn {
+  border-color: var(--accent-blue);
+  color: var(--accent-blue);
+}
+
+.track-info {
+  font-size: 0.75rem;
+  color: var(--text-secondary);
+  min-width: 5em;
+}
+
+.track-hand-btn {
+  font-family: inherit;
+  font-size: 0.75rem;
+  background: transparent;
+  border: 1px solid #555;
+  color: var(--text-secondary);
+  padding: 0.15rem 0.5rem;
+  border-radius: 2px;
+  cursor: pointer;
+  transition: all 0.15s;
+  letter-spacing: 0.1em;
+  min-width: 3.5em;
+}
+
+.track-hand-btn:hover:not(:disabled) {
+  border-color: var(--accent-orange);
+  color: var(--accent-orange);
+}
+
+.track-hand-btn:disabled {
+  opacity: 0.3;
+  cursor: default;
+}
+
+#track-select-actions {
+  display: flex;
+  justify-content: center;
+  gap: 0.8rem;
+}
