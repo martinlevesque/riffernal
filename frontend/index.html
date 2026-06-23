@@ -57,6 +57,11 @@
             <button id="btn-clear-loop" class="loop-btn loop-btn-clear" title="Clear stored loop" aria-label="Clear loop">&#10005;</button>
             <span id="loop-status">No loop</span>
           </span>
+          <button id="btn-toggle-bg" class="speed-btn" title="Toggle background tracks">Tracks</button>
+        </div>
+        <div id="bg-panel" class="bg-panel hidden">
+          <div class="bg-panel-title">Background Tracks</div>
+          <ul id="bg-track-list"></ul>
         </div>
       </div>
 
@@ -67,6 +72,18 @@
           <div id="result-stats"></div>
           <button id="btn-retry" class="btn btn-primary">RETRY</button>
           <button id="btn-menu" class="btn btn-secondary">MENU</button>
+        </div>
+      </div>
+
+      <div id="track-select-screen" class="screen">
+        <div id="track-select-card">
+          <h2 id="track-select-title">SELECT TRACKS</h2>
+          <p id="track-select-hint">Select 1 or 2 tracks to play</p>
+          <ul id="track-list"></ul>
+          <div id="track-select-actions">
+            <button id="track-select-cancel" class="btn btn-secondary">CANCEL</button>
+            <button id="track-select-confirm" class="btn btn-primary" disabled>CONFIRM</button>
+          </div>
         </div>
       </div>
 

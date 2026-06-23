@@ -49,22 +49,24 @@ export class Synth {
     return this.patch;
   }
 
-  noteOn(noteName: string): void {
+  noteOn(noteName: string, patch?: Patch, id?: string, midiOverride?: number): void {
     this.init();
     this.resume();
 
-    if (this.activeNotes.has(noteName)) {
-      this.noteOff(noteName);
+    const key = id ?? noteName;
+    if (this.activeNotes.has(key)) {
+      this.noteOff(key);
     }
 
-    const midi = noteNameToMidi(noteName);
+    const midi = midiOverride ?? noteNameToMidi(noteName);
     if (midi < 0) return;
     const freq = 440 * 2 ** ((midi - 69) / 12);
     const now = this.ctx!.currentTime;
 
-    const patchNote = this.patch.build(this.ctx!, freq, now);
+    const activePatch = patch ?? this.patch;
+    const patchNote = activePatch.build(this.ctx!, freq, now, midi);
     patchNote.output.connect(this.masterGain!);
-    this.activeNotes.set(noteName, { note: patchNote });
+    this.activeNotes.set(key, { note: patchNote });
   }
 
   noteOff(noteName: string): void {

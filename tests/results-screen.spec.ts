@@ -38,7 +38,6 @@ test.describe('Results Screen', () => {
 
       const afterShortResolves = {
         isComplete: nm.isComplete(),
-        resolvedCount: (nm as any)._resolvedCount,
         totalNotes: nm.notes.length,
         longNoteResolved: nm.notes[0].resolved,
         longNoteFailing: nm.notes[0].failing,

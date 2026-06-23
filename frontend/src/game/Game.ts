@@ -8,8 +8,13 @@ export { LoopDefinitionState };
 import { NoteManager, SCROLL_SPEED, HIT_ZONE_Y_RATIO } from './NoteManager.js';
 import type { HitResult, SongNote } from './NoteManager.js';
 import { NoteGrade, gradeLabel, TAP_NOTE_THRESHOLD, SUCCESS_PARTICLE_HOLD_RATIO } from './scoring.js';
-import { NOTE_TO_LANE, NOTE_COLORS, getPianoKeyLayout, PracticeHand } from '../utils/notes.js';
+import { NOTE_TO_LANE, NOTE_COLORS, getPianoKeyLayout, PracticeHand, GM_DRUM_CHANNEL } from '../utils/notes.js';
 import type { Synth } from '../audio/Synth.js';
+import type { Patch } from '../audio/patches/Patch.js';
+import { guitarCleanPatch, guitarOverdrivenPatch, guitarDistortionPatch } from '../audio/patches/guitarPatch.js';
+import { bassPatch } from '../audio/patches/bassPatch.js';
+import { violinPatch } from '../audio/patches/violinPatch.js';
+import { drumPatch } from '../audio/patches/drumPatch.js';
 import type { KeyboardInput } from '../input/KeyboardInput.js';
 import type { MidiInput } from '../input/MidiInput.js';
 import type { ScoreDisplay } from '../ui/ScoreDisplay.js';
@@ -42,6 +47,7 @@ export class Game {
   private midiInput: MidiInput;
   state: GameState = GameState.Menu;
   private currentSong: Song | null = null;
+  get song(): Song | null { return this.currentSong; }
   currentTime = 0;
   private refGameTime = 0;
   private refRealTime = 0;
@@ -62,6 +68,7 @@ export class Game {
   private menuScreen: HTMLElement;
   private resizeHandle: HTMLElement;
   private _onResize: () => void;
+  private _resizeRaf = false;
   private _boundLoop: () => void;
   private _lastFrameTime = 0;
   private _completionTime: number | null = null;
@@ -75,11 +82,18 @@ export class Game {
     this.midiInput = midiInput;
 
     this.playScreen = document.getElementById('play-screen')!;
-    this.resultsScreenEl = document.getElementById('results-screen')!;
     this.menuScreen = document.getElementById('menu-screen')!;
     this.resizeHandle = document.getElementById('sheet-resize-handle')!;
 
-    this._onResize = () => this.renderer.resize();
+    this._onResize = () => {
+      if (!this._resizeRaf) {
+        this._resizeRaf = true;
+        requestAnimationFrame(() => {
+          this.renderer.resize();
+          this._resizeRaf = false;
+        });
+      }
+    };
     window.addEventListener('resize', this._onResize);
 
     this._boundLoop = (): void => {
@@ -177,7 +191,7 @@ export class Game {
 
     const activeNotes = this.noteManager.getActiveNotes(this.currentTime, this.renderer.height, this.learningMode);
     for (const note of activeNotes) {
-      this.renderer.drawNote(note.lane, note.y, note.height, note.color, note.alpha, this.renderer.sheetBottom, note.key, note.holding, note.failing, note.waiting);
+      this.renderer.drawNote(note.lane, note.y, note.height, note.selected ? note.color : '#555566', note.alpha, this.renderer.sheetBottom, note.key, note.holding, note.failing, note.waiting);
     }
 
     this.scoreDisplay?.update(this.noteManager.scoring);
@@ -276,7 +290,11 @@ export class Game {
     if (lane === undefined) return;
 
     this.pressedLanes.add(lane);
-    this.synth.noteOn(noteName);
+    const activeNote = this.noteManager.findActiveNoteForLane(this.currentTime, lane);
+    const patch = activeNote
+      ? this._patchForNote(activeNote.program, activeNote.channel)
+      : this.synth.getPatch();
+    this.synth.noteOn(noteName, patch, undefined, activeNote?.rawMidi);
 
     if (this.state === GameState.Playing) {
       const results = this._resolveHit(lane);
@@ -375,9 +393,27 @@ export class Game {
     this.noteManager.scoring.enabled = !this.loop.active;
   }
 
+  private _patchForNote(program: number, channel: number): Patch {
+    if (channel === GM_DRUM_CHANNEL) return drumPatch;
+    // GM Guitar programs: 25-31 (Steel, Jazz, Clean, Muted, Overdriven, Distortion, Harmonics)
+    if (program >= 25 && program <= 28) return guitarCleanPatch;
+    if (program === 29) return guitarOverdrivenPatch;
+    if (program === 30) return guitarDistortionPatch;
+    if (program === 31) return guitarCleanPatch;
+    // GM Bass programs: 32-39 (Acoustic Bass through Synth Bass 2)
+    if (program >= 32 && program <= 39) return bassPatch;
+    // GM bowed strings: 40-44 (Violin, Viola, Cello, Contrabass, Tremolo Strings)
+    // GM string ensembles: 48-51 (String Ensemble, Synth Strings)
+    if ((program >= 40 && program <= 44) || (program >= 48 && program <= 51)) return violinPatch;
+    return this.synth.getPatch();
+  }
+
   private _playNoteOnce(note: SongNote): void {
-    this.synth.noteOn(note.key);
-    setTimeout(() => this.synth.noteOff(note.key), note.duration * 1000);
+    const realDuration = note.duration * 1000 / this.speedMultiplier;
+    const id = `auto_${note.track}_${note.time}_${note.key}`;
+    const patch = this._patchForNote(note.program, note.channel);
+    this.synth.noteOn(note.key, patch, id, note.rawMidi);
+    setTimeout(() => this.synth.noteOff(id), realDuration);
   }
 
   // -- Playback controls ----------------------------------------------------
@@ -414,5 +450,21 @@ export class Game {
     this.practiceHand = hand;
     this.noteManager.practiceHand = hand;
     this.noteManager.resetLearningState();
+  }
+
+  setBackgroundTrack(trackIndex: number, enabled: boolean): void {
+    this.noteManager.setBackgroundTrack(trackIndex, enabled);
+    if (this.currentSong) {
+      if (enabled) {
+        if (!this.currentSong.backgroundTracks) this.currentSong.backgroundTracks = [];
+        if (!this.currentSong.backgroundTracks.includes(trackIndex)) {
+          this.currentSong.backgroundTracks.push(trackIndex);
+        }
+      } else {
+        if (this.currentSong.backgroundTracks) {
+          this.currentSong.backgroundTracks = this.currentSong.backgroundTracks.filter((i) => i !== trackIndex);
+        }
+      }
+    }
   }
 }

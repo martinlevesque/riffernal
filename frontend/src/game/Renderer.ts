@@ -1,4 +1,4 @@
-import { NOTE_NAMES, NOTE_COLORS, getPianoKeyLayout, WHITE_KEY_COUNT, BLACK_KEY_WIDTH_RATIO, handForKey, handColor, HandSide } from '../utils/notes.js';
+import { NOTE_NAMES, NOTE_COLORS, getPianoKeyLayout, WHITE_KEY_COUNT, BLACK_KEY_WIDTH_RATIO, handForKey, handColor, HandSide, NOTE_SHORT_NAMES } from '../utils/notes.js';
 import { KEYBOARD_MAP } from '../input/KeyboardInput.js';
 import { HIT_ZONE_Y_RATIO } from './NoteManager.js';
 import { LoopDefinitionState } from './Loop.js';
@@ -7,6 +7,8 @@ import type { SongNote } from './NoteManager.js';
 export const PIANO_HEIGHT_RATIO = 0.16;
 
 export const SHEET_TOP_OFFSET = 84;
+
+const BACKING_COLOR = '#555566';
 
 export const FAIL_COLOR_LEFT = '#aa2266';
 export const FAIL_COLOR_RIGHT = '#aa3322';
@@ -110,8 +112,8 @@ const SHEET_NOTE_POSITIONS: Record<string, number> = Object.assign(
   TREBLE_STAFF_POSITIONS
 );
 
-const NOTE_TAIL_GRADIENT: [number, string][] = [[0, 'rgba(255,255,255,0.10)'], [1, 'rgba(255,255,255,0)']];
-const NOTE_HEAD_GRADIENT: [number, string][] = [[0, 'rgba(255,255,255,0)'], [0.4, 'rgba(255,255,255,0.15)'], [1, 'rgba(255,255,255,0.40)']];
+const TAIL_HIGHLIGHT_ALPHA = 0.06;
+const HEAD_HIGHLIGHT_ALPHA = 0.18;
 
 interface NoteLayout {
   drawX: number;
@@ -146,7 +148,7 @@ export class Renderer {
   private _cachedStaffWidth = -1;
   private _flameCache = new Map<number, HTMLCanvasElement>();
   private _pianoCache: HTMLCanvasElement | null = null;
-  private _cachedPianoState = '';
+  private _cachedPianoState = 0;
   private _cachedPianoWidth = -1;
 
   constructor(canvas: HTMLCanvasElement) {
@@ -208,7 +210,8 @@ export class Renderer {
   }
 
   private _ensureBottomCache(pressedLanes: Set<number>): void {
-    const state = [...pressedLanes].sort((a, b) => a - b).join(',');
+    let state = 0;
+    for (const lane of pressedLanes) state |= 1 << lane;
     if (state === this._cachedPianoState && this.width === this._cachedPianoWidth && this._pianoCache) return;
     this._cachedPianoState = state;
     this._cachedPianoWidth = this.width;
@@ -280,7 +283,7 @@ export class Renderer {
       ctx.stroke();
 
       const labelY = pianoTop - offsetY + pianoH * 0.72;
-      const shortName = noteName.replace(/\d/g, '');
+      const shortName = NOTE_SHORT_NAMES[noteName] ?? noteName;
       ctx.fillStyle = isPressed ? '#fff' : '#666';
       ctx.font = `${Math.max(11, whiteKeyWidth * 0.3)}px Courier New`;
       ctx.textAlign = 'center';
@@ -327,7 +330,7 @@ export class Renderer {
       ctx.clip();
 
       const blkLabelY = pianoTop - offsetY + blackKeyHeight - 13;
-      const blkShort = noteName.replace(/\d/g, '');
+      const blkShort = NOTE_SHORT_NAMES[noteName] ?? noteName;
       ctx.fillStyle = isPressed ? '#ddd' : '#666';
       ctx.font = `${Math.max(6, blackKeyWidth * 0.35)}px Courier New`;
       ctx.textAlign = 'center';
@@ -392,12 +395,6 @@ export class Renderer {
     ctx.fill();
   }
 
-  private _getGradient(ctx: CanvasRenderingContext2D, x: number, y: number, _w: number, h: number, _stops: [number, string][]): CanvasGradient {
-    const grad = ctx.createLinearGradient(x, y, x, y + h);
-    for (const [pos, color] of _stops) grad.addColorStop(pos, color);
-    return grad;
-  }
-
   drawNote(laneIndex: number, y: number, noteHeight: number, color: string, alpha: number, sheetBottom: number, noteName?: string, holding?: boolean, failing?: boolean, waiting?: boolean): void {
     const ctx = this.ctx;
     const drawColor = failing && noteName
@@ -415,14 +412,20 @@ export class Renderer {
 
     if (L.scaledTailHeight > 0.5) {
       this._drawNotePart(ctx, L.drawX, L.drawY, L.scaledWidth, L.scaledTailHeight, L.cornerRadius, drawColor);
-      this._drawNotePart(ctx, L.drawX, L.drawY, L.scaledWidth, L.scaledTailHeight, L.cornerRadius,
-        this._getGradient(ctx, L.drawX, L.drawY, L.scaledWidth, L.scaledTailHeight, NOTE_TAIL_GRADIENT));
+      ctx.globalAlpha = alpha * TAIL_HIGHLIGHT_ALPHA;
+      ctx.fillStyle = '#fff';
+      roundRect(ctx, L.drawX, L.drawY, L.scaledWidth, L.scaledTailHeight, L.cornerRadius);
+      ctx.fill();
+      ctx.globalAlpha = alpha;
     }
 
     const headDrawY = L.drawY + L.scaledTailHeight;
     this._drawNotePart(ctx, L.drawX, headDrawY, L.scaledWidth, L.scaledHeadHeight, L.cornerRadius, drawColor);
-    this._drawNotePart(ctx, L.drawX, headDrawY, L.scaledWidth, L.scaledHeadHeight, L.cornerRadius,
-      this._getGradient(ctx, L.drawX, headDrawY, L.scaledWidth, L.scaledHeadHeight, NOTE_HEAD_GRADIENT));
+    ctx.globalAlpha = alpha * HEAD_HIGHLIGHT_ALPHA;
+    ctx.fillStyle = '#fff';
+    roundRect(ctx, L.drawX, headDrawY, L.scaledWidth, L.scaledHeadHeight, L.cornerRadius);
+    ctx.fill();
+    ctx.globalAlpha = alpha;
 
     if (waiting) {
       ctx.shadowBlur = 0;
@@ -442,7 +445,7 @@ export class Renderer {
   }
 
   private _drawNoteLabel(ctx: CanvasRenderingContext2D, noteName: string, drawX: number, drawY: number, width: number, height: number): void {
-    const shortName = noteName.replace(/\d/g, '');
+    const shortName = NOTE_SHORT_NAMES[noteName] ?? noteName;
     const fontSize = Math.max(11, width * 0.6);
     ctx.font = `bold ${fontSize}px Courier New`;
     ctx.textAlign = 'center';
@@ -628,7 +631,7 @@ export class Renderer {
 
       const x = barX + ((note.time - viewStart) / (viewEnd - viewStart)) * barW;
       const r = SHEET_NOTE_RADIUS * this.sheetScale;
-      const color = handColor(note.key);
+      const color = note.selected ? handColor(note.key) : BACKING_COLOR;
       const filled = note.duration < 0.75;
 
       if (note.failing) {

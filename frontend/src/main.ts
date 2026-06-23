@@ -4,7 +4,8 @@ import { KeyboardInput } from './input/KeyboardInput.js';
 import { MidiInput } from './input/MidiInput.js';
 import { Menu } from './ui/Menu.js';
 import { ScoreDisplay } from './ui/ScoreDisplay.js';
-import { parseMidi } from './utils/MidiParser.js';
+import { TrackSelect } from './ui/TrackSelect.js';
+import { parseMidi, normalizeSong } from './utils/MidiParser.js';
 import { SHEET_TOP_OFFSET, Renderer, SHEET_BEATS_VISIBLE } from './game/Renderer.js';
 import type { SongNote } from './game/NoteManager.js';
 import { PracticeHand } from './utils/notes.js';
@@ -26,7 +27,7 @@ async function loadSongs(): Promise<Song[]> {
     try {
       const res = await fetch(file);
       if (res.ok) {
-        songs.push(await res.json());
+        songs.push(normalizeSong(await res.json()));
       }
     } catch (e) {
       console.warn(`Failed to load ${file}:`, e);
@@ -44,6 +45,7 @@ async function init(): Promise<void> {
   const game = new Game(canvas, synth, keyboardInput, midiInput);
   const scoreDisplay = new ScoreDisplay();
   game.scoreDisplay = scoreDisplay;
+  const trackSelect = new TrackSelect();
 
   const speedValue = document.getElementById('speed-value')!;
   const speedDown = document.getElementById('speed-down')!;
@@ -141,6 +143,70 @@ async function init(): Promise<void> {
     setPracticeHand(game.practiceHand === PracticeHand.Right ? PracticeHand.Both : PracticeHand.Right);
   });
 
+  // -- Background track panel ----------------------------------------------
+  const toggleBgBtn = document.getElementById('btn-toggle-bg')! as HTMLButtonElement;
+  const bgPanel = document.getElementById('bg-panel')!;
+  const bgTrackList = document.getElementById('bg-track-list')!;
+  let bgPanelOpen = false;
+
+  function renderBgPanel(): void {
+    bgTrackList.innerHTML = '';
+    const song = game.song;
+    if (!song?.tracks || song.tracks.length === 0) {
+      bgPanel.classList.add('hidden');
+      return;
+    }
+    const selectedSet = new Set(song.selectedTrackIndices ?? []);
+    const bgTracks = song.tracks.filter((t) => !selectedSet.has(t.index));
+    if (bgTracks.length === 0) {
+      bgPanel.classList.add('hidden');
+      return;
+    }
+    for (const track of bgTracks) {
+      const li = document.createElement('li');
+      li.className = 'bg-track-item';
+
+      const label = document.createElement('span');
+      label.className = 'bg-track-label';
+      label.textContent = track.name;
+
+      const toggle = document.createElement('button');
+      toggle.className = 'bg-track-toggle';
+      const isOn = game.noteManager.backgroundTracks.has(track.index);
+      toggle.textContent = isOn ? '\u{1F50A}' : '\u{1F507}';
+      toggle.title = isOn ? 'Mute background' : 'Unmute background';
+      toggle.addEventListener('click', () => {
+        const nowOn = !game.noteManager.backgroundTracks.has(track.index);
+        game.setBackgroundTrack(track.index, nowOn);
+        toggle.textContent = nowOn ? '\u{1F50A}' : '\u{1F507}';
+        toggle.title = nowOn ? 'Mute background' : 'Unmute background';
+      });
+
+      li.appendChild(label);
+      li.appendChild(toggle);
+      bgTrackList.appendChild(li);
+    }
+  }
+
+  function toggleBgPanel(): void {
+    bgPanelOpen = !bgPanelOpen;
+    if (bgPanelOpen) {
+      renderBgPanel();
+      bgPanel.classList.remove('hidden');
+    } else {
+      bgPanel.classList.add('hidden');
+    }
+  }
+
+  toggleBgBtn.addEventListener('click', toggleBgPanel);
+
+  document.addEventListener('click', (e) => {
+    if (bgPanelOpen && !bgPanel.contains(e.target as Node) && e.target !== toggleBgBtn) {
+      bgPanelOpen = false;
+      bgPanel.classList.add('hidden');
+    }
+  });
+
   function updateSpeedDisplay(): void {
     speedValue.textContent = `${Math.round(game.speedMultiplier * 100)}%`;
   }
@@ -206,7 +272,25 @@ async function init(): Promise<void> {
     reader.onload = () => {
       try {
         const song = parseMidi(reader.result as ArrayBuffer, file.name);
-        menu.addSong(song);
+        const needsSelection = song.tracks && song.tracks.length > 2 && (song.selectedTrackIndices?.length ?? 0) === 0;
+        if (needsSelection) {
+          trackSelect.onConfirm = (selection) => {
+            song.selectedTrackIndices = selection.indices;
+            song.trackHands = selection.hands;
+            song.backgroundTracks = selection.backgroundTracks;
+            menu.addSong(song);
+            trackSelect.onConfirm = null;
+            trackSelect.onCancel = null;
+          };
+          trackSelect.onCancel = () => {
+            menu.setMidiStatus(false, 'Import cancelled');
+            trackSelect.onConfirm = null;
+            trackSelect.onCancel = null;
+          };
+          trackSelect.show(song);
+        } else {
+          menu.addSong(song);
+        }
       } catch (err: unknown) {
         const message = err instanceof Error ? err.message : String(err);
         alert(`Failed to import MIDI: ${message}`);
@@ -223,6 +307,7 @@ async function init(): Promise<void> {
 
   const resizeHandle = document.getElementById('sheet-resize-handle')!;
   let resizing = false;
+  let resizeRAF = false;
 
   resizeHandle.addEventListener('pointerdown', (e) => {
     resizing = true;
@@ -231,14 +316,18 @@ async function init(): Promise<void> {
   });
 
   window.addEventListener('pointermove', (e) => {
-    if (!resizing) return;
+    if (!resizing || resizeRAF) return;
     if (game.state !== GameState.Playing) return;
-    const rect = canvas.getBoundingClientRect();
-    const y = e.clientY - rect.top;
-    const minSheetHeight = BASE_SHEET_HEIGHT * 0.5;
-    const maxSheetHeight = canvas.height * 0.35;
-    const targetHeight = Math.max(minSheetHeight, Math.min(maxSheetHeight, y - SHEET_TOP_OFFSET));
-    game.renderer.sheetScale = targetHeight / BASE_SHEET_HEIGHT;
+    resizeRAF = true;
+    requestAnimationFrame(() => {
+      const rect = canvas.getBoundingClientRect();
+      const y = e.clientY - rect.top;
+      const minSheetHeight = BASE_SHEET_HEIGHT * 0.5;
+      const maxSheetHeight = canvas.height * 0.35;
+      const targetHeight = Math.max(minSheetHeight, Math.min(maxSheetHeight, y - SHEET_TOP_OFFSET));
+      game.renderer.sheetScale = targetHeight / BASE_SHEET_HEIGHT;
+      resizeRAF = false;
+    });
   });
 
   window.addEventListener('pointerup', () => {

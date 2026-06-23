@@ -63,7 +63,7 @@ test.describe('Loops - NoteManager.resetFromTime', () => {
         secondResolved: nm.notes[1].resolved,
         secondActivated: nm.notes[1].activated,
         thirdResolved: nm.notes[2].resolved,
-        resolvedCount: nm._resolvedCount,
+        resolvedCount: nm.notes.filter(n => n.resolved).length,
         nextNoteIndex: nm._nextNoteIndex,
       };
     `);
@@ -77,7 +77,7 @@ test.describe('Loops - NoteManager.resetFromTime', () => {
     expect(result.nextNoteIndex).toBe(1);
   });
 
-  test('resetFromTime recomputes _resolvedCount and _nextNoteIndex', async ({ page }) => {
+  test('resetFromTime recomputes resolved count and _nextNoteIndex', async ({ page }) => {
     await page.goto('/');
     const song = makeSong([
       { time: 1.0, key: 'C3', duration: 0.25 },
@@ -91,7 +91,7 @@ test.describe('Loops - NoteManager.resetFromTime', () => {
       nm.checkHit(2.0, NOTE_TO_LANE.get('E3'));
       nm.resetFromTime(2.0);
       return {
-        resolvedCount: nm._resolvedCount,
+        resolvedCount: nm.notes.filter(n => n.resolved).length,
         nextNoteIndex: nm._nextNoteIndex,
         isComplete: nm.isComplete(),
       };

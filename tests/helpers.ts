@@ -29,6 +29,9 @@ export interface SongData {
   bpm: number;
   difficulty: string;
   notes: NoteSpec[];
+  tracks?: { index: number; name: string; noteCount: number }[];
+  selectedTrackIndices?: number[];
+  trackHands?: Record<number, string>;
 }
 
 export function makeSong(notes: NoteSpec[], title = 'Test'): SongData {
