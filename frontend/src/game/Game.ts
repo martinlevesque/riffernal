@@ -103,15 +103,16 @@ export class Game {
       }
       this.currentTime = frameTime;
 
-      // Loop wrap: when active and we've reached loopEnd, rewind to loopStart.
-      // seekTo re-anchors time and updates this.currentTime so the rest of
-      // this frame renders at loopStart.
+      // Loop wrap: when active and we've reached the end of the last note
+      // within the loop, rewind to loopStart. Using the effective end (last
+      // note's time+duration) lets the player finish holding the final note
+      // before the loop rewinds.
       if (
         this.loopActive &&
         this.loopStart !== null &&
         this.loopEnd !== null &&
         this.state === GameState.Playing &&
-        this.currentTime >= this.loopEnd
+        this.currentTime >= this.noteManager.getLoopEffectiveEnd(this.loopEnd)
       ) {
         this.seekTo(this.loopStart);
       }

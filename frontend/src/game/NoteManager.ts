@@ -485,6 +485,20 @@ export class NoteManager {
     return last.time + last.duration;
   }
 
+  /** Returns the latest `time + duration` among notes whose start time is
+   *  at or before `end`, so a loop wrapping at `end` lets the last note
+   *  in the loop finish playing before rewinding. Returns `end` if no
+   *  matching note is found. */
+  getLoopEffectiveEnd(end: number): number {
+    let effective = end;
+    for (const note of this.notes) {
+      if (note.time > end) break;
+      const noteEnd = note.time + note.duration;
+      if (noteEnd > effective) effective = noteEnd;
+    }
+    return effective;
+  }
+
   /** Find the SongNote whose time is closest to `time`. When `staff` is given
    *  ('treble' | 'bass'), restrict the search to that hand. Returns null if
    *  no notes exist in the consideration set. */

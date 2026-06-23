@@ -191,6 +191,34 @@ test.describe('Loops - Game.seekTo & loop wrap', () => {
     expect(result.active).toBe(true);
   });
 
+  test('loop wrap waits for the last note in the loop to finish before rewinding', async ({ page }) => {
+    // Note at t=2.0 with duration 1.0 (ends at 3.0). loopEnd=2.5 is mid-note,
+    // so the loop must not wrap until currentTime reaches 3.0.
+    const songJson = JSON.stringify(makeSong([
+      { time: 0.5, key: 'C3', duration: 0.25 },
+      { time: 2.0, key: 'E3', duration: 1.0 },
+      { time: 4.0, key: 'G3', duration: 0.25 },
+    ], 'LoopWrapLong'));
+    await page.goto('/');
+    const result = await page.evaluate(gameEvalBody(songJson, `
+      game.loopActive = true;
+      game.loopStart = 1.0;
+      game.loopEnd = 2.5;
+      // Anchor just before the effective end (3.0). After 200ms the game time
+      // advances past 3.0 and the loop should wrap to loopStart.
+      game.refGameTime = 2.9;
+      game.refRealTime = performance.now() / 1000;
+      await new Promise(r => setTimeout(r, 300));
+      return {
+        currentTime: game.currentTime,
+        effectiveEnd: game.noteManager.getLoopEffectiveEnd(2.5),
+      };
+    `)) as { currentTime: number; effectiveEnd: number };
+    expect(result.effectiveEnd).toBeCloseTo(3.0, 1);
+    expect(result.currentTime).toBeLessThan(2.5);
+    expect(result.currentTime).toBeGreaterThanOrEqual(1.0);
+  });
+
   test('setLoopBoundary: start then end activates loop; swaps if end < start', async ({ page }) => {
     const songJson = JSON.stringify(makeSong([
       { time: 1.0, key: 'C3', duration: 0.25 },

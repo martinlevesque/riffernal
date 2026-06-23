@@ -266,8 +266,13 @@ async function init(): Promise<void> {
     if (!note) return;
 
     if (game.loopDefinitionState === LoopDefinitionState.Start || game.loopDefinitionState === LoopDefinitionState.End) {
+      const wasStart = game.loopDefinitionState === LoopDefinitionState.Start;
       game.setLoopBoundary(note.time);
       updateLoopUI();
+      if (!wasStart && game.loopStart !== null) {
+        // Loop fully defined and activated -> seek to the start.
+        game.seekTo(game.loopStart);
+      }
     } else {
       game.seekTo(note.time);
     }
@@ -397,7 +402,8 @@ async function init(): Promise<void> {
         // Stayed in define flow (advanced to 'end') -> refresh to show A marker.
         renderSheetPage();
       } else {
-        // Just set the end boundary and activated the loop -> close.
+        // Loop fully defined and activated -> seek to start and close.
+        if (game.loopStart !== null) game.seekTo(game.loopStart);
         closeSheetView();
       }
     } else {
