@@ -24,67 +24,148 @@ function buildNoise(ctx: AudioContext, duration: number): { source: AudioBufferS
   return { source, output };
 }
 
+function buildDistortion(ctx: AudioContext, amount: number): WaveShaperNode {
+  const samples = 256;
+  const curve = new Float32Array(samples);
+  for (let i = 0; i < samples; i++) {
+    const x = (i * 2) / samples - 1;
+    curve[i] = ((Math.PI + amount) * x) / (Math.PI + amount * Math.abs(x));
+  }
+  const ws = ctx.createWaveShaper();
+  ws.curve = curve;
+  ws.oversample = '4x';
+  return ws;
+}
+
 function buildKick(ctx: AudioContext, _freq: number, startTime: number): PatchNote {
-  const osc = ctx.createOscillator();
-  osc.type = 'sine';
-  osc.frequency.setValueAtTime(150, startTime);
-  osc.frequency.exponentialRampToValueAtTime(40, startTime + 0.08);
+  // Click transient — sharp high-frequency punch
+  const clickOsc = ctx.createOscillator();
+  clickOsc.type = 'square';
+  clickOsc.frequency.setValueAtTime(800, startTime);
+  clickOsc.frequency.exponentialRampToValueAtTime(100, startTime + 0.015);
+  const clickGain = ctx.createGain();
+  clickGain.gain.setValueAtTime(0.7, startTime);
+  clickGain.gain.exponentialRampToValueAtTime(0.001, startTime + 0.03);
+  clickOsc.connect(clickGain);
+  clickOsc.start(startTime);
+  clickOsc.stop(startTime + 0.05);
 
-  const gain = ctx.createGain();
-  gain.gain.setValueAtTime(1.2, startTime);
-  gain.gain.exponentialRampToValueAtTime(0.001, startTime + 0.35);
+  // Sub body — deep sine sweep with more weight
+  const subOsc = ctx.createOscillator();
+  subOsc.type = 'sine';
+  subOsc.frequency.setValueAtTime(200, startTime);
+  subOsc.frequency.exponentialRampToValueAtTime(30, startTime + 0.12);
+  const subGain = ctx.createGain();
+  subGain.gain.setValueAtTime(1.4, startTime);
+  subGain.gain.linearRampToValueAtTime(1.0, startTime + 0.05);
+  subGain.gain.exponentialRampToValueAtTime(0.001, startTime + 0.45);
+  subOsc.connect(subGain);
+  subOsc.start(startTime);
+  subOsc.stop(startTime + 0.5);
 
-  osc.connect(gain);
-  osc.start(startTime);
-  osc.stop(startTime + 0.4);
+  // Harmonic layer — adds growl and body
+  const harmOsc = ctx.createOscillator();
+  harmOsc.type = 'triangle';
+  harmOsc.frequency.setValueAtTime(100, startTime);
+  harmOsc.frequency.exponentialRampToValueAtTime(35, startTime + 0.1);
+  const harmGain = ctx.createGain();
+  harmGain.gain.setValueAtTime(0.5, startTime);
+  harmGain.gain.exponentialRampToValueAtTime(0.001, startTime + 0.3);
+  harmOsc.connect(harmGain);
+  harmOsc.start(startTime);
+  harmOsc.stop(startTime + 0.35);
 
-  return { output: gain, release(_ctx, t) { osc.stop(t + 0.01); } };
+  // Distortion for grit
+  const dist = buildDistortion(ctx, 3);
+
+  const merger = ctx.createGain();
+  clickGain.connect(merger);
+  subGain.connect(merger);
+  harmGain.connect(merger);
+  merger.connect(dist);
+
+  return { output: dist, release(_ctx, t) { clickOsc.stop(t + 0.01); subOsc.stop(t + 0.01); harmOsc.stop(t + 0.01); } };
 }
 
 function buildSnare(ctx: AudioContext, _freq: number, startTime: number): PatchNote {
-  const noise = buildNoise(ctx, 0.25);
+  // Noise — longer, louder, more body
+  const noise = buildNoise(ctx, 0.35);
   const nGain = ctx.createGain();
-  nGain.gain.setValueAtTime(0.8, startTime);
-  nGain.gain.exponentialRampToValueAtTime(0.001, startTime + 0.2);
+  nGain.gain.setValueAtTime(1.0, startTime);
+  nGain.gain.exponentialRampToValueAtTime(0.001, startTime + 0.3);
   noise.output.connect(nGain);
 
-  const filter = ctx.createBiquadFilter();
-  filter.type = 'highpass';
-  filter.frequency.value = 2000;
-  nGain.connect(filter);
+  // Bandpass for snare character
+  const bpFilter = ctx.createBiquadFilter();
+  bpFilter.type = 'bandpass';
+  bpFilter.frequency.value = 3500;
+  bpFilter.Q.value = 1.5;
+  nGain.connect(bpFilter);
 
-  const osc = ctx.createOscillator();
-  osc.type = 'triangle';
-  osc.frequency.value = 200;
-  const oGain = ctx.createGain();
-  oGain.gain.setValueAtTime(0.5, startTime);
-  oGain.gain.exponentialRampToValueAtTime(0.001, startTime + 0.08);
-  osc.connect(oGain);
-  osc.start(startTime);
-  osc.stop(startTime + 0.15);
+  // High-pass to remove mud
+  const hpFilter = ctx.createBiquadFilter();
+  hpFilter.type = 'highpass';
+  hpFilter.frequency.value = 1800;
+  bpFilter.connect(hpFilter);
+
+  // Body — triangle oscillator for body and crack
+  const bodyOsc = ctx.createOscillator();
+  bodyOsc.type = 'triangle';
+  bodyOsc.frequency.setValueAtTime(250, startTime);
+  bodyOsc.frequency.exponentialRampToValueAtTime(120, startTime + 0.05);
+  const bodyGain = ctx.createGain();
+  bodyGain.gain.setValueAtTime(0.8, startTime);
+  bodyGain.gain.exponentialRampToValueAtTime(0.001, startTime + 0.12);
+  bodyOsc.connect(bodyGain);
+  bodyOsc.start(startTime);
+  bodyOsc.stop(startTime + 0.15);
+
+  // Ring — metallic resonant tone for character
+  const ringOsc = ctx.createOscillator();
+  ringOsc.type = 'sine';
+  ringOsc.frequency.value = 1850;
+  const ringGain = ctx.createGain();
+  ringGain.gain.setValueAtTime(0.15, startTime);
+  ringGain.gain.exponentialRampToValueAtTime(0.001, startTime + 0.08);
+  ringOsc.connect(ringGain);
+  ringOsc.start(startTime);
+  ringOsc.stop(startTime + 0.1);
+
+  // Distortion for edge
+  const dist = buildDistortion(ctx, 2);
 
   const merger = ctx.createGain();
-  filter.connect(merger);
-  oGain.connect(merger);
+  hpFilter.connect(merger);
+  bodyGain.connect(merger);
+  ringGain.connect(merger);
+  merger.connect(dist);
   noise.source.start(startTime);
-  noise.source.stop(startTime + 0.25);
+  noise.source.stop(startTime + 0.35);
 
-  return { output: merger, release(_ctx, t) { osc.stop(t + 0.01); } };
+  return { output: dist, release(_ctx, t) { bodyOsc.stop(t + 0.01); ringOsc.stop(t + 0.01); } };
 }
 
 function buildHH(ctx: AudioContext, _freq: number, startTime: number, open: boolean): PatchNote {
-  const duration = open ? 0.4 : 0.08;
+  const duration = open ? 0.55 : 0.08;
   const noise = buildNoise(ctx, duration + 0.05);
-  const filter = ctx.createBiquadFilter();
-  filter.type = 'highpass';
-  filter.frequency.value = open ? 6000 : 8000;
+
+  // Two bandpass filters for metallic shimmer
+  const bp1 = ctx.createBiquadFilter();
+  bp1.type = 'bandpass';
+  bp1.frequency.value = open ? 7000 : 10000;
+  bp1.Q.value = 1.5;
+
+  const bp2 = ctx.createBiquadFilter();
+  bp2.type = 'highpass';
+  bp2.frequency.value = open ? 5000 : 7000;
 
   const gain = ctx.createGain();
-  gain.gain.setValueAtTime(open ? 0.5 : 0.6, startTime);
+  gain.gain.setValueAtTime(open ? 0.7 : 0.8, startTime);
   gain.gain.exponentialRampToValueAtTime(0.001, startTime + duration);
 
-  noise.output.connect(filter);
-  filter.connect(gain);
+  noise.output.connect(bp1);
+  bp1.connect(bp2);
+  bp2.connect(gain);
   noise.source.start(startTime);
   noise.source.stop(startTime + duration + 0.05);
 
@@ -92,82 +173,129 @@ function buildHH(ctx: AudioContext, _freq: number, startTime: number, open: bool
 }
 
 function buildTom(ctx: AudioContext, freq: number, startTime: number): PatchNote {
+  // Main body — deeper, punchier
   const osc = ctx.createOscillator();
   osc.type = 'sine';
-  osc.frequency.setValueAtTime(freq * 2, startTime);
-  osc.frequency.exponentialRampToValueAtTime(freq * 0.5, startTime + 0.15);
-
+  osc.frequency.setValueAtTime(freq * 2.5, startTime);
+  osc.frequency.exponentialRampToValueAtTime(freq * 0.4, startTime + 0.12);
   const gain = ctx.createGain();
-  gain.gain.setValueAtTime(0.7, startTime);
-  gain.gain.exponentialRampToValueAtTime(0.001, startTime + 0.3);
-
+  gain.gain.setValueAtTime(0.9, startTime);
+  gain.gain.exponentialRampToValueAtTime(0.001, startTime + 0.35);
   osc.connect(gain);
   osc.start(startTime);
-  osc.stop(startTime + 0.35);
+  osc.stop(startTime + 0.4);
 
-  return { output: gain, release(_ctx, t) { osc.stop(t + 0.01); } };
+  // Click transient
+  const clickOsc = ctx.createOscillator();
+  clickOsc.type = 'triangle';
+  clickOsc.frequency.setValueAtTime(freq * 4, startTime);
+  clickOsc.frequency.exponentialRampToValueAtTime(freq, startTime + 0.02);
+  const clickGain = ctx.createGain();
+  clickGain.gain.setValueAtTime(0.5, startTime);
+  clickGain.gain.exponentialRampToValueAtTime(0.001, startTime + 0.04);
+  clickOsc.connect(clickGain);
+  clickOsc.start(startTime);
+  clickOsc.stop(startTime + 0.06);
+
+  const merger = ctx.createGain();
+  gain.connect(merger);
+  clickGain.connect(merger);
+
+  return { output: merger, release(_ctx, t) { osc.stop(t + 0.01); clickOsc.stop(t + 0.01); } };
 }
 
 function buildCymbal(ctx: AudioContext, _freq: number, startTime: number): PatchNote {
-  const noise = buildNoise(ctx, 0.8);
-  const filter = ctx.createBiquadFilter();
-  filter.type = 'highpass';
-  filter.frequency.value = 5000;
+  // Long crash — big, washy
+  const noise = buildNoise(ctx, 1.5);
+
+  const bp = ctx.createBiquadFilter();
+  bp.type = 'bandpass';
+  bp.frequency.value = 6000;
+  bp.Q.value = 0.8;
+
+  const hp = ctx.createBiquadFilter();
+  hp.type = 'highpass';
+  hp.frequency.value = 4000;
 
   const gain = ctx.createGain();
-  gain.gain.setValueAtTime(0.4, startTime);
-  gain.gain.exponentialRampToValueAtTime(0.001, startTime + 0.7);
+  gain.gain.setValueAtTime(0.7, startTime);
+  gain.gain.exponentialRampToValueAtTime(0.001, startTime + 1.3);
 
-  noise.output.connect(filter);
-  filter.connect(gain);
+  noise.output.connect(bp);
+  bp.connect(hp);
+  hp.connect(gain);
   noise.source.start(startTime);
-  noise.source.stop(startTime + 0.85);
+  noise.source.stop(startTime + 1.55);
 
   return { output: gain, release() {} };
 }
 
 function buildClap(ctx: AudioContext, _freq: number, startTime: number): PatchNote {
-  const noise = buildNoise(ctx, 0.2);
+  const noise = buildNoise(ctx, 0.25);
   const filter = ctx.createBiquadFilter();
   filter.type = 'bandpass';
   filter.frequency.value = 2500;
-  filter.Q.value = 3;
+  filter.Q.value = 2;
 
   const gain = ctx.createGain();
   gain.gain.setValueAtTime(0, startTime);
-  for (let i = 0; i < 3; i++) {
-    const t = startTime + i * 0.01;
-    gain.gain.setValueAtTime(0.6, t);
-    gain.gain.setValueAtTime(0, t + 0.005);
+  // Multiple rapid hits for clap character
+  for (let i = 0; i < 4; i++) {
+    const t = startTime + i * 0.008;
+    gain.gain.setValueAtTime(0.8, t);
+    gain.gain.setValueAtTime(0, t + 0.004);
   }
-  gain.gain.setValueAtTime(0.7, startTime + 0.03);
-  gain.gain.exponentialRampToValueAtTime(0.001, startTime + 0.15);
+  gain.gain.setValueAtTime(0.9, startTime + 0.035);
+  gain.gain.exponentialRampToValueAtTime(0.001, startTime + 0.18);
 
   noise.output.connect(filter);
   filter.connect(gain);
   noise.source.start(startTime);
-  noise.source.stop(startTime + 0.2);
+  noise.source.stop(startTime + 0.25);
 
   return { output: gain, release() {} };
 }
 
 function buildRide(ctx: AudioContext, _freq: number, startTime: number): PatchNote {
-  const noise = buildNoise(ctx, 1.0);
-  const filter = ctx.createBiquadFilter();
-  filter.type = 'bandpass';
-  filter.frequency.value = 10000;
-  filter.Q.value = 2;
+  // Ride with more ping and wash
+  const noise = buildNoise(ctx, 1.2);
 
-  const gain = ctx.createGain();
-  gain.gain.setValueAtTime(0.3, startTime);
-  gain.gain.exponentialRampToValueAtTime(0.001, startTime + 0.9);
+  // Ping — bright metallic attack
+  const pingOsc = ctx.createOscillator();
+  pingOsc.type = 'sine';
+  pingOsc.frequency.value = 8000;
+  const pingGain = ctx.createGain();
+  pingGain.gain.setValueAtTime(0.2, startTime);
+  pingGain.gain.exponentialRampToValueAtTime(0.001, startTime + 0.15);
+  pingOsc.connect(pingGain);
+  pingOsc.start(startTime);
+  pingOsc.stop(startTime + 0.2);
 
-  noise.output.connect(filter);
-  filter.connect(gain);
+  // Wash — bandpass noise body
+  const bp = ctx.createBiquadFilter();
+  bp.type = 'bandpass';
+  bp.frequency.value = 10000;
+  bp.Q.value = 1.5;
+
+  const hp = ctx.createBiquadFilter();
+  hp.type = 'highpass';
+  hp.frequency.value = 6000;
+
+  const washGain = ctx.createGain();
+  washGain.gain.setValueAtTime(0.4, startTime);
+  washGain.gain.exponentialRampToValueAtTime(0.001, startTime + 1.1);
+
+  noise.output.connect(bp);
+  bp.connect(hp);
+  hp.connect(washGain);
+
+  const merger = ctx.createGain();
+  pingGain.connect(merger);
+  washGain.connect(merger);
   noise.source.start(startTime);
-  noise.source.stop(startTime + 1.05);
+  noise.source.stop(startTime + 1.25);
 
-  return { output: gain, release() {} };
+  return { output: merger, release(_ctx, t) { pingOsc.stop(t + 0.01); } };
 }
 
 function buildPerc(ctx: AudioContext, freq: number, startTime: number): PatchNote {
@@ -175,7 +303,7 @@ function buildPerc(ctx: AudioContext, freq: number, startTime: number): PatchNot
   osc.type = 'square';
   osc.frequency.value = freq;
   const gain = ctx.createGain();
-  gain.gain.setValueAtTime(0.3, startTime);
+  gain.gain.setValueAtTime(0.35, startTime);
   gain.gain.exponentialRampToValueAtTime(0.001, startTime + 0.1);
   osc.connect(gain);
   osc.start(startTime);

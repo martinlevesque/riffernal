@@ -841,3 +841,107 @@ kbd {
   justify-content: center;
   gap: 0.8rem;
 }
+
+/* ============================================
+   TRACK BACKGROUND BUTTON (in TrackSelect)
+   ============================================ */
+
+.track-bg-btn {
+  font-family: inherit;
+  font-size: 0.85rem;
+  background: transparent;
+  border: 1px solid #555;
+  color: var(--text-secondary);
+  padding: 0.15rem 0.4rem;
+  border-radius: 2px;
+  cursor: pointer;
+  transition: all 0.15s;
+  min-width: 2em;
+  text-align: center;
+}
+
+.track-bg-btn:hover:not(.disabled) {
+  border-color: var(--accent-green);
+  color: var(--accent-green);
+}
+
+.track-bg-btn.disabled {
+  opacity: 0.3;
+  cursor: default;
+}
+
+/* ============================================
+   BACKGROUND TRACKS PANEL (during gameplay)
+   ============================================ */
+
+.bg-panel {
+  position: absolute;
+  top: 52px;
+  right: 1rem;
+  background: var(--bg-surface);
+  border: 1px solid #333;
+  border-radius: 4px;
+  padding: 0.6rem;
+  min-width: 200px;
+  max-height: 300px;
+  overflow-y: auto;
+  z-index: 12;
+  pointer-events: auto;
+}
+
+.bg-panel.hidden {
+  display: none;
+}
+
+.bg-panel-title {
+  font-size: 0.75rem;
+  color: var(--text-secondary);
+  letter-spacing: 0.1em;
+  margin-bottom: 0.4rem;
+  text-transform: uppercase;
+}
+
+.bg-panel ul {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+}
+
+.bg-track-item {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.5rem;
+  padding: 0.3rem 0;
+  border-bottom: 1px solid #222;
+}
+
+.bg-track-item:last-child {
+  border-bottom: none;
+}
+
+.bg-track-label {
+  font-size: 0.8rem;
+  color: var(--text-primary);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.bg-track-toggle {
+  font-family: inherit;
+  font-size: 0.85rem;
+  background: transparent;
+  border: 1px solid #555;
+  color: var(--text-secondary);
+  padding: 0.1rem 0.35rem;
+  border-radius: 2px;
+  cursor: pointer;
+  transition: all 0.15s;
+  flex-shrink: 0;
+}
+
+.bg-track-toggle:hover {
+  border-color: var(--accent-green);
+  color: var(--accent-green);
+}

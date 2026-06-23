@@ -143,6 +143,70 @@ async function init(): Promise<void> {
     setPracticeHand(game.practiceHand === PracticeHand.Right ? PracticeHand.Both : PracticeHand.Right);
   });
 
+  // -- Background track panel ----------------------------------------------
+  const toggleBgBtn = document.getElementById('btn-toggle-bg')! as HTMLButtonElement;
+  const bgPanel = document.getElementById('bg-panel')!;
+  const bgTrackList = document.getElementById('bg-track-list')!;
+  let bgPanelOpen = false;
+
+  function renderBgPanel(): void {
+    bgTrackList.innerHTML = '';
+    const song = game.song;
+    if (!song?.tracks || song.tracks.length === 0) {
+      bgPanel.classList.add('hidden');
+      return;
+    }
+    const selectedSet = new Set(song.selectedTrackIndices ?? []);
+    const bgTracks = song.tracks.filter((t) => !selectedSet.has(t.index));
+    if (bgTracks.length === 0) {
+      bgPanel.classList.add('hidden');
+      return;
+    }
+    for (const track of bgTracks) {
+      const li = document.createElement('li');
+      li.className = 'bg-track-item';
+
+      const label = document.createElement('span');
+      label.className = 'bg-track-label';
+      label.textContent = track.name;
+
+      const toggle = document.createElement('button');
+      toggle.className = 'bg-track-toggle';
+      const isOn = game.noteManager.backgroundTracks.has(track.index);
+      toggle.textContent = isOn ? '\u{1F50A}' : '\u{1F507}';
+      toggle.title = isOn ? 'Mute background' : 'Unmute background';
+      toggle.addEventListener('click', () => {
+        const nowOn = !game.noteManager.backgroundTracks.has(track.index);
+        game.setBackgroundTrack(track.index, nowOn);
+        toggle.textContent = nowOn ? '\u{1F50A}' : '\u{1F507}';
+        toggle.title = nowOn ? 'Mute background' : 'Unmute background';
+      });
+
+      li.appendChild(label);
+      li.appendChild(toggle);
+      bgTrackList.appendChild(li);
+    }
+  }
+
+  function toggleBgPanel(): void {
+    bgPanelOpen = !bgPanelOpen;
+    if (bgPanelOpen) {
+      renderBgPanel();
+      bgPanel.classList.remove('hidden');
+    } else {
+      bgPanel.classList.add('hidden');
+    }
+  }
+
+  toggleBgBtn.addEventListener('click', toggleBgPanel);
+
+  document.addEventListener('click', (e) => {
+    if (bgPanelOpen && !bgPanel.contains(e.target as Node) && e.target !== toggleBgBtn) {
+      bgPanelOpen = false;
+      bgPanel.classList.add('hidden');
+    }
+  });
+
   function updateSpeedDisplay(): void {
     speedValue.textContent = `${Math.round(game.speedMultiplier * 100)}%`;
   }
@@ -213,6 +277,7 @@ async function init(): Promise<void> {
           trackSelect.onConfirm = (selection) => {
             song.selectedTrackIndices = selection.indices;
             song.trackHands = selection.hands;
+            song.backgroundTracks = selection.backgroundTracks;
             menu.addSong(song);
             trackSelect.onConfirm = null;
             trackSelect.onCancel = null;

@@ -84,11 +84,14 @@ export class NoteManager {
   private _learningChordPresses = new Set<number>();
   private _learningChordFirstPressRealTime = 0;
   private _laneHand = new Map<number, HandSide>();
+  backgroundTracks = new Set<number>();
 
   loadSong(songData: Song): void {
     const selectedIndices = songData.selectedTrackIndices ?? [];
     const trackHands = songData.trackHands ?? {};
     const hasTrackInfo = songData.tracks && songData.tracks.length > 0;
+
+    this.backgroundTracks = new Set(songData.backgroundTracks ?? []);
 
     this.notes = songData.notes.map((n: Note) => {
       const track = n.track ?? 0;
@@ -142,7 +145,7 @@ export class NoteManager {
   }
 
   private _isAutoPlayNote(note: SongNote): boolean {
-    if (!note.selected) return true;
+    if (!note.selected) return this.backgroundTracks.has(note.track);
     if (!this.learningMode || this.practiceHand === PracticeHand.Both) return false;
     const hand = note.hand;
     if (this.practiceHand === PracticeHand.Left) return hand === HandSide.Right;
@@ -162,6 +165,14 @@ export class NoteManager {
     this._learningChordLanes.clear();
     this._learningChordPresses.clear();
     this._learningChordFirstPressRealTime = 0;
+  }
+
+  setBackgroundTrack(trackIndex: number, enabled: boolean): void {
+    if (enabled) {
+      this.backgroundTracks.add(trackIndex);
+    } else {
+      this.backgroundTracks.delete(trackIndex);
+    }
   }
 
   /** Reset gameplay state for all notes at or after `time` so a seek/loop
@@ -442,7 +453,7 @@ export class NoteManager {
       for (let i = this._nextNoteIndex; i < this.notes.length; i++) {
         const note = this.notes[i];
         if (note.time > this._learningAnchor) break;
-        if (this._isAutoPlayNote(note)) continue;
+        if (!note.selected || this._isAutoPlayNote(note)) continue;
         if (note.resolved || note.holding || note.failing || note.hit) continue;
         allEngaged = false;
         break;
@@ -460,7 +471,7 @@ export class NoteManager {
     for (let i = this._nextNoteIndex; i < this.notes.length; i++) {
       const note = this.notes[i];
       if (note.resolved || note.holding || note.failing || note.hit) continue;
-      if (this._isAutoPlayNote(note)) continue;
+      if (!note.selected || this._isAutoPlayNote(note)) continue;
       if (note.time <= rawTime) {
         this._learningAnchor = note.time;
         this._learningChordLanes.clear();

@@ -47,6 +47,7 @@ export class Game {
   private midiInput: MidiInput;
   state: GameState = GameState.Menu;
   private currentSong: Song | null = null;
+  get song(): Song | null { return this.currentSong; }
   currentTime = 0;
   private refGameTime = 0;
   private refRealTime = 0;
@@ -440,5 +441,21 @@ export class Game {
     this.practiceHand = hand;
     this.noteManager.practiceHand = hand;
     this.noteManager.resetLearningState();
+  }
+
+  setBackgroundTrack(trackIndex: number, enabled: boolean): void {
+    this.noteManager.setBackgroundTrack(trackIndex, enabled);
+    if (this.currentSong) {
+      if (enabled) {
+        if (!this.currentSong.backgroundTracks) this.currentSong.backgroundTracks = [];
+        if (!this.currentSong.backgroundTracks.includes(trackIndex)) {
+          this.currentSong.backgroundTracks.push(trackIndex);
+        }
+      } else {
+        if (this.currentSong.backgroundTracks) {
+          this.currentSong.backgroundTracks = this.currentSong.backgroundTracks.filter((i) => i !== trackIndex);
+        }
+      }
+    }
   }
 }

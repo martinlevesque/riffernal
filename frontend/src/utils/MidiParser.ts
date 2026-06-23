@@ -28,12 +28,19 @@ export interface Song {
   tracks?: TrackInfo[];
   selectedTrackIndices?: number[];
   trackHands?: Record<number, HandSide>;
+  backgroundTracks?: number[];
 }
 
 export function normalizeSong(song: Song): Song {
   if (!song.tracks) song.tracks = [];
   if (!song.selectedTrackIndices) song.selectedTrackIndices = [];
   if (!song.trackHands) song.trackHands = {};
+  if (!song.backgroundTracks) {
+    const selectedSet = new Set(song.selectedTrackIndices);
+    song.backgroundTracks = song.tracks
+      .map((t) => t.index)
+      .filter((i) => !selectedSet.has(i));
+  }
   return song;
 }
 
@@ -414,6 +421,8 @@ export function parseMidi(arrayBuffer: ArrayBuffer, filename: string): Song {
 
   const title = filename.replace(/\.[^.]+$/, '') || 'Imported';
   const selectedTrackIndices = tracks.length <= 2 ? tracks.map((t) => t.index) : [];
+  const selectedSet = new Set(selectedTrackIndices);
+  const backgroundTracks = tracks.map((t) => t.index).filter((i) => !selectedSet.has(i));
   const artist = tracks.length === 1
     ? (trackNames.find((n) => n) || 'Imported')
     : 'Imported';
@@ -428,5 +437,6 @@ export function parseMidi(arrayBuffer: ArrayBuffer, filename: string): Song {
     tracks,
     selectedTrackIndices,
     trackHands,
+    backgroundTracks,
   };
 }
