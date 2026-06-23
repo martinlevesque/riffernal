@@ -3,6 +3,8 @@
 // optional one-hand practice with auto-played accompaniment).
 
 import { Renderer } from './Renderer.js';
+import { LoopDefinitionState } from './Loop.js';
+export { LoopDefinitionState };
 import { NoteManager, SCROLL_SPEED, HIT_ZONE_Y_RATIO } from './NoteManager.js';
 import type { HitResult, SongNote } from './NoteManager.js';
 import { NoteGrade, gradeLabel, TAP_NOTE_THRESHOLD, SUCCESS_PARTICLE_HOLD_RATIO } from './scoring.js';
@@ -14,7 +16,11 @@ import type { MidiInput } from '../input/MidiInput.js';
 import type { ScoreDisplay } from '../ui/ScoreDisplay.js';
 import type { Song } from '../utils/MidiParser.js';
 
-export type GameState = 'menu' | 'playing' | 'results';
+export enum GameState {
+  Menu = 'menu',
+  Playing = 'playing',
+  Results = 'results',
+}
 
 const FEEDBACK_COLORS: Record<NoteGrade | 'MISS', string> = {
   [NoteGrade.PERFECT]: '#ffdd22',
@@ -33,7 +39,7 @@ export class Game {
   private synth: Synth;
   private keyboardInput: KeyboardInput;
   private midiInput: MidiInput;
-  state: GameState = 'menu';
+  state: GameState = GameState.Menu;
   private currentSong: Song | null = null;
   currentTime = 0;
   private refGameTime = 0;
@@ -46,6 +52,11 @@ export class Game {
   learningMode = false;
   practiceHand: PracticeHand = PracticeHand.Both;
   private _usedLearningMode = false;
+  loopStart: number | null = null;
+  loopEnd: number | null = null;
+  loopDefinitionState: LoopDefinitionState = LoopDefinitionState.Off;
+  loopActive = false;
+  songBpm = 120;
 
   private playScreen: HTMLElement;
   private resultsScreen: HTMLElement;
@@ -79,7 +90,7 @@ export class Game {
       const rawTime = this.refGameTime + (now - this.refRealTime) * this.speedMultiplier;
 
       let frameTime = rawTime;
-      if (this.learningMode && this.state === 'playing') {
+      if (this.learningMode && this.state === GameState.Playing) {
         const waitTime = this.noteManager.getEarliestWaitTime(rawTime);
         if (waitTime !== null) frameTime = Math.min(rawTime, waitTime);
         if (frameTime < rawTime) {
@@ -92,16 +103,36 @@ export class Game {
         }
       }
       this.currentTime = frameTime;
+
+      // Loop wrap: when active and we've reached the end of the last note
+      // within the loop, rewind to loopStart. Using the effective end (last
+      // note's time+duration) lets the player finish holding the final note
+      // before the loop rewinds.
+      if (
+        this.loopActive &&
+        this.loopStart !== null &&
+        this.loopEnd !== null &&
+        this.state === GameState.Playing &&
+        this.currentTime >= this.noteManager.getLoopEffectiveEnd(this.loopEnd)
+      ) {
+        this.seekTo(this.loopStart);
+      }
+
       this.scrollOffset += SCROLL_SPEED * delta * this.speedMultiplier;
 
       this.renderer.clear();
       this.renderer.drawHighway(this.scrollOffset);
 
-      if (this.state === 'playing') {
+      if (this.state === GameState.Playing) {
         this.noteManager.update(this.currentTime, this.renderer.height);
 
         const songDuration = this.noteManager.getSongDuration();
-        this.renderer.drawSheetMusic(this.noteManager.trebleNotes, this.noteManager.bassNotes, this.currentTime, songDuration);
+        this.renderer.drawSheetMusic(this.noteManager.trebleNotes, this.noteManager.bassNotes, this.currentTime, songDuration, {
+          start: this.loopStart,
+          end: this.loopEnd,
+          active: this.loopActive,
+          defining: this.loopDefinitionState,
+        }, undefined, this.songBpm);
 
         const activeNotes = this.noteManager.getActiveNotes(this.currentTime, this.renderer.height, this.learningMode);
         for (const note of activeNotes) {
@@ -125,7 +156,7 @@ export class Game {
       this.renderer.drawPiano(this.pressedLanes);
       this.renderer.drawHitZone(this.pressedLanes);
 
-      if (this.state !== 'menu') {
+      if (this.state !== GameState.Menu) {
         this.animationId = requestAnimationFrame(this._boundLoop);
       }
     };
@@ -139,9 +170,10 @@ export class Game {
 
     this.currentSong = song;
     this.noteManager.loadSong(song);
+    this.songBpm = song.bpm;
     this.refGameTime = -COUNTDOWN_SECONDS;
     this.refRealTime = performance.now() / 1000;
-    this.state = 'playing';
+    this.state = GameState.Playing;
     this.pressedLanes.clear();
     this._completionTime = null;
     this._usedLearningMode = false;
@@ -149,6 +181,8 @@ export class Game {
     this.menuScreen.classList.remove('active');
     this.resultsScreen.classList.remove('active');
     this.playScreen.classList.add('active');
+
+    this.clearLoop();
 
     this.keyboardInput.onNoteOn = (note, keyCode) => this._handleNoteOn(note, keyCode);
     this.keyboardInput.onNoteOff = (note, keyCode) => this._handleNoteOff(note, keyCode);
@@ -201,7 +235,7 @@ export class Game {
     this.pressedLanes.add(lane);
     this.synth.noteOn(noteName);
 
-    if (this.state === 'playing') {
+    if (this.state === GameState.Playing) {
       let results: HitResult[];
       if (this.learningMode) {
         const outcome = this.noteManager.checkLearningHit(this.currentTime, lane, performance.now());
@@ -236,13 +270,13 @@ export class Game {
     this.pressedLanes.delete(lane);
     this.synth.noteOff(noteName);
 
-    if (this.state === 'playing') {
+    if (this.state === GameState.Playing) {
       this.noteManager.checkRelease(this.currentTime, lane);
     }
   }
 
   private _showResults(): void {
-    this.state = 'results';
+    this.state = GameState.Results;
     this.playScreen.classList.remove('active');
     this.resultsScreen.classList.add('active');
 
@@ -276,13 +310,31 @@ export class Game {
   }
 
   retry(): void {
-    if (this.currentSong) {
-      this.start(this.currentSong);
+    if (!this.currentSong) return;
+    // Preserve a stored/active loop across a restart: seek to loopStart so
+    // the player resumes at the beginning of the loop instead of the song.
+    const savedStart = this.loopStart;
+    const savedEnd = this.loopEnd;
+    const savedActive = this.loopActive;
+    const hadLoop = savedStart !== null && savedEnd !== null;
+    this.start(this.currentSong);
+    if (hadLoop) {
+      this.loopStart = savedStart;
+      this.loopEnd = savedEnd;
+      this.loopActive = savedActive;
+      this.seekTo(savedStart);
+      this._applyScoringEnabled();
     }
   }
 
+  /** Reflect loopActive onto the NoteManager's scoring flag so score does
+   *  not accrue while looping. */
+  private _applyScoringEnabled(): void {
+    this.noteManager.scoring.enabled = !this.loopActive;
+  }
+
   backToMenu(): void {
-    this.state = 'menu';
+    this.state = GameState.Menu;
     this.resultsScreen.classList.remove('active');
     this.playScreen.classList.remove('active');
     this.menuScreen.classList.add('active');
@@ -307,6 +359,67 @@ export class Game {
     this.refGameTime = this.currentTime;
     this.refRealTime = performance.now() / 1000;
     this.speedMultiplier = Math.max(0.1, Math.min(2.0, multiplier));
+  }
+
+  /** Re-anchor playback at `time` (seconds) and reset note gameplay state
+   *  from that point onward. Used by loop wrap and click-to-seek. */
+  seekTo(time: number): void {
+    const duration = this.noteManager.getSongDuration();
+    const clamped = Math.max(0, Math.min(time, Math.max(0, duration - 0.01)));
+    this.refGameTime = clamped;
+    this.refRealTime = performance.now() / 1000;
+    this.currentTime = clamped;
+    this.scrollOffset = 0;
+    this._completionTime = null;
+    this.noteManager.resetFromTime(clamped);
+  }
+
+  /** Begin defining a loop. Clicking the button always enters the start
+   *  phase, replacing any previously active/stored loop. */
+  beginLoopDefine(): void {
+    this.loopDefinitionState = LoopDefinitionState.Start;
+    this.loopActive = false;
+    this.loopStart = null;
+    this.loopEnd = null;
+  }
+
+  /** Set loop boundaries during the define flow. Returns the new phase. */
+  setLoopBoundary(time: number): LoopDefinitionState {
+    if (this.loopDefinitionState === LoopDefinitionState.Start) {
+      this.loopStart = time;
+      this.loopDefinitionState = LoopDefinitionState.End;
+      return LoopDefinitionState.End;
+    }
+    if (this.loopDefinitionState === LoopDefinitionState.End) {
+      if (this.loopStart !== null && time < this.loopStart) {
+        // Swap so start < end.
+        this.loopEnd = this.loopStart;
+        this.loopStart = time;
+      } else {
+        this.loopEnd = time;
+      }
+      this.loopDefinitionState = LoopDefinitionState.Off;
+      this.loopActive = true;
+      this._applyScoringEnabled();
+      return LoopDefinitionState.Off;
+    }
+    return this.loopDefinitionState;
+  }
+
+  /** Deactivate the loop (e.g., user switched to play mode) but keep
+   *  stored boundaries so it could be re-activated from a stored state. */
+  deactivateLoop(): void {
+    this.loopActive = false;
+    this._applyScoringEnabled();
+  }
+
+  /** Clear loop state fully (boundaries + active flag + define phase). */
+  clearLoop(): void {
+    this.loopStart = null;
+    this.loopEnd = null;
+    this.loopActive = false;
+    this.loopDefinitionState = LoopDefinitionState.Off;
+    this._applyScoringEnabled();
   }
 
   setLearningMode(enabled: boolean): void {

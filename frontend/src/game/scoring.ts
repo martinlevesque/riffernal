@@ -95,6 +95,9 @@ export class Scoring {
   failures = 0;
   failureWeight = 0;
   totalNotes = 0;
+  /** When false, scoring mutations are skipped (loop/practice mode). Notes
+   *  still resolve and play feedback, but the score does not change. */
+  enabled = true;
 
   reset(totalNotes: number): void {
     this.score = 0;
@@ -108,15 +111,18 @@ export class Scoring {
     this.failures = 0;
     this.failureWeight = 0;
     this.totalNotes = totalNotes;
+    this.enabled = true;
   }
 
   recordNotePress(): void {
+    if (!this.enabled) return;
     this.combo++;
     if (this.combo > this.maxCombo) this.maxCombo = this.combo;
     this.score += comboBonus(this.combo);
   }
 
   recordWrongPress(): void {
+    if (!this.enabled) return;
     this.combo = 0;
     this.wrongNotes++;
     this.score = Math.max(0, this.score - WRONG_PRESS_PENALTY);
@@ -128,22 +134,26 @@ export class Scoring {
     earlyMultiplier = 1,
   ): number {
     if (grade === null || heldRatio <= 0) {
-      this.misses++;
-      this.combo = 0;
+      if (this.enabled) {
+        this.misses++;
+        this.combo = 0;
+      }
       return 0;
     }
 
     const baseScore = SCORE_VALUES[grade];
     const earnedScore = Math.round(baseScore * heldRatio * earlyMultiplier);
-    this.score += earnedScore;
+    if (this.enabled) {
+      this.score += earnedScore;
 
-    if (heldRatio >= 1) {
-      if (grade === NoteGrade.PERFECT) this.perfects++;
-      else if (grade === NoteGrade.GREAT) this.greats++;
-      else this.goods++;
-    } else {
-      this.failures++;
-      this.failureWeight += heldRatio * earlyMultiplier * accuracyWeight(grade);
+      if (heldRatio >= 1) {
+        if (grade === NoteGrade.PERFECT) this.perfects++;
+        else if (grade === NoteGrade.GREAT) this.greats++;
+        else this.goods++;
+      } else {
+        this.failures++;
+        this.failureWeight += heldRatio * earlyMultiplier * accuracyWeight(grade);
+      }
     }
 
     return earnedScore;

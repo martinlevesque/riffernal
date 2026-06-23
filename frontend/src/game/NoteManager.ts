@@ -134,6 +134,47 @@ export class NoteManager {
     this._learningChordFirstPressRealTime = 0;
   }
 
+  /** Reset gameplay state for all notes at or after `time` so a seek/loop
+   *  rewind can replay them. Notes strictly before `time` that were not yet
+   *  played are marked as resolved (skipped) so learning mode does not freeze
+   *  waiting on them after a forward seek. Already-played earlier notes
+   *  preserve their hit/grade state. Scoring is preserved cumulatively. */
+  resetFromTime(time: number): void {
+    for (const note of this.notes) {
+      if (note.time < time) {
+        // Notes before the seek target are skipped: mark them as resolved so
+        // learning mode does not freeze waiting on them. Preserve any earned
+        // hit/grade state for notes that were actually played before the seek.
+        if (!note.resolved) {
+          note.resolved = true;
+          note.activated = true;
+          note.missed = false;
+        }
+        continue;
+      }
+      note.hit = false;
+      note.missed = false;
+      note.holding = false;
+      note.pressStartTime = 0;
+      note.failing = false;
+      note.grade = null;
+      note.earnedScore = 0;
+      note.resolved = false;
+      note.activated = false;
+      note.accumulatedHeldDuration = 0;
+      note.earlyMultiplier = 1;
+      note.autoPlayed = false;
+    }
+    this.activeNotes = [];
+    this._resolvedCount = this.notes.filter((n) => n.resolved).length;
+    let firstUnresolved = 0;
+    while (firstUnresolved < this.notes.length && this.notes[firstUnresolved].resolved) {
+      firstUnresolved++;
+    }
+    this._nextNoteIndex = firstUnresolved;
+    this.resetLearningState();
+  }
+
   update(currentTime: number, height: number): void {
     const hitZoneY = height * HIT_ZONE_Y_RATIO;
     const lookAhead = hitZoneY / SCROLL_SPEED;
@@ -442,6 +483,43 @@ export class NoteManager {
     if (this.notes.length === 0) return 0;
     const last = this.notes[this.notes.length - 1];
     return last.time + last.duration;
+  }
+
+  /** Returns the latest `time + duration` among notes whose start time is
+   *  at or before `end`, so a loop wrapping at `end` lets the last note
+   *  in the loop finish playing before rewinding. Returns `end` if no
+   *  matching note is found. */
+  getLoopEffectiveEnd(end: number): number {
+    let effective = end;
+    for (const note of this.notes) {
+      if (note.time > end) break;
+      const noteEnd = note.time + note.duration;
+      if (noteEnd > effective) effective = noteEnd;
+    }
+    return effective;
+  }
+
+  /** Find the SongNote whose time is closest to `time`. When `staff` is given
+   *  ('treble' | 'bass'), restrict the search to that hand. Returns null if
+   *  no notes exist in the consideration set. */
+  findNearestNote(time: number, staff?: 'treble' | 'bass'): SongNote | null {
+    const pool = staff === 'treble' ? this.trebleNotes : staff === 'bass' ? this.bassNotes : this.notes;
+    if (pool.length === 0) {
+      return staff ? this.findNearestNote(time) : null;
+    }
+    let lo = 0;
+    let hi = pool.length;
+    while (lo < hi) {
+      const mid = (lo + hi) >>> 1;
+      if (pool[mid].time < time) lo = mid + 1;
+      else hi = mid;
+    }
+    let candidate = pool[Math.min(lo, pool.length - 1)];
+    if (lo > 0) {
+      const prev = pool[lo - 1];
+      if (Math.abs(prev.time - time) <= Math.abs(candidate.time - time)) candidate = prev;
+    }
+    return candidate;
   }
 
   isComplete(): boolean {

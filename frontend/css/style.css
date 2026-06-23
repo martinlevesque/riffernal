@@ -503,6 +503,183 @@ kbd {
 }
 
 /* ============================================
+   LOOP CONTROL
+   ============================================ */
+
+#loop-control {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.4rem;
+  margin-left: 0.4rem;
+  padding-left: 0.6rem;
+  border-left: 1px solid #444;
+}
+
+.loop-btn {
+  font-family: inherit;
+  font-size: 0.8rem;
+  background: transparent;
+  border: 1px solid #555;
+  color: var(--text-secondary);
+  padding: 0.2rem 0.6rem;
+  border-radius: 2px;
+  cursor: pointer;
+  transition: all 0.15s;
+  letter-spacing: 0.1em;
+}
+
+.loop-btn:hover {
+  border-color: var(--accent-purple);
+  color: var(--text-primary);
+}
+
+#btn-define-loop.active {
+  border-color: var(--accent-purple);
+  color: var(--accent-purple);
+  background: rgba(170, 102, 255, 0.15);
+}
+
+#btn-define-loop.loop-active {
+  border-color: var(--accent-purple);
+  color: var(--accent-purple);
+  background: rgba(170, 102, 255, 0.25);
+  box-shadow: 0 0 8px rgba(170, 102, 255, 0.4);
+}
+
+#btn-define-loop.loop-stored {
+  border-color: #7744aa;
+  color: #aa99cc;
+  background: rgba(120, 90, 180, 0.08);
+}
+
+.loop-btn-clear {
+  padding: 0.2rem 0.4rem;
+  border-color: #444;
+}
+
+.loop-btn-clear:hover {
+  border-color: var(--accent-red);
+  color: var(--accent-red);
+}
+
+#loop-status {
+  font-size: 0.7rem;
+  color: var(--text-secondary);
+  min-width: 6em;
+  text-align: right;
+  letter-spacing: 0.05em;
+}
+
+/* ============================================
+   OPEN SHEET BUTTON
+   ============================================ */
+
+.open-sheet-btn {
+  position: absolute;
+  top: 92px;
+  right: 8px;
+  font-family: inherit;
+  font-size: 0.9rem;
+  line-height: 1;
+  background: rgba(20, 20, 20, 0.85);
+  border: 1px solid #555;
+  color: var(--text-secondary);
+  padding: 0.15rem 0.45rem;
+  border-radius: 3px;
+  cursor: pointer;
+  pointer-events: auto;
+  z-index: 12;
+  transition: all 0.15s;
+}
+
+.open-sheet-btn:hover {
+  border-color: var(--accent-purple);
+  color: var(--text-primary);
+}
+
+/* ============================================
+   SHEET SCREEN (full view)
+   ============================================ */
+
+#sheet-screen {
+  background: rgba(8, 8, 12, 0.95);
+}
+
+#sheet-screen.active {
+  display: block;
+  pointer-events: auto;
+  z-index: 20;
+}
+
+#sheet-screen-content {
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  display: flex;
+  flex-direction: column;
+}
+
+#sheet-toolbar {
+  display: flex;
+  align-items: center;
+  gap: 0.6rem;
+  padding: 0.6rem 1rem;
+  background: rgba(20, 20, 20, 0.95);
+  border-bottom: 1px solid #333;
+  z-index: 12;
+}
+
+.sheet-nav-btn,
+.sheet-close-btn,
+.btn-sheet-page {
+  font-family: inherit;
+  font-size: 0.9rem;
+  background: transparent;
+  border: 1px solid #555;
+  color: var(--text-secondary);
+  padding: 0.25rem 0.7rem;
+  border-radius: 2px;
+  cursor: pointer;
+  transition: all 0.15s;
+}
+
+.sheet-nav-btn:hover,
+.sheet-close-btn:hover {
+  border-color: var(--accent-purple);
+  color: var(--text-primary);
+}
+
+#sheet-page-info {
+  font-size: 0.85rem;
+  color: var(--text-secondary);
+  min-width: 5em;
+  text-align: center;
+}
+
+#sheet-hint {
+  flex: 1;
+  font-size: 0.8rem;
+  color: var(--accent-purple);
+  letter-spacing: 0.05em;
+  padding-left: 0.6rem;
+}
+
+.sheet-close-btn {
+  margin-left: auto;
+}
+
+#sheet-canvas {
+  flex: 1;
+  width: 100%;
+  min-height: 0;
+  display: block;
+  background: rgba(15, 15, 22, 0.95);
+  cursor: crosshair;
+}
+
+/* ============================================
    RESULTS SCREEN
    ============================================ */
 
