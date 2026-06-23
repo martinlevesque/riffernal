@@ -75,7 +75,6 @@ export class Game {
     this.midiInput = midiInput;
 
     this.playScreen = document.getElementById('play-screen')!;
-    this.resultsScreenEl = document.getElementById('results-screen')!;
     this.menuScreen = document.getElementById('menu-screen')!;
     this.resizeHandle = document.getElementById('sheet-resize-handle')!;
 
