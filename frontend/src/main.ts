@@ -6,6 +6,7 @@ import { Menu } from './ui/Menu.js';
 import { ScoreDisplay } from './ui/ScoreDisplay.js';
 import { parseMidi } from './utils/MidiParser.js';
 import { SHEET_TOP_OFFSET, Renderer, SHEET_BEATS_VISIBLE } from './game/Renderer.js';
+import type { SongNote } from './game/NoteManager.js';
 import { PracticeHand } from './utils/notes.js';
 import type { Song } from './utils/MidiParser.js';
 
@@ -68,8 +69,7 @@ async function init(): Promise<void> {
   const sheetPageInfo = document.getElementById('sheet-page-info')!;
   const sheetHint = document.getElementById('sheet-hint')!;
   const sheetRenderer = new Renderer(sheetCanvas);
-  const bpm = 120;
-  const pageDuration = SHEET_BEATS_VISIBLE * (60 / bpm);
+  function pageDuration(): number { return SHEET_BEATS_VISIBLE * (60 / game.songBpm); }
   let sheetCurrentPage = 0;
   let sheetOpen = false;
 
@@ -187,9 +187,9 @@ async function init(): Promise<void> {
     menu.setMidiStatus(connected, message);
   };
 
-  document.getElementById('btn-retry')!.addEventListener('click', () => { game.retry(); setMode(game.learningMode); applyPracticeHandButtons(); updateLoopUI(); });
-  document.getElementById('btn-menu')!.addEventListener('click', () => game.backToMenu());
-  document.getElementById('btn-restart')!.addEventListener('click', () => { game.retry(); setMode(game.learningMode); applyPracticeHandButtons(); updateLoopUI(); });
+  document.getElementById('btn-retry')!.addEventListener('click', () => { closeSheetView(); game.retry(); setMode(game.learningMode); applyPracticeHandButtons(); updateLoopUI(); });
+  document.getElementById('btn-menu')!.addEventListener('click', () => { closeSheetView(); game.backToMenu(); });
+  document.getElementById('btn-restart')!.addEventListener('click', () => { closeSheetView(); game.retry(); setMode(game.learningMode); applyPracticeHandButtons(); updateLoopUI(); });
 
   const importBtn = document.getElementById('btn-import-midi')! as HTMLButtonElement;
   const importInput = document.getElementById('midi-import-input')! as HTMLInputElement;
@@ -245,24 +245,25 @@ async function init(): Promise<void> {
     resizing = false;
   });
 
-  canvas.addEventListener('click', (e) => {
-    if (game.state !== GameState.Playing) return;
-    const rect = canvas.getBoundingClientRect();
-    const x = e.clientX - rect.left;
-    const y = e.clientY - rect.top;
-    const r = game.renderer;
-    if (r.sheetBarW <= 0 || y < r.sheetTrebleTop || y > r.sheetBassBottom) return;
-    if (x < r.sheetBarX || x > r.sheetBarX + r.sheetBarW) return;
+  function noteFromClick(rect: DOMRect, clientX: number, clientY: number, renderer: Renderer): SongNote | null {
+    const x = clientX - rect.left;
+    const y = clientY - rect.top;
+    const r = renderer;
+    if (r.sheetBarW <= 0 || y < r.sheetTrebleTop || y > r.sheetBassBottom) return null;
+    if (x < r.sheetBarX || x > r.sheetBarX + r.sheetBarW) return null;
 
-    const viewStart = r.sheetViewStart;
-    const viewEnd = r.sheetViewEnd;
-    const t = viewStart + ((x - r.sheetBarX) / r.sheetBarW) * (viewEnd - viewStart);
+    const t = r.sheetViewStart + ((x - r.sheetBarX) / r.sheetBarW) * (r.sheetViewEnd - r.sheetViewStart);
 
     let staff: 'treble' | 'bass' | undefined;
     if (y >= r.sheetTrebleTop && y <= r.sheetTrebleBottom) staff = 'treble';
     else if (y >= r.sheetBassTop && y <= r.sheetBassBottom) staff = 'bass';
 
-    const note = game.noteManager.findNearestNote(t, staff);
+    return game.noteManager.findNearestNote(t, staff);
+  }
+
+  canvas.addEventListener('click', (e) => {
+    if (game.state !== GameState.Playing) return;
+    const note = noteFromClick(canvas.getBoundingClientRect(), e.clientX, e.clientY, game.renderer);
     if (!note) return;
 
     if (game.loopDefinitionState === LoopDefinitionState.Start || game.loopDefinitionState === LoopDefinitionState.End) {
@@ -270,7 +271,6 @@ async function init(): Promise<void> {
       game.setLoopBoundary(note.time);
       updateLoopUI();
       if (!wasStart && game.loopStart !== null) {
-        // Loop fully defined and activated -> seek to the start.
         game.seekTo(game.loopStart);
       }
     } else {
@@ -281,6 +281,7 @@ async function init(): Promise<void> {
   document.addEventListener('keydown', (e) => {
     if (game.state !== GameState.Playing) return;
     if (e.code === 'KeyR') {
+      closeSheetView();
       game.retry();
     }
   });
@@ -289,15 +290,15 @@ async function init(): Promise<void> {
 
   function sheetPageCount(): number {
     const dur = game.noteManager.getSongDuration();
-    return Math.max(1, Math.ceil(dur / pageDuration));
+    return Math.max(1, Math.ceil(dur / pageDuration()));
   }
 
   function renderSheetPage(): void {
     if (!sheetOpen) return;
     const ctx = sheetRenderer.ctx;
     ctx.clearRect(0, 0, sheetCanvas.width, sheetCanvas.height);
-    const start = sheetCurrentPage * pageDuration;
-    const end = Math.min(start + pageDuration, game.noteManager.getSongDuration());
+    const start = sheetCurrentPage * pageDuration();
+    const end = Math.min(start + pageDuration(), game.noteManager.getSongDuration());
     sheetRenderer.drawSheetMusic(
       game.noteManager.trebleNotes,
       game.noteManager.bassNotes,
@@ -305,6 +306,7 @@ async function init(): Promise<void> {
       game.noteManager.getSongDuration(),
       { start: game.loopStart, end: game.loopEnd, active: game.loopActive, defining: game.loopDefinitionState },
       { start, end },
+      game.songBpm,
     );
     sheetPageInfo.textContent = `${sheetCurrentPage + 1} / ${sheetPageCount()}`;
     sheetPrevBtn.toggleAttribute('disabled', sheetCurrentPage <= 0);
@@ -339,7 +341,7 @@ async function init(): Promise<void> {
     if (dur <= 0) {
       sheetCurrentPage = 0;
     } else {
-      sheetCurrentPage = Math.min(Math.floor(game.currentTime / pageDuration), sheetPageCount() - 1);
+      sheetCurrentPage = Math.min(Math.floor(game.currentTime / pageDuration()), sheetPageCount() - 1);
       if (sheetCurrentPage < 0) sheetCurrentPage = 0;
     }
     renderSheetPage();
@@ -378,20 +380,7 @@ async function init(): Promise<void> {
 
   sheetCanvas.addEventListener('click', (e) => {
     if (game.state !== GameState.Playing) return;
-    const rect = sheetCanvas.getBoundingClientRect();
-    const x = e.clientX - rect.left;
-    const y = e.clientY - rect.top;
-    const r = sheetRenderer;
-    if (r.sheetBarW <= 0 || y < r.sheetTrebleTop || y > r.sheetBassBottom) return;
-    if (x < r.sheetBarX || x > r.sheetBarX + r.sheetBarW) return;
-
-    const t = r.sheetViewStart + ((x - r.sheetBarX) / r.sheetBarW) * (r.sheetViewEnd - r.sheetViewStart);
-
-    let staff: 'treble' | 'bass' | undefined;
-    if (y >= r.sheetTrebleTop && y <= r.sheetTrebleBottom) staff = 'treble';
-    else if (y >= r.sheetBassTop && y <= r.sheetBassBottom) staff = 'bass';
-
-    const note = game.noteManager.findNearestNote(t, staff);
+    const note = noteFromClick(sheetCanvas.getBoundingClientRect(), e.clientX, e.clientY, sheetRenderer);
     if (!note) return;
 
     if (game.loopDefinitionState === LoopDefinitionState.Start || game.loopDefinitionState === LoopDefinitionState.End) {
@@ -399,10 +388,8 @@ async function init(): Promise<void> {
       game.setLoopBoundary(note.time);
       updateLoopUI();
       if (wasStart) {
-        // Stayed in define flow (advanced to 'end') -> refresh to show A marker.
         renderSheetPage();
       } else {
-        // Loop fully defined and activated -> seek to start and close.
         if (game.loopStart !== null) game.seekTo(game.loopStart);
         closeSheetView();
       }
@@ -438,7 +425,8 @@ async function init(): Promise<void> {
   // single drawSheetMusic call per frame).
   let sheetRAF: number | null = null;
   function sheetRAFLoop(): void {
-    if (!sheetOpen) {
+    if (!sheetOpen || game.state !== GameState.Playing) {
+      closeSheetView();
       sheetRAF = null;
       return;
     }

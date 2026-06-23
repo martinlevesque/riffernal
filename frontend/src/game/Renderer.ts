@@ -574,6 +574,7 @@ export class Renderer {
     songDuration: number,
     loop?: { start: number | null; end: number | null; active: boolean; defining: LoopDefinitionState },
     viewWindow?: { start: number; end: number },
+    bpm = 120,
   ): void {
     if (!trebleNotes.length && !bassNotes.length || songDuration <= 0) return;
     const ctx = this.ctx;
@@ -599,7 +600,6 @@ export class Renderer {
 
     const barX = margin + clefW;
     const barW = this.width - barX - margin;
-    const bpm = 120;
     const viewStart = viewWindow ? viewWindow.start : currentTime - 0.5;
     const viewEnd = viewWindow ? viewWindow.end : currentTime + SHEET_BEATS_VISIBLE * (60 / bpm);
     this.sheetBarX = barX;
@@ -684,23 +684,17 @@ export class Renderer {
       drawSheetNote(note, bassTop);
     }
 
-    const cursorX = barX;
-    // When using a custom view window (full sheet view), draw the playback
-    // cursor at its true position only when currentTime falls within the page.
-    if (viewWindow) {
-      if (currentTime >= viewStart && currentTime <= viewEnd) {
-        const px = barX + ((currentTime - viewStart) / (viewEnd - viewStart)) * barW;
-        ctx.fillStyle = '#ff2244';
-        ctx.shadowColor = '#ff2244';
-        ctx.shadowBlur = 4;
-        ctx.fillRect(px - 1, sheetTop, 2, sheetBottom - sheetTop);
-        ctx.shadowBlur = 0;
-      }
-    } else {
+    const showCursor = viewWindow
+      ? currentTime >= viewStart && currentTime <= viewEnd
+      : true;
+    if (showCursor) {
+      const cursorX = viewWindow
+        ? barX + ((currentTime - viewStart) / (viewEnd - viewStart)) * barW
+        : barX;
       ctx.fillStyle = '#ff2244';
       ctx.shadowColor = '#ff2244';
       ctx.shadowBlur = 4;
-      ctx.fillRect(cursorX - 0.5, sheetTop, 1.5, sheetBottom - sheetTop);
+      ctx.fillRect(cursorX - (viewWindow ? 1 : 0.5), sheetTop, viewWindow ? 2 : 1.5, sheetBottom - sheetTop);
       ctx.shadowBlur = 0;
     }
 

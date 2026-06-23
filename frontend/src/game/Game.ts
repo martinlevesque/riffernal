@@ -56,6 +56,7 @@ export class Game {
   loopEnd: number | null = null;
   loopDefinitionState: LoopDefinitionState = LoopDefinitionState.Off;
   loopActive = false;
+  songBpm = 120;
 
   private playScreen: HTMLElement;
   private resultsScreen: HTMLElement;
@@ -131,7 +132,7 @@ export class Game {
           end: this.loopEnd,
           active: this.loopActive,
           defining: this.loopDefinitionState,
-        });
+        }, undefined, this.songBpm);
 
         const activeNotes = this.noteManager.getActiveNotes(this.currentTime, this.renderer.height, this.learningMode);
         for (const note of activeNotes) {
@@ -169,6 +170,7 @@ export class Game {
 
     this.currentSong = song;
     this.noteManager.loadSong(song);
+    this.songBpm = song.bpm;
     this.refGameTime = -COUNTDOWN_SECONDS;
     this.refRealTime = performance.now() / 1000;
     this.state = GameState.Playing;
@@ -379,12 +381,6 @@ export class Game {
     this.loopActive = false;
     this.loopStart = null;
     this.loopEnd = null;
-  }
-
-  /** Abort the current define flow without affecting an already-active
-   *  loop (none exists in this case since begin clears it first). */
-  cancelLoopDefine(): void {
-    this.loopDefinitionState = LoopDefinitionState.Off;
   }
 
   /** Set loop boundaries during the define flow. Returns the new phase. */
