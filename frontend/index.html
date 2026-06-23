@@ -36,6 +36,7 @@
           <span id="accuracy-display"></span>
         </div>
         <div id="hit-feedback"></div>
+        <button id="btn-open-sheet" class="open-sheet-btn" title="Open full sheet" aria-label="Open full sheet">⤢</button>
         <div id="mode-control">
           <span class="mode-label">MODE</span>
           <button id="mode-play" class="mode-btn active">PLAY</button>
@@ -51,6 +52,11 @@
           <button id="speed-down" class="speed-btn">[-]</button>
           <span id="speed-value">100%</span>
           <button id="speed-up" class="speed-btn">[+]</button>
+          <span id="loop-control">
+            <button id="btn-define-loop" class="loop-btn" title="Define loop start, then end (click a note on the sheet)">LOOP</button>
+            <button id="btn-clear-loop" class="loop-btn loop-btn-clear" title="Clear stored loop" aria-label="Clear loop">&#10005;</button>
+            <span id="loop-status">No loop</span>
+          </span>
         </div>
       </div>
 
@@ -61,6 +67,19 @@
           <div id="result-stats"></div>
           <button id="btn-retry" class="btn btn-primary">RETRY</button>
           <button id="btn-menu" class="btn btn-secondary">MENU</button>
+        </div>
+      </div>
+
+      <div id="sheet-screen" class="screen">
+        <div id="sheet-screen-content">
+          <div id="sheet-toolbar">
+            <button id="btn-sheet-prev" class="sheet-nav-btn" title="Previous page">‹</button>
+            <span id="sheet-page-info">1 / 1</span>
+            <button id="btn-sheet-next" class="sheet-nav-btn" title="Next page">›</button>
+            <span id="sheet-hint"></span>
+            <button id="btn-close-sheet" class="sheet-close-btn" title="Close">✕ Close</button>
+          </div>
+          <canvas id="sheet-canvas"></canvas>
         </div>
       </div>
     </div>

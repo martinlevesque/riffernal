@@ -1,6 +1,7 @@
 import { NOTE_NAMES, NOTE_COLORS, getPianoKeyLayout, WHITE_KEY_COUNT, BLACK_KEY_WIDTH_RATIO, handForKey, handColor, HandSide } from '../utils/notes.js';
 import { KEYBOARD_MAP } from '../input/KeyboardInput.js';
 import { HIT_ZONE_Y_RATIO } from './NoteManager.js';
+import { LoopDefinitionState } from './Loop.js';
 import type { SongNote } from './NoteManager.js';
 
 export const PIANO_HEIGHT_RATIO = 0.16;
@@ -80,7 +81,7 @@ export interface Particle {
 
 const SHEET_STAFF_LINE_SPACING = 10;
 const SHEET_NOTE_RADIUS = 4.5;
-const SHEET_BEATS_VISIBLE = 18;
+export const SHEET_BEATS_VISIBLE = 18;
 const SHEET_BEATS_PER_MEASURE = 4;
 
 function roundRect(ctx: CanvasRenderingContext2D, x: number, y: number, w: number, h: number, r: number): void {
@@ -131,6 +132,14 @@ export class Renderer {
   particles: Particle[] = [];
   sheetBottom = 0;
   sheetScale = 1.0;
+  sheetBarX = 0;
+  sheetBarW = 0;
+  sheetViewStart = 0;
+  sheetViewEnd = 0;
+  sheetTrebleTop = 0;
+  sheetTrebleBottom = 0;
+  sheetBassTop = 0;
+  sheetBassBottom = 0;
   private _keyDisplayMap: Record<string, string>;
   private _staffCache: HTMLCanvasElement | null = null;
   private _cachedStaffScale = -1;
@@ -151,11 +160,14 @@ export class Renderer {
 
   resize(): void {
     const dpr = window.devicePixelRatio || 1;
-    this.canvas.width = window.innerWidth * dpr;
-    this.canvas.height = window.innerHeight * dpr;
+    const cssW = this.canvas.clientWidth || window.innerWidth;
+    const cssH = this.canvas.clientHeight || window.innerHeight;
+    this.canvas.width = cssW * dpr;
+    this.canvas.height = cssH * dpr;
+    this.ctx.setTransform(1, 0, 0, 1, 0, 0);
     this.ctx.scale(dpr, dpr);
-    this.width = window.innerWidth;
-    this.height = window.innerHeight;
+    this.width = cssW;
+    this.height = cssH;
   }
 
   clear(): void {
@@ -555,7 +567,14 @@ export class Renderer {
     this._cachedStaffWidth = this.width;
   }
 
-  drawSheetMusic(trebleNotes: SongNote[], bassNotes: SongNote[], currentTime: number, songDuration: number): void {
+  drawSheetMusic(
+    trebleNotes: SongNote[],
+    bassNotes: SongNote[],
+    currentTime: number,
+    songDuration: number,
+    loop?: { start: number | null; end: number | null; active: boolean; defining: LoopDefinitionState },
+    viewWindow?: { start: number; end: number },
+  ): void {
     if (!trebleNotes.length && !bassNotes.length || songDuration <= 0) return;
     const ctx = this.ctx;
     const sheetTop = SHEET_TOP_OFFSET;
@@ -568,6 +587,10 @@ export class Renderer {
     const bassTop = trebleTop + staffH + 8 * this.sheetScale;
     const sheetBottom = bassTop + staffH + 5 * this.sheetScale;
     this.sheetBottom = sheetBottom;
+    this.sheetTrebleTop = trebleTop;
+    this.sheetTrebleBottom = trebleTop + staffH;
+    this.sheetBassTop = bassTop;
+    this.sheetBassBottom = bassTop + staffH;
 
     if (!this._staffCache || this._cachedStaffScale !== this.sheetScale || this._cachedStaffWidth !== this.width) {
       this._renderStaffCache(sheetTop, trebleTop, bassTop, staffLineSpacing, clefW, margin, sheetBottom);
@@ -577,8 +600,12 @@ export class Renderer {
     const barX = margin + clefW;
     const barW = this.width - barX - margin;
     const bpm = 120;
-    const viewStart = currentTime - 0.5;
-    const viewEnd = currentTime + SHEET_BEATS_VISIBLE * (60 / bpm);
+    const viewStart = viewWindow ? viewWindow.start : currentTime - 0.5;
+    const viewEnd = viewWindow ? viewWindow.end : currentTime + SHEET_BEATS_VISIBLE * (60 / bpm);
+    this.sheetBarX = barX;
+    this.sheetBarW = barW;
+    this.sheetViewStart = viewStart;
+    this.sheetViewEnd = viewEnd;
 
     const firstBeat = Math.ceil(viewStart / (60 / bpm));
     const lastBeat = Math.floor(viewEnd / (60 / bpm));
@@ -658,11 +685,54 @@ export class Renderer {
     }
 
     const cursorX = barX;
-    ctx.fillStyle = '#ff2244';
-    ctx.shadowColor = '#ff2244';
-    ctx.shadowBlur = 4;
-    ctx.fillRect(cursorX - 0.5, sheetTop, 1.5, sheetBottom - sheetTop);
-    ctx.shadowBlur = 0;
+    // When using a custom view window (full sheet view), draw the playback
+    // cursor at its true position only when currentTime falls within the page.
+    if (viewWindow) {
+      if (currentTime >= viewStart && currentTime <= viewEnd) {
+        const px = barX + ((currentTime - viewStart) / (viewEnd - viewStart)) * barW;
+        ctx.fillStyle = '#ff2244';
+        ctx.shadowColor = '#ff2244';
+        ctx.shadowBlur = 4;
+        ctx.fillRect(px - 1, sheetTop, 2, sheetBottom - sheetTop);
+        ctx.shadowBlur = 0;
+      }
+    } else {
+      ctx.fillStyle = '#ff2244';
+      ctx.shadowColor = '#ff2244';
+      ctx.shadowBlur = 4;
+      ctx.fillRect(cursorX - 0.5, sheetTop, 1.5, sheetBottom - sheetTop);
+      ctx.shadowBlur = 0;
+    }
+
+    // Loop region overlay (purple). `loopState` is passed via `loopStart/End/Active/Defining`.
+    const loopStart = loop?.start ?? null;
+    const loopEnd = loop?.end ?? null;
+    const loopDefining = loop?.defining ?? LoopDefinitionState.Off;
+    const drawLoopMarker = (t: number, color: string, label: string): void => {
+      if (t < viewStart || t > viewEnd) return;
+      const lx = barX + ((t - viewStart) / (viewEnd - viewStart)) * barW;
+      ctx.fillStyle = color;
+      ctx.shadowColor = color;
+      ctx.shadowBlur = 6;
+      ctx.fillRect(lx - 1, sheetTop, 2, sheetBottom - sheetTop);
+      ctx.shadowBlur = 0;
+      ctx.font = 'bold 9px sans-serif';
+      ctx.textAlign = 'center';
+      ctx.textBaseline = 'top';
+      ctx.fillText(label, lx, sheetTop - 10);
+    };
+    if (loopStart !== null && loopEnd !== null) {
+      const lx0 = barX + ((loopStart - viewStart) / (viewEnd - viewStart)) * barW;
+      const lx1 = barX + ((loopEnd - viewStart) / (viewEnd - viewStart)) * barW;
+      ctx.save();
+      ctx.fillStyle = loop?.active ? 'rgba(170, 102, 255, 0.12)' : 'rgba(120, 90, 180, 0.06)';
+      ctx.fillRect(Math.min(lx0, lx1), sheetTop, Math.abs(lx1 - lx0), sheetBottom - sheetTop);
+      ctx.restore();
+      drawLoopMarker(loopStart, '#aa66ff', 'A');
+      drawLoopMarker(loopEnd, '#aa66ff', 'B');
+    } else if (loopDefining === LoopDefinitionState.Start && loopStart !== null) {
+      drawLoopMarker(loopStart, '#aa66ff', 'A');
+    }
 
     ctx.strokeStyle = '#333';
     ctx.lineWidth = 0.5;
