@@ -394,18 +394,22 @@ export function parseMidi(arrayBuffer: ArrayBuffer, filename: string): Song {
   const trackHands: Record<number, HandSide> = {};
   for (const track of tracks) {
     const trackNotes = allNotes.filter((n) => n.track === track.index);
-    if (trackNotes.length > 0) {
-      let sum = 0;
-      for (const n of trackNotes) {
-        const match = n.key.match(/^([A-G]#?)(\d)$/);
-        if (match) {
-          const noteMap: Record<string, number> = { C: 0, 'C#': 1, D: 2, 'D#': 3, E: 4, F: 5, 'F#': 6, G: 7, 'G#': 8, A: 9, 'A#': 10, B: 11 };
-          sum += noteMap[match[1]] + (parseInt(match[2], 10) + 1) * 12;
-        }
-      }
-      const avg = sum / trackNotes.length;
-      trackHands[track.index] = avg <= HAND_SPLIT_MIDI ? HandSide.Left : HandSide.Right;
+    if (trackNotes.length === 0) continue;
+    let sum = 0;
+    let leftCount = 0;
+    let rightCount = 0;
+    for (const n of trackNotes) {
+      const midi = noteNameToMidi(n.key);
+      if (midi < 0) continue;
+      sum += midi;
+      if (midi <= HAND_SPLIT_MIDI) leftCount++; else rightCount++;
     }
+    // If a track clearly spans both hands (e.g. a single piano staff), leave
+    // its hand unset so NoteManager falls back to per-key handForKey instead
+    // of forcing every note onto one side.
+    if (leftCount > 0 && rightCount > 0) continue;
+    const avg = sum / trackNotes.length;
+    trackHands[track.index] = avg <= HAND_SPLIT_MIDI ? HandSide.Left : HandSide.Right;
   }
 
   const title = filename.replace(/\.[^.]+$/, '') || 'Imported';

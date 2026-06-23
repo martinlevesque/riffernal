@@ -8,7 +8,6 @@ function isTom(midi: number): boolean { return (midi >= 41 && midi <= 48) || (mi
 function isCymbal(midi: number): boolean { return midi === 49 || midi === 52 || midi === 55 || midi === 57; }
 function isClap(midi: number): boolean { return midi === 39; }
 function isRide(midi: number): boolean { return midi === 51 || midi === 53 || midi === 59; }
-function isPerc(midi: number): boolean { return midi >= 54 && midi <= 81; }
 
 function buildNoise(ctx: AudioContext, duration: number): { source: AudioBufferSourceNode; output: GainNode } {
   const sampleRate = ctx.sampleRate;
@@ -198,7 +197,6 @@ export const drumPatch: Patch = {
     if (isRide(note)) return buildRide(ctx, freq, startTime);
     if (isCymbal(note)) return buildCymbal(ctx, freq, startTime);
     if (isTom(note)) return buildTom(ctx, freq, startTime);
-    if (isPerc(note)) return buildPerc(ctx, freq, startTime);
     return buildPerc(ctx, freq, startTime);
   },
 };

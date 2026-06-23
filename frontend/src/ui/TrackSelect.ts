@@ -92,7 +92,10 @@ export class TrackSelect {
       if (this.selected.size >= 2) {
         const first = this.selected.values().next().value!;
         this.selected.delete(first);
-        this.listEl.children[first]?.classList.remove('selected');
+        const evictedLi = this.listEl.children[first] as HTMLElement | undefined;
+        evictedLi?.classList.remove('selected');
+        const evictedHandBtn = evictedLi?.querySelector('.track-hand-btn') as HTMLButtonElement | null;
+        if (evictedHandBtn) evictedHandBtn.disabled = true;
       }
       this.selected.add(index);
       li.classList.add('selected');

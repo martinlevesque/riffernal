@@ -385,15 +385,13 @@ export class Game {
 
   private _patchForNote(program: number, channel: number): Patch {
     if (channel === GM_DRUM_CHANNEL) return drumPatch;
-    // GM Guitar programs: 25-32
-    if (program >= 25 && program <= 27) return guitarCleanPatch;
-    if (program === 28) return guitarCleanPatch;
+    // GM Guitar programs: 25-31 (Steel, Jazz, Clean, Muted, Overdriven, Distortion, Harmonics)
+    if (program >= 25 && program <= 28) return guitarCleanPatch;
     if (program === 29) return guitarOverdrivenPatch;
-    if (program === 30) return guitarOverdrivenPatch;
-    if (program === 31) return guitarDistortionPatch;
-    if (program === 32) return guitarCleanPatch;
-    // GM Bass programs: 33-39
-    if (program >= 33 && program <= 39) return bassPatch;
+    if (program === 30) return guitarDistortionPatch;
+    if (program === 31) return guitarCleanPatch;
+    // GM Bass programs: 32-39 (Acoustic Bass through Synth Bass 2)
+    if (program >= 32 && program <= 39) return bassPatch;
     // GM bowed strings: 40-44 (Violin, Viola, Cello, Contrabass, Tremolo Strings)
     // GM string ensembles: 48-51 (String Ensemble, Synth Strings)
     if ((program >= 40 && program <= 44) || (program >= 48 && program <= 51)) return violinPatch;

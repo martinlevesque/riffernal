@@ -78,6 +78,7 @@ export class NoteManager {
   practiceHand: PracticeHand = PracticeHand.Both;
   private _nextNoteIndex = 0;
   private _selectedNoteCount = 0;
+  private _selectedResolvedCount = 0;
   private _learningAnchor: number | null = null;
   private _learningChordLanes = new Set<number>();
   private _learningChordPresses = new Set<number>();
@@ -118,10 +119,11 @@ export class NoteManager {
         program: n.program ?? -1,
       };
     }).sort((a, b) => a.time - b.time);
-    this.scoring.reset(this._selectedNoteCount);
     this.activeNotes = [];
     this._nextNoteIndex = 0;
     this._selectedNoteCount = this.notes.filter((n) => n.selected).length;
+    this._selectedResolvedCount = 0;
+    this.scoring.reset(this._selectedNoteCount);
     this.resetLearningState();
     this.trebleNotes = [];
     this.bassNotes = [];
@@ -145,6 +147,14 @@ export class NoteManager {
     const hand = note.hand;
     if (this.practiceHand === PracticeHand.Left) return hand === HandSide.Right;
     return hand === HandSide.Left;
+  }
+
+  /** Mark a note as resolved and keep the selected-resolved counter in sync.
+   *  Safe to call when already resolved (no-op). */
+  private _markResolved(note: SongNote): void {
+    if (note.resolved) return;
+    note.resolved = true;
+    if (note.selected) this._selectedResolvedCount++;
   }
 
   resetLearningState(): void {
@@ -191,6 +201,9 @@ export class NoteManager {
       firstUnresolved++;
     }
     this._nextNoteIndex = firstUnresolved;
+    this._selectedResolvedCount = this.notes.reduce(
+      (acc, n) => acc + (n.selected && n.resolved ? 1 : 0), 0,
+    );
     this.resetLearningState();
   }
 
@@ -215,7 +228,7 @@ export class NoteManager {
           if (note.duration <= TAP_NOTE_THRESHOLD) {
             note.hit = true;
             note.holding = false;
-            note.resolved = true;
+            this._markResolved(note);
           } else {
             note.holding = true;
             note.pressStartTime = note.time;
@@ -233,7 +246,7 @@ export class NoteManager {
           const cumulativeRatio = note.accumulatedHeldDuration / note.duration;
           note.hit = true;
           note.holding = false;
-          note.resolved = true;
+          this._markResolved(note);
           if (!note.autoPlayed) {
             note.earnedScore = this.scoring.finalizeNote(note.grade!, cumulativeRatio, note.earlyMultiplier);
             if (this.onResolve) this.onResolve({ note, score: note.earnedScore, grade: note.grade! });
@@ -244,7 +257,7 @@ export class NoteManager {
 
       if (note.failing) {
         if (currentTime >= note.time + note.duration) {
-          note.resolved = true;
+          this._markResolved(note);
           if (note.accumulatedHeldDuration > 0 && note.grade !== null) {
             const cumulativeRatio = note.accumulatedHeldDuration / note.duration;
             note.earnedScore = this.scoring.finalizeNote(note.grade, cumulativeRatio, note.earlyMultiplier);
@@ -265,7 +278,7 @@ export class NoteManager {
           note.failing = true;
           if (this.onMiss) this.onMiss(note);
         } else {
-          note.resolved = true;
+          this._markResolved(note);
         }
         continue;
       }
@@ -307,7 +320,7 @@ export class NoteManager {
     const clampedRatio = Math.max(0, Math.min(1, ratio));
     note.hit = true;
     note.holding = false;
-    note.resolved = true;
+    this._markResolved(note);
     note.earnedScore = this.scoring.finalizeNote(grade, clampedRatio, note.earlyMultiplier);
     if (this.onResolve) this.onResolve({ note, score: note.earnedScore, grade });
   }
@@ -411,7 +424,7 @@ export class NoteManager {
     if (cumulativeRatio >= 1) {
       holdingNote.hit = true;
       holdingNote.holding = false;
-      holdingNote.resolved = true;
+      this._markResolved(holdingNote);
       holdingNote.earnedScore = this.scoring.finalizeNote(holdingNote.grade!, cumulativeRatio, holdingNote.earlyMultiplier);
       if (this.onResolve) this.onResolve({ note: holdingNote, score: holdingNote.earnedScore, grade: holdingNote.grade! });
       return null;
@@ -562,8 +575,7 @@ export class NoteManager {
   }
 
   isComplete(): boolean {
-    const selectedResolved = this.notes.filter((n) => n.selected && n.resolved).length;
-    return selectedResolved >= this._selectedNoteCount && this._selectedNoteCount > 0;
+    return this._selectedResolvedCount >= this._selectedNoteCount && this._selectedNoteCount > 0;
   }
 
   getActiveNotes(currentTime: number, height: number, learningMode = false): ActiveNoteRender[] {
