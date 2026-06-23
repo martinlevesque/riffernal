@@ -307,6 +307,7 @@ async function init(): Promise<void> {
 
   const resizeHandle = document.getElementById('sheet-resize-handle')!;
   let resizing = false;
+  let resizeRAF = false;
 
   resizeHandle.addEventListener('pointerdown', (e) => {
     resizing = true;
@@ -315,14 +316,18 @@ async function init(): Promise<void> {
   });
 
   window.addEventListener('pointermove', (e) => {
-    if (!resizing) return;
+    if (!resizing || resizeRAF) return;
     if (game.state !== GameState.Playing) return;
-    const rect = canvas.getBoundingClientRect();
-    const y = e.clientY - rect.top;
-    const minSheetHeight = BASE_SHEET_HEIGHT * 0.5;
-    const maxSheetHeight = canvas.height * 0.35;
-    const targetHeight = Math.max(minSheetHeight, Math.min(maxSheetHeight, y - SHEET_TOP_OFFSET));
-    game.renderer.sheetScale = targetHeight / BASE_SHEET_HEIGHT;
+    resizeRAF = true;
+    requestAnimationFrame(() => {
+      const rect = canvas.getBoundingClientRect();
+      const y = e.clientY - rect.top;
+      const minSheetHeight = BASE_SHEET_HEIGHT * 0.5;
+      const maxSheetHeight = canvas.height * 0.35;
+      const targetHeight = Math.max(minSheetHeight, Math.min(maxSheetHeight, y - SHEET_TOP_OFFSET));
+      game.renderer.sheetScale = targetHeight / BASE_SHEET_HEIGHT;
+      resizeRAF = false;
+    });
   });
 
   window.addEventListener('pointerup', () => {

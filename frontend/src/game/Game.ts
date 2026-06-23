@@ -68,6 +68,7 @@ export class Game {
   private menuScreen: HTMLElement;
   private resizeHandle: HTMLElement;
   private _onResize: () => void;
+  private _resizeRaf = false;
   private _boundLoop: () => void;
   private _lastFrameTime = 0;
   private _completionTime: number | null = null;
@@ -84,7 +85,15 @@ export class Game {
     this.menuScreen = document.getElementById('menu-screen')!;
     this.resizeHandle = document.getElementById('sheet-resize-handle')!;
 
-    this._onResize = () => this.renderer.resize();
+    this._onResize = () => {
+      if (!this._resizeRaf) {
+        this._resizeRaf = true;
+        requestAnimationFrame(() => {
+          this.renderer.resize();
+          this._resizeRaf = false;
+        });
+      }
+    };
     window.addEventListener('resize', this._onResize);
 
     this._boundLoop = (): void => {

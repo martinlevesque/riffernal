@@ -47,12 +47,20 @@ const RIGHT_HAND_COLORS = ['#ff2244', '#ff6622', '#ffaa22', '#ffdd22', '#ddff22'
 
 const _chromaticMap: Record<string, number> = { C: 0, 'C#': 1, D: 2, 'D#': 3, E: 4, F: 5, 'F#': 6, G: 7, 'G#': 8, A: 9, 'A#': 10, B: 11 };
 
-export function handForKey(noteKey: string): HandSide {
-  const match = noteKey.match(/^([A-G]#?)(\d)$/);
-  if (!match) return HandSide.Right;
+const _handSideCache = new Map<string, HandSide>();
+for (const name of NOTE_NAMES) {
+  const match = name.match(/^([A-G]#?)(\d)$/);
+  if (!match) { _handSideCache.set(name, HandSide.Right); continue; }
   const midi = _chromaticMap[match[1]] + (parseInt(match[2], 10) + 1) * 12;
-  return midi <= HAND_SPLIT_MIDI ? HandSide.Left : HandSide.Right;
+  _handSideCache.set(name, midi <= HAND_SPLIT_MIDI ? HandSide.Left : HandSide.Right);
 }
+
+export function handForKey(noteKey: string): HandSide {
+  return _handSideCache.get(noteKey) ?? HandSide.Right;
+}
+
+export const NOTE_SHORT_NAMES: Record<string, string> = Object.create(null);
+for (const name of NOTE_NAMES) NOTE_SHORT_NAMES[name] = name.replace(/\d/g, '');
 
 export function handColor(noteKey: string): string {
   const match = noteKey.match(/^([A-G]#?)(\d)$/);

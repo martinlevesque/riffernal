@@ -85,6 +85,7 @@ export class NoteManager {
   private _learningChordFirstPressRealTime = 0;
   private _laneHand = new Map<number, HandSide>();
   backgroundTracks = new Set<number>();
+  private _notePool: ActiveNoteRender[] = [];
 
   loadSong(songData: Song): void {
     const selectedIndices = songData.selectedTrackIndices ?? [];
@@ -596,50 +597,51 @@ export class NoteManager {
 
   getActiveNotes(currentTime: number, height: number, learningMode = false): ActiveNoteRender[] {
     const hitZoneY = height * HIT_ZONE_Y_RATIO;
-    const results: ActiveNoteRender[] = [];
+    let writeIdx = 0;
 
     for (const note of this.activeNotes) {
       if ((note.hit || note.missed) && !note.failing) continue;
       const color = handColor(note.key);
 
+      if (writeIdx >= this._notePool.length) {
+        this._notePool.push({ lane: 0, y: 0, height: 0, color: '', alpha: 0, duration: 0, key: '', holding: false, failing: false, waiting: false, selected: false });
+      }
+      const r = this._notePool[writeIdx];
+
       if (note.holding) {
         const remaining = Math.max(12, (note.time + note.duration - currentTime) * SCROLL_SPEED);
         const y = hitZoneY - remaining;
-        results.push({
-          lane: note.lane,
-          y,
-          height: remaining,
-          color,
-          alpha: 1,
-          duration: note.duration,
-          key: note.key,
-          holding: true,
-          failing: false,
-          waiting: false,
-          selected: note.selected,
-        });
+        r.lane = note.lane;
+        r.y = y;
+        r.height = remaining;
+        r.color = color;
+        r.alpha = 1;
+        r.duration = note.duration;
+        r.key = note.key;
+        r.holding = true;
+        r.failing = false;
+        r.waiting = false;
+        r.selected = note.selected;
       } else {
         const timeDiff = note.time - currentTime;
         const noteHeight = Math.max(12, note.duration * SCROLL_SPEED);
         const y = hitZoneY - timeDiff * SCROLL_SPEED - noteHeight;
-        const alpha = y + noteHeight < 0 ? 0 : 1;
-        const waiting = learningMode && timeDiff <= 0;
-        results.push({
-          lane: note.lane,
-          y,
-          height: noteHeight,
-          color,
-          alpha,
-          duration: note.duration,
-          key: note.key,
-          holding: false,
-          failing: note.failing,
-          waiting,
-          selected: note.selected,
-        });
+        r.lane = note.lane;
+        r.y = y;
+        r.height = noteHeight;
+        r.color = color;
+        r.alpha = y + noteHeight < 0 ? 0 : 1;
+        r.duration = note.duration;
+        r.key = note.key;
+        r.holding = false;
+        r.failing = note.failing;
+        r.waiting = learningMode && timeDiff <= 0;
+        r.selected = note.selected;
       }
+      writeIdx++;
     }
 
-    return results;
+    this._notePool.length = writeIdx;
+    return this._notePool;
   }
 }
