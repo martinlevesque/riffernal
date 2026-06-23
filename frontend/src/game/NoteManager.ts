@@ -498,9 +498,12 @@ export class NoteManager {
     if (!hasPlayableNote) {
       return { results: [], wrong: false };
     }
-    if (this._learningAnchor === null || !this._learningChordLanes.has(lane)) {
+    if (this._learningAnchor === null) {
       const result = this.checkHit(currentTime, lane);
       return { results: result ? [result] : [], wrong: result === null };
+    }
+    if (!this._learningChordLanes.has(lane)) {
+      return { results: [], wrong: false };
     }
 
     if (this._learningChordPresses.size > 0 && realTime - this._learningChordFirstPressRealTime > LEARNING_CHORD_WINDOW) {
@@ -523,6 +526,8 @@ export class NoteManager {
       if (r) results.push(r);
     }
     this._learningChordPresses.clear();
+    this._learningAnchor = null;
+    this._learningChordLanes.clear();
     return { results, wrong: false };
   }
 
