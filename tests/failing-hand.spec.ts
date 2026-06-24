@@ -26,7 +26,7 @@ interface TestArg {
 function evaluateTest(page: import('@playwright/test').Page, arg: TestArg): Promise<SampleResult> {
   const songJson = JSON.stringify(makeSong(arg.notes));
   const body = `(async () => {
-    const { Renderer } = await import('/js/game/Renderer.js');
+    const { Renderer } = await import('/js/game/rendering/Renderer.js');
     const { NoteManager } = await import('/js/game/NoteManager.js');
     const { getPianoKeyLayout } = await import('/js/utils/notes.js');
 
