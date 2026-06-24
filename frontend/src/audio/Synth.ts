@@ -58,9 +58,10 @@ export class Synth {
       this.noteOff(key);
     }
 
-    const midi = midiOverride ?? noteNameToMidi(noteName);
-    if (midi < 0) return;
-    const freq = 440 * 2 ** ((midi - 69) / 12);
+    const noteMidi = noteNameToMidi(noteName);
+    if (noteMidi < 0) return;
+    const freq = 440 * 2 ** ((noteMidi - 69) / 12);
+    const midi = midiOverride ?? noteMidi;
     const now = this.ctx!.currentTime;
 
     const activePatch = patch ?? this.patch;

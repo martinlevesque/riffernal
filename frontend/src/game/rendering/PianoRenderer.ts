@@ -67,6 +67,16 @@ export class PianoRenderer {
     if (this._cache) {
       ctx.drawImage(this._cache, 0, offsetY);
     }
+
+    const pianoBottomY = height;
+    const OCTAVE_NOTES = ['C1', 'C2', 'C3', 'C4', 'C5', 'C6', 'C7', 'C8'];
+    ctx.fillStyle = '#555';
+    ctx.font = `${Math.max(8, (width / WHITE_KEY_COUNT) * 0.22)}px Courier New`;
+    ctx.textAlign = 'center';
+    for (const noteName of OCTAVE_NOTES) {
+      const layout = getPianoKeyLayout(noteName, width);
+      ctx.fillText(noteName, layout.x + layout.width / 2, pianoBottomY - 2);
+    }
   }
 
   private _ensureCache(width: number, height: number, pressedLanes: Set<number>): void {
