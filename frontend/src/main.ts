@@ -6,7 +6,7 @@ import { Menu } from './ui/Menu.js';
 import { ScoreDisplay } from './ui/ScoreDisplay.js';
 import { TrackSelect } from './ui/TrackSelect.js';
 import { parseMidi, normalizeSong } from './utils/MidiParser.js';
-import { SHEET_TOP_OFFSET, Renderer, SHEET_BEATS_VISIBLE } from './game/Renderer.js';
+import { SHEET_TOP_OFFSET, Renderer, SHEET_BEATS_VISIBLE } from './game/rendering/Renderer.js';
 import type { SongNote } from './game/NoteManager.js';
 import { PracticeHand } from './utils/notes.js';
 import type { Song } from './utils/MidiParser.js';

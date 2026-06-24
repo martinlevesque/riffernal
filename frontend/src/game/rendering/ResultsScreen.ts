@@ -1,5 +1,8 @@
-import { formatScore } from '../utils/helpers.js';
-import type { Scoring } from './scoring.js';
+// Renders the end-of-song results overlay showing score, accuracy,
+// and note grade breakdown. Handles retry and back-to-menu actions.
+
+import { formatScore } from '../../utils/helpers.js';
+import type { Scoring } from '../scoring.js';
 
 export class ResultsScreen {
   private el: HTMLElement;

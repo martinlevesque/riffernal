@@ -15,7 +15,7 @@ test('game renders chord notes at same center Y', async ({ page }) => {
     // @ts-expect-error browser-side dynamic import
     const { NoteManager } = (await import('/js/game/NoteManager.js'));
     // @ts-expect-error browser-side dynamic import
-    const { Renderer } = (await import('/js/game/Renderer.js'));
+    const { Renderer } = (await import('/js/game/rendering/Renderer.js'));
     // @ts-expect-error browser-side dynamic import
     const { getPianoKeyLayout } = (await import('/js/utils/notes.js'));
 

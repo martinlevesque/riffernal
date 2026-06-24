@@ -1,3 +1,6 @@
+// Manages loop boundary definition (set start/end points) and
+// activation. Coordinates with Game to seek and wrap playback.
+
 import { LoopDefinitionState } from './Loop.js';
 
 export class LoopController {

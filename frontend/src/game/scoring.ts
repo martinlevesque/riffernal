@@ -1,3 +1,6 @@
+// Note grading (PERFECT/GREAT/GOOD), score calculation, timing
+// windows, and combo/accuracy tracking.
+
 export enum NoteGrade {
   PERFECT = "PERFECT",
   GREAT = "GREAT",

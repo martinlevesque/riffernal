@@ -12,7 +12,7 @@ test('chord notes have heads at same vertical position', async ({ page }) => {
 
   const result = await page.evaluate(async ({ song, W, H }) => {
     // @ts-expect-error browser-side dynamic import
-    const { Renderer } = (await import('/js/game/Renderer.js'));
+    const { Renderer } = (await import('/js/game/rendering/Renderer.js'));
     // @ts-expect-error browser-side dynamic import
     const { NoteManager } = (await import('/js/game/NoteManager.js'));
     // @ts-expect-error browser-side dynamic import
