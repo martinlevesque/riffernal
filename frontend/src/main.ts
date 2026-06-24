@@ -120,8 +120,15 @@ async function init(): Promise<void> {
   modeLearn.addEventListener('click', () => setMode(true));
 
   defineLoopBtn.addEventListener('click', () => {
-    // Clicking always (re-)enters start-defining, replacing any stored/active loop.
-    game.beginLoopDefine();
+    const hasExisting = game.loopStart !== null && game.loopEnd !== null;
+    if (hasExisting) {
+      // Keep existing boundaries visible so the user sees what they had,
+      // but deactivate the loop and enter start-defining mode.
+      game.deactivateLoop();
+      game.loopDefinitionState = LoopDefinitionState.Start;
+    } else {
+      game.beginLoopDefine();
+    }
     if (!game.learningMode) setMode(true);
     updateLoopUI();
     if (game.state === GameState.Playing) {
@@ -334,28 +341,31 @@ async function init(): Promise<void> {
     resizing = false;
   });
 
-  function noteFromClick(rect: DOMRect, clientX: number, clientY: number, renderer: Renderer): SongNote | null {
+  function noteFromClick(rect: DOMRect, clientX: number, clientY: number, renderer: Renderer, maxRadius = 30): SongNote | null {
     const x = clientX - rect.left;
     const y = clientY - rect.top;
     const r = renderer;
-    if (r.sheetBarW <= 0 || y < r.sheetTrebleTop || y > r.sheetBassBottom) return null;
-    if (x < r.sheetBarX || x > r.sheetBarX + r.sheetBarW) return null;
+    if (r.sheetBarW <= 0) return null;
+    if (x < r.sheetBarX - maxRadius || x > r.sheetBarX + r.sheetBarW + maxRadius) return null;
 
+    const note = game.noteManager.findNearestNoteByClick(x, y, r, maxRadius);
+    if (note) return note;
+
+    // Fallback: find nearest by time with staff hint (legacy behaviour).
     const t = r.sheetViewStart + ((x - r.sheetBarX) / r.sheetBarW) * (r.sheetViewEnd - r.sheetViewStart);
-
     let staff: 'treble' | 'bass' | undefined;
     if (y >= r.sheetTrebleTop && y <= r.sheetTrebleBottom) staff = 'treble';
     else if (y >= r.sheetBassTop && y <= r.sheetBassBottom) staff = 'bass';
-
     return game.noteManager.findNearestNote(t, staff);
   }
 
   canvas.addEventListener('click', (e) => {
     if (game.state !== GameState.Playing) return;
-    const note = noteFromClick(canvas.getBoundingClientRect(), e.clientX, e.clientY, game.renderer);
+    const inLoopDefine = game.loopDefinitionState === LoopDefinitionState.Start || game.loopDefinitionState === LoopDefinitionState.End;
+    const note = noteFromClick(canvas.getBoundingClientRect(), e.clientX, e.clientY, game.renderer, inLoopDefine ? 50 : 30);
     if (!note) return;
 
-    if (game.loopDefinitionState === LoopDefinitionState.Start || game.loopDefinitionState === LoopDefinitionState.End) {
+    if (inLoopDefine) {
       const wasStart = game.loopDefinitionState === LoopDefinitionState.Start;
       game.setLoopBoundary(note.time);
       updateLoopUI();
@@ -469,10 +479,11 @@ async function init(): Promise<void> {
 
   sheetCanvas.addEventListener('click', (e) => {
     if (game.state !== GameState.Playing) return;
-    const note = noteFromClick(sheetCanvas.getBoundingClientRect(), e.clientX, e.clientY, sheetRenderer);
+    const inLoopDefine = game.loopDefinitionState === LoopDefinitionState.Start || game.loopDefinitionState === LoopDefinitionState.End;
+    const note = noteFromClick(sheetCanvas.getBoundingClientRect(), e.clientX, e.clientY, sheetRenderer, inLoopDefine ? 50 : 30);
     if (!note) return;
 
-    if (game.loopDefinitionState === LoopDefinitionState.Start || game.loopDefinitionState === LoopDefinitionState.End) {
+    if (inLoopDefine) {
       const wasStart = game.loopDefinitionState === LoopDefinitionState.Start;
       game.setLoopBoundary(note.time);
       updateLoopUI();
@@ -487,6 +498,37 @@ async function init(): Promise<void> {
       closeSheetView();
     }
   });
+
+  // -- Hover cursor feedback for note selection ----------------------------
+  let hoverRAF: number | null = null;
+  function setupHoverCursor(
+    targetCanvas: HTMLCanvasElement,
+    targetRenderer: Renderer,
+  ): void {
+    targetCanvas.addEventListener('mousemove', (e) => {
+      if (hoverRAF !== null) return;
+      hoverRAF = requestAnimationFrame(() => {
+        hoverRAF = null;
+        if (game.state !== GameState.Playing) {
+          targetCanvas.style.cursor = '';
+          return;
+        }
+        const rect = targetCanvas.getBoundingClientRect();
+        const x = e.clientX - rect.left;
+        const y = e.clientY - rect.top;
+        const inLoopDefine = game.loopDefinitionState === LoopDefinitionState.Start
+          || game.loopDefinitionState === LoopDefinitionState.End;
+        const radius = inLoopDefine ? 50 : 30;
+        const note = game.noteManager.findNearestNoteByClick(x, y, targetRenderer, radius);
+        targetCanvas.style.cursor = note ? 'pointer' : 'crosshair';
+      });
+    });
+    targetCanvas.addEventListener('mouseleave', () => {
+      targetCanvas.style.cursor = 'crosshair';
+    });
+  }
+  setupHoverCursor(canvas, game.renderer);
+  setupHoverCursor(sheetCanvas, sheetRenderer);
 
   // Arrow keys / Escape for sheet navigation
   document.addEventListener('keydown', (e) => {

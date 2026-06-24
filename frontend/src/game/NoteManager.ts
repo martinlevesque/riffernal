@@ -1,5 +1,6 @@
 import { NOTE_TO_LANE, handForKey, handColor, HandSide, PracticeHand } from '../utils/notes.js';
 import type { Song, Note } from '../utils/MidiParser.js';
+import type { Renderer } from './Renderer.js';
 import { Scoring, TIMING, TAP_NOTE_THRESHOLD, EARLY_HIT_WINDOW, EARLY_PENALTY_RATIO, LEARNING_CHORD_WINDOW, gradeFromDiff, NoteGrade } from './scoring.js';
 
 export const SCROLL_SPEED = 400;
@@ -573,6 +574,44 @@ export class NoteManager {
       if (Math.abs(prev.time - time) <= Math.abs(candidate.time - time)) candidate = prev;
     }
     return candidate;
+  }
+
+  /** Find the note closest to a click position in pixel space.
+   *  Uses the renderer's coordinate mapping to compute 2D distance.
+   *  Returns null if no note is within `maxRadius` pixels. */
+  findNearestNoteByClick(
+    clickX: number,
+    clickY: number,
+    renderer: Renderer,
+    maxRadius = 30,
+  ): SongNote | null {
+    const ve = renderer.sheetViewEnd;
+    const vs = renderer.sheetViewStart;
+    if (ve <= vs) return null;
+
+    const clickTime = vs + ((clickX - renderer.sheetBarX) / renderer.sheetBarW) * (ve - vs);
+    const timeWindow = (maxRadius / renderer.sheetBarW) * (ve - vs) * 1.5;
+
+    let bestNote: SongNote | null = null;
+    let bestDist = maxRadius * maxRadius;
+
+    const checkNote = (note: SongNote): void => {
+      if (note.time < clickTime - timeWindow || note.time > clickTime + timeWindow) return;
+      const pos = renderer.notePixelPosition(note);
+      if (!pos) return;
+      const dx = pos.x - clickX;
+      const dy = pos.y - clickY;
+      const dist = dx * dx + dy * dy;
+      if (dist < bestDist) {
+        bestDist = dist;
+        bestNote = note;
+      }
+    };
+
+    for (const note of this.trebleNotes) checkNote(note);
+    for (const note of this.bassNotes) checkNote(note);
+
+    return bestNote;
   }
 
   /** Find the active note for a lane closest to currentTime (for patch lookup). */
