@@ -9,12 +9,13 @@ export default defineConfig({
   reporter: 'html',
   use: {
     baseURL: 'http://localhost:3000',
+    ignoreHTTPSErrors: true,
     trace: 'on-first-retry',
   },
   webServer: {
     command: process.env.CI
-      ? 'bun run build && bun run start'
-      : 'bun run dev',
+      ? 'bun run build && bun run start:http'
+      : 'bun run dev:http',
     url: 'http://localhost:3000',
     reuseExistingServer: !process.env.CI,
     timeout: 30000,

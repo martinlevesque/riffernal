@@ -1,12 +1,14 @@
 import { spawn, spawnSync } from "bun";
 import { cpSync, watch } from "node:fs";
 import { join } from "node:path";
+import { startServer } from "./https-serve.ts";
 
 const ROOT = join(import.meta.dir, "..");
 const SRC = join(ROOT, "frontend");
 const DIST = join(ROOT, "dist");
 
 const STATIC_ASSETS = ["index.html", "css", "assets"];
+const httpOnly = process.argv.includes("--http");
 
 const build = spawnSync(["bun", "run", join(ROOT, "scripts", "build.ts")], {
   cwd: ROOT,
@@ -23,10 +25,7 @@ const tsc = spawn(["bun", "x", "tsc", "--project", join(ROOT, "tsconfig.build.js
   stdio: ["ignore", "inherit", "inherit"],
 });
 
-const serve = spawn(["bun", "x", "serve", DIST, "-p", "3000", "--no-clipboard"], {
-  cwd: ROOT,
-  stdio: ["ignore", "inherit", "inherit"],
-});
+startServer(httpOnly);
 
 let copyTimer: ReturnType<typeof setTimeout> | null = null;
 watch(SRC, { recursive: true }, (_event, filename) => {
@@ -45,11 +44,10 @@ watch(SRC, { recursive: true }, (_event, filename) => {
 
 const cleanup = () => {
   tsc.kill();
-  serve.kill();
   process.exit(0);
 };
 
 process.on("SIGINT", cleanup);
 process.on("SIGTERM", cleanup);
 
-await Promise.all([tsc.exited, serve.exited]);
+await tsc.exited;

@@ -5,7 +5,9 @@
   "private": true,
   "scripts": {
     "dev": "bun run scripts/dev.ts",
+    "dev:http": "bun run scripts/dev.ts --http",
     "start": "bun run scripts/serve.ts",
+    "start:http": "bun run scripts/serve.ts --http",
     "build": "bun run scripts/build.ts",
     "test": "bun x playwright test",
     "test:ui": "bun x playwright test --ui",
