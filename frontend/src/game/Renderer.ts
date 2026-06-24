@@ -356,6 +356,25 @@ export class Renderer {
     }
   }
 
+  /** Return the pixel (x, y) of a note's head on the sheet, using the
+   *  coordinate state set by the most recent drawSheetMusic() call.
+   *  Returns null if the note falls outside the current view or if the
+   *  renderer has no valid layout yet. */
+  notePixelPosition(note: SongNote): { x: number; y: number } | null {
+    if (this.sheetBarW <= 0) return null;
+    const { sheetBarX: barX, sheetBarW: barW, sheetViewStart: vs, sheetViewEnd: ve } = this;
+    if (note.time < vs || note.time > ve) return null;
+
+    const staffLineSpacing = SHEET_STAFF_LINE_SPACING * this.sheetScale;
+    const pos = SHEET_NOTE_POSITIONS[note.key];
+    if (pos === undefined) return null;
+
+    const staffTop = note.hand === HandSide.Left ? this.sheetBassTop : this.sheetTrebleTop;
+    const x = barX + ((note.time - vs) / (ve - vs)) * barW;
+    const y = staffTop + (7 - pos) * (staffLineSpacing / 2);
+    return { x, y };
+  }
+
   private _getKeyForNote(noteName: string): string {
     return this._keyDisplayMap[noteName] || '';
   }
@@ -718,15 +737,57 @@ export class Renderer {
       ctx.textBaseline = 'top';
       ctx.fillText(label, lx, sheetTop - 10);
     };
+
+    /** Draw a glowing ring around the note at time `t`. */
+    const highlightNoteAt = (t: number, color: string, alpha: number): void => {
+      if (t < viewStart || t > viewEnd) return;
+      let best: SongNote | null = null;
+      let bestDiff = Infinity;
+      for (const n of trebleNotes) {
+        const d = Math.abs(n.time - t);
+        if (d < bestDiff) { bestDiff = d; best = n; }
+      }
+      for (const n of bassNotes) {
+        const d = Math.abs(n.time - t);
+        if (d < bestDiff) { bestDiff = d; best = n; }
+      }
+      if (!best) return;
+      const pixelPos = this.notePixelPosition(best);
+      if (!pixelPos) return;
+      const r = (SHEET_NOTE_RADIUS + 5) * this.sheetScale;
+      ctx.save();
+      ctx.globalAlpha = alpha;
+      ctx.beginPath();
+      ctx.arc(pixelPos.x, pixelPos.y, r, 0, Math.PI * 2);
+      ctx.strokeStyle = color;
+      ctx.lineWidth = 2.5 * this.sheetScale;
+      ctx.shadowColor = color;
+      ctx.shadowBlur = 10;
+      ctx.stroke();
+      ctx.restore();
+    };
+
     if (loopStart !== null && loopEnd !== null) {
       const lx0 = barX + ((loopStart - viewStart) / (viewEnd - viewStart)) * barW;
       const lx1 = barX + ((loopEnd - viewStart) / (viewEnd - viewStart)) * barW;
       ctx.save();
-      ctx.fillStyle = loop?.active ? 'rgba(170, 102, 255, 0.12)' : 'rgba(120, 90, 180, 0.06)';
+      ctx.fillStyle = loop?.active ? 'rgba(170, 102, 255, 0.20)' : 'rgba(120, 90, 180, 0.10)';
       ctx.fillRect(Math.min(lx0, lx1), sheetTop, Math.abs(lx1 - lx0), sheetBottom - sheetTop);
       ctx.restore();
       drawLoopMarker(loopStart, '#aa66ff', 'A');
       drawLoopMarker(loopEnd, '#aa66ff', 'B');
+      highlightNoteAt(loopStart, '#aa66ff', 0.7);
+      highlightNoteAt(loopEnd, '#aa66ff', 0.7);
+    } else if (loopDefining === LoopDefinitionState.End && loopStart !== null) {
+      // Start note selected — highlight it and show tentative region to right edge
+      drawLoopMarker(loopStart, '#aa66ff', 'A');
+      highlightNoteAt(loopStart, '#aa66ff', 0.9);
+      // Semi-transparent region from start to the visible right edge
+      const lx0 = barX + ((loopStart - viewStart) / (viewEnd - viewStart)) * barW;
+      ctx.save();
+      ctx.fillStyle = 'rgba(170, 102, 255, 0.07)';
+      ctx.fillRect(Math.max(lx0, barX), sheetTop, barX + barW - Math.max(lx0, barX), sheetBottom - sheetTop);
+      ctx.restore();
     } else if (loopDefining === LoopDefinitionState.Start && loopStart !== null) {
       drawLoopMarker(loopStart, '#aa66ff', 'A');
     }

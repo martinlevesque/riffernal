@@ -509,7 +509,7 @@ kbd {
 #loop-control {
   display: inline-flex;
   align-items: center;
-  gap: 0.4rem;
+  gap: 0.3rem;
   margin-left: 0.4rem;
   padding-left: 0.6rem;
   border-left: 1px solid #444;
@@ -552,14 +552,14 @@ kbd {
   background: rgba(120, 90, 180, 0.08);
 }
 
-.loop-btn-clear {
-  padding: 0.2rem 0.4rem;
-  border-color: #444;
+.loop-btn-play {
+  padding: 0.2rem 0.45rem;
 }
 
-.loop-btn-clear:hover {
-  border-color: var(--accent-red);
-  color: var(--accent-red);
+.loop-btn-play.play-active {
+  border-color: var(--accent-green);
+  color: var(--accent-green);
+  background: rgba(34, 255, 102, 0.15);
 }
 
 #loop-status {
@@ -568,6 +568,19 @@ kbd {
   min-width: 6em;
   text-align: right;
   letter-spacing: 0.05em;
+  margin-left: 0.2rem;
+  margin-right: 0.2rem;
+}
+
+.loop-btn-clear {
+  padding: 0.2rem 0.4rem;
+  border-color: #444;
+  margin-left: 0.2rem;
+}
+
+.loop-btn-clear:hover {
+  border-color: var(--accent-red);
+  color: var(--accent-red);
 }
 
 /* ============================================
