@@ -741,25 +741,24 @@ export class Renderer {
     /** Draw a glowing ring around the note at time `t`. */
     const highlightNoteAt = (t: number, color: string, alpha: number): void => {
       if (t < viewStart || t > viewEnd) return;
-      const nx = barX + ((t - viewStart) / (viewEnd - viewStart)) * barW;
-      // Find the note at this time to get its y position
-      const allNotes = [...trebleNotes, ...bassNotes];
       let best: SongNote | null = null;
       let bestDiff = Infinity;
-      for (const n of allNotes) {
+      for (const n of trebleNotes) {
+        const d = Math.abs(n.time - t);
+        if (d < bestDiff) { bestDiff = d; best = n; }
+      }
+      for (const n of bassNotes) {
         const d = Math.abs(n.time - t);
         if (d < bestDiff) { bestDiff = d; best = n; }
       }
       if (!best) return;
-      const pos = SHEET_NOTE_POSITIONS[best.key];
-      if (pos === undefined) return;
-      const staffTop = best.hand === HandSide.Left ? bassTop : trebleTop;
-      const ny = staffTop + (7 - pos) * (staffLineSpacing / 2);
+      const pixelPos = this.notePixelPosition(best);
+      if (!pixelPos) return;
       const r = (SHEET_NOTE_RADIUS + 5) * this.sheetScale;
       ctx.save();
       ctx.globalAlpha = alpha;
       ctx.beginPath();
-      ctx.arc(nx, ny, r, 0, Math.PI * 2);
+      ctx.arc(pixelPos.x, pixelPos.y, r, 0, Math.PI * 2);
       ctx.strokeStyle = color;
       ctx.lineWidth = 2.5 * this.sheetScale;
       ctx.shadowColor = color;

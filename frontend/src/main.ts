@@ -512,11 +512,11 @@ async function init(): Promise<void> {
   });
 
   // -- Hover cursor feedback for note selection ----------------------------
-  let hoverRAF: number | null = null;
   function setupHoverCursor(
     targetCanvas: HTMLCanvasElement,
     targetRenderer: Renderer,
   ): void {
+    let hoverRAF: number | null = null;
     targetCanvas.addEventListener('mousemove', (e) => {
       if (hoverRAF !== null) return;
       hoverRAF = requestAnimationFrame(() => {

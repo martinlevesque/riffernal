@@ -7,6 +7,11 @@ export const SCROLL_SPEED = 400;
 
 export const HIT_ZONE_Y_RATIO = 0.82;
 
+/** Safety margin for the time-window pre-filter in `findNearestNoteByClick`.
+ *  1.5× ensures notes slightly beyond the exact pixel radius are still
+ *  considered, accounting for stem/flag overshoot and rounding. */
+const CLICK_TIME_WINDOW_RATIO = 1.5;
+
 export interface LearningHitOutcome {
   results: HitResult[];
   wrong: boolean;
@@ -590,7 +595,7 @@ export class NoteManager {
     if (ve <= vs) return null;
 
     const clickTime = vs + ((clickX - renderer.sheetBarX) / renderer.sheetBarW) * (ve - vs);
-    const timeWindow = (maxRadius / renderer.sheetBarW) * (ve - vs) * 1.5;
+    const timeWindow = (maxRadius / renderer.sheetBarW) * (ve - vs) * CLICK_TIME_WINDOW_RATIO;
 
     let bestNote: SongNote | null = null;
     let bestDist = maxRadius * maxRadius;
