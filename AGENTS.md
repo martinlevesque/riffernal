@@ -26,11 +26,12 @@ Tests start a local dev server automatically, no manual server startup needed.
 
 ## TypeScript
 
-- Source code in `frontend/src/`
-- Compiled output to `dist/` (via `bun run build`, gitignored)
-  - JS: `dist/js/` (from tsc)
-  - Static assets copied from `frontend/`: `dist/index.html`, `dist/css/`, `dist/assets/`
-- Run `bun run typecheck` to type-check without emitting
+- Source code in `frontend/src/` (`.ts` files, imports use `.js` extensions)
+- Dev server transpiles TS on the fly via `Bun.Transpiler` — no separate compile step
+- Production build (`bun run build`) transpiles to `dist/js/` via `Bun.Transpiler`
+- Static assets copied from `frontend/`: `dist/index.html`, `dist/css/`, `dist/assets/`
+- `dist/` is gitignored
+- Run `bun run typecheck` (`tsc --noEmit`) to type-check without emitting
 
 ## Linting
 
