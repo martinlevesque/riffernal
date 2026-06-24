@@ -1,26 +1,36 @@
-import { spawnSync } from "bun";
-import { cpSync, existsSync, mkdirSync, rmSync } from "node:fs";
+import { cpSync, existsSync, mkdirSync, readFileSync, readdirSync, rmSync, statSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
 
 const ROOT = join(import.meta.dir, "..");
-const SRC = join(ROOT, "frontend");
+const SRC = join(ROOT, "frontend", "src");
 const DIST = join(ROOT, "dist");
 
 if (existsSync(DIST)) rmSync(DIST, { recursive: true, force: true });
 mkdirSync(DIST, { recursive: true });
 
-const tsc = spawnSync(["bun", "x", "tsc", "--project", join(ROOT, "tsconfig.build.json")], {
-  cwd: ROOT,
-  stdio: ["ignore", "inherit", "inherit"],
-});
+const transpiler = new Bun.Transpiler({ loader: "ts", target: "browser" });
 
-if (tsc.exitCode !== 0) {
-  console.error("TypeScript compilation failed");
-  process.exit(1);
+function walkDir(dir: string, callback: (filePath: string, relPath: string) => void): void {
+  for (const entry of readdirSync(dir)) {
+    const fullPath = join(dir, entry);
+    const stat = statSync(fullPath);
+    if (stat.isDirectory()) {
+      walkDir(fullPath, callback);
+    } else {
+      callback(fullPath, fullPath.slice(SRC.length + 1));
+    }
+  }
 }
 
+walkDir(SRC, (fullPath, relPath) => {
+  const outPath = join(DIST, "js", relPath.replace(/\.ts$/, ".js"));
+  mkdirSync(join(outPath, ".."), { recursive: true });
+  const code = readFileSync(fullPath, "utf-8");
+  writeFileSync(outPath, transpiler.transformSync(code));
+});
+
 for (const item of ["index.html", "css", "assets"]) {
-  cpSync(join(SRC, item), join(DIST, item), { recursive: true });
+  cpSync(join(ROOT, "frontend", item), join(DIST, item), { recursive: true });
 }
 
 console.log("Build complete → dist/");

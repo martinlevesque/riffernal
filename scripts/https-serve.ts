@@ -1,11 +1,14 @@
-import { existsSync, mkdirSync } from "node:fs";
+import { existsSync, mkdirSync, readFileSync } from "node:fs";
 import { networkInterfaces } from "node:os";
 import { join } from "node:path";
 import { spawnSync } from "bun";
 
 const ROOT = join(import.meta.dir, "..");
+const SRC = join(ROOT, "frontend", "src");
 const DIST = join(ROOT, "dist");
 const CERTS = join(ROOT, "certs");
+
+const transpiler = new Bun.Transpiler({ loader: "ts", target: "browser" });
 
 const MIME_TYPES: Record<string, string> = {
   ".html": "text/html; charset=utf-8",
@@ -97,6 +100,19 @@ function serveStatic(path: string): Response {
     });
   }
 
+  // On-the-fly TS transpilation for /js/*.js requests (dev server)
+  if (path.startsWith("/js/") && path.endsWith(".js")) {
+    const rel = path.slice(4, -3); // strip "/js/" and ".js"
+    const tsPath = join(SRC, `${rel}.ts`);
+    if (existsSync(tsPath)) {
+      const code = readFileSync(tsPath, "utf-8");
+      const js = transpiler.transformSync(code);
+      return new Response(js, {
+        headers: { "Content-Type": MIME_TYPES[".js"] },
+      });
+    }
+  }
+
   const indexPath = join(DIST, "index.html");
   if (existsSync(indexPath)) {
     return new Response(Bun.file(indexPath), {
@@ -107,45 +123,73 @@ function serveStatic(path: string): Response {
   return new Response("Not Found", { status: 404 });
 }
 
+function parsePort(): number {
+  const portArg = process.argv.indexOf("--port");
+  if (portArg !== -1 && process.argv[portArg + 1]) {
+    const p = Number.parseInt(process.argv[portArg + 1], 10);
+    if (Number.isNaN(p) || p < 1 || p > 65535) {
+      console.error(`Invalid port: ${process.argv[portArg + 1]}`);
+      process.exit(1);
+    }
+    return p;
+  }
+  if (process.env.PORT) {
+    const p = Number.parseInt(process.env.PORT, 10);
+    if (!Number.isNaN(p) && p >= 1 && p <= 65535) return p;
+  }
+  return 3000;
+}
+
+function startListening(port: number, httpOnly: boolean): void {
+  const localIP = getLocalIP();
+  const scheme = httpOnly ? "http" : "https";
+
+  try {
+    if (httpOnly) {
+      Bun.serve({
+        port,
+        fetch(req) {
+          const url = new URL(req.url);
+          return serveStatic(url.pathname);
+        },
+      });
+    } else {
+      generateCerts();
+      Bun.serve({
+        port,
+        tls: {
+          key: Bun.file(join(CERTS, "key.pem")),
+          cert: Bun.file(join(CERTS, "cert.pem")),
+        },
+        fetch(req) {
+          const url = new URL(req.url);
+          return serveStatic(url.pathname);
+        },
+      });
+    }
+  } catch (err: unknown) {
+    if (err instanceof Error && "code" in err && (err as { code: string }).code === "EADDRINUSE") {
+      console.error(`\n  Port ${port} is already in use. Try a different port:`);
+      console.error(`    bun run dev -- --port ${port + 1}\n`);
+      process.exit(1);
+    }
+    throw err;
+  }
+
+  console.log(`\n  ${scheme.toUpperCase()} server running:`);
+  console.log(`  → ${scheme}://localhost:${port}`);
+  console.log(`  → ${scheme}://${localIP}:${port}`);
+  if (!httpOnly) {
+    console.log(`\n  (Browsers will show a warning for the self-signed certificate)`);
+  }
+  console.log();
+}
+
 export function startServer(httpOnly = false): void {
   if (!existsSync(DIST)) {
     console.error(`dist/ not found. Run "bun run build" first.`);
     process.exit(1);
   }
 
-  const port = 3000;
-  const localIP = getLocalIP();
-
-  if (httpOnly) {
-    Bun.serve({
-      port,
-      fetch(req) {
-        const url = new URL(req.url);
-        return serveStatic(url.pathname);
-      },
-    });
-
-    console.log(`\n  HTTP server running:`);
-    console.log(`  → http://localhost:${port}`);
-    console.log(`  → http://${localIP}:${port}\n`);
-  } else {
-    generateCerts();
-
-    Bun.serve({
-      port,
-      tls: {
-        key: Bun.file(join(CERTS, "key.pem")),
-        cert: Bun.file(join(CERTS, "cert.pem")),
-      },
-      fetch(req) {
-        const url = new URL(req.url);
-        return serveStatic(url.pathname);
-      },
-    });
-
-    console.log(`\n  HTTPS server running:`);
-    console.log(`  → https://localhost:${port}`);
-    console.log(`  → https://${localIP}:${port}`);
-    console.log(`\n  (Browsers will show a warning for the self-signed certificate)\n`);
-  }
+  startListening(parsePort(), httpOnly);
 }
