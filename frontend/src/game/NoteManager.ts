@@ -1,6 +1,10 @@
+// Manages note state, timing, hit detection, and learning mode.
+// Tracks active notes, handles press/release events, and resolves
+// notes based on timing windows and scoring rules.
+
 import { NOTE_TO_LANE, handForKey, handColor, HandSide, PracticeHand } from '../utils/notes.js';
 import type { Song, Note } from '../utils/MidiParser.js';
-import type { Renderer } from './Renderer.js';
+import type { Renderer } from './rendering/Renderer.js';
 import { Scoring, TIMING, TAP_NOTE_THRESHOLD, EARLY_HIT_WINDOW, EARLY_PENALTY_RATIO, LEARNING_CHORD_WINDOW, gradeFromDiff, NoteGrade } from './scoring.js';
 
 export const SCROLL_SPEED = 400;

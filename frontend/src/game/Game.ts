@@ -2,7 +2,7 @@
 // Supports PLAY mode (full scoring) and LEARN mode (freezes at notes,
 // optional one-hand practice with auto-played accompaniment).
 
-import { Renderer } from './Renderer.js';
+import { Renderer } from './rendering/Renderer.js';
 import { LoopDefinitionState } from './Loop.js';
 export { LoopDefinitionState };
 import { NoteManager, SCROLL_SPEED, HIT_ZONE_Y_RATIO } from './NoteManager.js';
@@ -20,7 +20,7 @@ import type { MidiInput } from '../input/MidiInput.js';
 import type { ScoreDisplay } from '../ui/ScoreDisplay.js';
 import type { Song } from '../utils/MidiParser.js';
 import { LoopController } from './LoopController.js';
-import { ResultsScreen } from './ResultsScreen.js';
+import { ResultsScreen } from './rendering/ResultsScreen.js';
 
 export enum GameState {
   Menu = 'menu',
