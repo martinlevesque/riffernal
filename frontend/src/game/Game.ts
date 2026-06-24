@@ -57,6 +57,7 @@ export class Game {
   speedMultiplier = 1.0;
   scoreDisplay: ScoreDisplay | null = null;
   learningMode = false;
+  loopPlay = false;
   practiceHand: PracticeHand = PracticeHand.Both;
   private _usedLearningMode = false;
   songBpm = 120;
@@ -142,8 +143,8 @@ export class Game {
     if (result === LoopDefinitionState.Off) this._applyScoringEnabled();
     return result;
   }
-  deactivateLoop(): void { this.loop.deactivate(); this._applyScoringEnabled(); }
-  clearLoop(): void { this.loop.clear(); this._applyScoringEnabled(); }
+  deactivateLoop(): void { this.loop.deactivate(); this.loopPlay = false; this._applyScoringEnabled(); }
+  clearLoop(): void { this.loop.clear(); this.loopPlay = false; this._applyScoringEnabled(); }
 
   // -- Frame time & loop wrap -----------------------------------------------
 
@@ -151,7 +152,7 @@ export class Game {
     const rawTime = this.refGameTime + (now - this.refRealTime) * this.speedMultiplier;
 
     let frameTime = rawTime;
-    if (this.learningMode && this.state === GameState.Playing) {
+    if (this.learningMode && !this.loopPlay && this.state === GameState.Playing) {
       const waitTime = this.noteManager.getEarliestWaitTime(rawTime);
       if (waitTime !== null) frameTime = Math.min(rawTime, waitTime);
       if (frameTime < rawTime) {

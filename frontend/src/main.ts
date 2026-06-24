@@ -59,6 +59,7 @@ async function init(): Promise<void> {
 
   const defineLoopBtn = document.getElementById('btn-define-loop')!;
   const clearLoopBtn = document.getElementById('btn-clear-loop')!;
+  const loopPlayBtn = document.getElementById('btn-loop-play')!;
   const loopStatus = document.getElementById('loop-status')!;
 
   // -- Full sheet view ---------------------------------------------------
@@ -103,6 +104,12 @@ async function init(): Promise<void> {
     defineLoopBtn.classList.toggle('loop-active', game.loopActive);
     const stored = !game.loopActive && game.loopStart !== null && game.loopEnd !== null;
     defineLoopBtn.classList.toggle('loop-stored', stored);
+
+    const showLoopPlay = game.loopActive && game.learningMode;
+    loopPlayBtn.style.display = showLoopPlay ? '' : 'none';
+    loopPlayBtn.classList.toggle('play-active', game.loopPlay);
+    loopPlayBtn.textContent = game.loopPlay ? '\u23F8' : '\u25B6';
+
     if (phase === 'start') {
       loopStatus.textContent = 'Click start note';
     } else if (phase === 'end') {
@@ -141,6 +148,11 @@ async function init(): Promise<void> {
     game.clearLoop();
     updateLoopUI();
     if (sheetOpen) renderSheetPage();
+  });
+
+  loopPlayBtn.addEventListener('click', () => {
+    game.loopPlay = !game.loopPlay;
+    updateLoopUI();
   });
 
   handLeft.addEventListener('click', () => {
