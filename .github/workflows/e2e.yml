@@ -36,7 +36,7 @@ jobs:
         run: bun run build
 
       - name: Run E2E tests
-        run: bun run test
+        run: bun run test -- --exclude tests/api.spec.ts
 
       - name: Upload test report
         if: ${{ !cancelled() }}

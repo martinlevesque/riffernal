@@ -214,6 +214,75 @@ body {
   box-shadow: var(--glow-blue);
 }
 
+.song-last-played {
+  font-size: 0.7rem;
+  color: var(--text-secondary);
+  margin-top: 0.2rem;
+  letter-spacing: 0.05em;
+  opacity: 0.7;
+}
+
+/* ============================================
+   CATEGORY SECTIONS (menu song list)
+   ============================================ */
+
+.category-section {
+  margin: 0.5rem 0 1rem 0;
+  max-width: 440px;
+  margin-left: auto;
+  margin-right: auto;
+}
+
+.category-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 0.5rem 1rem;
+  cursor: pointer;
+  color: var(--accent-purple);
+  font-size: 0.85rem;
+  letter-spacing: 0.15em;
+  text-transform: uppercase;
+  border-bottom: 1px solid #333;
+  user-select: none;
+  transition: color 0.15s;
+}
+
+.category-header:hover {
+  color: var(--text-primary);
+}
+
+.category-header .category-count {
+  font-size: 0.7rem;
+  color: var(--text-secondary);
+  letter-spacing: 0.1em;
+}
+
+.category-header .category-collapse-icon {
+  font-size: 0.75rem;
+  color: var(--text-secondary);
+  margin-left: 0.4rem;
+}
+
+.category-section.collapsed .category-collapse-icon::before {
+  content: "\25B6";
+}
+
+.category-section:not(.collapsed) .category-collapse-icon::before {
+  content: "\25BC";
+}
+
+.category-section.collapsed .category-songs {
+  display: none;
+}
+
+.empty-song-list {
+  text-align: center;
+  color: var(--text-secondary);
+  padding: 2rem 1rem;
+  font-size: 0.85rem;
+}
+
 .song-title {
   font-size: 1.1rem;
   font-weight: bold;
@@ -957,4 +1026,114 @@ kbd {
 .bg-track-toggle:hover {
   border-color: var(--accent-green);
   color: var(--accent-green);
+}
+
+/* ============================================
+   CATEGORY SELECT MODAL
+   ============================================ */
+
+#category-select-screen.active {
+  background: rgba(10, 10, 10, 0.95);
+  pointer-events: auto;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 20;
+}
+
+#category-select-card {
+  background: var(--bg-surface);
+  border: 1px solid #333;
+  border-radius: 6px;
+  padding: 2rem;
+  max-width: 460px;
+  width: 90%;
+  max-height: 80vh;
+  display: flex;
+  flex-direction: column;
+}
+
+#category-select-card h2 {
+  font-size: 1.4rem;
+  letter-spacing: 0.2em;
+  text-align: center;
+  margin-bottom: 0.3rem;
+}
+
+#category-select-count {
+  font-size: 0.8rem;
+  color: var(--text-secondary);
+  text-align: center;
+  margin-bottom: 1rem;
+}
+
+#category-list {
+  list-style: none;
+  flex: 1;
+  overflow-y: auto;
+  margin: 0 0 1rem 0;
+  padding: 0;
+  max-height: 40vh;
+}
+
+.category-item {
+  padding: 0.6rem 0.9rem;
+  border: 1px solid #333;
+  border-radius: 4px;
+  margin-bottom: 0.4rem;
+  cursor: pointer;
+  transition: all 0.15s;
+  color: var(--text-primary);
+  font-size: 0.9rem;
+}
+
+.category-item:hover {
+  border-color: var(--accent-purple);
+  background: var(--bg-surface-2);
+}
+
+.category-item.selected {
+  border-color: var(--accent-purple);
+  background: rgba(170, 102, 255, 0.15);
+  color: var(--accent-purple);
+}
+
+#category-create {
+  display: flex;
+  gap: 0.5rem;
+  margin-bottom: 1rem;
+}
+
+#new-category-name {
+  flex: 1;
+  background: var(--bg-dark);
+  border: 1px solid #444;
+  border-radius: 2px;
+  padding: 0.5rem 0.7rem;
+  color: var(--text-primary);
+  font-family: inherit;
+  font-size: 0.85rem;
+  outline: none;
+}
+
+#new-category-name:focus {
+  border-color: var(--accent-purple);
+}
+
+#category-create .btn {
+  margin: 0;
+  padding: 0.5rem 0.9rem;
+  font-size: 0.8rem;
+  white-space: nowrap;
+}
+
+#category-select-actions {
+  display: flex;
+  justify-content: space-between;
+  gap: 0.8rem;
+}
+
+#category-select-actions .btn {
+  margin: 0;
+  flex: 1;
 }

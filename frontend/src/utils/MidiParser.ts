@@ -29,6 +29,9 @@ export interface Song {
   selectedTrackIndices?: number[];
   trackHands?: Record<number, HandSide>;
   backgroundTracks?: number[];
+  id?: number;
+  categoryId?: number | null;
+  lastPlayedAt?: string | null;
 }
 
 export function normalizeSong(song: Song): Song {
@@ -41,6 +44,8 @@ export function normalizeSong(song: Song): Song {
       .map((t) => t.index)
       .filter((i) => !selectedSet.has(i));
   }
+  if (song.categoryId === undefined) song.categoryId = null;
+  if (song.lastPlayedAt === undefined) song.lastPlayedAt = null;
   return song;
 }
 
