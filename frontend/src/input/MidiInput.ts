@@ -23,13 +23,27 @@ export class MidiInput {
 
     try {
       this.midiAccess = await navigator.requestMIDIAccess();
-      this.midiAccess.onstatechange = () => this._onStateChange();
+      console.log('[MIDI] Access granted.');
+      this._logDevices();
+      this.midiAccess.onstatechange = (e) => {
+        console.log('[MIDI] statechange:', e?.port?.name, e?.port?.state, e?.port?.connection);
+        this._onStateChange();
+      };
       this._connectInputs();
       return true;
     } catch (_err) {
+      console.warn('[MIDI] Access denied:', _err);
       this._updateStatus(false, 'MIDI access denied');
       return false;
     }
+  }
+
+  private _logDevices(): void {
+    if (!this.midiAccess) return;
+    const inputs = Array.from(this.midiAccess.inputs.values()).map(i => `${i.name} (${i.manufacturer ?? '?'})`);
+    const outputs = Array.from(this.midiAccess.outputs.values()).map(o => `${o.name} (${o.manufacturer ?? '?'})`);
+    console.log('[MIDI] inputs:', inputs);
+    console.log('[MIDI] outputs:', outputs);
   }
 
   stop(): void {
@@ -44,8 +58,11 @@ export class MidiInput {
   private _connectInputs(): void {
     if (!this.midiAccess) return;
 
+    this._logDevices();
+
     let found = false;
     for (const input of this.midiAccess.inputs.values()) {
+      console.log('[MIDI] Connecting input:', input.name, input.manufacturer);
       input.onmidimessage = this._onMidiMessage;
       found = true;
     }
@@ -66,17 +83,23 @@ export class MidiInput {
   private _handleMidiMessage(event: MIDIMessageEvent): void {
     if (!this.enabled) return;
 
-    const [status, data1, data2] = event.data ?? [];
+    const data = event.data ?? [];
+    const [status, data1, data2] = data;
     const command = status & 0xf0;
     const noteNumber = data1;
     const velocity = data2;
 
     const noteName = midiToNoteName(noteNumber);
-    if (!noteName || !NOTE_TO_LANE.has(noteName)) return;
+    if (!noteName || !NOTE_TO_LANE.has(noteName)) {
+      console.log('[MIDI] Ignored:', data, '->', noteName);
+      return;
+    }
 
     if (command === 0x90 && velocity > 0) {
+      console.log('[MIDI] Note On:', noteName, 'vel', velocity);
       if (this.onNoteOn) this.onNoteOn(noteName, `midi_${noteNumber}`);
     } else if (command === 0x80 || (command === 0x90 && velocity === 0)) {
+      console.log('[MIDI] Note Off:', noteName);
       if (this.onNoteOff) this.onNoteOff(noteName, `midi_${noteNumber}`);
     }
   }
