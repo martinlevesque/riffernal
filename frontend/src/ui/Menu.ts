@@ -146,7 +146,26 @@ export class Menu {
     }
 
     const nonEmpty = groups.filter((g) => g.songs.length > 0);
+    nonEmpty.sort((a, b) => {
+      const aLast = this._latestPlay(a.songs);
+      const bLast = this._latestPlay(b.songs);
+      if (aLast !== bLast) return bLast - aLast;
+      if (a.id === null) return 1;
+      if (b.id === null) return -1;
+      return a.name.localeCompare(b.name, undefined, { sensitivity: "base" });
+    });
     return nonEmpty;
+  }
+
+  private _latestPlay(songs: Song[]): number {
+    let latest = 0;
+    for (const s of songs) {
+      if (s.lastPlayedAt) {
+        const ts = new Date(`${s.lastPlayedAt.replace(" ", "T")}Z`).getTime();
+        if (ts > latest) latest = ts;
+      }
+    }
+    return latest;
   }
 
   private _render(): void {
