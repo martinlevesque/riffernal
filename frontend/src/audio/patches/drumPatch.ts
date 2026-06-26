@@ -1,4 +1,5 @@
 import type { Patch, PatchNote } from './Patch.js';
+import { getDistortionCurve } from './shared.js';
 
 function isKick(midi: number): boolean { return midi === 35 || midi === 36; }
 function isSnare(midi: number): boolean { return midi === 38 || midi === 40 || midi === 37; }
@@ -9,14 +10,30 @@ function isCymbal(midi: number): boolean { return midi === 49 || midi === 52 || 
 function isClap(midi: number): boolean { return midi === 39; }
 function isRide(midi: number): boolean { return midi === 51 || midi === 53 || midi === 59; }
 
-function buildNoise(ctx: AudioContext, duration: number): { source: AudioBufferSourceNode; output: GainNode } {
-  const sampleRate = ctx.sampleRate;
-  const length = Math.ceil(sampleRate * duration);
-  const buffer = ctx.createBuffer(1, length, sampleRate);
+const _noiseBufferCache = new WeakMap<AudioContext, Map<number, AudioBuffer>>();
+
+function _getNoiseBuffer(ctx: AudioContext, duration: number): AudioBuffer {
+  let bucketMap = _noiseBufferCache.get(ctx);
+  if (!bucketMap) {
+    bucketMap = new Map();
+    _noiseBufferCache.set(ctx, bucketMap);
+  }
+  const bucket = Math.round(duration * 10) / 10;
+  let buffer = bucketMap.get(bucket);
+  if (buffer) return buffer;
+
+  const length = Math.ceil(ctx.sampleRate * bucket);
+  buffer = ctx.createBuffer(1, length, ctx.sampleRate);
   const data = buffer.getChannelData(0);
   for (let i = 0; i < length; i++) {
     data[i] = Math.random() * 2 - 1;
   }
+  bucketMap.set(bucket, buffer);
+  return buffer;
+}
+
+function buildNoise(ctx: AudioContext, duration: number): { source: AudioBufferSourceNode; output: GainNode } {
+  const buffer = _getNoiseBuffer(ctx, duration);
   const source = ctx.createBufferSource();
   source.buffer = buffer;
   const output = ctx.createGain();
@@ -25,14 +42,8 @@ function buildNoise(ctx: AudioContext, duration: number): { source: AudioBufferS
 }
 
 function buildDistortion(ctx: AudioContext, amount: number): WaveShaperNode {
-  const samples = 256;
-  const curve = new Float32Array(samples);
-  for (let i = 0; i < samples; i++) {
-    const x = (i * 2) / samples - 1;
-    curve[i] = ((Math.PI + amount) * x) / (Math.PI + amount * Math.abs(x));
-  }
   const ws = ctx.createWaveShaper();
-  ws.curve = curve;
+  ws.curve = getDistortionCurve(amount);
   ws.oversample = '4x';
   return ws;
 }

@@ -315,10 +315,18 @@ export class Renderer {
 
     ctx.globalAlpha = alpha;
 
+    let waitingGlowWidth = 0;
     if (waiting) {
       const pulse = 0.5 + 0.5 * Math.sin(performance.now() / 200 * 3.2);
-      ctx.shadowColor = drawColor;
-      ctx.shadowBlur = 8 + pulse * 16;
+      waitingGlowWidth = 4 + pulse * 8;
+    }
+
+    if (waitingGlowWidth > 0) {
+      ctx.globalAlpha = alpha * 0.25;
+      ctx.fillStyle = drawColor;
+      roundRect(ctx, L.drawX - waitingGlowWidth, L.drawY - waitingGlowWidth, L.scaledWidth + waitingGlowWidth * 2, L.scaledHeadHeight + L.scaledTailHeight + waitingGlowWidth * 2, L.cornerRadius + waitingGlowWidth);
+      ctx.fill();
+      ctx.globalAlpha = alpha;
     }
 
     if (L.scaledTailHeight > 0.5) {
@@ -337,10 +345,6 @@ export class Renderer {
     roundRect(ctx, L.drawX, headDrawY, L.scaledWidth, L.scaledHeadHeight, L.cornerRadius);
     ctx.fill();
     ctx.globalAlpha = alpha;
-
-    if (waiting) {
-      ctx.shadowBlur = 0;
-    }
 
     if (holding) {
       const cx = L.drawX + L.scaledWidth / 2;
@@ -624,10 +628,17 @@ export class Renderer {
       ? barX + ((currentTime - viewStart) / (viewEnd - viewStart)) * barW
       : barX;
     ctx.fillStyle = PLAYBACK_CURSOR_COLOR;
-    ctx.shadowColor = PLAYBACK_CURSOR_COLOR;
-    ctx.shadowBlur = 4;
-    ctx.fillRect(cursorX - (viewWindow ? 1 : 0.5), sheetTop, viewWindow ? 2 : 1.5, sheetBottom - sheetTop);
-    ctx.shadowBlur = 0;
+    if (viewWindow) {
+      ctx.globalAlpha = 0.25;
+      ctx.fillRect(cursorX - 4, sheetTop, 8, sheetBottom - sheetTop);
+      ctx.globalAlpha = 1;
+      ctx.fillRect(cursorX - 1, sheetTop, 2, sheetBottom - sheetTop);
+    } else {
+      ctx.globalAlpha = 0.25;
+      ctx.fillRect(cursorX - 3, sheetTop, 6, sheetBottom - sheetTop);
+      ctx.globalAlpha = 1;
+      ctx.fillRect(cursorX - 0.5, sheetTop, 1.5, sheetBottom - sheetTop);
+    }
   }
 
   private _drawLoopRegion(
@@ -645,10 +656,10 @@ export class Renderer {
       if (t < viewStart || t > viewEnd) return;
       const lx = barX + ((t - viewStart) / (viewEnd - viewStart)) * barW;
       ctx.fillStyle = color;
-      ctx.shadowColor = color;
-      ctx.shadowBlur = 6;
+      ctx.globalAlpha = 0.2;
+      ctx.fillRect(lx - 3, sheetTop, 6, sheetBottom - sheetTop);
+      ctx.globalAlpha = 1;
       ctx.fillRect(lx - 1, sheetTop, 2, sheetBottom - sheetTop);
-      ctx.shadowBlur = 0;
       ctx.font = 'bold 9px sans-serif';
       ctx.textAlign = 'center';
       ctx.textBaseline = 'top';
@@ -677,8 +688,6 @@ export class Renderer {
       ctx.arc(pixelPos.x, pixelPos.y, r, 0, Math.PI * 2);
       ctx.strokeStyle = color;
       ctx.lineWidth = 2.5 * this.sheetScale;
-      ctx.shadowColor = color;
-      ctx.shadowBlur = 10;
       ctx.stroke();
       ctx.restore();
     };
@@ -709,15 +718,18 @@ export class Renderer {
 
   drawParticles(): void {
     const ctx = this.ctx;
-    for (let i = this.particles.length - 1; i >= 0; i--) {
-      const p = this.particles[i];
+    const particles = this.particles;
+    let i = 0;
+    while (i < particles.length) {
+      const p = particles[i];
       p.x += p.vx;
       p.y += p.vy;
       p.vy += 0.15;
       p.life -= 0.025;
 
       if (p.life <= 0) {
-        this.particles.splice(i, 1);
+        particles[i] = particles[particles.length - 1];
+        particles.pop();
         continue;
       }
 
@@ -726,6 +738,7 @@ export class Renderer {
       ctx.beginPath();
       ctx.arc(p.x, p.y, p.size * p.life, 0, Math.PI * 2);
       ctx.fill();
+      i++;
     }
     ctx.globalAlpha = 1;
   }
