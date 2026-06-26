@@ -132,6 +132,12 @@ function noteNameFromIdx(idx: number): string {
   return NOTE_NAMES[idx] ?? 'C4';
 }
 
+export function whiteKeyWidth(totalWidth: number, visibleRange?: VisibleRange | null): number {
+  return visibleRange
+    ? totalWidth / countWhiteKeysInRange(visibleRange)
+    : totalWidth / WHITE_KEY_COUNT;
+}
+
 const _layoutCache = new Map<string, PianoKeyLayout>();
 let _cachedWidth = -1;
 let _cachedRangeKey = '';

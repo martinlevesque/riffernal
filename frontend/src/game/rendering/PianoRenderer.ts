@@ -1,7 +1,7 @@
 // Piano keyboard and hit-zone indicator rendering with off-screen
 // cache. Draws white/black keys, labels, and press feedback.
 
-import { NOTE_NAMES, NOTE_COLORS, getPianoKeyLayout, WHITE_KEY_COUNT, BLACK_KEY_WIDTH_RATIO, NOTE_SHORT_NAMES, countWhiteKeysInRange } from '../../utils/notes.js';
+import { NOTE_NAMES, NOTE_COLORS, getPianoKeyLayout, BLACK_KEY_WIDTH_RATIO, NOTE_SHORT_NAMES, whiteKeyWidth } from '../../utils/notes.js';
 import type { VisibleRange } from '../../utils/notes.js';
 import { HIT_ZONE_Y_RATIO } from '../NoteManager.js';
 
@@ -73,9 +73,7 @@ export class PianoRenderer {
     const pianoBottomY = height;
     const OCTAVE_NOTES = ['C1', 'C2', 'C3', 'C4', 'C5', 'C6', 'C7', 'C8'];
     ctx.fillStyle = '#555';
-    const keyWidth = visibleRange
-      ? width / countWhiteKeysInRange(visibleRange)
-      : width / WHITE_KEY_COUNT;
+    const keyWidth = whiteKeyWidth(width, visibleRange);
     ctx.font = `${Math.max(8, keyWidth * 0.22)}px Courier New`;
     ctx.textAlign = 'center';
     for (const noteName of OCTAVE_NOTES) {
@@ -108,14 +106,12 @@ export class PianoRenderer {
     const ctx = this._cache.getContext('2d')!;
     ctx.clearRect(0, 0, width, totalH);
 
-    const whiteKeyWidth = visibleRange
-      ? width / countWhiteKeysInRange(visibleRange)
-      : width / WHITE_KEY_COUNT;
-    const blackKeyWidth = whiteKeyWidth * BLACK_KEY_WIDTH_RATIO;
+    const wKeyWidth = whiteKeyWidth(width, visibleRange);
+    const blackKeyWidth = wKeyWidth * BLACK_KEY_WIDTH_RATIO;
     const blackKeyHeight = pianoH * BLACK_KEY_HEIGHT_RATIO;
 
     this._drawKeyIndicators(ctx, pressedLanes, hitZoneY, offsetY, width, visibleRange);
-    this._drawWhiteKeys(ctx, pressedLanes, pianoTop, offsetY, width, pianoH, whiteKeyWidth, visibleRange);
+    this._drawWhiteKeys(ctx, pressedLanes, pianoTop, offsetY, width, pianoH, wKeyWidth, visibleRange);
     this._drawBlackKeys(ctx, pressedLanes, pianoTop, offsetY, width, blackKeyWidth, blackKeyHeight, visibleRange);
   }
 

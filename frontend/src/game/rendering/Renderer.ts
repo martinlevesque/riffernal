@@ -1,7 +1,7 @@
 // Main canvas renderer: highway, notes, sheet music, particles,
 // and playback cursor. Delegates piano rendering to PianoRenderer.
 
-import { NOTE_NAMES, getPianoKeyLayout, WHITE_KEY_COUNT, handForKey, handColor, HandSide, NOTE_SHORT_NAMES, countWhiteKeysInRange } from '../../utils/notes.js';
+import { NOTE_NAMES, getPianoKeyLayout, WHITE_KEY_COUNT, handForKey, handColor, HandSide, NOTE_SHORT_NAMES, whiteKeyWidth, countWhiteKeysInRange } from '../../utils/notes.js';
 import type { VisibleRange } from '../../utils/notes.js';
 import { KEYBOARD_MAP } from '../../input/KeyboardInput.js';
 import { HIT_ZONE_Y_RATIO } from '../NoteManager.js';
@@ -224,9 +224,7 @@ export class Renderer {
     const hitZoneY = this.height * HIT_ZONE_Y_RATIO;
     const highwayTop = 0;
     const highwayBottom = hitZoneY + HIGHWAY_BELOW_HIT_ZONE;
-    const whiteKeyWidth = visibleRange
-      ? this.width / countWhiteKeysInRange(visibleRange)
-      : this.width / WHITE_KEY_COUNT;
+    const keyWidth = whiteKeyWidth(this.width, visibleRange);
 
     ctx.fillStyle = HIGHWAY_BG;
     ctx.fillRect(0, highwayTop, this.width, highwayBottom - highwayTop);
@@ -237,7 +235,7 @@ export class Renderer {
       ? countWhiteKeysInRange(visibleRange)
       : WHITE_KEY_COUNT;
     for (let i = 1; i < laneCount; i++) {
-      const x = i * whiteKeyWidth;
+      const x = i * keyWidth;
       ctx.beginPath();
       ctx.moveTo(x, highwayTop);
       ctx.lineTo(x, highwayBottom);

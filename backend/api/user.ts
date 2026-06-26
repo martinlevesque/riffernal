@@ -1,5 +1,5 @@
 import { getUserGameSettings, updateUserGameSettings, type GameSettings } from "../db.ts";
-import { json, parseJson, errMsg, type Handler } from "./router.ts";
+import { json, parseJson, type Handler } from "./router.ts";
 
 export const userRoutes = [
   {
