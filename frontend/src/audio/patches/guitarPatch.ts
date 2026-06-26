@@ -1,4 +1,5 @@
 import type { Patch } from './Patch.js';
+import { getDistortionCurve } from './shared.js';
 
 function buildGuitar(ctx: AudioContext, freq: number, startTime: number, distortion: number): { output: GainNode; release: (ctx: AudioContext, stopTime: number) => void } {
   const osc1 = ctx.createOscillator();
@@ -20,14 +21,7 @@ function buildGuitar(ctx: AudioContext, freq: number, startTime: number, distort
   gain1.gain.value = 0.45;
   gain2.gain.value = 0.45;
 
-  // Distortion curve
-  const samples = 256;
-  const curve = new Float32Array(samples);
-  for (let i = 0; i < samples; i++) {
-    const x = (i * 2) / samples - 1;
-    curve[i] = ((Math.PI + distortion) * x) / (Math.PI + distortion * Math.abs(x));
-  }
-  distortionNode.curve = curve;
+  distortionNode.curve = getDistortionCurve(distortion);
   distortionNode.oversample = '2x';
 
   // Filter: start bright, settle to mid-range (aligned with metalPatch character)

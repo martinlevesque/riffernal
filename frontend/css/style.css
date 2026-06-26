@@ -50,6 +50,8 @@ body {
   position: absolute;
   top: 0;
   left: 0;
+  will-change: transform;
+  contain: strict;
 }
 
 #ui-overlay {
@@ -510,6 +512,7 @@ kbd {
   font-weight: bold;
   pointer-events: none;
   z-index: 11;
+  contain: layout style;
 }
 
 #score-value {
