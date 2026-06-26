@@ -22,8 +22,14 @@ export default defineConfig({
   },
   projects: [
     {
-      name: 'chromium',
+      name: 'e2e',
+      testDir: './tests',
+      testIgnore: ['**/api/**'],
       use: { browserName: 'chromium' },
+    },
+    {
+      name: 'api',
+      testDir: './tests/api',
     },
   ],
 });
