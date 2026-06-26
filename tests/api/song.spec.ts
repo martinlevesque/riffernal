@@ -1,5 +1,5 @@
 import { test, expect, type APIRequestContext } from "@playwright/test";
-import { wipeDatabase } from "../helpers.js";
+import { wipeDatabase, cleanupSongs, cleanupCategoriesByLabel } from "../helpers.js";
 
 const MIDI_HEADER = [0x4d, 0x54, 0x68, 0x64, 0x00, 0x00, 0x00, 0x06, 0x00, 0x00, 0x00, 0x01, 0x01, 0xe0];
 
@@ -34,38 +34,6 @@ async function createCategory(
   expect(res.ok()).toBeTruthy();
   const body = await res.json();
   return { id: body.id, name: body.name };
-}
-
-async function cleanupSongs(request: APIRequestContext, label: RegExp): Promise<void> {
-  const res = await request.get("/api/songs");
-  expect(res.ok()).toBeTruthy();
-  const songs = (await res.json()) as Array<{ id: number; title: string }>;
-  for (const song of songs) {
-    if (label.test(song.title)) {
-      await request.delete(`/api/songs/${song.id}`);
-    }
-  }
-}
-
-async function cleanupCategories(request: APIRequestContext, label: RegExp): Promise<void> {
-  const res = await request.get("/api/categories");
-  expect(res.ok()).toBeTruthy();
-  const cats = (await res.json()) as Array<{ id: number; name: string }>;
-
-  for (const cat of cats) {
-    if (label.test(cat.name)) {
-      const songsRes = await request.get("/api/songs");
-      const songs = (await songsRes.json()) as Array<{ id: number; categoryId: number | null }>;
-
-      for (const song of songs) {
-        if (song.categoryId === cat.id) {
-          await request.delete(`/api/songs/${song.id}`);
-        }
-      }
-
-      await request.delete(`/api/categories/${cat.id}`);
-    }
-  }
 }
 
 test.beforeAll(async ({ request }: { request: APIRequestContext }) => {
@@ -170,7 +138,7 @@ test.describe("API: songs CRUD", () => {
 
   test("PUT /api/songs/:id updates category assignment", async ({ request }) => {
     await cleanupSongs(request, /^E2E-Cat$/);
-    await cleanupCategories(request, /^E2E-Cat$/);
+    await cleanupCategoriesByLabel(request, /^E2E-Cat$/);
 
     const cat = await createCategory(request, "E2E-Cat");
     const midi = buildMidi("e2e-cat.mid");
@@ -200,7 +168,7 @@ test.describe("API: songs CRUD", () => {
     expect(after.categoryId).toBeNull();
 
     await cleanupSongs(request, /^E2E-Cat$/);
-    await cleanupCategories(request, /^E2E-Cat$/);
+    await cleanupCategoriesByLabel(request, /^E2E-Cat$/);
   });
 
   test("PUT /api/songs/:id/play sets last_played_at", async ({ request }) => {

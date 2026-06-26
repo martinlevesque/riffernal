@@ -1,9 +1,7 @@
 import type { Song } from "../utils/MidiParser.js";
 import {
-  fetchSongs,
   fetchCategories,
   type CategoryData,
-  type SongSummary,
 } from "../api/SongApi.js";
 
 interface CategoryGroup {
@@ -40,24 +38,6 @@ export class Menu {
     });
   }
 
-  get songCount(): number {
-    return this.songs.length;
-  }
-
-  async refreshFromApi(): Promise<void> {
-    try {
-      const [summaries, categories] = await Promise.all([
-        fetchSongs(),
-        fetchCategories(),
-      ]);
-      this.categories = categories;
-      this.songs = summaries.map(this._summaryToSong);
-      this._render();
-    } catch (err) {
-      console.error("Failed to refresh songs from API:", err);
-    }
-  }
-
   async loadCategories(): Promise<void> {
     try {
       this.categories = await fetchCategories();
@@ -75,20 +55,6 @@ export class Menu {
       console.error("Failed to refresh categories:", err);
     }
     this._render();
-  }
-
-  private _summaryToSong(s: SongSummary): Song {
-    return {
-      id: s.id,
-      title: s.title,
-      artist: s.artist || "",
-      bpm: s.bpm,
-      difficulty: s.difficulty,
-      notes: [],
-      imported: s.imported,
-      categoryId: s.categoryId,
-      lastPlayedAt: s.lastPlayedAt,
-    };
   }
 
   private _loadCollapsed(): Set<string> {
@@ -201,14 +167,9 @@ export class Menu {
     }
 
     const groups = this._groupSongs();
-    let firstRendered = false;
 
     for (const group of groups) {
-      const section = this._renderGroup(group);
-      if (!firstRendered && group.songs.length > 0) {
-        firstRendered = true;
-      }
-      this.songListEl.appendChild(section);
+      this.songListEl.appendChild(this._renderGroup(group));
     }
 
     if (this.selectedSong && !this.songs.includes(this.selectedSong)) {
@@ -262,13 +223,31 @@ export class Menu {
     const el = document.createElement("div");
     el.className = `song-item${song.imported ? " imported" : ""}`;
     el.dataset.songId = song.id !== undefined ? String(song.id) : "";
+
+    const title = document.createElement("div");
+    title.className = "song-title";
+    title.textContent = song.title;
+
+    const artist = document.createElement("div");
+    artist.className = "song-artist";
+    artist.textContent = song.artist || "";
+
+    const difficulty = document.createElement("span");
+    difficulty.className = `song-difficulty difficulty-${song.difficulty}`;
+    difficulty.textContent = song.difficulty;
+
+    el.appendChild(title);
+    el.appendChild(artist);
+    el.appendChild(difficulty);
+
     const lastPlayed = this._formatLastPlayed(song.lastPlayedAt);
-    el.innerHTML = `
-      <div class="song-title">${song.title}</div>
-      <div class="song-artist">${song.artist || ""}</div>
-      <span class="song-difficulty difficulty-${song.difficulty}">${song.difficulty}</span>
-      ${lastPlayed ? `<div class="song-last-played">${lastPlayed}</div>` : ""}
-    `;
+    if (lastPlayed) {
+      const lastPlayedEl = document.createElement("div");
+      lastPlayedEl.className = "song-last-played";
+      lastPlayedEl.textContent = lastPlayed;
+      el.appendChild(lastPlayedEl);
+    }
+
     el.addEventListener("click", () => {
       this.selectedSong = song;
       this.songListEl.querySelectorAll(".song-item").forEach((s) => {

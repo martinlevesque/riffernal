@@ -24,7 +24,7 @@ jobs:
         run: bun run build
 
       - name: Run E2E API tests
-        run: bun x playwright test tests/api.spec.ts
+        run: bun x playwright test tests/api/
 
       - name: Upload test report
         if: ${{ !cancelled() }}

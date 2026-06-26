@@ -11,24 +11,10 @@ import { SHEET_TOP_OFFSET, Renderer, SHEET_BEATS_VISIBLE } from './game/renderin
 import type { SongNote } from './game/NoteManager.js';
 import { PracticeHand } from './utils/notes.js';
 import type { Song } from './utils/MidiParser.js';
-import { fetchSongs, fetchSong, uploadSong, songFullToSong, markSongPlayed, type SongSummary } from './api/SongApi.js';
+import { fetchSongs, fetchSong, uploadSong, songFullToSong, summaryToSong, markSongPlayed } from './api/SongApi.js';
 
 const SHEET_STAFF_LINE_SPACING = 10;
 const BASE_SHEET_HEIGHT = 5 + 4 * SHEET_STAFF_LINE_SPACING + 8 + 4 * SHEET_STAFF_LINE_SPACING + 5;
-
-function summaryToSong(s: SongSummary): Song {
-  return {
-    id: s.id,
-    title: s.title,
-    artist: s.artist || '',
-    bpm: s.bpm,
-    difficulty: s.difficulty,
-    notes: [],
-    imported: s.imported,
-    categoryId: s.categoryId,
-    lastPlayedAt: s.lastPlayedAt,
-  };
-}
 
 async function loadSongs(): Promise<Song[]> {
   try {

@@ -120,6 +120,20 @@ export async function markSongPlayed(id: number): Promise<void> {
   if (!res.ok) throw new Error(await parseError(res));
 }
 
+export function summaryToSong(s: SongSummary): Song {
+  return {
+    id: s.id,
+    title: s.title,
+    artist: s.artist || "",
+    bpm: s.bpm,
+    difficulty: s.difficulty,
+    notes: [],
+    imported: s.imported,
+    categoryId: s.categoryId,
+    lastPlayedAt: s.lastPlayedAt,
+  };
+}
+
 export function songFullToSong(full: SongFull): Song {
   return {
     id: full.id,

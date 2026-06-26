@@ -44,5 +44,6 @@ export function numOrNull(val: FormDataEntryValue | null): number | null {
     return null;
   }
 
-  return Number(val);
+  const n = Number(val);
+  return Number.isNaN(n) ? null : n;
 }

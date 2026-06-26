@@ -7,7 +7,7 @@ export const H = 800;
 
 // -- seed a song via the API -------------------------------------------------
 
-const SEED_MIDI = Buffer.from([
+export const SEED_MIDI = Buffer.from([
   0x4d, 0x54, 0x68, 0x64, 0x00, 0x00, 0x00, 0x06,
   0x00, 0x00, 0x00, 0x01, 0x01, 0xe0,
   0x4d, 0x54, 0x72, 0x6b, 0x00, 0x00, 0x00, 0x14,
@@ -85,6 +85,53 @@ export async function wipeDatabase(request: APIRequestContext): Promise<void> {
 /** Delete a song by id via the API. */
 export async function deleteSong(request: APIRequestContext, id: number): Promise<void> {
   await request.delete(`/api/songs/${id}`);
+}
+
+/** Seed a song with optional custom notes. Returns the created song id. */
+export async function seedSongWithNotes(
+  request: APIRequestContext,
+  title: string,
+  notes: Array<{ time: number; key: string; duration: number }>,
+): Promise<number> {
+  const res = await request.post('/api/songs', {
+    multipart: {
+      title,
+      artist: 'Test',
+      bpm: '120',
+      difficulty: 'easy',
+      notes: JSON.stringify(notes),
+      tracks: '[]',
+      selected_track_indices: '[]',
+      track_hands: '{}',
+      background_tracks: '[]',
+      category_id: '',
+      midi: { name: 'seed.mid', mimeType: 'audio/midi', buffer: SEED_MIDI },
+    },
+  });
+  expect(res.ok()).toBeTruthy();
+  return (await res.json()).id;
+}
+
+/** Delete categories matching a label, including their songs. */
+export async function cleanupCategoriesByLabel(
+  request: APIRequestContext,
+  label: RegExp,
+): Promise<void> {
+  const res = await request.get('/api/categories');
+  if (!res.ok()) return;
+  const cats = (await res.json()) as Array<{ id: number; name: string }>;
+  for (const cat of cats) {
+    if (label.test(cat.name)) {
+      const songsRes = await request.get('/api/songs');
+      const songs = (await songsRes.json()) as Array<{ id: number; categoryId: number | null }>;
+      for (const song of songs) {
+        if (song.categoryId === cat.id) {
+          await request.delete(`/api/songs/${song.id}`);
+        }
+      }
+      await request.delete(`/api/categories/${cat.id}`);
+    }
+  }
 }
 
 // -- navigate to play screen -------------------------------------------------
