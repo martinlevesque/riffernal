@@ -292,7 +292,7 @@ export class Game {
 
       if ((note.failing && holdRatio >= SUCCESS_PARTICLE_HOLD_RATIO) || isTapNote) {
         const hitZoneY = this.renderer.height * HIT_ZONE_Y_RATIO;
-        const keyLayout = getPianoKeyLayout(note.key, this.renderer.width);
+        const keyLayout = getPianoKeyLayout(note.key, this.renderer.width, this.usedNoteRange);
         const noteColor = NOTE_COLORS[note.key] || '#ffffff';
         this.renderer.spawnParticles(
           keyLayout.x + keyLayout.width / 2,
@@ -339,7 +339,7 @@ export class Game {
     for (const result of results) {
       if (result.result === NoteGrade.PERFECT) {
         const noteColor = NOTE_COLORS[result.note.key] || '#ffffff';
-        const keyLayout = getPianoKeyLayout(result.note.key, this.renderer.width);
+        const keyLayout = getPianoKeyLayout(result.note.key, this.renderer.width, this.usedNoteRange);
         this.renderer.spawnParticles(
           keyLayout.x + keyLayout.width / 2,
           hitZoneY,
