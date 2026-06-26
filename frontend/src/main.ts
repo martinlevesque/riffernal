@@ -239,6 +239,39 @@ async function init(): Promise<void> {
     }
   });
 
+  document.getElementById('btn-next-note')!.addEventListener('click', () => {
+    if (game.state === GameState.Playing) game.seekToNextNote();
+  });
+
+  document.addEventListener('keydown', (e) => {
+    if (game.state !== GameState.Playing) return;
+    if (e.code === 'KeyN') {
+      game.seekToNextNote();
+    }
+  });
+
+  const pauseBtn = document.getElementById('btn-pause')!;
+  function updatePauseBtn(): void {
+    pauseBtn.innerHTML = game.paused ? '&#9654;' : '&#9646;&#9646;';
+    pauseBtn.title = game.paused ? 'Resume (Space)' : 'Pause (Space)';
+  }
+
+  pauseBtn.addEventListener('click', () => {
+    if (game.state === GameState.Playing) {
+      game.togglePause();
+      updatePauseBtn();
+    }
+  });
+
+  document.addEventListener('keydown', (e) => {
+    if (game.state !== GameState.Playing) return;
+    if (e.code === 'Space') {
+      e.preventDefault();
+      game.togglePause();
+      updatePauseBtn();
+    }
+  });
+
   updateSpeedDisplay();
 
   const songs = await loadSongs();
@@ -310,9 +343,9 @@ async function init(): Promise<void> {
     menu.setMidiStatus(connected, message);
   };
 
-  document.getElementById('btn-retry')!.addEventListener('click', () => { closeSheetView(); game.retry(); setMode(game.learningMode); applyPracticeHandButtons(); updateLoopUI(); });
+  document.getElementById('btn-retry')!.addEventListener('click', () => { closeSheetView(); game.retry(); setMode(game.learningMode); applyPracticeHandButtons(); updateLoopUI(); updatePauseBtn(); });
   document.getElementById('btn-menu')!.addEventListener('click', () => { closeSheetView(); game.backToMenu(); });
-  document.getElementById('btn-restart')!.addEventListener('click', () => { closeSheetView(); game.retry(); setMode(game.learningMode); applyPracticeHandButtons(); updateLoopUI(); });
+  document.getElementById('btn-restart')!.addEventListener('click', () => { closeSheetView(); game.retry(); setMode(game.learningMode); applyPracticeHandButtons(); updateLoopUI(); updatePauseBtn(); });
 
   const importBtn = document.getElementById('btn-import-midi')! as HTMLButtonElement;
   const importInput = document.getElementById('midi-import-input')! as HTMLInputElement;

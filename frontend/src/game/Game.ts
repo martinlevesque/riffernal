@@ -9,6 +9,7 @@ import { NoteManager, SCROLL_SPEED, HIT_ZONE_Y_RATIO } from './NoteManager.js';
 import type { HitResult, SongNote } from './NoteManager.js';
 import { NoteGrade, gradeLabel, TAP_NOTE_THRESHOLD, SUCCESS_PARTICLE_HOLD_RATIO } from './scoring.js';
 import { NOTE_TO_LANE, handColor, getPianoKeyLayout, PracticeHand, GM_DRUM_CHANNEL } from '../utils/notes.js';
+import { formatTime } from '../utils/helpers.js';
 import type { VisibleRange } from '../utils/notes.js';
 import type { Synth } from '../audio/Synth.js';
 import type { Patch } from '../audio/patches/Patch.js';
@@ -65,12 +66,16 @@ export class Game {
   showUsedKeys = false;
   usedNoteRange: VisibleRange | null = null;
 
+  private _paused = false;
+  get paused(): boolean { return this._paused; }
+
   readonly loop = new LoopController();
   private resultsScreen = new ResultsScreen();
 
   private playScreen: HTMLElement;
   private menuScreen: HTMLElement;
   private resizeHandle: HTMLElement;
+  private timeDisplayEl: HTMLElement;
   private _onResize: () => void;
   private _resizeRaf = false;
   private _boundLoop: () => void;
@@ -88,6 +93,7 @@ export class Game {
     this.playScreen = document.getElementById('play-screen')!;
     this.menuScreen = document.getElementById('menu-screen')!;
     this.resizeHandle = document.getElementById('sheet-resize-handle')!;
+    this.timeDisplayEl = document.getElementById('time-display')!;
 
     this._onResize = () => {
       if (!this._resizeRaf) {
@@ -101,6 +107,8 @@ export class Game {
     window.addEventListener('resize', this._onResize);
 
     this._boundLoop = (): void => {
+      if (this._paused) return;
+
       const now = performance.now() / 1000;
       const delta = this._lastFrameTime ? now - this._lastFrameTime : 1 / 60;
       this._lastFrameTime = now;
@@ -199,6 +207,7 @@ export class Game {
     }
 
     this.scoreDisplay?.update(this.noteManager.scoring);
+    this.timeDisplayEl.textContent = `${formatTime(this.currentTime)} / ${formatTime(this.noteManager.getSongDuration())}`;
     this._checkCompletion();
   }
 
@@ -230,6 +239,7 @@ export class Game {
     this.state = GameState.Playing;
     this.pressedLanes.clear();
     this._completionTime = null;
+    this._paused = false;
     this._usedLearningMode = false;
     this._computeUsedNoteRange(song);
 
@@ -446,6 +456,22 @@ export class Game {
 
   // -- Playback controls ----------------------------------------------------
 
+  togglePause(): void {
+    if (this._paused) {
+      this._paused = false;
+      this.refGameTime = this.currentTime;
+      this.refRealTime = performance.now() / 1000;
+      this._lastFrameTime = 0;
+      this._boundLoop();
+    } else {
+      this._paused = true;
+      if (this.animationId !== null) {
+        cancelAnimationFrame(this.animationId);
+        this.animationId = null;
+      }
+    }
+  }
+
   setSpeed(multiplier: number): void {
     this.refGameTime = this.currentTime;
     this.refRealTime = performance.now() / 1000;
@@ -463,6 +489,13 @@ export class Game {
     this.scrollOffset = 0;
     this._completionTime = null;
     this.noteManager.resetFromTime(clamped);
+  }
+
+  seekToNextNote(): void {
+    const nextTime = this.noteManager.findNextUnplayedTime(this.currentTime);
+    if (nextTime !== null) {
+      this.seekTo(Math.max(0, nextTime - 2));
+    }
   }
 
   setLearningMode(enabled: boolean): void {

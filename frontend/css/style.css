@@ -534,6 +534,14 @@ kbd {
   margin-top: 0.1rem;
 }
 
+#time-display {
+  display: block;
+  font-size: 0.75rem;
+  color: var(--text-secondary);
+  margin-top: 0.15rem;
+  letter-spacing: 0.05em;
+}
+
 #speed-control {
   position: absolute;
   top: 12px;

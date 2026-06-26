@@ -548,6 +548,19 @@ export class NoteManager {
     return last.time + last.duration;
   }
 
+  /** Find the start time of the next selected, unresolved note after `time`.
+   *  Returns null when no more notes remain. */
+  findNextUnplayedTime(time: number): number | null {
+    for (const note of this.notes) {
+      if (note.time <= time) continue;
+      if (note.resolved) continue;
+      if (!note.selected) continue;
+      if (this._isAutoPlayNote(note)) continue;
+      return note.time;
+    }
+    return null;
+  }
+
   /** Returns the latest `time + duration` among notes whose start time is
    *  at or before `end`, so a loop wrapping at `end` lets the last note
    *  in the loop finish playing before rewinding. Returns `end` if no
