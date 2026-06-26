@@ -1,0 +1,11 @@
+node_modules/
+dist/
+certs/
+data/
+test-results/
+playwright-report/
+tests/
+.github/
+*.md
+biome.json
+playwright.config.ts
