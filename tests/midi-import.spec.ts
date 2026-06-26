@@ -82,7 +82,7 @@ test.describe('MIDI Import', () => {
   test('import button is visible on menu screen', async ({ page }) => {
     await page.goto('/');
     await expect(page.locator('#btn-import-midi')).toBeVisible();
-    await expect(page.locator('#btn-import-midi')).toContainText('IMPORT MIDI');
+    await expect(page.locator('#btn-import-midi')).toContainText('Import MIDI');
   });
 
   test('importing a valid MIDI file adds a song to the list', async ({ page }) => {

@@ -8,7 +8,8 @@ export { LoopDefinitionState };
 import { NoteManager, SCROLL_SPEED, HIT_ZONE_Y_RATIO } from './NoteManager.js';
 import type { HitResult, SongNote } from './NoteManager.js';
 import { NoteGrade, gradeLabel, TAP_NOTE_THRESHOLD, SUCCESS_PARTICLE_HOLD_RATIO } from './scoring.js';
-import { NOTE_TO_LANE, NOTE_COLORS, getPianoKeyLayout, PracticeHand, GM_DRUM_CHANNEL } from '../utils/notes.js';
+import { NOTE_TO_LANE, NOTE_COLORS, getPianoKeyLayout, PracticeHand, GM_DRUM_CHANNEL, getVisibleRange } from '../utils/notes.js';
+import type { VisibleRange } from '../utils/notes.js';
 import type { Synth } from '../audio/Synth.js';
 import type { Patch } from '../audio/patches/Patch.js';
 import { guitarCleanPatch, guitarOverdrivenPatch, guitarDistortionPatch } from '../audio/patches/guitarPatch.js';
@@ -61,6 +62,8 @@ export class Game {
   practiceHand: PracticeHand = PracticeHand.Both;
   private _usedLearningMode = false;
   songBpm = 120;
+  showUsedKeys = false;
+  usedNoteRange: VisibleRange | null = null;
 
   readonly loop = new LoopController();
   private resultsScreen = new ResultsScreen();
@@ -108,7 +111,7 @@ export class Game {
       this.scrollOffset += SCROLL_SPEED * delta * this.speedMultiplier;
 
       this.renderer.clear();
-      this.renderer.drawHighway(this.scrollOffset);
+      this.renderer.drawHighway(this.scrollOffset, this.usedNoteRange);
 
       if (this.state === GameState.Playing) {
         this._renderPlayingFrame();
@@ -117,8 +120,8 @@ export class Game {
       this.resizeHandle.style.top = `${this.renderer.sheetBottom}px`;
 
       this.renderer.drawParticles();
-      this.renderer.drawPiano(this.pressedLanes);
-      this.renderer.drawHitZone(this.pressedLanes);
+      this.renderer.drawPiano(this.pressedLanes, this.usedNoteRange);
+      this.renderer.drawHitZone(this.pressedLanes, this.usedNoteRange);
 
       if (this.state !== GameState.Menu) {
         this.animationId = requestAnimationFrame(this._boundLoop);
@@ -192,7 +195,7 @@ export class Game {
 
     const activeNotes = this.noteManager.getActiveNotes(this.currentTime, this.renderer.height, this.learningMode);
     for (const note of activeNotes) {
-      this.renderer.drawNote(note.lane, note.y, note.height, note.selected ? note.color : '#555566', note.alpha, this.renderer.sheetBottom, note.key, note.holding, note.failing, note.waiting);
+      this.renderer.drawNote(note.lane, note.y, note.height, note.selected ? note.color : '#555566', note.alpha, this.renderer.sheetBottom, note.key, note.holding, note.failing, note.waiting, this.usedNoteRange);
     }
 
     this.scoreDisplay?.update(this.noteManager.scoring);
@@ -228,6 +231,7 @@ export class Game {
     this.pressedLanes.clear();
     this._completionTime = null;
     this._usedLearningMode = false;
+    this._computeUsedNoteRange(song);
 
     this.menuScreen.classList.remove('active');
     this.resultsScreen.hide();
@@ -239,6 +243,22 @@ export class Game {
 
     this._lastFrameTime = 0;
     this._boundLoop();
+  }
+
+  private _computeUsedNoteRange(song: Song): void {
+    if (!this.showUsedKeys) {
+      this.usedNoteRange = null;
+      return;
+    }
+    const noteNames = song.notes.map((n) => n.key);
+    this.usedNoteRange = getVisibleRange(noteNames);
+  }
+
+  setShowUsedKeys(enabled: boolean): void {
+    this.showUsedKeys = enabled;
+    if (this.currentSong) {
+      this._computeUsedNoteRange(this.currentSong);
+    }
   }
 
   private _setupInputHandlers(): void {

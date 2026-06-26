@@ -4,12 +4,13 @@ import { wipeDatabase, deleteSong, seedSongWithNotes } from './helpers.js';
 test.describe('Menu Screen', () => {
   test.beforeEach(async ({ request }: { request: APIRequestContext }) => {
     await wipeDatabase(request);
+    // Reset user settings to defaults
+    await request.put('/api/user/settings', { data: { piano_show_used_keys_only: false } });
   });
 
-  test('displays title and subtitle', async ({ page }) => {
+  test('displays title', async ({ page }) => {
     await page.goto('/');
     await expect(page.locator('.title')).toContainText('IRONKEYS');
-    await expect(page.locator('.subtitle')).toContainText('Keyboard Hero');
   });
 
   test('shows empty state when no songs exist', async ({ page }) => {
@@ -28,15 +29,35 @@ test.describe('Menu Screen', () => {
     }
   });
 
-  test('shows controls info', async ({ page }) => {
+  test('shows controls hint', async ({ page }) => {
     await page.goto('/');
-    await expect(page.locator('.controls-info')).toBeVisible();
-    await expect(page.locator('.controls-info')).toContainText('White keys');
+    await expect(page.locator('.controls-hint')).toBeVisible();
+    await expect(page.locator('.controls-hint')).toContainText('white keys');
   });
 
   test('start button is visible', async ({ page }) => {
     await page.goto('/');
     await expect(page.locator('#btn-start')).toBeVisible();
-    await expect(page.locator('#btn-start')).toContainText('START');
+    await expect(page.locator('#btn-start')).toContainText('PLAY');
+  });
+
+  test('show used keys toggle is visible on menu screen', async ({ page }) => {
+    await page.goto('/');
+    await expect(page.locator('#btn-settings')).toBeVisible();
+    await page.locator('#btn-settings').click();
+    await expect(page.locator('#settings-popup')).toBeVisible();
+    await expect(page.locator('#show-used-keys')).toBeVisible();
+    await expect(page.locator('.setting-toggle')).toContainText('Show only keys used in song');
+  });
+
+  test('show used keys toggle can be toggled', async ({ page }) => {
+    await page.goto('/');
+    await page.locator('#btn-settings').click();
+    const checkbox = page.locator('#show-used-keys');
+    await expect(checkbox).not.toBeChecked();
+    await checkbox.check();
+    await expect(checkbox).toBeChecked();
+    await checkbox.uncheck();
+    await expect(checkbox).not.toBeChecked();
   });
 });

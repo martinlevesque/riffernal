@@ -1,7 +1,8 @@
 // Main canvas renderer: highway, notes, sheet music, particles,
 // and playback cursor. Delegates piano rendering to PianoRenderer.
 
-import { NOTE_NAMES, getPianoKeyLayout, WHITE_KEY_COUNT, handForKey, handColor, HandSide, NOTE_SHORT_NAMES } from '../../utils/notes.js';
+import { NOTE_NAMES, getPianoKeyLayout, WHITE_KEY_COUNT, handForKey, handColor, HandSide, NOTE_SHORT_NAMES, countWhiteKeysInRange } from '../../utils/notes.js';
+import type { VisibleRange } from '../../utils/notes.js';
 import { KEYBOARD_MAP } from '../../input/KeyboardInput.js';
 import { HIT_ZONE_Y_RATIO } from '../NoteManager.js';
 import { LoopDefinitionState } from '../Loop.js';
@@ -218,19 +219,24 @@ export class Renderer {
     this.ctx.fillRect(0, 0, this.width, this.height);
   }
 
-  drawHighway(_scrollOffset: number): void {
+  drawHighway(_scrollOffset: number, visibleRange?: VisibleRange | null): void {
     const ctx = this.ctx;
     const hitZoneY = this.height * HIT_ZONE_Y_RATIO;
     const highwayTop = 0;
     const highwayBottom = hitZoneY + HIGHWAY_BELOW_HIT_ZONE;
-    const whiteKeyWidth = this.width / WHITE_KEY_COUNT;
+    const whiteKeyWidth = visibleRange
+      ? this.width / countWhiteKeysInRange(visibleRange)
+      : this.width / WHITE_KEY_COUNT;
 
     ctx.fillStyle = HIGHWAY_BG;
     ctx.fillRect(0, highwayTop, this.width, highwayBottom - highwayTop);
 
     ctx.strokeStyle = HIGHWAY_LANE_COLOR;
     ctx.lineWidth = 1;
-    for (let i = 1; i < WHITE_KEY_COUNT; i++) {
+    const laneCount = visibleRange
+      ? countWhiteKeysInRange(visibleRange)
+      : WHITE_KEY_COUNT;
+    for (let i = 1; i < laneCount; i++) {
       const x = i * whiteKeyWidth;
       ctx.beginPath();
       ctx.moveTo(x, highwayTop);
@@ -240,12 +246,12 @@ export class Renderer {
 
   }
 
-  drawHitZone(pressedLanes: Set<number>): void {
-    this.piano.drawHitZone(this.ctx, this.width, this.height, pressedLanes);
+  drawHitZone(pressedLanes: Set<number>, visibleRange?: VisibleRange | null): void {
+    this.piano.drawHitZone(this.ctx, this.width, this.height, pressedLanes, visibleRange);
   }
 
-  drawPiano(pressedLanes: Set<number>): void {
-    this.piano.drawPiano(this.ctx, this.width, this.height, pressedLanes);
+  drawPiano(pressedLanes: Set<number>, visibleRange?: VisibleRange | null): void {
+    this.piano.drawPiano(this.ctx, this.width, this.height, pressedLanes, visibleRange);
   }
 
   /** Return the pixel (x, y) of a note's head on the sheet, using the
@@ -267,8 +273,8 @@ export class Renderer {
     return { x, y };
   }
 
-  private _noteLayout(laneIndex: number, y: number, noteHeight: number, sheetBottom: number, noteName?: string): NoteLayout {
-    const layout = getPianoKeyLayout(noteName ?? NOTE_NAMES[laneIndex] ?? 'C4', this.width);
+  private _noteLayout(laneIndex: number, y: number, noteHeight: number, sheetBottom: number, noteName?: string, visibleRange?: VisibleRange | null): NoteLayout {
+    const layout = getPianoKeyLayout(noteName ?? NOTE_NAMES[laneIndex] ?? 'C4', this.width, visibleRange);
     const x = layout.x;
     const keyWidth = layout.width;
     const padding = Math.max(1, keyWidth * 0.06);
@@ -302,12 +308,12 @@ export class Renderer {
     ctx.fill();
   }
 
-  drawNote(laneIndex: number, y: number, noteHeight: number, color: string, alpha: number, sheetBottom: number, noteName?: string, holding?: boolean, failing?: boolean, waiting?: boolean): void {
+  drawNote(laneIndex: number, y: number, noteHeight: number, color: string, alpha: number, sheetBottom: number, noteName?: string, holding?: boolean, failing?: boolean, waiting?: boolean, visibleRange?: VisibleRange | null): void {
     const ctx = this.ctx;
     const drawColor = failing && noteName
       ? (handForKey(noteName) === HandSide.Left ? FAIL_COLOR_LEFT : FAIL_COLOR_RIGHT)
       : color;
-    const L = this._noteLayout(laneIndex, y, noteHeight, sheetBottom, noteName);
+    const L = this._noteLayout(laneIndex, y, noteHeight, sheetBottom, noteName, visibleRange);
 
     ctx.globalAlpha = alpha;
 
