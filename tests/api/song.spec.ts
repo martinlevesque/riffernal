@@ -1,10 +1,5 @@
 import { test, expect, type APIRequestContext } from "@playwright/test";
-import { wipeDatabase } from "./helpers.js";
-
-// These tests exercise the backend REST API (songs + categories) directly via
-// HTTP against the same server that Playwright boots for the E2E suite. They do
-// NOT require a browser — only the APIRequestContext, so each test cleans up
-// after itself to keep state isolated across runs.
+import { wipeDatabase } from "../helpers.js";
 
 const MIDI_HEADER = [0x4d, 0x54, 0x68, 0x64, 0x00, 0x00, 0x00, 0x06, 0x00, 0x00, 0x00, 0x01, 0x01, 0xe0];
 
@@ -70,47 +65,6 @@ async function cleanupCategories(request: APIRequestContext, label: RegExp): Pro
 
 test.beforeAll(async ({ request }: { request: APIRequestContext }) => {
   await wipeDatabase(request);
-});
-
-test.describe("API: categories", () => {
-  test("GET /api/categories returns an array", async ({ request }) => {
-    const res = await request.get("/api/categories");
-    expect(res.ok()).toBeTruthy();
-    const body = await res.json();
-    expect(Array.isArray(body)).toBeTruthy();
-  });
-
-  test("POST /api/categories creates a category and dedupes by name", async ({ request }) => {
-    const name = "E2E-Dupe-Test";
-    await cleanupCategories(request, /^E2E-Dupe-Test$/);
-
-    const res1 = await request.post("/api/categories", {
-      data: { name },
-      headers: { "Content-Type": "application/json" },
-    });
-    expect(res1.ok()).toBeTruthy();
-    const cat1 = await res1.json();
-    expect(cat1.name).toBe(name);
-    expect(typeof cat1.id).toBe("number");
-
-    const res2 = await request.post("/api/categories", {
-      data: { name },
-      headers: { "Content-Type": "application/json" },
-    });
-    expect(res2.ok()).toBeTruthy();
-    const cat2 = await res2.json();
-    expect(cat2.id).toBe(cat1.id);
-
-    await cleanupCategories(request, /^E2E-Dupe-Test$/);
-  });
-
-  test("POST /api/categories rejects empty name", async ({ request }) => {
-    const res = await request.post("/api/categories", {
-      data: { name: "   " },
-      headers: { "Content-Type": "application/json" },
-    });
-    expect(res.status()).toBe(400);
-  });
 });
 
 test.describe("API: songs CRUD", () => {

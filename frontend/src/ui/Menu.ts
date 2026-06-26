@@ -1,5 +1,10 @@
 import type { Song } from "../utils/MidiParser.js";
-import { fetchSongs, fetchCategories, type CategoryData, type SongSummary } from "../api/SongApi.js";
+import {
+  fetchSongs,
+  fetchCategories,
+  type CategoryData,
+  type SongSummary,
+} from "../api/SongApi.js";
 
 interface CategoryGroup {
   id: number | null;
@@ -41,7 +46,10 @@ export class Menu {
 
   async refreshFromApi(): Promise<void> {
     try {
-      const [summaries, categories] = await Promise.all([fetchSongs(), fetchCategories()]);
+      const [summaries, categories] = await Promise.all([
+        fetchSongs(),
+        fetchCategories(),
+      ]);
       this.categories = categories;
       this.songs = summaries.map(this._summaryToSong);
       this._render();
@@ -53,13 +61,19 @@ export class Menu {
   async loadCategories(): Promise<void> {
     try {
       this.categories = await fetchCategories();
+      this._render();
     } catch (err) {
       console.error("Failed to load categories:", err);
     }
   }
 
-  addSong(song: Song): void {
+  async addSong(song: Song): Promise<void> {
     this.songs.push(song);
+    try {
+      this.categories = await fetchCategories();
+    } catch (err) {
+      console.error("Failed to refresh categories:", err);
+    }
     this._render();
   }
 
@@ -82,7 +96,8 @@ export class Menu {
       const raw = localStorage.getItem(COLLAPSED_KEY);
       if (!raw) return new Set();
       return new Set(JSON.parse(raw) as string[]);
-    } catch {
+    } catch (err) {
+      console.warn("Failed to load collapsed state:", err);
       return new Set();
     }
   }
@@ -90,8 +105,8 @@ export class Menu {
   private _saveCollapsed(set: Set<string>): void {
     try {
       localStorage.setItem(COLLAPSED_KEY, JSON.stringify(Array.from(set)));
-    } catch {
-      // ignore
+    } catch (err) {
+      console.warn("Failed to save collapsed state:", err);
     }
   }
 
@@ -103,12 +118,22 @@ export class Menu {
     for (const cat of this.categories) {
       const key = `cat:${cat.id}`;
       indexByKey.set(key, groups.length);
-      groups.push({ id: cat.id, name: cat.name, songs: [], collapsed: collapsed.has(key) });
+      groups.push({
+        id: cat.id,
+        name: cat.name,
+        songs: [],
+        collapsed: collapsed.has(key),
+      });
     }
 
     const uncKey = "uncategorized";
     indexByKey.set(uncKey, groups.length);
-    groups.push({ id: UNCATEGORIZED_ID, name: "Uncategorized", songs: [], collapsed: collapsed.has(uncKey) });
+    groups.push({
+      id: UNCATEGORIZED_ID,
+      name: "Uncategorized",
+      songs: [],
+      collapsed: collapsed.has(uncKey),
+    });
 
     for (const song of this.songs) {
       const catId = song.categoryId ?? null;
@@ -165,7 +190,8 @@ export class Menu {
   private _renderGroup(group: CategoryGroup): HTMLElement {
     const section = document.createElement("div");
     section.className = `category-section${group.collapsed ? " collapsed" : ""}`;
-    section.dataset.categoryKey = group.id === null ? "uncategorized" : `cat:${group.id}`;
+    section.dataset.categoryKey =
+      group.id === null ? "uncategorized" : `cat:${group.id}`;
 
     const header = document.createElement("div");
     header.className = "category-header";
@@ -203,7 +229,9 @@ export class Menu {
     `;
     el.addEventListener("click", () => {
       this.selectedSong = song;
-      this.songListEl.querySelectorAll(".song-item").forEach((s) => { s.classList.remove("selected"); });
+      this.songListEl.querySelectorAll(".song-item").forEach((s) => {
+        s.classList.remove("selected");
+      });
       el.classList.add("selected");
       this.startBtn.disabled = false;
     });
@@ -212,7 +240,9 @@ export class Menu {
 
   private _autoSelect(song: Song): void {
     this.selectedSong = song;
-    const firstItem = this.songListEl.querySelector(".song-item") as HTMLElement | null;
+    const firstItem = this.songListEl.querySelector(
+      ".song-item",
+    ) as HTMLElement | null;
     firstItem?.classList.add("selected");
     this.startBtn.disabled = false;
   }
@@ -230,18 +260,26 @@ export class Menu {
 
   private _formatLastPlayed(ts: string | null | undefined): string {
     if (!ts) return "";
+
     const date = new Date(`${ts.replace(" ", "T")}Z`);
+
     if (Number.isNaN(date.getTime())) return "";
+
     const diffMs = Date.now() - date.getTime();
+
     const diffMin = Math.floor(diffMs / 60000);
     if (diffMin < 1) return "Last played just now";
     if (diffMin < 60) return `Last played ${diffMin}m ago`;
+
     const diffHr = Math.floor(diffMin / 60);
     if (diffHr < 24) return `Last played ${diffHr}h ago`;
+
     const diffDay = Math.floor(diffHr / 24);
     if (diffDay < 7) return `Last played ${diffDay}d ago`;
+
     const diffWk = Math.floor(diffDay / 7);
     if (diffWk < 5) return `Last played ${diffWk}w ago`;
+
     return `Last played ${date.toLocaleDateString()}`;
   }
 

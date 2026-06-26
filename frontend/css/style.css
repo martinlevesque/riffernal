@@ -99,7 +99,7 @@ body {
 
 .menu-content {
   text-align: center;
-  max-width: 600px;
+  max-width: 900px;
   width: 90%;
   margin: auto;
 }
@@ -181,12 +181,12 @@ body {
 .song-item {
   border: 1px solid #333;
   border-radius: 4px;
-  padding: 1rem 1.5rem;
-  margin: 0.5rem auto;
+  padding: 0.75rem 1rem;
   cursor: pointer;
   transition: all 0.15s;
-  max-width: 400px;
   text-align: left;
+  flex: 1 1 220px;
+  min-width: 220px;
 }
 
 .song-item:hover {
@@ -228,9 +228,6 @@ body {
 
 .category-section {
   margin: 0.5rem 0 1rem 0;
-  max-width: 440px;
-  margin-left: auto;
-  margin-right: auto;
 }
 
 .category-header {
@@ -274,6 +271,12 @@ body {
 
 .category-section.collapsed .category-songs {
   display: none;
+}
+
+.category-songs {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem;
 }
 
 .empty-song-list {
