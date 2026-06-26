@@ -13,9 +13,13 @@ async function cleanupCategories(request: APIRequestContext, label: RegExp): Pro
     if (label.test(cat.name)) {
       const songsRes = await request.get("/api/songs");
       const songs = (await songsRes.json()) as Array<{ id: number; categoryId: number | null }>;
+
       for (const song of songs) {
-        if (song.categoryId === cat.id) await request.delete(`/api/songs/${song.id}`);
+        if (song.categoryId === cat.id) {
+          await request.delete(`/api/songs/${song.id}`);
+        }
       }
+
       await request.delete(`/api/categories/${cat.id}`);
     }
   }

@@ -94,7 +94,11 @@ export class Menu {
   private _loadCollapsed(): Set<string> {
     try {
       const raw = localStorage.getItem(COLLAPSED_KEY);
-      if (!raw) return new Set();
+
+      if (!raw) {
+        return new Set();
+      }
+
       return new Set(JSON.parse(raw) as string[]);
     } catch (err) {
       console.warn("Failed to load collapsed state:", err);
@@ -138,10 +142,12 @@ export class Menu {
     for (const song of this.songs) {
       const catId = song.categoryId ?? null;
       let group = groups.find((g) => g.id === catId);
+
       if (!group) {
         // Category was deleted; treat as uncategorized
         group = groups.find((g) => g.id === UNCATEGORIZED_ID)!;
       }
+
       group.songs.push(song);
     }
 
@@ -149,9 +155,19 @@ export class Menu {
     nonEmpty.sort((a, b) => {
       const aLast = this._latestPlay(a.songs);
       const bLast = this._latestPlay(b.songs);
-      if (aLast !== bLast) return bLast - aLast;
-      if (a.id === null) return 1;
-      if (b.id === null) return -1;
+
+      if (aLast !== bLast) {
+        return bLast - aLast;
+      }
+
+      if (a.id === null) {
+        return 1;
+      }
+
+      if (b.id === null) {
+        return -1;
+      }
+
       return a.name.localeCompare(b.name, undefined, { sensitivity: "base" });
     });
     return nonEmpty;
@@ -162,7 +178,10 @@ export class Menu {
     for (const s of songs) {
       if (s.lastPlayedAt) {
         const ts = new Date(`${s.lastPlayedAt.replace(" ", "T")}Z`).getTime();
-        if (ts > latest) latest = ts;
+
+        if (ts > latest) {
+          latest = ts;
+        }
       }
     }
     return latest;
@@ -219,8 +238,12 @@ export class Menu {
       const collapsedSet = this._loadCollapsed();
       const key = group.id === null ? "uncategorized" : `cat:${group.id}`;
       const isCollapsed = section.classList.toggle("collapsed");
-      if (isCollapsed) collapsedSet.add(key);
-      else collapsedSet.delete(key);
+
+      if (isCollapsed) {
+        collapsedSet.add(key);
+      } else {
+        collapsedSet.delete(key);
+      }
       this._saveCollapsed(collapsedSet);
     });
 
@@ -268,8 +291,10 @@ export class Menu {
 
   private _reapplySelection(): void {
     const items = this.songListEl.querySelectorAll(".song-item");
+
     for (const item of items) {
       const el = item as HTMLElement;
+
       if (el.dataset.songId === String(this.selectedSong?.id ?? "")) {
         el.classList.add("selected");
         return;

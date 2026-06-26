@@ -56,7 +56,11 @@ function rowToFull(row: SongRow): SongFull {
 
 function withSong(id: string, fn: (row: SongRow) => Response): Response {
   const row = getSongById(Number(id));
-  if (!row) return json({ error: "Not found" }, 404);
+
+  if (!row) {
+    return json({ error: "Not found" }, 404);
+  }
+
   return fn(row);
 }
 
@@ -101,7 +105,10 @@ export const songRoutes = [
     method: "DELETE",
     path: "/api/songs/:id",
     handler: ((_req: Request, { id }: Record<string, string>) => {
-      if (!getSongById(Number(id))) return json({ error: "Not found" }, 404);
+      if (!getSongById(Number(id))) {
+        return json({ error: "Not found" }, 404);
+      }
+
       deleteSong(Number(id));
       return json({ ok: true });
     }) as Handler,
@@ -112,7 +119,10 @@ export const songRoutes = [
     handler: ((req: Request, { id }: Record<string, string>) =>
       parseJson<{ categoryId?: number | null }>(req)
         .then(({ categoryId }) => {
-          if (!getSongById(Number(id))) return json({ error: "Not found" }, 404);
+          if (!getSongById(Number(id))) {
+            return json({ error: "Not found" }, 404);
+          }
+
           updateSongCategory(Number(id), categoryId ?? null);
           return json({ ok: true });
         })

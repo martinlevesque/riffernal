@@ -43,3 +43,8 @@ Tests start a local dev server automatically, no manual server startup needed.
 - **Format**: `bun run format` (check) / `bun run format:fix` (write)
 - `noNonNullAssertion` is disabled (idiomatic `getElementById!` DOM pattern)
 - `noExplicitAny` is disabled in `tests/` (browser-side dynamic imports)
+
+## Code Style
+
+- Always add a blank line before and after `if`, `else`, `for`, and `while` statements
+- Never leave `catch` blocks empty — at least log the error (e.g., `console.error(err)`)

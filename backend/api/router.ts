@@ -40,6 +40,9 @@ export function errMsg(err: unknown): string {
 }
 
 export function numOrNull(val: FormDataEntryValue | null): number | null {
-  if (!val || String(val) === "") return null;
+  if (!val || String(val) === "") {
+    return null;
+  }
+
   return Number(val);
 }
