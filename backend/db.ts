@@ -1,0 +1,15 @@
+export {
+  DB_PATH,
+  db,
+  type CategoryRow,
+  getAllCategories,
+  createCategory,
+  type SongRow,
+  type InsertSongInput,
+  getAllSongs,
+  getSongById,
+  insertSong,
+  updateSongCategory,
+  deleteSong,
+  touchLastPlayed,
+} from "./db/index.ts";

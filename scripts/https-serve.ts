@@ -2,6 +2,7 @@ import { existsSync, mkdirSync, readFileSync } from "node:fs";
 import { networkInterfaces } from "node:os";
 import { join } from "node:path";
 import { spawnSync } from "bun";
+import { handleApi } from "../backend/api.ts";
 
 const ROOT = join(import.meta.dir, "..");
 const SRC = join(ROOT, "frontend", "src");
@@ -123,6 +124,17 @@ function serveStatic(path: string): Response {
   return new Response("Not Found", { status: 404 });
 }
 
+async function handleRequest(req: Request, pathname: string): Promise<Response> {
+  if (pathname.startsWith("/api/")) {
+    const result = await handleApi(req, pathname);
+    return result ?? new Response(JSON.stringify({ error: "Not found" }), {
+      status: 404,
+      headers: { "Content-Type": "application/json; charset=utf-8" },
+    });
+  }
+  return serveStatic(pathname);
+}
+
 function parsePort(): number {
   const portArg = process.argv.indexOf("--port");
   if (portArg !== -1 && process.argv[portArg + 1]) {
@@ -145,14 +157,13 @@ function startListening(port: number, httpOnly: boolean): void {
   const scheme = httpOnly ? "http" : "https";
 
   try {
+    const fetchHandler = async (req: Request): Promise<Response> => {
+      const url = new URL(req.url);
+      return handleRequest(req, url.pathname);
+    };
+
     if (httpOnly) {
-      Bun.serve({
-        port,
-        fetch(req) {
-          const url = new URL(req.url);
-          return serveStatic(url.pathname);
-        },
-      });
+      Bun.serve({ port, fetch: fetchHandler });
     } else {
       generateCerts();
       Bun.serve({
@@ -161,10 +172,7 @@ function startListening(port: number, httpOnly: boolean): void {
           key: Bun.file(join(CERTS, "key.pem")),
           cert: Bun.file(join(CERTS, "cert.pem")),
         },
-        fetch(req) {
-          const url = new URL(req.url);
-          return serveStatic(url.pathname);
-        },
+        fetch: fetchHandler,
       });
     }
   } catch (err: unknown) {

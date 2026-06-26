@@ -29,7 +29,7 @@ walkDir(SRC, (fullPath, relPath) => {
   writeFileSync(outPath, transpiler.transformSync(code));
 });
 
-for (const item of ["index.html", "css", "assets"]) {
+for (const item of ["index.html", "css"]) {
   cpSync(join(ROOT, "frontend", item), join(DIST, item), { recursive: true });
 }
 

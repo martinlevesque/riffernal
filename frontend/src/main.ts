@@ -5,35 +5,25 @@ import { MidiInput } from './input/MidiInput.js';
 import { Menu } from './ui/Menu.js';
 import { ScoreDisplay } from './ui/ScoreDisplay.js';
 import { TrackSelect } from './ui/TrackSelect.js';
-import { parseMidi, normalizeSong } from './utils/MidiParser.js';
+import { CategorySelect } from './ui/CategorySelect.js';
+import { parseMidi } from './utils/MidiParser.js';
 import { SHEET_TOP_OFFSET, Renderer, SHEET_BEATS_VISIBLE } from './game/rendering/Renderer.js';
 import type { SongNote } from './game/NoteManager.js';
 import { PracticeHand } from './utils/notes.js';
 import type { Song } from './utils/MidiParser.js';
+import { fetchSongs, fetchSong, uploadSong, songFullToSong, summaryToSong, markSongPlayed } from './api/SongApi.js';
 
 const SHEET_STAFF_LINE_SPACING = 10;
 const BASE_SHEET_HEIGHT = 5 + 4 * SHEET_STAFF_LINE_SPACING + 8 + 4 * SHEET_STAFF_LINE_SPACING + 5;
 
-const SONG_FILES = [
-  'assets/songs/frere-jacques.json',
-  'assets/songs/iron-rain.json',
-  'assets/songs/steel-thunder.json',
-  'assets/songs/night-rider.json',
-];
-
 async function loadSongs(): Promise<Song[]> {
-  const songs: Song[] = [];
-  for (const file of SONG_FILES) {
-    try {
-      const res = await fetch(file);
-      if (res.ok) {
-        songs.push(normalizeSong(await res.json()));
-      }
-    } catch (e) {
-      console.warn(`Failed to load ${file}:`, e);
-    }
+  try {
+    const summaries = await fetchSongs();
+    return summaries.map(summaryToSong);
+  } catch (e) {
+    console.warn('Failed to load songs from API:', e);
+    return [];
   }
-  return songs;
 }
 
 async function init(): Promise<void> {
@@ -252,14 +242,24 @@ async function init(): Promise<void> {
 
   const songs = await loadSongs();
   if (songs.length === 0) {
-    document.getElementById('song-list')!.innerHTML = '<p class="error">Failed to load songs. Please refresh the page.</p>';
     (document.getElementById('btn-start') as HTMLButtonElement).disabled = true;
   }
   const menu = new Menu(songs);
-  menu.onStart = (song) => {
+  await menu.loadCategories();
+  const categorySelect = new CategorySelect();
+  menu.onStart = async (song) => {
     setMode(false);
     setPracticeHand(PracticeHand.Both);
-    game.start(song);
+    let fullSong = song;
+    if (song.id !== undefined && song.notes.length === 0) {
+      try {
+        fullSong = songFullToSong(await fetchSong(song.id));
+      } catch (e) {
+        console.warn('Failed to fetch full song:', e);
+      }
+    }
+    game.start(fullSong);
+    if (song.id !== undefined) markSongPlayed(song.id).catch((e) => console.warn('Failed to mark song played:', e));
   };
 
   await midiInput.start();
@@ -292,14 +292,50 @@ async function init(): Promise<void> {
       try {
         const song = parseMidi(reader.result as ArrayBuffer, file.name);
         const needsSelection = song.tracks && song.tracks.length > 2 && (song.selectedTrackIndices?.length ?? 0) === 0;
+        const proceed = (finalSong: Song, midiFile: File) => {
+          categorySelect.onConfirm = async (categoryId) => {
+            categorySelect.onConfirm = null;
+            categorySelect.onCancel = null;
+            try {
+              const full = await uploadSong({
+                midiFile,
+                metadata: {
+                  title: finalSong.title,
+                  artist: finalSong.artist,
+                  bpm: finalSong.bpm,
+                  difficulty: finalSong.difficulty,
+                  notes: finalSong.notes,
+                  tracks: finalSong.tracks ?? [],
+                  selectedTrackIndices: finalSong.selectedTrackIndices ?? [],
+                  trackHands: finalSong.trackHands ?? {},
+                  backgroundTracks: finalSong.backgroundTracks ?? [],
+                },
+                categoryId,
+              });
+              menu.addSong(songFullToSong(full));
+              menu.setMidiStatus(midiInput.connected, 'Import complete');
+            } catch (err: unknown) {
+              const message = err instanceof Error ? err.message : String(err);
+              alert(`Failed to save song: ${message}`);
+              console.error(err);
+            }
+          };
+          categorySelect.onCancel = () => {
+            categorySelect.onConfirm = null;
+            categorySelect.onCancel = null;
+            menu.setMidiStatus(midiInput.connected, 'Import cancelled');
+          };
+          categorySelect.show();
+        };
+
         if (needsSelection) {
           trackSelect.onConfirm = (selection) => {
             song.selectedTrackIndices = selection.indices;
             song.trackHands = selection.hands;
             song.backgroundTracks = selection.backgroundTracks;
-            menu.addSong(song);
             trackSelect.onConfirm = null;
             trackSelect.onCancel = null;
+            proceed(song, file);
           };
           trackSelect.onCancel = () => {
             menu.setMidiStatus(false, 'Import cancelled');
@@ -308,7 +344,7 @@ async function init(): Promise<void> {
           };
           trackSelect.show(song);
         } else {
-          menu.addSong(song);
+          proceed(song, file);
         }
       } catch (err: unknown) {
         const message = err instanceof Error ? err.message : String(err);

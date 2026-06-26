@@ -1,11 +1,22 @@
-import { test, expect } from '@playwright/test';
+import { test, expect, type Page, type APIRequestContext } from '@playwright/test';
+import { wipeDatabase } from './helpers.js';
 
-async function importMidiFile(page: import('@playwright/test').Page, name: string, buffer: Buffer) {
+async function importMidiFile(page: Page, name: string, buffer: Buffer): Promise<void> {
   await page.waitForFunction(() => (document.getElementById('midi-status') as HTMLElement).textContent.length > 0);
   const fileChooserPromise = page.waitForEvent('filechooser', { timeout: 5000 });
   await page.locator('#btn-import-midi').click();
   const fileChooser = await fileChooserPromise;
   await fileChooser.setFiles({ name, mimeType: 'audio/midi', buffer });
+
+  // For valid MIDIs, the category selection modal appears.
+  // For invalid MIDIs, an alert() fires instead (handled by the test's dialog listener).
+  try {
+    await page.waitForSelector('#category-select-screen.active', { timeout: 4000 });
+    await page.locator('#category-select-skip').click();
+    await page.waitForSelector('#category-select-screen:not(.active)', { timeout: 5000 });
+  } catch {
+    // No category modal — likely an error case handled elsewhere.
+  }
 }
 
 function buildMidiBuffer(): Buffer {
@@ -64,6 +75,10 @@ function buildMidiBufferWithNotes(noteEvents: number[]): Buffer {
 }
 
 test.describe('MIDI Import', () => {
+  test.beforeEach(async ({ request }: { request: APIRequestContext }) => {
+    await wipeDatabase(request);
+  });
+
   test('import button is visible on menu screen', async ({ page }) => {
     await page.goto('/');
     await expect(page.locator('#btn-import-midi')).toBeVisible();

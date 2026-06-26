@@ -1,0 +1,45 @@
+import { Database } from "bun:sqlite";
+import { mkdirSync, existsSync } from "node:fs";
+import { join } from "node:path";
+
+const ROOT = join(import.meta.dir, "../..");
+const DATA_DIR = join(ROOT, "data");
+
+mkdirSync(DATA_DIR, { recursive: true });
+
+export const DB_PATH = join(DATA_DIR, "ironkeys.db");
+
+const isNew = !existsSync(DB_PATH);
+export const db = new Database(DB_PATH);
+db.exec("PRAGMA journal_mode = WAL");
+db.exec("PRAGMA foreign_keys = ON");
+
+if (isNew) {
+  db.exec(`
+    CREATE TABLE song_categories (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      name TEXT NOT NULL UNIQUE,
+      created_at TEXT NOT NULL DEFAULT (datetime('now'))
+    );
+
+    CREATE TABLE songs (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      title TEXT NOT NULL,
+      artist TEXT NOT NULL DEFAULT '',
+      bpm INTEGER NOT NULL DEFAULT 120,
+      difficulty TEXT NOT NULL DEFAULT 'medium',
+      notes TEXT NOT NULL,
+      midi_data BLOB,
+      category_id INTEGER REFERENCES song_categories(id) ON DELETE SET NULL,
+      tracks TEXT,
+      selected_track_indices TEXT,
+      track_hands TEXT,
+      background_tracks TEXT,
+      imported INTEGER NOT NULL DEFAULT 1,
+      created_at TEXT NOT NULL DEFAULT (datetime('now')),
+      last_played_at TEXT
+    );
+
+    CREATE INDEX idx_songs_category ON songs(category_id);
+  `);
+}
