@@ -93,17 +93,94 @@ export interface PianoKeyLayout {
   isBlack: boolean;
 }
 
+export interface VisibleRange {
+  minNoteIdx: number;
+  maxNoteIdx: number;
+}
+
+export function getVisibleRange(noteNames: string[]): VisibleRange | null {
+  if (noteNames.length === 0) return null;
+  let min = NOTE_NAMES.length;
+  let max = -1;
+  for (const name of noteNames) {
+    const idx = NOTE_NAMES.indexOf(name);
+    if (idx !== -1) {
+      if (idx < min) min = idx;
+      if (idx > max) max = idx;
+    }
+  }
+  if (max === -1) return null;
+  return { minNoteIdx: min, maxNoteIdx: max };
+}
+
+export function countWhiteKeysInRange(range: VisibleRange): number {
+  let count = 0;
+  for (let i = range.minNoteIdx; i <= range.maxNoteIdx; i++) {
+    if (!NOTE_NAMES[i].includes('#')) count++;
+  }
+  return count;
+}
+
+function getMinWhiteKeyIdx(range: VisibleRange): number {
+  for (let i = range.minNoteIdx; i <= range.maxNoteIdx; i++) {
+    if (!NOTE_NAMES[i].includes('#')) return WHITE_KEY_INDEX[noteNameFromIdx(i)] ?? 0;
+  }
+  return 0;
+}
+
+function noteNameFromIdx(idx: number): string {
+  return NOTE_NAMES[idx] ?? 'C4';
+}
+
+export function whiteKeyWidth(totalWidth: number, visibleRange?: VisibleRange | null): number {
+  return visibleRange
+    ? totalWidth / countWhiteKeysInRange(visibleRange)
+    : totalWidth / WHITE_KEY_COUNT;
+}
+
 const _layoutCache = new Map<string, PianoKeyLayout>();
 let _cachedWidth = -1;
+let _cachedRangeKey = '';
 
-export function getPianoKeyLayout(noteName: string, totalWidth: number): PianoKeyLayout {
-  if (totalWidth !== _cachedWidth) {
+export function getPianoKeyLayout(noteName: string, totalWidth: number, visibleRange?: VisibleRange | null): PianoKeyLayout {
+  const rangeKey = visibleRange ? `${visibleRange.minNoteIdx}:${visibleRange.maxNoteIdx}` : '';
+  if (totalWidth !== _cachedWidth || rangeKey !== _cachedRangeKey) {
     _layoutCache.clear();
     _cachedWidth = totalWidth;
+    _cachedRangeKey = rangeKey;
   }
 
-  const cached = _layoutCache.get(noteName);
+  const cacheKey = `${noteName}|${rangeKey}`;
+  const cached = _layoutCache.get(cacheKey);
   if (cached) return cached;
+
+  if (visibleRange) {
+    const noteIdx = NOTE_NAMES.indexOf(noteName);
+    const inRange = noteIdx >= visibleRange.minNoteIdx && noteIdx <= visibleRange.maxNoteIdx;
+    if (!inRange) {
+      const result: PianoKeyLayout = { x: -1000, width: 0, isBlack: noteName.includes('#') };
+      _layoutCache.set(cacheKey, result);
+      return result;
+    }
+    const visibleWhiteCount = countWhiteKeysInRange(visibleRange);
+    const minWhiteIdx = getMinWhiteKeyIdx(visibleRange);
+    const visibleKeyWidth = totalWidth / visibleWhiteCount;
+
+    if (!noteName.includes('#')) {
+      const idx = WHITE_KEY_INDEX[noteName] ?? 0;
+      const result = { x: (idx - minWhiteIdx) * visibleKeyWidth, width: visibleKeyWidth, isBlack: false };
+      _layoutCache.set(cacheKey, result);
+      return result;
+    } else {
+      const naturalNote = noteName.replace('#', '');
+      const leftIdx = WHITE_KEY_INDEX[naturalNote] ?? 0;
+      const centerX = (leftIdx - minWhiteIdx + 0.5) * visibleKeyWidth;
+      const blackKeyWidth = visibleKeyWidth * BLACK_KEY_WIDTH_RATIO;
+      const result = { x: centerX - blackKeyWidth / 2, width: blackKeyWidth, isBlack: true };
+      _layoutCache.set(cacheKey, result);
+      return result;
+    }
+  }
 
   const whiteKeyWidth = totalWidth / WHITE_KEY_COUNT;
   const blackKeyWidth = whiteKeyWidth * BLACK_KEY_WIDTH_RATIO;
@@ -117,6 +194,6 @@ export function getPianoKeyLayout(noteName: string, totalWidth: number): PianoKe
     const centerX = (leftIdx + 0.5) * whiteKeyWidth;
     result = { x: centerX - blackKeyWidth / 2, width: blackKeyWidth, isBlack: true };
   }
-  _layoutCache.set(noteName, result);
+  _layoutCache.set(cacheKey, result);
   return result;
 }

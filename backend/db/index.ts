@@ -10,3 +10,4 @@ export {
   deleteSong,
   touchLastPlayed,
 } from "./song.ts";
+export { type UserRow, type GameSettings, getUser, getUserGameSettings, updateUserGameSettings } from "./user.ts";

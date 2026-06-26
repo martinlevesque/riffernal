@@ -12,6 +12,7 @@ import type { SongNote } from './game/NoteManager.js';
 import { PracticeHand } from './utils/notes.js';
 import type { Song } from './utils/MidiParser.js';
 import { fetchSongs, fetchSong, uploadSong, songFullToSong, summaryToSong, markSongPlayed } from './api/SongApi.js';
+import { fetchUserSettings, updateUserSettings } from './api/UserApi.js';
 
 const SHEET_STAFF_LINE_SPACING = 10;
 const BASE_SHEET_HEIGHT = 5 + 4 * SHEET_STAFF_LINE_SPACING + 8 + 4 * SHEET_STAFF_LINE_SPACING + 5;
@@ -247,6 +248,43 @@ async function init(): Promise<void> {
   const menu = new Menu(songs);
   await menu.loadCategories();
   const categorySelect = new CategorySelect();
+
+  // -- User settings (show used keys only) ----------------------------------
+  const showUsedKeysCheckbox = document.getElementById('show-used-keys') as HTMLInputElement;
+  try {
+    const settings = await fetchUserSettings();
+    game.showUsedKeys = settings.piano_show_used_keys_only ?? false;
+    showUsedKeysCheckbox.checked = game.showUsedKeys;
+  } catch {
+    // ignore - default is false
+  }
+  showUsedKeysCheckbox.addEventListener('change', () => {
+    const enabled = showUsedKeysCheckbox.checked;
+    game.setShowUsedKeys(enabled);
+    updateUserSettings({ piano_show_used_keys_only: enabled }).catch((e) =>
+      console.warn('Failed to save settings:', e),
+    );
+  });
+
+  // -- Settings popup wiring -----------------------------------------------
+  const btnSettings = document.getElementById('btn-settings')!;
+  const settingsPopup = document.getElementById('settings-popup')!;
+  const btnCloseSettings = document.getElementById('btn-close-settings')!;
+
+  btnSettings.addEventListener('click', () => {
+    settingsPopup.classList.remove('hidden');
+  });
+
+  btnCloseSettings.addEventListener('click', () => {
+    settingsPopup.classList.add('hidden');
+  });
+
+  settingsPopup.addEventListener('click', (e) => {
+    if (e.target === settingsPopup) {
+      settingsPopup.classList.add('hidden');
+    }
+  });
+
   menu.onStart = async (song) => {
     setMode(false);
     setPracticeHand(PracticeHand.Both);

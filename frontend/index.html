@@ -15,17 +15,17 @@
       <div id="menu-screen" class="screen active">
         <div class="menu-content">
           <h1 class="title">IRON<span class="accent">KEYS</span></h1>
-          <p class="subtitle">Keyboard Hero - Metal Edition</p>
-          <button id="btn-import-midi" class="btn btn-secondary">IMPORT MIDI</button>
+          <div class="menu-toolbar">
+            <button id="btn-import-midi" class="btn-link">+ Import MIDI</button>
+            <button id="btn-settings" class="btn-icon" title="Settings">&#9881;</button>
+          </div>
           <input type="file" id="midi-import-input" accept=".mid,.midi" class="visually-hidden">
           <div id="song-list"></div>
-          <div class="controls-info">
-            <h3>Controls</h3>
-            <p>White keys: <kbd>A</kbd><kbd>S</kbd><kbd>D</kbd><kbd>F</kbd><kbd>G</kbd><kbd>H</kbd><kbd>J</kbd><kbd>K</kbd><kbd>L</kbd></p>
-            <p>Black keys: <kbd>W</kbd><kbd>E</kbd><kbd>T</kbd><kbd>Y</kbd><kbd>U</kbd><kbd>O</kbd><kbd>P</kbd></p>
-          </div>
-          <button id="btn-start" class="btn btn-primary">START</button>
           <div id="midi-status" class="midi-status"></div>
+          <button id="btn-start" class="btn-start">PLAY</button>
+          <div class="controls-hint">
+            <kbd>A</kbd>-<kbd>L</kbd> white keys &middot; <kbd>W</kbd><kbd>E</kbd><kbd>T</kbd><kbd>Y</kbd><kbd>U</kbd><kbd>O</kbd><kbd>P</kbd> black keys
+          </div>
         </div>
       </div>
 
@@ -114,6 +114,21 @@
             <button id="btn-close-sheet" class="sheet-close-btn" title="Close">✕ Close</button>
           </div>
           <canvas id="sheet-canvas"></canvas>
+        </div>
+      </div>
+
+      <div id="settings-popup" class="popup hidden">
+        <div class="popup-card">
+          <h2>SETTINGS</h2>
+          <div class="popup-body">
+            <label class="setting-toggle">
+              <input type="checkbox" id="show-used-keys">
+              <span>Show only keys used in song</span>
+            </label>
+          </div>
+          <div class="popup-actions">
+            <button id="btn-close-settings" class="btn btn-primary">CLOSE</button>
+          </div>
         </div>
       </div>
     </div>

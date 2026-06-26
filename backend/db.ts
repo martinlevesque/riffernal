@@ -12,4 +12,9 @@ export {
   updateSongCategory,
   deleteSong,
   touchLastPlayed,
+  type UserRow,
+  type GameSettings,
+  getUser,
+  getUserGameSettings,
+  updateUserGameSettings,
 } from "./db/index.ts";

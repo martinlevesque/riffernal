@@ -43,3 +43,11 @@ if (isNew) {
     CREATE INDEX idx_songs_category ON songs(category_id);
   `);
 }
+
+db.exec(`
+  CREATE TABLE IF NOT EXISTS users (
+    id INTEGER PRIMARY KEY CHECK (id = 1),
+    game_settings TEXT NOT NULL DEFAULT '{}'
+  );
+`);
+db.exec(`INSERT OR IGNORE INTO users (id, game_settings) VALUES (1, '{}');`);

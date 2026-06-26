@@ -99,37 +99,99 @@ body {
 
 .menu-content {
   text-align: center;
-  max-width: 900px;
+  max-width: 640px;
   width: 90%;
   margin: auto;
+  padding-top: 10vh;
 }
 
 .title {
-  font-size: 4rem;
+  font-size: 3.5rem;
   font-weight: 900;
-  letter-spacing: 0.3em;
-  margin-bottom: 0.2em;
-  text-shadow: 0 0 30px rgba(255, 34, 68, 0.4);
+  letter-spacing: 0.4em;
+  margin-bottom: 0.6rem;
+  text-shadow: 0 0 40px rgba(255, 34, 68, 0.3);
 }
 
 .title .accent {
   color: var(--accent-red);
 }
 
-.subtitle {
-  color: var(--text-secondary);
-  font-size: 1rem;
-  letter-spacing: 0.2em;
-  text-transform: uppercase;
+.menu-toolbar {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.75rem;
   margin-bottom: 2rem;
 }
 
-#song-list {
-  margin: 1.5rem 0;
+.btn-link {
+  background: none;
+  border: none;
+  color: var(--text-secondary);
+  font-family: inherit;
+  font-size: 0.85rem;
+  letter-spacing: 0.1em;
+  cursor: pointer;
+  padding: 0.3rem 0;
+  border-bottom: 1px solid transparent;
+  transition: all 0.15s;
+}
+
+.btn-link:hover {
+  color: var(--text-primary);
+  border-bottom-color: var(--accent-red);
+}
+
+.btn-icon {
+  background: none;
+  border: 1px solid #333;
+  color: var(--text-secondary);
+  font-size: 1rem;
+  width: 32px;
+  height: 32px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 4px;
+  cursor: pointer;
+  transition: all 0.15s;
+}
+
+.btn-icon:hover {
+  border-color: var(--accent-red);
+  color: var(--text-primary);
 }
 
 #btn-import-midi {
-  margin: 0 0 1rem 0;
+  margin: 0;
+}
+
+.setting-toggle {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  cursor: pointer;
+  color: var(--text-secondary);
+  font-size: 0.9rem;
+  letter-spacing: 0.05em;
+  user-select: none;
+  transition: color 0.15s;
+}
+
+.setting-toggle:hover {
+  color: var(--text-primary);
+}
+
+.setting-toggle input[type="checkbox"] {
+  width: 18px;
+  height: 18px;
+  accent-color: var(--accent-red);
+  cursor: pointer;
+}
+
+#song-list {
+  margin: 0 0 1.5rem 0;
 }
 
 .visually-hidden {
@@ -179,39 +241,40 @@ body {
    ============================================ */
 
 .song-item {
-  border: 1px solid #333;
-  border-radius: 4px;
-  padding: 0.75rem 1rem;
+  border: none;
+  border-left: 2px solid #222;
+  border-radius: 0;
+  padding: 0.6rem 1rem;
   cursor: pointer;
   transition: all 0.15s;
   text-align: left;
   flex: 1 1 220px;
   min-width: 220px;
+  background: transparent;
 }
 
 .song-item:hover {
-  border-color: var(--accent-red);
-  background: var(--bg-surface-2);
-  box-shadow: var(--glow-red);
+  border-left-color: var(--accent-red);
+  background: rgba(255, 255, 255, 0.03);
 }
 
 .song-item.selected {
-  border-color: var(--accent-red);
-  background: var(--bg-surface-2);
+  border-left-color: var(--accent-red);
+  background: rgba(255, 34, 68, 0.08);
 }
 
 .song-item.imported {
-  border-color: var(--accent-blue);
+  border-left-color: var(--accent-blue);
 }
 
 .song-item.imported:hover {
-  border-color: var(--accent-blue);
-  box-shadow: var(--glow-blue);
+  border-left-color: var(--accent-blue);
+  background: rgba(34, 136, 255, 0.05);
 }
 
 .song-item.imported.selected {
-  border-color: var(--accent-blue);
-  box-shadow: var(--glow-blue);
+  border-left-color: var(--accent-blue);
+  background: rgba(34, 136, 255, 0.08);
 }
 
 .song-last-played {
@@ -219,7 +282,7 @@ body {
   color: var(--text-secondary);
   margin-top: 0.2rem;
   letter-spacing: 0.05em;
-  opacity: 0.7;
+  opacity: 0.5;
 }
 
 /* ============================================
@@ -282,20 +345,21 @@ body {
 .empty-song-list {
   text-align: center;
   color: var(--text-secondary);
-  padding: 2rem 1rem;
+  padding: 3rem 1rem;
   font-size: 0.85rem;
+  opacity: 0.6;
 }
 
 .song-title {
-  font-size: 1.1rem;
-  font-weight: bold;
+  font-size: 1rem;
+  font-weight: 600;
   color: var(--text-primary);
 }
 
 .song-artist {
-  font-size: 0.85rem;
+  font-size: 0.8rem;
   color: var(--text-secondary);
-  margin-top: 0.2rem;
+  margin-top: 0.15rem;
 }
 
 .song-difficulty {
@@ -316,39 +380,67 @@ body {
    CONTROLS INFO & KEYBOARD KEYS
    ============================================ */
 
-.controls-info {
-  padding: 1rem;
-  background: var(--bg-surface);
-  border-radius: 4px;
-  border: 1px solid #222;
+.controls-hint {
+  margin-top: 2rem;
+  font-size: 0.75rem;
+  color: var(--text-secondary);
+  opacity: 0.5;
+  letter-spacing: 0.05em;
 }
 
-.controls-info h3 {
-  font-size: 0.8rem;
-  color: var(--text-secondary);
-  letter-spacing: 0.2em;
+.btn-start {
+  display: inline-block;
+  background: transparent;
+  border: 1px solid var(--accent-red);
+  color: var(--accent-red);
+  font-family: inherit;
+  font-size: 0.9rem;
+  letter-spacing: 0.3em;
   text-transform: uppercase;
-  margin-bottom: 0.5rem;
+  padding: 0.7rem 3rem;
+  border-radius: 2px;
+  cursor: pointer;
+  transition: all 0.2s;
+  margin-top: 1.5rem;
 }
 
-.controls-info p {
-  margin: 0.3rem 0;
-  font-size: 0.85rem;
-  color: var(--text-secondary);
+.btn-start:hover {
+  background: var(--accent-red);
+  color: #fff;
+  box-shadow: 0 0 30px rgba(255, 34, 68, 0.3);
+}
+
+.btn-start:disabled {
+  opacity: 0.3;
+  cursor: default;
+}
+
+.btn-start:disabled:hover {
+  background: transparent;
+  color: var(--accent-red);
+  box-shadow: none;
 }
 
 kbd {
   display: inline-block;
-  background: var(--bg-surface-2);
-  border: 1px solid #444;
-  border-radius: 3px;
-  padding: 0.15rem 0.4rem;
-  margin: 0 0.1rem;
+  background: none;
+  border: 1px solid #333;
+  border-radius: 2px;
+  padding: 0.1rem 0.35rem;
+  margin: 0 0.05rem;
   font-family: inherit;
-  font-size: 0.8rem;
-  color: var(--text-primary);
-  min-width: 1.5em;
+  font-size: 0.7rem;
+  color: var(--text-secondary);
+  min-width: 1.2em;
   text-align: center;
+}
+
+.midi-status {
+  font-size: 0.75rem;
+  color: var(--text-secondary);
+  margin-top: 1rem;
+  min-height: 1em;
+  opacity: 0.6;
 }
 
 /* ============================================
@@ -356,15 +448,16 @@ kbd {
    ============================================ */
 
 .btn {
-  font-size: 1rem;
-  padding: 0.8rem 3rem;
-  border: 2px solid;
+  font-family: inherit;
+  font-size: 0.85rem;
+  padding: 0.6rem 2rem;
+  border: 1px solid;
   border-radius: 2px;
   cursor: pointer;
-  letter-spacing: 0.2em;
+  letter-spacing: 0.15em;
   text-transform: uppercase;
   transition: all 0.15s;
-  margin: 0.5rem;
+  margin: 0.4rem;
   pointer-events: auto;
 }
 
@@ -376,12 +469,11 @@ kbd {
 
 .btn-primary:hover {
   background: #cc1133;
-  box-shadow: var(--glow-red);
 }
 
 .btn-secondary {
   background: transparent;
-  border-color: #555;
+  border-color: #444;
   color: var(--text-secondary);
 }
 
@@ -1139,4 +1231,53 @@ kbd {
 #category-select-actions .btn {
   margin: 0;
   flex: 1;
+}
+
+/* ============================================
+   SETTINGS POPUP
+   ============================================ */
+
+.popup {
+  position: fixed;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  background: rgba(0, 0, 0, 0.8);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 100;
+  pointer-events: auto;
+}
+
+.popup.hidden {
+  display: none;
+}
+
+.popup-card {
+  background: var(--bg-surface);
+  border: 1px solid #222;
+  border-radius: 4px;
+  padding: 2rem 2.5rem;
+  max-width: 360px;
+  width: 90%;
+}
+
+.popup-card h2 {
+  font-size: 0.85rem;
+  letter-spacing: 0.25em;
+  text-align: center;
+  margin-bottom: 1.5rem;
+  color: var(--text-secondary);
+  font-weight: 400;
+}
+
+.popup-body {
+  margin-bottom: 1.5rem;
+}
+
+.popup-actions {
+  display: flex;
+  justify-content: center;
 }
