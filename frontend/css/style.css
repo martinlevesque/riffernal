@@ -520,6 +520,8 @@ kbd {
   pointer-events: none;
   z-index: 11;
   white-space: nowrap;
+  max-width: calc(100% - 24rem);
+  overflow: hidden;
   contain: layout style;
 }
 
