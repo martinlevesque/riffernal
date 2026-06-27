@@ -1,9 +1,14 @@
 import { noteNameToMidi } from '../utils/helpers.js';
 import { metalPatch } from './patches/metalPatch.js';
 import type { Patch, PatchNote } from './patches/Patch.js';
+import { isLowEndDevice } from '../utils/device.js';
+
+const PRIO_FOREGROUND = 0;
+const PRIO_BACKGROUND = 1;
 
 interface ActiveNote {
   note: PatchNote;
+  backgroundPrio: number;
 }
 
 export class Synth {
@@ -13,6 +18,11 @@ export class Synth {
   private activeNotes: Map<string, ActiveNote> = new Map();
   private initialized = false;
   private patch: Patch = metalPatch;
+  private _bgCount = 0;
+  // Bounded polyphony prevents runaway node counts when the audio thread
+  // can't keep up. Background (auto-played) voices are evicted first.
+  private maxVoices = isLowEndDevice() ? 20 : 32;
+  private maxBackgroundVoices = isLowEndDevice() ? 12 : 24;
 
   init(): void {
     if (this.initialized) return;
@@ -58,6 +68,17 @@ export class Synth {
       this.noteOff(key);
     }
 
+    const isBackground = key.startsWith('auto_');
+    const prio = isBackground ? PRIO_BACKGROUND : PRIO_FOREGROUND;
+
+    if (isBackground && this._bgCount >= this.maxBackgroundVoices) {
+      this._stealOldestBackground();
+    } else if (this.activeNotes.size >= this.maxVoices) {
+      if (!this._stealOldestBackground()) {
+        this._stealOldestAny();
+      }
+    }
+
     const noteMidi = noteNameToMidi(noteName);
     if (noteMidi < 0) return;
     const freq = 440 * 2 ** ((noteMidi - 69) / 12);
@@ -67,7 +88,34 @@ export class Synth {
     const activePatch = patch ?? this.patch;
     const patchNote = activePatch.build(this.ctx!, freq, now, midi);
     patchNote.output.connect(this.masterGain!);
-    this.activeNotes.set(key, { note: patchNote });
+    this.activeNotes.set(key, { note: patchNote, backgroundPrio: prio });
+    if (prio === PRIO_BACKGROUND) this._bgCount++;
+  }
+
+  /** Release and remove the oldest background voice. Returns true on success. */
+  private _stealOldestBackground(): boolean {
+    for (const [k, v] of this.activeNotes) {
+      if (v.backgroundPrio !== PRIO_BACKGROUND) continue;
+      const now = this.ctx!.currentTime;
+      v.note.release(this.ctx!, now);
+      this.activeNotes.delete(k);
+      this._bgCount--;
+      return true;
+    }
+    return false;
+  }
+
+  /** Release and remove the oldest voice of any kind. */
+  private _stealOldestAny(): boolean {
+    const key = this.activeNotes.keys().next().value;
+    if (key === undefined) return false;
+    const v = this.activeNotes.get(key);
+    if (!v) return false;
+    const now = this.ctx!.currentTime;
+    v.note.release(this.ctx!, now);
+    this.activeNotes.delete(key);
+    if (v.backgroundPrio === PRIO_BACKGROUND) this._bgCount--;
+    return true;
   }
 
   noteOff(noteName: string): void {
@@ -77,6 +125,7 @@ export class Synth {
     const now = this.ctx!.currentTime;
     active.note.release(this.ctx!, now);
     this.activeNotes.delete(noteName);
+    if (active.backgroundPrio === PRIO_BACKGROUND) this._bgCount--;
   }
 
   releaseAll(): void {

@@ -3,11 +3,11 @@
 
 import { NOTE_NAMES, getPianoKeyLayout, WHITE_KEY_COUNT, handForKey, handColor, HandSide, NOTE_SHORT_NAMES, whiteKeyWidth, countWhiteKeysInRange } from '../../utils/notes.js';
 import type { VisibleRange } from '../../utils/notes.js';
-import { KEYBOARD_MAP } from '../../input/KeyboardInput.js';
 import { HIT_ZONE_Y_RATIO } from '../NoteManager.js';
 import { LoopDefinitionState } from '../Loop.js';
 import { PianoRenderer } from './PianoRenderer.js';
 import type { SongNote } from '../NoteManager.js';
+import { isLowEndDevice } from '../../utils/device.js';
 
 export const SHEET_TOP_OFFSET = 84;
 
@@ -132,13 +132,6 @@ function roundRect(ctx: CanvasRenderingContext2D, x: number, y: number, w: numbe
   ctx.closePath();
 }
 
-function codeToDisplay(code: string): string {
-  if (code.startsWith('Key')) return code.slice(3);
-  if (code.startsWith('Digit')) return code.slice(5);
-  const special: Record<string, string> = { Semicolon: ';', Comma: ',', Period: '.', Slash: '/', Backslash: '\\', BracketLeft: '[', BracketRight: ']', Minus: '-', Equal: '=', Quote: "'", Backquote: '`' };
-  return special[code] || '';
-}
-
 const SHEET_NOTE_POSITIONS: Record<string, number> = Object.assign(
   Object.fromEntries(Object.entries(BASS_STAFF_POSITIONS).map(([k, v]) => [k, v - 3])),
   TREBLE_STAFF_POSITIONS
@@ -194,16 +187,13 @@ export class Renderer {
   constructor(canvas: HTMLCanvasElement) {
     this.canvas = canvas;
     this.ctx = canvas.getContext('2d')!;
-    this.piano = new PianoRenderer(
-      Object.fromEntries(
-        Object.entries(KEYBOARD_MAP).map(([code, note]) => [note, codeToDisplay(code)])
-      )
-    );
+    this.piano = new PianoRenderer();
     this.resize();
   }
 
   resize(): void {
-    const dpr = window.devicePixelRatio || 1;
+    const lowEnd = isLowEndDevice();
+    const dpr = Math.min(window.devicePixelRatio || 1, lowEnd ? 1 : 2);
     const cssW = this.canvas.clientWidth || window.innerWidth;
     const cssH = this.canvas.clientHeight || window.innerHeight;
     this.canvas.width = cssW * dpr;
@@ -600,7 +590,7 @@ export class Renderer {
     ctx.lineTo(stemX, noteY + stemDir * stemLen);
     ctx.stroke();
 
-    if (note.duration < 0.3) {
+    if (note.duration < 0.3 && !isLowEndDevice()) {
       const flagBaseY = noteY + stemDir * stemLen;
       ctx.beginPath();
       ctx.moveTo(stemX, flagBaseY);

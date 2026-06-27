@@ -20,9 +20,6 @@ const BLACK_KEY_BORDER = '#000';
 const KEY_LABEL = '#666';
 const KEY_LABEL_PRESSED_WHITE = '#fff';
 const KEY_LABEL_PRESSED_BLACK = '#ddd';
-const KB_LABEL = '#444';
-const KB_LABEL_PRESSED_WHITE = '#aaa';
-const KB_LABEL_PRESSED_BLACK = '#999';
 const NOTE_FALLBACK_COLOR = '#ffffff';
 
 const PIANO_HEIGHT_RATIO = 0.16;
@@ -46,11 +43,6 @@ export class PianoRenderer {
   private _cachedState = 0;
   private _cachedWidth = -1;
   private _cachedRangeKey = '';
-  private _keyDisplayMap: Record<string, string>;
-
-  constructor(keyDisplayMap: Record<string, string>) {
-    this._keyDisplayMap = keyDisplayMap;
-  }
 
   drawHitZone(ctx: CanvasRenderingContext2D, width: number, height: number, pressedLanes: Set<number>, visibleRange?: VisibleRange | null): void {
     const hitZoneY = height * HIT_ZONE_Y_RATIO;
@@ -145,8 +137,7 @@ export class PianoRenderer {
     const pianoBgPadding = 2;
     const keyInset = 1;
     const pressedShadowBlur = 15;
-    const labelYRatio = 0.72;
-    const kbLabelOffset = 13;
+    const labelYRatio = 0.82;
 
     ctx.fillStyle = CANVAS_BG;
     ctx.fillRect(0, pianoTop - pianoBgPadding - offsetY, width, pianoH + pianoBgPadding);
@@ -183,24 +174,18 @@ export class PianoRenderer {
       const labelY = pianoTop - offsetY + pianoH * labelYRatio;
       const shortName = NOTE_SHORT_NAMES[noteName] ?? noteName;
       ctx.fillStyle = isPressed ? KEY_LABEL_PRESSED_WHITE : KEY_LABEL;
-      ctx.font = `${Math.max(11, whiteKeyWidth * 0.3)}px Courier New`;
+      ctx.font = `bold ${Math.max(14, whiteKeyWidth * 0.42)}px Courier New`;
       ctx.textAlign = 'center';
+      ctx.textBaseline = 'middle';
       ctx.fillText(shortName, layout.x + whiteKeyWidth / 2, labelY);
-
-      const kbKey = this._keyDisplayMap[noteName] || '';
-      if (kbKey) {
-        ctx.fillStyle = isPressed ? KB_LABEL_PRESSED_WHITE : KB_LABEL;
-        ctx.font = `bold ${Math.max(9, whiteKeyWidth * 0.22)}px Courier New`;
-        ctx.fillText(`[${kbKey}]`, layout.x + whiteKeyWidth / 2, labelY + kbLabelOffset);
-      }
+      ctx.textBaseline = 'alphabetic';
     }
   }
 
   private _drawBlackKeys(ctx: CanvasRenderingContext2D, pressedLanes: Set<number>, pianoTop: number, offsetY: number, width: number, blackKeyWidth: number, blackKeyHeight: number, visibleRange?: VisibleRange | null): void {
     const keyInset = 1;
     const pressedShadowBlur = 12;
-    const labelBottomOffset = 13;
-    const kbLabelOffset = 7;
+    const labelBottomOffset = 16;
 
     for (let i = 0; i < NOTE_NAMES.length; i++) {
       if (visibleRange && (i < visibleRange.minNoteIdx || i > visibleRange.maxNoteIdx)) continue;
@@ -239,16 +224,9 @@ export class PianoRenderer {
       const blkLabelY = pianoTop - offsetY + blackKeyHeight - labelBottomOffset;
       const blkShort = NOTE_SHORT_NAMES[noteName] ?? noteName;
       ctx.fillStyle = isPressed ? KEY_LABEL_PRESSED_BLACK : KEY_LABEL;
-      ctx.font = `${Math.max(6, blackKeyWidth * 0.35)}px Courier New`;
+      ctx.font = `bold ${Math.max(10, blackKeyWidth * 0.5)}px Courier New`;
       ctx.textAlign = 'center';
       ctx.fillText(blkShort, layout.x + blackKeyWidth / 2, blkLabelY);
-
-      const blkKb = this._keyDisplayMap[noteName] || '';
-      if (blkKb) {
-        ctx.fillStyle = isPressed ? KB_LABEL_PRESSED_BLACK : KB_LABEL;
-        ctx.font = `bold ${Math.max(5, blackKeyWidth * 0.25)}px Courier New`;
-        ctx.fillText(`[${blkKb}]`, layout.x + blackKeyWidth / 2, blkLabelY + kbLabelOffset);
-      }
 
       ctx.restore();
     }

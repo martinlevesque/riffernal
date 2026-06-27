@@ -1,5 +1,6 @@
 import type { Patch } from './Patch.js';
 import { getDistortionCurve } from './shared.js';
+import { isLowEndDevice } from '../../utils/device.js';
 
 function buildGuitar(ctx: AudioContext, freq: number, startTime: number, distortion: number): { output: GainNode; release: (ctx: AudioContext, stopTime: number) => void } {
   const osc1 = ctx.createOscillator();
@@ -22,7 +23,7 @@ function buildGuitar(ctx: AudioContext, freq: number, startTime: number, distort
   gain2.gain.value = 0.45;
 
   distortionNode.curve = getDistortionCurve(distortion);
-  distortionNode.oversample = '2x';
+  distortionNode.oversample = isLowEndDevice() ? 'none' : '2x';
 
   // Filter: start bright, settle to mid-range (aligned with metalPatch character)
   const filterStart = Math.min(5000, 3000 + distortion * 200);
