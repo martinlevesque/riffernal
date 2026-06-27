@@ -10,6 +10,7 @@ export class MidiInput {
   enabled = true;
   connected = false;
   private _onMidiMessage: (event: MIDIMessageEvent) => void;
+  private _pendingVirtualWarning = false;
 
   constructor() {
     this._onMidiMessage = (event) => this._handleMidiMessage(event);
@@ -78,6 +79,7 @@ export class MidiInput {
       const inputs = Array.from(this.midiAccess.inputs.values());
       const names = inputs.map(i => i.name);
       const onlyVirtual = inputs.every(i => MidiInput._isVirtualPort(i));
+      this._pendingVirtualWarning = onlyVirtual;
       if (onlyVirtual) {
         this._updateStatus(true, `Connected: ${names.join(', ')} (virtual port — run aconnect -l to check for real devices)`);
       } else {
@@ -94,6 +96,12 @@ export class MidiInput {
 
   private _handleMidiMessage(event: MIDIMessageEvent): void {
     if (!this.enabled) return;
+
+    if (this._pendingVirtualWarning) {
+      this._pendingVirtualWarning = false;
+      const names = Array.from(this.midiAccess?.inputs.values() ?? []).map(i => i.name);
+      this._updateStatus(true, `Connected: ${names.join(', ')}`);
+    }
 
     const data = event.data ?? [];
     const [status, data1, data2] = data;
