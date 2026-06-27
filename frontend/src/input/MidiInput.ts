@@ -55,6 +55,12 @@ export class MidiInput {
     this.connected = false;
   }
 
+  private static _isVirtualPort(input: MIDIInput): boolean {
+    const name = (input.name ?? '').toLowerCase();
+    const manufacturer = (input.manufacturer ?? '').toLowerCase();
+    return name.includes('midi through') || name.includes('loopback') || name.includes('virtual') || manufacturer === 'client';
+  }
+
   private _connectInputs(): void {
     if (!this.midiAccess) return;
 
@@ -69,8 +75,14 @@ export class MidiInput {
 
     this.connected = found;
     if (found) {
-      const names = Array.from(this.midiAccess.inputs.values()).map(i => i.name);
-      this._updateStatus(true, `Connected: ${names.join(', ')}`);
+      const inputs = Array.from(this.midiAccess.inputs.values());
+      const names = inputs.map(i => i.name);
+      const onlyVirtual = inputs.every(i => MidiInput._isVirtualPort(i));
+      if (onlyVirtual) {
+        this._updateStatus(true, `Connected: ${names.join(', ')} (virtual port — run aconnect -l to check for real devices)`);
+      } else {
+        this._updateStatus(true, `Connected: ${names.join(', ')}`);
+      }
     } else {
       this._updateStatus(false, 'No MIDI device found');
     }
