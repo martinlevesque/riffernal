@@ -243,8 +243,17 @@ export class NoteManager {
         continue;
       }
 
+      const timeDiff = note.time - currentTime;
+
+      // Notes far in the future can't be activated, missed, or auto-played.
+      // Since notes are sorted by time, all subsequent notes are even further
+      // ahead, so we can stop scanning.
+      if (timeDiff > lookAhead + 1) {
+        break;
+      }
+
       if (this._isAutoPlayNote(note) && !note.autoPlayed) {
-        if (note.time - currentTime <= 0) {
+        if (timeDiff <= 0) {
           note.autoPlayed = true;
           if (this.onAutoPlayOn) this.onAutoPlayOn(note);
           if (note.duration <= TAP_NOTE_THRESHOLD) {
@@ -291,8 +300,6 @@ export class NoteManager {
         }
         continue;
       }
-
-      const timeDiff = note.time - currentTime;
 
       if (timeDiff < -TIMING.GOOD) {
         if (note.selected) {

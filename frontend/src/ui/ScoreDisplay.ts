@@ -1,4 +1,5 @@
 import type { Scoring } from '../game/scoring.js';
+import { formatScore } from '../utils/helpers.js';
 
 export class ScoreDisplay {
   private scoreEl: HTMLElement;
@@ -7,6 +8,9 @@ export class ScoreDisplay {
   private accuracyEl: HTMLElement;
   private feedbackEl: HTMLElement;
   private feedbackTimeout: ReturnType<typeof setTimeout> | null = null;
+  private _lastScore = -1;
+  private _lastCombo = -1;
+  private _lastAccuracy = '';
 
   constructor() {
     this.scoreEl = document.getElementById('score-value')!;
@@ -17,17 +21,27 @@ export class ScoreDisplay {
   }
 
   update(scoring: Scoring): void {
-    this.scoreEl.textContent = scoring.score.toLocaleString();
-
-    const combo = scoring.combo;
-    if (combo >= 5) {
-      this.comboEl.textContent = `${combo}x COMBO`;
-      this.comboCellEl.style.display = '';
-    } else {
-      this.comboCellEl.style.display = 'none';
+    if (scoring.score !== this._lastScore) {
+      this._lastScore = scoring.score;
+      this.scoreEl.textContent = formatScore(scoring.score);
     }
 
-    this.accuracyEl.textContent = `${scoring.getAccuracy()}%`;
+    const combo = scoring.combo;
+    if (combo !== this._lastCombo) {
+      this._lastCombo = combo;
+      if (combo >= 5) {
+        this.comboEl.textContent = `${combo}x COMBO`;
+        this.comboCellEl.style.display = '';
+      } else {
+        this.comboCellEl.style.display = 'none';
+      }
+    }
+
+    const acc = `${scoring.getAccuracy()}%`;
+    if (acc !== this._lastAccuracy) {
+      this._lastAccuracy = acc;
+      this.accuracyEl.textContent = acc;
+    }
   }
 
   showFeedback(result: string, color: string): void {

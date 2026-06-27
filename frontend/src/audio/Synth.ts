@@ -68,6 +68,9 @@ export class Synth {
       this.noteOff(key);
     }
 
+    const noteMidi = noteNameToMidi(noteName);
+    if (noteMidi < 0) return;
+
     const isBackground = key.startsWith('auto_');
     const prio = isBackground ? PRIO_BACKGROUND : PRIO_FOREGROUND;
 
@@ -79,8 +82,6 @@ export class Synth {
       }
     }
 
-    const noteMidi = noteNameToMidi(noteName);
-    if (noteMidi < 0) return;
     const freq = 440 * 2 ** ((noteMidi - 69) / 12);
     const midi = midiOverride ?? noteMidi;
     const now = this.ctx!.currentTime;

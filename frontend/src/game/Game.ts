@@ -81,6 +81,8 @@ export class Game {
   private _boundLoop: () => void;
   private _lastFrameTime = 0;
   private _completionTime: number | null = null;
+  private _lastSheetBottom = -1;
+  private _frameCount = 0;
 
   constructor(canvas: HTMLCanvasElement, synth: Synth, keyboardInput: KeyboardInput, midiInput: MidiInput) {
     this.canvas = canvas;
@@ -112,6 +114,7 @@ export class Game {
       const now = performance.now() / 1000;
       const delta = this._lastFrameTime ? now - this._lastFrameTime : 1 / 60;
       this._lastFrameTime = now;
+      this._frameCount++;
 
       this._updateFrameTime(now, delta);
       this._checkLoopWrap();
@@ -119,13 +122,17 @@ export class Game {
       this.scrollOffset += SCROLL_SPEED * delta * this.speedMultiplier;
 
       this.renderer.clear();
+      this.renderer.beginFrame(performance.now());
       this.renderer.drawHighway(this.scrollOffset, this.usedNoteRange);
 
       if (this.state === GameState.Playing) {
         this._renderPlayingFrame();
       }
 
-      this.resizeHandle.style.top = `${this.renderer.sheetBottom}px`;
+      if (this.renderer.sheetBottom !== this._lastSheetBottom) {
+        this._lastSheetBottom = this.renderer.sheetBottom;
+        this.resizeHandle.style.top = `${this.renderer.sheetBottom}px`;
+      }
 
       this.renderer.drawParticles();
       this.renderer.drawPiano(this.pressedLanes, this.usedNoteRange);
@@ -207,7 +214,9 @@ export class Game {
     }
 
     this.scoreDisplay?.update(this.noteManager.scoring);
-    this.timeDisplayEl.textContent = `${formatTime(this.currentTime)} / ${formatTime(this.noteManager.getSongDuration())}`;
+    if (this._frameCount % 6 === 0) {
+      this.timeDisplayEl.textContent = `${formatTime(this.currentTime)} / ${formatTime(this.noteManager.getSongDuration())}`;
+    }
     this._checkCompletion();
   }
 

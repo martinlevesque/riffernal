@@ -26,7 +26,6 @@ const HIGHWAY_BG = '#0e0e0e';
 const HIGHWAY_LANE_COLOR = '#1a1a1a';
 
 const NOTE_HEAD_LABEL_COLOR = '#000';
-const NOTE_LABEL_SHADOW = 'rgba(255,255,255,0.6)';
 
 const NOTE_HIGHLIGHT_COLOR = '#fff';
 
@@ -183,11 +182,14 @@ export class Renderer {
   private _cachedStaffScale = -1;
   private _cachedStaffWidth = -1;
   private _flameCache = new Map<number, HTMLCanvasElement>();
+  private _isLowEnd: boolean;
+  private _now = 0;
 
   constructor(canvas: HTMLCanvasElement) {
     this.canvas = canvas;
     this.ctx = canvas.getContext('2d')!;
     this.piano = new PianoRenderer();
+    this._isLowEnd = isLowEndDevice();
     this.resize();
   }
 
@@ -209,6 +211,11 @@ export class Renderer {
     this.ctx.fillRect(0, 0, this.width, this.height);
   }
 
+  /** Call once per frame before any draw calls. */
+  beginFrame(nowMs: number): void {
+    this._now = nowMs;
+  }
+
   drawHighway(_scrollOffset: number, visibleRange?: VisibleRange | null): void {
     const ctx = this.ctx;
     const hitZoneY = this.height * HIT_ZONE_Y_RATIO;
@@ -221,16 +228,16 @@ export class Renderer {
 
     ctx.strokeStyle = HIGHWAY_LANE_COLOR;
     ctx.lineWidth = 1;
+    ctx.beginPath();
     const laneCount = visibleRange
       ? countWhiteKeysInRange(visibleRange)
       : WHITE_KEY_COUNT;
     for (let i = 1; i < laneCount; i++) {
       const x = i * keyWidth;
-      ctx.beginPath();
       ctx.moveTo(x, highwayTop);
       ctx.lineTo(x, highwayBottom);
-      ctx.stroke();
     }
+    ctx.stroke();
 
   }
 
@@ -307,7 +314,7 @@ export class Renderer {
 
     let waitingGlowWidth = 0;
     if (waiting) {
-      const pulse = 0.5 + 0.5 * Math.sin(performance.now() / 200 * 3.2);
+      const pulse = 0.5 + 0.5 * Math.sin(this._now / 200 * 3.2);
       waitingGlowWidth = 4 + pulse * 8;
     }
 
@@ -356,8 +363,6 @@ export class Renderer {
     ctx.textAlign = 'center';
     ctx.textBaseline = 'bottom';
     ctx.fillStyle = NOTE_HEAD_LABEL_COLOR;
-    ctx.shadowColor = NOTE_LABEL_SHADOW;
-    ctx.shadowBlur = 1;
     ctx.fillText(shortName, drawX + width / 2, drawY + height);
   }
 
@@ -412,7 +417,7 @@ export class Renderer {
   private _drawFlame(ctx: CanvasRenderingContext2D, cx: number, baseY: number, width: number): void {
     const sprite = this._getFlameSprite(width);
     const scale = width / Math.max(4, Math.round(width / 2) * 2);
-    const flicker = 0.85 + 0.15 * Math.sin(performance.now() / 120 * 4.7);
+    const flicker = 0.85 + 0.15 * Math.sin(this._now / 120 * 4.7);
     ctx.globalAlpha = flicker;
     ctx.drawImage(
       sprite,
@@ -535,17 +540,32 @@ export class Renderer {
     const { ctx, sheetTop, sheetBottom, barX, barW, viewStart, viewEnd } = L;
     const firstBeat = Math.ceil(viewStart / (60 / bpm));
     const lastBeat = Math.floor(viewEnd / (60 / bpm));
+
+    // Batch measure lines
+    ctx.strokeStyle = MEASURE_LINE_COLOR;
+    ctx.lineWidth = 1;
+    ctx.beginPath();
     for (let beat = firstBeat; beat <= lastBeat; beat++) {
+      if (beat % SHEET_BEATS_PER_MEASURE !== 0) continue;
       const beatTime = beat * (60 / bpm);
       const x = barX + ((beatTime - viewStart) / (viewEnd - viewStart)) * barW;
-      const isMeasure = beat % SHEET_BEATS_PER_MEASURE === 0;
-      ctx.strokeStyle = isMeasure ? MEASURE_LINE_COLOR : BEAT_LINE_COLOR;
-      ctx.lineWidth = isMeasure ? 1 : 0.5;
-      ctx.beginPath();
       ctx.moveTo(x, sheetTop);
       ctx.lineTo(x, sheetBottom);
-      ctx.stroke();
     }
+    ctx.stroke();
+
+    // Batch beat lines
+    ctx.strokeStyle = BEAT_LINE_COLOR;
+    ctx.lineWidth = 0.5;
+    ctx.beginPath();
+    for (let beat = firstBeat; beat <= lastBeat; beat++) {
+      if (beat % SHEET_BEATS_PER_MEASURE === 0) continue;
+      const beatTime = beat * (60 / bpm);
+      const x = barX + ((beatTime - viewStart) / (viewEnd - viewStart)) * barW;
+      ctx.moveTo(x, sheetTop);
+      ctx.lineTo(x, sheetBottom);
+    }
+    ctx.stroke();
   }
 
   private _drawSheetNote(note: SongNote, staffTop: number, L: SheetLayout): void {
@@ -590,7 +610,7 @@ export class Renderer {
     ctx.lineTo(stemX, noteY + stemDir * stemLen);
     ctx.stroke();
 
-    if (note.duration < 0.3 && !isLowEndDevice()) {
+    if (note.duration < 0.3 && !this._isLowEnd) {
       const flagBaseY = noteY + stemDir * stemLen;
       ctx.beginPath();
       ctx.moveTo(stemX, flagBaseY);

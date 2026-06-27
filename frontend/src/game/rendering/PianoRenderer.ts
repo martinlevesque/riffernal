@@ -40,9 +40,8 @@ function roundRect(ctx: CanvasRenderingContext2D, x: number, y: number, w: numbe
 
 export class PianoRenderer {
   private _cache: HTMLCanvasElement | null = null;
-  private _cachedState = 0;
+  private _cachedState = '';
   private _cachedWidth = -1;
-  private _cachedRangeKey = '';
 
   drawHitZone(ctx: CanvasRenderingContext2D, width: number, height: number, pressedLanes: Set<number>, visibleRange?: VisibleRange | null): void {
     const hitZoneY = height * HIT_ZONE_Y_RATIO;
@@ -76,13 +75,15 @@ export class PianoRenderer {
   }
 
   private _ensureCache(width: number, height: number, pressedLanes: Set<number>, visibleRange?: VisibleRange | null): void {
-    let state = 0;
-    for (const lane of pressedLanes) state |= 1 << lane;
     const rangeKey = visibleRange ? `${visibleRange.minNoteIdx}:${visibleRange.maxNoteIdx}` : '';
-    if (state === this._cachedState && width === this._cachedWidth && rangeKey === this._cachedRangeKey && this._cache) return;
-    this._cachedState = state;
+    // Build a string key from sorted pressed lanes to avoid bitfield overflow
+    // for lanes >= 32 (88 piano keys total).
+    const stateKey = pressedLanes.size > 0
+      ? `${rangeKey}|${[...pressedLanes].sort((a, b) => a - b).join(',')}`
+      : rangeKey;
+    if (stateKey === this._cachedState && width === this._cachedWidth && this._cache) return;
+    this._cachedState = stateKey;
     this._cachedWidth = width;
-    this._cachedRangeKey = rangeKey;
 
     const hitZoneY = height * HIT_ZONE_Y_RATIO;
     const pianoTop = height - height * PIANO_HEIGHT_RATIO;
@@ -136,7 +137,6 @@ export class PianoRenderer {
   private _drawWhiteKeys(ctx: CanvasRenderingContext2D, pressedLanes: Set<number>, pianoTop: number, offsetY: number, width: number, pianoH: number, whiteKeyWidth: number, visibleRange?: VisibleRange | null): void {
     const pianoBgPadding = 2;
     const keyInset = 1;
-    const pressedShadowBlur = 15;
     const labelYRatio = 0.82;
 
     ctx.fillStyle = CANVAS_BG;
@@ -156,12 +156,9 @@ export class PianoRenderer {
       ctx.fillRect(layout.x + keyInset, pianoTop + keyInset - offsetY, whiteKeyWidth - keyInset * 2, pianoH - keyInset * 2);
 
       if (isPressed) {
-        ctx.shadowColor = color;
-        ctx.shadowBlur = pressedShadowBlur;
         ctx.strokeStyle = color;
         ctx.lineWidth = 2;
         ctx.strokeRect(layout.x + keyInset, pianoTop + keyInset - offsetY, whiteKeyWidth - keyInset * 2, pianoH - keyInset * 2);
-        ctx.shadowBlur = 0;
       }
 
       ctx.strokeStyle = WHITE_KEY_BORDER;
@@ -184,7 +181,6 @@ export class PianoRenderer {
 
   private _drawBlackKeys(ctx: CanvasRenderingContext2D, pressedLanes: Set<number>, pianoTop: number, offsetY: number, width: number, blackKeyWidth: number, blackKeyHeight: number, visibleRange?: VisibleRange | null): void {
     const keyInset = 1;
-    const pressedShadowBlur = 12;
     const labelBottomOffset = 16;
 
     for (let i = 0; i < NOTE_NAMES.length; i++) {
@@ -203,13 +199,10 @@ export class PianoRenderer {
 
       if (isPressed) {
         const bcolor = NOTE_COLORS[noteName] || NOTE_FALLBACK_COLOR;
-        ctx.shadowColor = bcolor;
-        ctx.shadowBlur = pressedShadowBlur;
         ctx.strokeStyle = bcolor;
         ctx.lineWidth = 1.5;
         roundRect(ctxR, layout.x + keyInset, pianoTop + keyInset - offsetY, blackKeyWidth - keyInset * 2, blackKeyHeight - keyInset * 2, 1);
         ctx.stroke();
-        ctx.shadowBlur = 0;
       }
 
       ctx.strokeStyle = BLACK_KEY_BORDER;
@@ -217,18 +210,12 @@ export class PianoRenderer {
       roundRect(ctxR, layout.x, pianoTop - offsetY, blackKeyWidth, blackKeyHeight, 2);
       ctx.stroke();
 
-      ctx.save();
-      roundRect(ctxR, layout.x + keyInset, pianoTop + keyInset - offsetY, blackKeyWidth - keyInset * 2, blackKeyHeight - keyInset * 2, 1);
-      ctx.clip();
-
       const blkLabelY = pianoTop - offsetY + blackKeyHeight - labelBottomOffset;
       const blkShort = NOTE_SHORT_NAMES[noteName] ?? noteName;
       ctx.fillStyle = isPressed ? KEY_LABEL_PRESSED_BLACK : KEY_LABEL;
       ctx.font = `bold ${Math.max(10, blackKeyWidth * 0.5)}px Courier New`;
       ctx.textAlign = 'center';
       ctx.fillText(blkShort, layout.x + blackKeyWidth / 2, blkLabelY);
-
-      ctx.restore();
     }
   }
 }
