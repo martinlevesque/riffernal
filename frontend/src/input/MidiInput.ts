@@ -10,8 +10,6 @@ export class MidiInput {
   enabled = true;
   connected = false;
   private _onMidiMessage: (event: MIDIMessageEvent) => void;
-  private _pendingVirtualWarning = false;
-  private _receivedNote = false;
 
   constructor() {
     this._onMidiMessage = (event) => this._handleMidiMessage(event);
@@ -57,12 +55,6 @@ export class MidiInput {
     this.connected = false;
   }
 
-  private static _isVirtualPort(input: MIDIInput): boolean {
-    const name = (input.name ?? '').toLowerCase();
-    const manufacturer = (input.manufacturer ?? '').toLowerCase();
-    return name.includes('midi through') || name.includes('loopback') || name.includes('virtual') || manufacturer === 'client';
-  }
-
   private _connectInputs(): void {
     if (!this.midiAccess) return;
 
@@ -77,16 +69,8 @@ export class MidiInput {
 
     this.connected = found;
     if (found) {
-      const inputs = Array.from(this.midiAccess.inputs.values());
-      const names = inputs.map(i => i.name);
-      const onlyVirtual = inputs.every(i => MidiInput._isVirtualPort(i));
-      if (onlyVirtual && !this._receivedNote) {
-        this._pendingVirtualWarning = true;
-        this._updateStatus(true, `Connected: ${names.join(', ')} (virtual port — run aconnect -l to check for real devices)`);
-      } else {
-        this._pendingVirtualWarning = false;
-        this._updateStatus(true, `Connected: ${names.join(', ')}`);
-      }
+      const names = Array.from(this.midiAccess.inputs.values()).map(i => i.name);
+      this._updateStatus(true, `Connected: ${names.join(', ')}`);
     } else {
       this._updateStatus(false, 'No MIDI device found');
     }
@@ -99,12 +83,6 @@ export class MidiInput {
   private _handleMidiMessage(event: MIDIMessageEvent): void {
     if (!this.enabled) return;
 
-    if (this._pendingVirtualWarning) {
-      this._pendingVirtualWarning = false;
-      const names = Array.from(this.midiAccess?.inputs.values() ?? []).map(i => i.name);
-      this._updateStatus(true, `Connected: ${names.join(', ')}`);
-    }
-
     const data = event.data ?? [];
     const [status, data1, data2] = data;
     const command = status & 0xf0;
@@ -116,8 +94,6 @@ export class MidiInput {
       console.log('[MIDI] Ignored:', data, '->', noteName);
       return;
     }
-
-    this._receivedNote = true;
 
     if (command === 0x90 && velocity > 0) {
       console.log('[MIDI] Note On:', noteName, 'vel', velocity);
