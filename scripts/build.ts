@@ -1,4 +1,4 @@
-import { cpSync, existsSync, mkdirSync, rmSync } from "node:fs";
+import { cpSync, existsSync, mkdirSync, readFileSync, rmSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
 
 const ROOT = join(import.meta.dir, "..");
@@ -24,7 +24,13 @@ if (!result.success) {
   process.exit(1);
 }
 
-for (const item of ["index.html", "css"]) {
+const htmlSrc = join(ROOT, "frontend", "index.html");
+const htmlDist = join(DIST, "index.html");
+const html = readFileSync(htmlSrc, "utf-8");
+const ts = Date.now().toString(36);
+writeFileSync(htmlDist, html.replace('src="js/main.js"', `src="js/main.js?v=${ts}"`));
+
+for (const item of ["css"]) {
   cpSync(join(ROOT, "frontend", item), join(DIST, item), { recursive: true });
 }
 

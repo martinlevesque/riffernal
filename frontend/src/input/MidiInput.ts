@@ -11,6 +11,7 @@ export class MidiInput {
   connected = false;
   private _onMidiMessage: (event: MIDIMessageEvent) => void;
   private _pendingVirtualWarning = false;
+  private _receivedNote = false;
 
   constructor() {
     this._onMidiMessage = (event) => this._handleMidiMessage(event);
@@ -79,10 +80,11 @@ export class MidiInput {
       const inputs = Array.from(this.midiAccess.inputs.values());
       const names = inputs.map(i => i.name);
       const onlyVirtual = inputs.every(i => MidiInput._isVirtualPort(i));
-      this._pendingVirtualWarning = onlyVirtual;
-      if (onlyVirtual) {
+      if (onlyVirtual && !this._receivedNote) {
+        this._pendingVirtualWarning = true;
         this._updateStatus(true, `Connected: ${names.join(', ')} (virtual port — run aconnect -l to check for real devices)`);
       } else {
+        this._pendingVirtualWarning = false;
         this._updateStatus(true, `Connected: ${names.join(', ')}`);
       }
     } else {
@@ -114,6 +116,8 @@ export class MidiInput {
       console.log('[MIDI] Ignored:', data, '->', noteName);
       return;
     }
+
+    this._receivedNote = true;
 
     if (command === 0x90 && velocity > 0) {
       console.log('[MIDI] Note On:', noteName, 'vel', velocity);
