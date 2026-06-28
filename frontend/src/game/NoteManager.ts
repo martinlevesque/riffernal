@@ -374,6 +374,7 @@ export class NoteManager {
           !n.holding &&
           !n.failing &&
           !n.resolved &&
+          !this._isAutoPlayNote(n) &&
           Math.abs(n.time - currentTime) <= TIMING.GOOD + EARLY_HIT_WINDOW,
       );
       if (hasFreshNote) continue;
@@ -407,6 +408,7 @@ export class NoteManager {
     for (const note of this.activeNotes) {
       if (note.hit || note.missed || note.holding || note.failing) continue;
       if (note.lane !== lane) continue;
+      if (this._isAutoPlayNote(note)) continue;
       const diff = Math.abs(note.time - currentTime);
       const isEarly = currentTime < note.time;
       const maxWindow = isEarly ? (TIMING.GOOD + EARLY_HIT_WINDOW) : TIMING.GOOD;
@@ -498,8 +500,8 @@ export class NoteManager {
         for (let j = i; j < this.notes.length; j++) {
           const n = this.notes[j];
           if (n.time > this._learningAnchor) break;
-          if (this._isAutoPlayNote(n)) continue;
           if (n.resolved || n.holding || n.failing || n.hit) continue;
+          if (this._isAutoPlayNote(n)) continue;
           this._learningChordLanes.add(n.lane);
         }
         return note.time;
@@ -514,11 +516,17 @@ export class NoteManager {
       (n) => n.lane === lane && !n.hit && !n.missed && !n.holding && !n.failing && !n.resolved && !this._isAutoPlayNote(n),
     );
     if (!hasPlayableNote) {
-      return { results: [], wrong: false };
+      const hasAutoPlayNote = this.activeNotes.some(
+        (n) => n.lane === lane && !n.hit && !n.missed && !n.holding && !n.failing && !n.resolved && this._isAutoPlayNote(n),
+      );
+      if (!hasAutoPlayNote) {
+        this.scoring.recordWrongPress();
+      }
+      return { results: [], wrong: !hasAutoPlayNote };
     }
     if (this._learningAnchor === null) {
-      const result = this.checkHit(currentTime, lane);
-      return { results: result ? [result] : [], wrong: result === null };
+      const result = this._tryRecoverFailingNote(currentTime, lane) ?? this._tryNormalHit(currentTime, lane);
+      return { results: result ? [result] : [], wrong: false };
     }
     if (!this._learningChordLanes.has(lane)) {
       return { results: [], wrong: false };

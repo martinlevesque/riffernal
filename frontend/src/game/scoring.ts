@@ -104,7 +104,7 @@ export class Scoring {
 
   reset(totalNotes: number): void {
     this.score = 0;
-    this.combo = 0;
+    this.resetCombo();
     this.maxCombo = 0;
     this.perfects = 0;
     this.greats = 0;
@@ -117,16 +117,19 @@ export class Scoring {
     this.enabled = true;
   }
 
+  resetCombo(): void {
+    this.combo = 0;
+  }
+
   recordNotePress(): void {
-    if (!this.enabled) return;
     this.combo++;
     if (this.combo > this.maxCombo) this.maxCombo = this.combo;
-    this.score += comboBonus(this.combo);
+    if (this.enabled) this.score += comboBonus(this.combo);
   }
 
   recordWrongPress(): void {
+    this.resetCombo();
     if (!this.enabled) return;
-    this.combo = 0;
     this.wrongNotes++;
     this.score = Math.max(0, this.score - WRONG_PRESS_PENALTY);
   }
@@ -137,9 +140,9 @@ export class Scoring {
     earlyMultiplier = 1,
   ): number {
     if (grade === null || heldRatio <= 0) {
+      this.resetCombo();
       if (this.enabled) {
         this.misses++;
-        this.combo = 0;
       }
       return 0;
     }

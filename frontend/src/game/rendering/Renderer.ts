@@ -139,6 +139,16 @@ const SHEET_NOTE_POSITIONS: Record<string, number> = Object.assign(
 const TAIL_HIGHLIGHT_ALPHA = 0.06;
 const HEAD_HIGHLIGHT_ALPHA = 0.18;
 
+const HOLD_OUTER_HOT = '#ffaa33';
+const HOLD_OUTER_WARM = '#ff6600';
+const HOLD_OUTER_COOL = '#cc3300';
+const HOLD_OUTER_FADE = 'rgba(200, 50, 0, 0)';
+const HOLD_CORE_WHITE = '#ffeecc';
+const HOLD_CORE_BRIGHT = '#ffaa44';
+const HOLD_CORE_FADE = 'rgba(255, 100, 0, 0)';
+const HOLD_EMBER_LIGHT = '#ffaa33';
+const HOLD_EMBER_DARK = '#ff6600';
+
 interface NoteLayout {
   drawX: number;
   drawY: number;
@@ -303,7 +313,7 @@ export class Renderer {
     ctx.fill();
   }
 
-  drawNote(laneIndex: number, y: number, noteHeight: number, color: string, alpha: number, sheetBottom: number, noteName?: string, holding?: boolean, failing?: boolean, waiting?: boolean, visibleRange?: VisibleRange | null): void {
+  drawNote(laneIndex: number, y: number, noteHeight: number, color: string, alpha: number, sheetBottom: number, combo: number, noteName?: string, holding?: boolean, failing?: boolean, waiting?: boolean, visibleRange?: VisibleRange | null): void {
     const ctx = this.ctx;
     const drawColor = failing && noteName
       ? (handForKey(noteName) === HandSide.Left ? FAIL_COLOR_LEFT : FAIL_COLOR_RIGHT)
@@ -346,7 +356,7 @@ export class Renderer {
     if (holding) {
       const cx = L.drawX + L.scaledWidth / 2;
       const baseY = headDrawY + L.scaledHeadHeight / 2;
-      this._drawFlame(ctx, cx, baseY, L.scaledWidth);
+      this._drawFlame(ctx, cx, baseY, L.scaledWidth, combo);
     }
 
     if (noteName) {
@@ -382,10 +392,10 @@ export class Renderer {
     const baseY = baseH;
 
     const grad = fctx.createRadialGradient(cx, baseY, 0, cx, baseY, baseH);
-    grad.addColorStop(0, '#ffaa33');
-    grad.addColorStop(0.3, '#ff6600');
-    grad.addColorStop(0.6, '#cc3300');
-    grad.addColorStop(1, 'rgba(200, 50, 0, 0)');
+    grad.addColorStop(0, HOLD_OUTER_HOT);
+    grad.addColorStop(0.3, HOLD_OUTER_WARM);
+    grad.addColorStop(0.6, HOLD_OUTER_COOL);
+    grad.addColorStop(1, HOLD_OUTER_FADE);
 
     fctx.beginPath();
     fctx.moveTo(cx - baseW * 0.6, baseY);
@@ -398,9 +408,9 @@ export class Renderer {
     const innerH = baseH * 0.45;
     const innerW = baseW * 0.4;
     const grad2 = fctx.createRadialGradient(cx, baseY - innerH * 0.3, 0, cx, baseY, innerH);
-    grad2.addColorStop(0, '#ffeecc');
-    grad2.addColorStop(0.4, '#ffaa44');
-    grad2.addColorStop(1, 'rgba(255, 100, 0, 0)');
+    grad2.addColorStop(0, HOLD_CORE_WHITE);
+    grad2.addColorStop(0.4, HOLD_CORE_BRIGHT);
+    grad2.addColorStop(1, HOLD_CORE_FADE);
 
     fctx.beginPath();
     fctx.moveTo(cx - innerW, baseY);
@@ -414,19 +424,86 @@ export class Renderer {
     return sprite;
   }
 
-  private _drawFlame(ctx: CanvasRenderingContext2D, cx: number, baseY: number, width: number): void {
+  private _drawFlame(ctx: CanvasRenderingContext2D, cx: number, baseY: number, width: number, combo: number): void {
     const sprite = this._getFlameSprite(width);
-    const scale = width / Math.max(4, Math.round(width / 2) * 2);
-    const flicker = 0.85 + 0.15 * Math.sin(this._now / 120 * 4.7);
+    const baseScale = width / Math.max(4, Math.round(width / 2) * 2);
+
+    const comboBoost = Math.min(1, Math.log(1 + combo) / Math.log(81));
+    const scale = baseScale * (1 + comboBoost * 0.6);
+
+    const t = this._now / 1000;
+    const flickerAmp = 0.12 + comboBoost * 0.06;
+    const flicker = 0.82
+      + flickerAmp * Math.sin(t * 7.7)
+      + flickerAmp * 0.5 * Math.sin(t * 12.1);
+    const heightFlicker = flicker * (1 + (0.04 + comboBoost * 0.03) * Math.sin(t * 5.3));
+
+    const GLOW_CENTER = 'rgba(255, 140, 30, ';
+    const GLOW_MID = 'rgba(255, 80, 0, ';
+    const GLOW_EDGE = 'rgba(255, 50, 0, 0)';
+    const glowR = width * (1.2 + comboBoost * 1.2);
+    const glowGrad = ctx.createRadialGradient(cx, baseY, 0, cx, baseY, glowR);
+    glowGrad.addColorStop(0, `${GLOW_CENTER}${(0.12 + comboBoost * 0.15).toFixed(3)})`);
+    glowGrad.addColorStop(0.5, `${GLOW_MID}${(0.05 + comboBoost * 0.06).toFixed(3)})`);
+    glowGrad.addColorStop(1, GLOW_EDGE);
+    ctx.globalAlpha = flicker;
+    ctx.fillStyle = glowGrad;
+    ctx.fillRect(cx - glowR, baseY - glowR, glowR * 2, glowR * 2);
+
+    if (comboBoost > 0.5) {
+      const hotR = width * (0.4 + comboBoost * 0.4);
+      const hotGrad = ctx.createRadialGradient(cx, baseY, 0, cx, baseY, hotR);
+      hotGrad.addColorStop(0, `rgba(255, 240, 200, ${(comboBoost - 0.5) * 0.25})`);
+      hotGrad.addColorStop(1, 'rgba(255, 200, 100, 0)');
+      ctx.fillStyle = hotGrad;
+      ctx.fillRect(cx - hotR, baseY - hotR, hotR * 2, hotR * 2);
+    }
+
     ctx.globalAlpha = flicker;
     ctx.drawImage(
       sprite,
       cx - sprite.width / 2 * scale,
-      baseY - sprite.height * scale * flicker,
+      baseY - sprite.height * scale * heightFlicker,
       sprite.width * scale,
-      sprite.height * scale * flicker
+      sprite.height * scale * heightFlicker
     );
+
+    const wispScale = scale * (0.4 + comboBoost * 0.25);
+    const wispOffsetX = width * 0.12 * Math.sin(t * 6.1);
+    ctx.globalAlpha = flicker * (0.55 + comboBoost * 0.2);
+    ctx.drawImage(
+      sprite,
+      cx + wispOffsetX - sprite.width / 2 * wispScale,
+      baseY - sprite.height * wispScale * heightFlicker * 0.85,
+      sprite.width * wispScale,
+      sprite.height * wispScale * heightFlicker * 0.85
+    );
+
+    const coreScale = scale * (0.28 + comboBoost * 0.14);
+    ctx.globalAlpha = flicker * (0.7 + comboBoost * 0.15);
+    ctx.drawImage(
+      sprite,
+      cx - sprite.width / 2 * coreScale,
+      baseY - sprite.height * coreScale * heightFlicker * 0.7,
+      sprite.width * coreScale,
+      sprite.height * coreScale * heightFlicker * 0.7
+    );
+
     ctx.globalAlpha = 1;
+
+    const emberCount = 2 + Math.floor(comboBoost * 5);
+    for (let i = 0; i < emberCount; i++) {
+      if (Math.random() > 0.3 + comboBoost * 0.3) continue;
+      this.particles.push({
+        x: cx + (Math.random() - 0.5) * width * (0.5 + comboBoost * 0.3),
+        y: baseY - sprite.height * scale * heightFlicker * (0.5 + Math.random() * 0.5),
+        vx: (Math.random() - 0.5) * (1.5 + comboBoost * 1),
+        vy: -(1.5 + Math.random() * 2.5 + comboBoost * 2),
+        size: 0.8 + Math.random() * (1.2 + comboBoost * 0.8),
+        color: Math.random() > 0.4 ? HOLD_EMBER_LIGHT : HOLD_EMBER_DARK,
+        life: 0.3 + Math.random() * (0.3 + comboBoost * 0.2),
+      });
+    }
   }
 
   private _findFirstIndex(notes: SongNote[], time: number): number {
