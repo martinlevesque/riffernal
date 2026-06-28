@@ -11,7 +11,9 @@ import { SHEET_TOP_OFFSET, Renderer, SHEET_BEATS_VISIBLE } from './game/renderin
 import type { SongNote } from './game/NoteManager.js';
 import { PracticeHand } from './utils/notes.js';
 import type { Song } from './utils/MidiParser.js';
-import { fetchSongs, fetchSong, uploadSong, songFullToSong, summaryToSong, markSongPlayed } from './api/SongApi.js';
+import {
+  fetchSongs, fetchSong, uploadSong, songFullToSong, summaryToSong, markSongPlayed,
+} from './api/SongApi.js';
 import { fetchUserSettings, updateUserSettings } from './api/UserApi.js';
 
 const SHEET_STAFF_LINE_SPACING = 10;
@@ -147,10 +149,14 @@ async function init(): Promise<void> {
   });
 
   handLeft.addEventListener('click', () => {
-    setPracticeHand(game.practiceHand === PracticeHand.Left ? PracticeHand.Both : PracticeHand.Left);
+    const hand = game.practiceHand === PracticeHand.Left
+      ? PracticeHand.Both : PracticeHand.Left;
+    setPracticeHand(hand);
   });
   handRight.addEventListener('click', () => {
-    setPracticeHand(game.practiceHand === PracticeHand.Right ? PracticeHand.Both : PracticeHand.Right);
+    const hand = game.practiceHand === PracticeHand.Right
+      ? PracticeHand.Both : PracticeHand.Right;
+    setPracticeHand(hand);
   });
 
   // -- Background track panel ----------------------------------------------
@@ -330,7 +336,11 @@ async function init(): Promise<void> {
       }
     }
     game.start(fullSong);
-    if (song.id !== undefined) markSongPlayed(song.id).catch((e) => console.warn('Failed to mark song played:', e));
+    if (song.id !== undefined) {
+      markSongPlayed(song.id).catch((e) =>
+        console.warn('Failed to mark song played:', e)
+      );
+    }
   };
 
   await midiInput.start();
@@ -343,9 +353,34 @@ async function init(): Promise<void> {
     menu.setMidiStatus(connected, message);
   };
 
-  document.getElementById('btn-retry')!.addEventListener('click', () => { closeSheetView(); game.retry(); setMode(game.learningMode); applyPracticeHandButtons(); updateLoopUI(); updatePauseBtn(); });
-  document.getElementById('btn-menu')!.addEventListener('click', () => { closeSheetView(); game.backToMenu(); });
-  document.getElementById('btn-restart')!.addEventListener('click', () => { closeSheetView(); game.retry(); setMode(game.learningMode); applyPracticeHandButtons(); updateLoopUI(); updatePauseBtn(); });
+  document.getElementById('btn-play')!.addEventListener('click', () => {
+    closeSheetView();
+    game.setPracticeHand(PracticeHand.Both);
+    setMode(false);
+    game.retry();
+    updateLoopUI();
+    updatePauseBtn();
+  });
+  document.getElementById('btn-retry')!.addEventListener('click', () => {
+    closeSheetView();
+    game.retry();
+    setMode(game.learningMode);
+    applyPracticeHandButtons();
+    updateLoopUI();
+    updatePauseBtn();
+  });
+  document.getElementById('btn-menu')!.addEventListener('click', () => {
+    closeSheetView();
+    game.backToMenu();
+  });
+  document.getElementById('btn-restart')!.addEventListener('click', () => {
+    closeSheetView();
+    game.retry();
+    setMode(game.learningMode);
+    applyPracticeHandButtons();
+    updateLoopUI();
+    updatePauseBtn();
+  });
 
   const importBtn = document.getElementById('btn-import-midi')! as HTMLButtonElement;
   const importInput = document.getElementById('midi-import-input')! as HTMLInputElement;
@@ -362,7 +397,8 @@ async function init(): Promise<void> {
     reader.onload = () => {
       try {
         const song = parseMidi(reader.result as ArrayBuffer, file.name);
-        const needsSelection = song.tracks && song.tracks.length > 2 && (song.selectedTrackIndices?.length ?? 0) === 0;
+        const needsSelection = song.tracks && song.tracks.length > 2
+          && (song.selectedTrackIndices?.length ?? 0) === 0;
         const proceed = (finalSong: Song, midiFile: File) => {
           categorySelect.onConfirm = async (categoryId) => {
             categorySelect.onConfirm = null;
@@ -460,7 +496,10 @@ async function init(): Promise<void> {
     resizing = false;
   });
 
-  function noteFromClick(rect: DOMRect, clientX: number, clientY: number, renderer: Renderer, maxRadius = 30): SongNote | null {
+  function noteFromClick(
+    rect: DOMRect, clientX: number, clientY: number,
+    renderer: Renderer, maxRadius = 30,
+  ): SongNote | null {
     const x = clientX - rect.left;
     const y = clientY - rect.top;
     const r = renderer;
@@ -471,7 +510,9 @@ async function init(): Promise<void> {
     if (note) return note;
 
     // Fallback: find nearest by time with staff hint (legacy behaviour).
-    const t = r.sheetViewStart + ((x - r.sheetBarX) / r.sheetBarW) * (r.sheetViewEnd - r.sheetViewStart);
+    const t = r.sheetViewStart
+      + ((x - r.sheetBarX) / r.sheetBarW)
+        * (r.sheetViewEnd - r.sheetViewStart);
     let staff: 'treble' | 'bass' | undefined;
     if (y >= r.sheetTrebleTop && y <= r.sheetTrebleBottom) staff = 'treble';
     else if (y >= r.sheetBassTop && y <= r.sheetBassBottom) staff = 'bass';
@@ -480,8 +521,13 @@ async function init(): Promise<void> {
 
   canvas.addEventListener('click', (e) => {
     if (game.state !== GameState.Playing) return;
-    const inLoopDefine = game.loopDefinitionState === LoopDefinitionState.Start || game.loopDefinitionState === LoopDefinitionState.End;
-    const note = noteFromClick(canvas.getBoundingClientRect(), e.clientX, e.clientY, game.renderer, inLoopDefine ? 50 : 30);
+    const inLoopDefine
+      = game.loopDefinitionState === LoopDefinitionState.Start
+      || game.loopDefinitionState === LoopDefinitionState.End;
+    const note = noteFromClick(
+      canvas.getBoundingClientRect(), e.clientX, e.clientY,
+      game.renderer, inLoopDefine ? 50 : 30,
+    );
     if (!note) return;
 
     if (inLoopDefine) {
@@ -522,7 +568,11 @@ async function init(): Promise<void> {
       game.noteManager.bassNotes,
       game.currentTime,
       game.noteManager.getSongDuration(),
-      { start: game.loopStart, end: game.loopEnd, active: game.loopActive, defining: game.loopDefinitionState },
+      {
+        start: game.loopStart, end: game.loopEnd,
+        active: game.loopActive,
+        defining: game.loopDefinitionState,
+      },
       { start, end },
       game.songBpm,
     );
@@ -559,7 +609,10 @@ async function init(): Promise<void> {
     if (dur <= 0) {
       sheetCurrentPage = 0;
     } else {
-      sheetCurrentPage = Math.min(Math.floor(game.currentTime / pageDuration()), sheetPageCount() - 1);
+      sheetCurrentPage = Math.min(
+        Math.floor(game.currentTime / pageDuration()),
+        sheetPageCount() - 1,
+      );
       if (sheetCurrentPage < 0) sheetCurrentPage = 0;
     }
     renderSheetPage();
@@ -598,8 +651,13 @@ async function init(): Promise<void> {
 
   sheetCanvas.addEventListener('click', (e) => {
     if (game.state !== GameState.Playing) return;
-    const inLoopDefine = game.loopDefinitionState === LoopDefinitionState.Start || game.loopDefinitionState === LoopDefinitionState.End;
-    const note = noteFromClick(sheetCanvas.getBoundingClientRect(), e.clientX, e.clientY, sheetRenderer, inLoopDefine ? 50 : 30);
+    const inLoopDefine
+      = game.loopDefinitionState === LoopDefinitionState.Start
+      || game.loopDefinitionState === LoopDefinitionState.End;
+    const note = noteFromClick(
+      sheetCanvas.getBoundingClientRect(), e.clientX, e.clientY,
+      sheetRenderer, inLoopDefine ? 50 : 30,
+    );
     if (!note) return;
 
     if (inLoopDefine) {

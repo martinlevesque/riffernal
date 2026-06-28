@@ -8,15 +8,18 @@ export class ResultsScreen {
   private el: HTMLElement;
   private gradeEl: HTMLElement;
   private statsEl: HTMLElement;
+  private playBtn: HTMLElement;
 
   constructor() {
     this.el = document.getElementById('results-screen')!;
     this.gradeEl = document.getElementById('result-grade')!;
     this.statsEl = document.getElementById('result-stats')!;
+    this.playBtn = document.getElementById('btn-play')!;
   }
 
   show(scoring: Scoring, usedLearningMode: boolean): void {
     this.el.classList.add('active');
+    this.playBtn.style.display = usedLearningMode ? '' : 'none';
 
     if (usedLearningMode) {
       this.gradeEl.textContent = 'PRACTICE';
