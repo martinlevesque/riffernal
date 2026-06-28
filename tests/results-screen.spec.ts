@@ -119,4 +119,49 @@ test.describe('Results Screen', () => {
     await waitForResults(page);
     expect(errors).toEqual([]);
   });
+
+  test('play button is hidden after PLAY mode completion', async ({ page }) => {
+    await startGame(page);
+    await expect(page.locator('#play-screen')).toHaveClass(/active/, { timeout: 5000 });
+
+    await speedUp(page);
+    await waitForResults(page);
+
+    await expect(page.locator('#btn-play')).not.toBeVisible();
+  });
+
+  test('play button is visible after LEARN mode completion', async ({ page }) => {
+    await startGame(page);
+    await expect(page.locator('#play-screen')).toHaveClass(/active/, { timeout: 5000 });
+
+    await page.locator('#mode-learn').click();
+    await expect(page.locator('#mode-learn')).toHaveClass(/active/);
+    await page.locator('#mode-play').click();
+    await expect(page.locator('#mode-play')).toHaveClass(/active/);
+
+    await speedUp(page);
+    await waitForResults(page);
+
+    await expect(page.locator('#btn-play')).toBeVisible();
+  });
+
+  test('clicking play button restarts in PLAY mode', async ({ page }) => {
+    await startGame(page);
+    await expect(page.locator('#play-screen')).toHaveClass(/active/, { timeout: 5000 });
+
+    await page.locator('#mode-learn').click();
+    await expect(page.locator('#mode-learn')).toHaveClass(/active/);
+    await page.locator('#mode-play').click();
+    await expect(page.locator('#mode-play')).toHaveClass(/active/);
+
+    await speedUp(page);
+    await waitForResults(page);
+
+    await expect(page.locator('#btn-play')).toBeVisible();
+    await page.locator('#btn-play').click();
+
+    await expect(page.locator('#play-screen')).toHaveClass(/active/, { timeout: 5000 });
+    await expect(page.locator('#mode-play')).toHaveClass(/active/);
+    await expect(page.locator('#mode-learn')).not.toHaveClass(/active/);
+  });
 });
