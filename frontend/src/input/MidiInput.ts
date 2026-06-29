@@ -48,6 +48,7 @@ export class MidiInput {
   }
 
   stop(): void {
+    this._heldNotes.clear();
     if (this.midiAccess) {
       for (const input of this.midiAccess.inputs.values()) {
         input.onmidimessage = null;

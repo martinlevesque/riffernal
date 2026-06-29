@@ -123,8 +123,10 @@ export class Scoring {
 
   recordNotePress(): void {
     this.combo++;
-    if (this.combo > this.maxCombo) this.maxCombo = this.combo;
-    if (this.enabled) this.score += comboBonus(this.combo);
+    if (this.enabled) {
+      if (this.combo > this.maxCombo) this.maxCombo = this.combo;
+      this.score += comboBonus(this.combo);
+    }
   }
 
   recordWrongPress(): void {
