@@ -334,17 +334,19 @@ export class NoteManager {
 
   checkHit(currentTime: number, lane: number): HitResult | null {
     const result = this._tryRecoverFailingNote(currentTime, lane) ?? this._tryNormalHit(currentTime, lane);
-    if (result === null && !this.hasUnresolvedNoteInLane(lane)) {
+    if (result === null && !this.hasUnresolvedNoteInLane(lane, currentTime)) {
       this.scoring.recordWrongPress();
     }
     return result;
   }
 
-  /** Returns true if there is any unresolved note in the given lane.
-   *  Used to distinguish a genuinely wrong key press (no note at all)
-   *  from a re-press or timing issue (note exists but is holding/failing/hit). */
-  hasUnresolvedNoteInLane(lane: number): boolean {
-    return this.activeNotes.some((n) => n.lane === lane && !n.resolved);
+  /** Returns true if there is an unresolved note in the given lane within
+   *  the hittable window of `currentTime`. Pressing a key for a note beyond
+   *  that is a wrong key press. */
+  hasUnresolvedNoteInLane(lane: number, currentTime: number): boolean {
+    return this.activeNotes.some(
+      (n) => n.lane === lane && !n.resolved && Math.abs(n.time - currentTime) <= TIMING.GOOD,
+    );
   }
 
   private _beginHold(note: SongNote, currentTime: number): void {
@@ -525,10 +527,10 @@ export class NoteManager {
     }
 
     const hasPlayableNote = this.activeNotes.some(
-      (n) => n.lane === lane && !n.hit && !n.missed && !n.holding && !n.failing && !n.resolved && !this._isAutoPlayNote(n),
+      (n) => n.lane === lane && !n.hit && !n.missed && !n.holding && !n.failing && !n.resolved && !this._isAutoPlayNote(n) && Math.abs(n.time - currentTime) <= TIMING.GOOD,
     );
     if (!hasPlayableNote) {
-      if (!this.hasUnresolvedNoteInLane(lane)) {
+      if (!this.hasUnresolvedNoteInLane(lane, currentTime)) {
         this.scoring.recordWrongPress();
         return { results: [], wrong: true };
       }
