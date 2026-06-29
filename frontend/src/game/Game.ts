@@ -363,7 +363,9 @@ export class Game {
       return outcome.results;
     }
     const r = this.noteManager.checkHit(this.currentTime, lane);
-    if (r === null) this.scoreDisplay?.showFeedback('Wrong', FEEDBACK_COLORS.MISS);
+    if (r === null && !this.noteManager.hasUnresolvedNoteInLane(lane)) {
+      this.scoreDisplay?.showFeedback('Wrong', FEEDBACK_COLORS.MISS);
+    }
     return r ? [r] : [];
   }
 

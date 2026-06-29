@@ -334,10 +334,17 @@ export class NoteManager {
 
   checkHit(currentTime: number, lane: number): HitResult | null {
     const result = this._tryRecoverFailingNote(currentTime, lane) ?? this._tryNormalHit(currentTime, lane);
-    if (result === null) {
+    if (result === null && !this.hasUnresolvedNoteInLane(lane)) {
       this.scoring.recordWrongPress();
     }
     return result;
+  }
+
+  /** Returns true if there is any unresolved note in the given lane.
+   *  Used to distinguish a genuinely wrong key press (no note at all)
+   *  from a re-press or timing issue (note exists but is holding/failing/hit). */
+  hasUnresolvedNoteInLane(lane: number): boolean {
+    return this.activeNotes.some((n) => n.lane === lane && !n.resolved);
   }
 
   private _beginHold(note: SongNote, currentTime: number): void {
@@ -512,20 +519,23 @@ export class NoteManager {
   }
 
   checkLearningHit(currentTime: number, lane: number, realTime: number = performance.now()): LearningHitOutcome {
+    const recoverResult = this._tryRecoverFailingNote(currentTime, lane);
+    if (recoverResult) {
+      return { results: [recoverResult], wrong: false };
+    }
+
     const hasPlayableNote = this.activeNotes.some(
       (n) => n.lane === lane && !n.hit && !n.missed && !n.holding && !n.failing && !n.resolved && !this._isAutoPlayNote(n),
     );
     if (!hasPlayableNote) {
-      const hasAutoPlayNote = this.activeNotes.some(
-        (n) => n.lane === lane && !n.hit && !n.missed && !n.holding && !n.failing && !n.resolved && this._isAutoPlayNote(n),
-      );
-      if (!hasAutoPlayNote) {
+      if (!this.hasUnresolvedNoteInLane(lane)) {
         this.scoring.recordWrongPress();
+        return { results: [], wrong: true };
       }
-      return { results: [], wrong: !hasAutoPlayNote };
+      return { results: [], wrong: false };
     }
     if (this._learningAnchor === null) {
-      const result = this._tryRecoverFailingNote(currentTime, lane) ?? this._tryNormalHit(currentTime, lane);
+      const result = this._tryNormalHit(currentTime, lane);
       return { results: result ? [result] : [], wrong: false };
     }
     if (!this._learningChordLanes.has(lane)) {
