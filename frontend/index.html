@@ -99,7 +99,17 @@
 
       <div id="category-select-screen" class="screen">
         <div id="category-select-card">
-          <h2>SELECT CATEGORY</h2>
+          <h2>IMPORT SONG</h2>
+          <div id="import-song-fields">
+            <label class="field-label">
+              <span>Title</span>
+              <input type="text" id="import-song-title" placeholder="Song title..." maxlength="128">
+            </label>
+            <label class="field-label">
+              <span>Artist</span>
+              <input type="text" id="import-song-artist" placeholder="Artist name..." maxlength="128">
+            </label>
+          </div>
           <p id="category-select-count">No categories yet</p>
           <ul id="category-list"></ul>
           <div id="category-create">
@@ -137,6 +147,26 @@
           </div>
           <div class="popup-actions">
             <button id="btn-close-settings" class="btn btn-primary">CLOSE</button>
+          </div>
+        </div>
+      </div>
+
+      <div id="rename-popup" class="popup hidden">
+        <div class="popup-card">
+          <h2>RENAME SONG</h2>
+          <div class="popup-body rename-fields">
+            <label class="field-label">
+              <span>Title</span>
+              <input type="text" id="rename-song-title" placeholder="Song title..." maxlength="128">
+            </label>
+            <label class="field-label">
+              <span>Artist</span>
+              <input type="text" id="rename-song-artist" placeholder="Artist name..." maxlength="128">
+            </label>
+          </div>
+          <div class="popup-actions">
+            <button id="btn-rename-cancel" class="btn btn-secondary">CANCEL</button>
+            <button id="btn-rename-save" class="btn btn-primary">SAVE</button>
           </div>
         </div>
       </div>

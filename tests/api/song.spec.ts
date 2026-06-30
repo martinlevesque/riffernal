@@ -171,6 +171,43 @@ test.describe("API: songs CRUD", () => {
     await cleanupCategoriesByLabel(request, /^E2E-Cat$/);
   });
 
+  test("PUT /api/songs/:id updates title and artist", async ({ request }) => {
+    await cleanupSongs(request, /^E2E-Rename$/);
+    const midi = buildMidi("e2e-rename.mid");
+    const form: Record<string, string | { name: string; mimeType: string; buffer: Buffer }> = {
+      title: "E2E-Rename",
+      artist: "Old Artist",
+      bpm: "120",
+      difficulty: "medium",
+      notes: "[]",
+      tracks: "[]",
+      selected_track_indices: "[]",
+      track_hands: "{}",
+      background_tracks: "[]",
+      category_id: "",
+      midi,
+    };
+    const created = await (await request.post("/api/songs", { multipart: form })).json();
+    expect(created.title).toBe("E2E-Rename");
+    expect(created.artist).toBe("Old Artist");
+
+    const updateRes = await request.put(`/api/songs/${created.id}`, {
+      data: { title: "E2E-Rename-New", artist: "New Artist" },
+      headers: { "Content-Type": "application/json" },
+    });
+    expect(updateRes.ok()).toBeTruthy();
+    const updated = await updateRes.json();
+    expect(updated.title).toBe("E2E-Rename-New");
+    expect(updated.artist).toBe("New Artist");
+
+    const getRes = await request.get(`/api/songs/${created.id}`);
+    const fetched = await getRes.json();
+    expect(fetched.title).toBe("E2E-Rename-New");
+    expect(fetched.artist).toBe("New Artist");
+
+    await cleanupSongs(request, /^E2E-Rename/);
+  });
+
   test("PUT /api/songs/:id/play sets last_played_at", async ({ request }) => {
     await cleanupSongs(request, /^E2E-Played$/);
     const midi = buildMidi("e2e-played.mid");

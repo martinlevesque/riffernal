@@ -19,6 +19,7 @@ export class Menu {
   private categories: CategoryData[] = [];
   private selectedSong: Song | null = null;
   onStart: ((song: Song) => void) | null = null;
+  onRename: ((song: Song) => void) | null = null;
   private songListEl: HTMLElement;
   private startBtn: HTMLButtonElement;
   private menuScreen: HTMLElement;
@@ -53,6 +54,14 @@ export class Menu {
       this.categories = await fetchCategories();
     } catch (err) {
       console.error("Failed to refresh categories:", err);
+    }
+    this._render();
+  }
+
+  updateSong(updated: Song): void {
+    const idx = this.songs.findIndex((s) => s.id === updated.id);
+    if (idx !== -1) {
+      this.songs[idx] = { ...this.songs[idx], title: updated.title, artist: updated.artist };
     }
     this._render();
   }
@@ -247,6 +256,16 @@ export class Menu {
       lastPlayedEl.textContent = lastPlayed;
       el.appendChild(lastPlayedEl);
     }
+
+    const editBtn = document.createElement("button");
+    editBtn.className = "song-edit-btn";
+    editBtn.textContent = "\u270E";
+    editBtn.title = "Rename song";
+    editBtn.addEventListener("click", (e) => {
+      e.stopPropagation();
+      if (this.onRename) this.onRename(song);
+    });
+    el.appendChild(editBtn);
 
     el.addEventListener("click", () => {
       this.selectedSong = song;

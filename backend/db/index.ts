@@ -7,6 +7,7 @@ export {
   getSongById,
   insertSong,
   updateSongCategory,
+  updateSongTitle,
   deleteSong,
   touchLastPlayed,
 } from "./song.ts";

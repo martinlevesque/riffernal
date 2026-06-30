@@ -70,6 +70,10 @@ export function updateSongCategory(id: number, categoryId: number | null): void 
   db.run("UPDATE songs SET category_id = ? WHERE id = ?", [categoryId ?? null, id]);
 }
 
+export function updateSongTitle(id: number, title: string, artist: string): void {
+  db.run("UPDATE songs SET title = ?, artist = ? WHERE id = ?", [title, artist, id]);
+}
+
 export function deleteSong(id: number): void {
   db.run("DELETE FROM songs WHERE id = ?", [id]);
 }

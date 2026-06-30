@@ -110,6 +110,16 @@ export async function updateSongCategory(id: number, categoryId: number | null):
   if (!res.ok) throw new Error(await parseError(res));
 }
 
+export async function updateSongTitle(id: number, title: string, artist: string): Promise<SongFull> {
+  const res = await fetch(`/api/songs/${id}`, {
+    method: "PUT",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ title, artist }),
+  });
+  if (!res.ok) throw new Error(await parseError(res));
+  return res.json() as Promise<SongFull>;
+}
+
 export async function deleteSong(id: number): Promise<void> {
   const res = await fetch(`/api/songs/${id}`, { method: "DELETE" });
   if (!res.ok) throw new Error(await parseError(res));

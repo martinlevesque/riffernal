@@ -1,4 +1,5 @@
 import { fetchCategories, createCategory, type CategoryData } from "../api/SongApi.js";
+import type { Song } from "../utils/MidiParser.js";
 
 export class CategorySelect {
   private screen: HTMLElement;
@@ -7,9 +8,11 @@ export class CategorySelect {
   private createBtn: HTMLButtonElement;
   private confirmBtn: HTMLButtonElement;
   private skipBtn: HTMLButtonElement;
+  private titleInput: HTMLInputElement;
+  private artistInput: HTMLInputElement;
   private categories: CategoryData[] = [];
   private selectedCategoryId: number | null = null;
-  onConfirm: ((categoryId: number | null) => void) | null = null;
+  onConfirm: ((categoryId: number | null, title: string, artist: string) => void) | null = null;
   onCancel: (() => void) | null = null;
 
   constructor() {
@@ -19,6 +22,8 @@ export class CategorySelect {
     this.createBtn = document.getElementById("btn-create-category") as HTMLButtonElement;
     this.confirmBtn = document.getElementById("category-select-confirm") as HTMLButtonElement;
     this.skipBtn = document.getElementById("category-select-skip") as HTMLButtonElement;
+    this.titleInput = document.getElementById("import-song-title") as HTMLInputElement;
+    this.artistInput = document.getElementById("import-song-artist") as HTMLInputElement;
 
     this.createBtn.addEventListener("click", () => this._createNew());
     this.newCategoryInput.addEventListener("keydown", (e) => {
@@ -37,14 +42,23 @@ export class CategorySelect {
     });
   }
 
-  async show(): Promise<void> {
+  async show(song?: Song): Promise<void> {
     this.selectedCategoryId = null;
     this.newCategoryInput.value = "";
     this.confirmBtn.disabled = true;
+
+    if (song) {
+      this.titleInput.value = song.title;
+      this.artistInput.value = song.artist || "";
+    } else {
+      this.titleInput.value = "";
+      this.artistInput.value = "";
+    }
+
     await this._loadCategories();
     this._renderList();
     this.screen.classList.add("active");
-    this.newCategoryInput.focus();
+    this.titleInput.focus();
   }
 
   hide(): void {
@@ -106,6 +120,8 @@ export class CategorySelect {
 
   private _confirm(): void {
     this.hide();
-    if (this.onConfirm) this.onConfirm(this.selectedCategoryId);
+    if (this.onConfirm) {
+      this.onConfirm(this.selectedCategoryId, this.titleInput.value.trim(), this.artistInput.value.trim());
+    }
   }
 }
