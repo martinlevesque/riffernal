@@ -4,7 +4,6 @@
 import { NOTE_NAMES, getPianoKeyLayout, WHITE_KEY_COUNT, handForKey, handColor, HandSide, NOTE_SHORT_NAMES, whiteKeyWidth, countWhiteKeysInRange } from '../../utils/notes.js';
 import type { VisibleRange } from '../../utils/notes.js';
 import { HIT_ZONE_Y_RATIO } from '../NoteManager.js';
-import { comboBoost } from '../scoring.js';
 import { LoopDefinitionState } from '../Loop.js';
 import { PianoRenderer } from './PianoRenderer.js';
 import type { SongNote } from '../NoteManager.js';
@@ -140,16 +139,6 @@ const SHEET_NOTE_POSITIONS: Record<string, number> = Object.assign(
 const TAIL_HIGHLIGHT_ALPHA = 0.06;
 const HEAD_HIGHLIGHT_ALPHA = 0.18;
 
-const HOLD_OUTER_HOT = '#ffaa33';
-const HOLD_OUTER_WARM = '#ff6600';
-const HOLD_OUTER_COOL = '#cc3300';
-const HOLD_OUTER_FADE = 'rgba(200, 50, 0, 0)';
-const HOLD_CORE_WHITE = '#ffeecc';
-const HOLD_CORE_BRIGHT = '#ffaa44';
-const HOLD_CORE_FADE = 'rgba(255, 100, 0, 0)';
-const HOLD_EMBER_LIGHT = '#ffaa33';
-const HOLD_EMBER_DARK = '#ff6600';
-
 interface NoteLayout {
   drawX: number;
   drawY: number;
@@ -192,7 +181,7 @@ export class Renderer {
   private _staffCache: HTMLCanvasElement | null = null;
   private _cachedStaffScale = -1;
   private _cachedStaffWidth = -1;
-  private _flameCache = new Map<number, HTMLCanvasElement>();
+
   private _isLowEnd: boolean;
   private _now = 0;
 
@@ -200,7 +189,7 @@ export class Renderer {
     this.canvas = canvas;
     this.ctx = canvas.getContext('2d')!;
     this.piano = new PianoRenderer();
-    this._isLowEnd = isLowEndDevice();
+    this._isLowEnd = true; // TODO: revert — forced for testing
     this.resize();
   }
 
@@ -377,140 +366,25 @@ export class Renderer {
     ctx.fillText(shortName, drawX + width / 2, drawY + height);
   }
 
-  private _getFlameSprite(w: number): HTMLCanvasElement {
-    const bucket = Math.round(w / 2) * 2;
-    const cached = this._flameCache.get(bucket);
-    if (cached) return cached;
-
-    const baseW = Math.max(4, bucket);
-    const baseH = baseW * 3.5;
-
-    const sprite = document.createElement('canvas');
-    sprite.width = Math.ceil(baseW * 2);
-    sprite.height = Math.ceil(baseH);
-    const fctx = sprite.getContext('2d')!;
-    const cx = baseW;
-    const baseY = baseH;
-
-    const grad = fctx.createRadialGradient(cx, baseY, 0, cx, baseY, baseH);
-    grad.addColorStop(0, HOLD_OUTER_HOT);
-    grad.addColorStop(0.3, HOLD_OUTER_WARM);
-    grad.addColorStop(0.6, HOLD_OUTER_COOL);
-    grad.addColorStop(1, HOLD_OUTER_FADE);
-
-    fctx.beginPath();
-    fctx.moveTo(cx - baseW * 0.6, baseY);
-    fctx.quadraticCurveTo(cx, baseY - baseH * 0.6, cx, baseY - baseH);
-    fctx.quadraticCurveTo(cx, baseY - baseH * 0.6, cx + baseW * 0.6, baseY);
-    fctx.closePath();
-    fctx.fillStyle = grad;
-    fctx.fill();
-
-    const innerH = baseH * 0.45;
-    const innerW = baseW * 0.4;
-    const grad2 = fctx.createRadialGradient(cx, baseY - innerH * 0.3, 0, cx, baseY, innerH);
-    grad2.addColorStop(0, HOLD_CORE_WHITE);
-    grad2.addColorStop(0.4, HOLD_CORE_BRIGHT);
-    grad2.addColorStop(1, HOLD_CORE_FADE);
-
-    fctx.beginPath();
-    fctx.moveTo(cx - innerW, baseY);
-    fctx.quadraticCurveTo(cx - innerW, baseY - innerH * 0.5, cx, baseY - innerH);
-    fctx.quadraticCurveTo(cx + innerW, baseY - innerH * 0.5, cx + innerW, baseY);
-    fctx.closePath();
-    fctx.fillStyle = grad2;
-    fctx.fill();
-
-    this._flameCache.set(bucket, sprite);
-    return sprite;
-  }
-
-  private _drawFlame(ctx: CanvasRenderingContext2D, cx: number, baseY: number, width: number, combo: number): void {
-    const sprite = this._getFlameSprite(width);
-    const baseScale = width / Math.max(4, Math.round(width / 2) * 2);
-
-    const cb = comboBoost(combo);
-    const scale = baseScale * (1 + cb * 0.6);
-
+  private _drawFlame(ctx: CanvasRenderingContext2D, cx: number, baseY: number, width: number, _combo: number): void {
     const t = this._now / 1000;
-    const flickerAmp = 0.12 + cb * 0.06;
-    const flicker = 0.82
-      + flickerAmp * Math.sin(t * 7.7)
-      + flickerAmp * 0.5 * Math.sin(t * 12.1);
-    const heightFlicker = flicker * (1 + (0.04 + cb * 0.03) * Math.sin(t * 5.3));
+    const pulse = 0.85 + 0.15 * Math.sin(t * 5);
+    const r = width * 1.4 * pulse;
 
-    if (!this._isLowEnd) {
-      const GLOW_CENTER = 'rgba(255, 140, 30, ';
-      const GLOW_MID = 'rgba(255, 80, 0, ';
-      const GLOW_EDGE = 'rgba(255, 50, 0, 0)';
-      const glowR = width * (1.2 + cb * 1.2);
-      const glowGrad = ctx.createRadialGradient(cx, baseY, 0, cx, baseY, glowR);
-      glowGrad.addColorStop(0, `${GLOW_CENTER}${(0.12 + cb * 0.15).toFixed(3)})`);
-      glowGrad.addColorStop(0.5, `${GLOW_MID}${(0.05 + cb * 0.06).toFixed(3)})`);
-      glowGrad.addColorStop(1, GLOW_EDGE);
-      ctx.globalAlpha = flicker;
-      ctx.fillStyle = glowGrad;
-      ctx.fillRect(cx - glowR, baseY - glowR, glowR * 2, glowR * 2);
+    const grad = ctx.createRadialGradient(cx, baseY, 0, cx, baseY, r);
+    grad.addColorStop(0, 'rgba(255, 200, 60, 0.8)');
+    grad.addColorStop(0.3, 'rgba(255, 120, 20, 0.45)');
+    grad.addColorStop(0.7, 'rgba(255, 60, 0, 0.15)');
+    grad.addColorStop(1, 'rgba(200, 30, 0, 0)');
+    ctx.fillStyle = grad;
+    ctx.fillRect(cx - r, baseY - r, r * 2, r * 2);
 
-      if (cb > 0.5) {
-        const hotR = width * (0.4 + cb * 0.4);
-        const hotGrad = ctx.createRadialGradient(cx, baseY, 0, cx, baseY, hotR);
-        hotGrad.addColorStop(0, `rgba(255, 240, 200, ${(cb - 0.5) * 0.25})`);
-        hotGrad.addColorStop(1, 'rgba(255, 200, 100, 0)');
-        ctx.fillStyle = hotGrad;
-        ctx.fillRect(cx - hotR, baseY - hotR, hotR * 2, hotR * 2);
-      }
-    }
-
-    ctx.globalAlpha = flicker;
-    ctx.drawImage(
-      sprite,
-      cx - sprite.width / 2 * scale,
-      baseY - sprite.height * scale * heightFlicker,
-      sprite.width * scale,
-      sprite.height * scale * heightFlicker
-    );
-
-    if (!this._isLowEnd) {
-      const wispScale = scale * (0.4 + cb * 0.25);
-      const wispOffsetX = width * 0.12 * Math.sin(t * 6.1);
-      ctx.globalAlpha = flicker * (0.55 + cb * 0.2);
-      ctx.drawImage(
-        sprite,
-        cx + wispOffsetX - sprite.width / 2 * wispScale,
-        baseY - sprite.height * wispScale * heightFlicker * 0.85,
-        sprite.width * wispScale,
-        sprite.height * wispScale * heightFlicker * 0.85
-      );
-
-      const coreScale = scale * (0.28 + cb * 0.14);
-      ctx.globalAlpha = flicker * (0.7 + cb * 0.15);
-      ctx.drawImage(
-        sprite,
-        cx - sprite.width / 2 * coreScale,
-        baseY - sprite.height * coreScale * heightFlicker * 0.7,
-        sprite.width * coreScale,
-        sprite.height * coreScale * heightFlicker * 0.7
-      );
-    }
-
-    ctx.globalAlpha = 1;
-
-    if (!this._isLowEnd && this.particles.length < 500) {
-      const emberCount = 2 + Math.floor(cb * 5);
-      for (let i = 0; i < emberCount; i++) {
-        if (Math.random() > 0.3 + cb * 0.3) continue;
-        this.particles.push({
-          x: cx + (Math.random() - 0.5) * width * (0.5 + cb * 0.3),
-          y: baseY - sprite.height * scale * heightFlicker * (0.5 + Math.random() * 0.5),
-          vx: (Math.random() - 0.5) * (1.5 + cb * 1),
-          vy: -(1.5 + Math.random() * 2.5 + cb * 2),
-          size: 0.8 + Math.random() * (1.2 + cb * 0.8),
-          color: Math.random() > 0.4 ? HOLD_EMBER_LIGHT : HOLD_EMBER_DARK,
-          life: 0.3 + Math.random() * (0.3 + cb * 0.2),
-        });
-      }
-    }
+    const r2 = width * 0.5;
+    const grad2 = ctx.createRadialGradient(cx, baseY, 0, cx, baseY, r2);
+    grad2.addColorStop(0, 'rgba(255, 240, 180, 0.7)');
+    grad2.addColorStop(1, 'rgba(255, 180, 60, 0)');
+    ctx.fillStyle = grad2;
+    ctx.fillRect(cx - r2, baseY - r2, r2 * 2, r2 * 2);
   }
 
   private _findFirstIndex(notes: SongNote[], time: number): number {
