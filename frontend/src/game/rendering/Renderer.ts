@@ -189,7 +189,7 @@ export class Renderer {
     this.canvas = canvas;
     this.ctx = canvas.getContext('2d')!;
     this.piano = new PianoRenderer();
-    this._isLowEnd = true; // TODO: revert — forced for testing
+    this._isLowEnd = isLowEndDevice();
     this.resize();
   }
 
