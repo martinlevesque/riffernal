@@ -253,6 +253,7 @@ body {
   flex: 1 1 220px;
   min-width: 220px;
   background: transparent;
+  position: relative;
 }
 
 .song-item:hover {
@@ -285,6 +286,30 @@ body {
   margin-top: 0.2rem;
   letter-spacing: 0.05em;
   opacity: 0.5;
+}
+
+.song-edit-btn {
+  position: absolute;
+  top: 0.4rem;
+  right: 0.4rem;
+  background: transparent;
+  border: none;
+  color: var(--text-secondary);
+  font-size: 1.2rem;
+  cursor: pointer;
+  opacity: 0;
+  transition: opacity 0.15s;
+  padding: 0.3rem 0.4rem;
+  line-height: 1;
+}
+
+.song-item:hover .song-edit-btn {
+  opacity: 0.6;
+}
+
+.song-edit-btn:hover {
+  opacity: 1;
+  color: var(--accent-blue);
 }
 
 /* ============================================
@@ -1251,6 +1276,45 @@ kbd {
 #category-select-actions .btn {
   margin: 0;
   flex: 1;
+}
+
+.field-label {
+  display: flex;
+  flex-direction: column;
+  gap: 0.3rem;
+  margin-bottom: 0.8rem;
+}
+
+.field-label span {
+  font-size: 0.75rem;
+  color: var(--text-secondary);
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+}
+
+.field-label input {
+  background: var(--bg-dark);
+  border: 1px solid #444;
+  border-radius: 2px;
+  padding: 0.5rem 0.7rem;
+  color: var(--text-primary);
+  font-family: inherit;
+  font-size: 0.9rem;
+  outline: none;
+}
+
+.import-field-label input:focus {
+  border-color: var(--accent-blue);
+}
+
+#import-song-fields {
+  margin-bottom: 1rem;
+  padding-bottom: 1rem;
+  border-bottom: 1px solid #333;
+}
+
+.rename-fields {
+  margin-bottom: 1rem;
 }
 
 /* ============================================

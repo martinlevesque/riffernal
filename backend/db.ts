@@ -10,6 +10,7 @@ export {
   getSongById,
   insertSong,
   updateSongCategory,
+  updateSongTitle,
   deleteSong,
   touchLastPlayed,
   type UserRow,

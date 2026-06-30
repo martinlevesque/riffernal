@@ -3,6 +3,7 @@ import {
   getSongById,
   insertSong,
   updateSongCategory,
+  updateSongTitle,
   deleteSong,
   touchLastPlayed,
   type SongRow,
@@ -117,14 +118,26 @@ export const songRoutes = [
     method: "PUT",
     path: "/api/songs/:id",
     handler: ((req: Request, { id }: Record<string, string>) =>
-      parseJson<{ categoryId?: number | null }>(req)
-        .then(({ categoryId }) => {
-          if (!getSongById(Number(id))) {
+      parseJson<{ categoryId?: number | null; title?: string; artist?: string }>(req)
+        .then(({ categoryId, title, artist }) => {
+          const songId = Number(id);
+          if (!getSongById(songId)) {
             return json({ error: "Not found" }, 404);
           }
 
-          updateSongCategory(Number(id), categoryId ?? null);
-          return json({ ok: true });
+          if (title !== undefined) {
+            if (!title.trim()) {
+              return json({ error: "Title cannot be empty" }, 400);
+            }
+            updateSongTitle(songId, title, artist ?? "");
+          }
+
+          if (categoryId !== undefined) {
+            updateSongCategory(songId, categoryId ?? null);
+          }
+
+          const updated = getSongById(songId)!;
+          return json(rowToFull(updated));
         })
         .catch(() => json({ error: "Invalid request" }, 400))) as Handler,
   },

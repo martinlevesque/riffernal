@@ -13,6 +13,7 @@ import { PracticeHand } from './utils/notes.js';
 import type { Song } from './utils/MidiParser.js';
 import {
   fetchSongs, fetchSong, uploadSong, songFullToSong, summaryToSong, markSongPlayed,
+  updateSongTitle,
 } from './api/SongApi.js';
 import { fetchUserSettings, updateUserSettings } from './api/UserApi.js';
 
@@ -324,6 +325,63 @@ async function init(): Promise<void> {
     }
   });
 
+  // -- Rename popup wiring --------------------------------------------------
+  const renamePopup = document.getElementById('rename-popup')!;
+  const renameTitle = document.getElementById('rename-song-title') as HTMLInputElement;
+  const renameArtist = document.getElementById('rename-song-artist') as HTMLInputElement;
+  const btnRenameSave = document.getElementById('btn-rename-save') as HTMLButtonElement;
+  const btnRenameCancel = document.getElementById('btn-rename-cancel') as HTMLButtonElement;
+  let renameSongId: number | null = null;
+
+  function showRenamePopup(song: Song): void {
+    if (song.id === undefined) return;
+    renameSongId = song.id;
+    renameTitle.value = song.title;
+    renameArtist.value = song.artist || "";
+    renamePopup.classList.remove("hidden");
+    renameTitle.focus();
+    renameTitle.select();
+  }
+
+  btnRenameSave.addEventListener("click", async () => {
+    if (renameSongId === null) return;
+    const title = renameTitle.value.trim();
+    if (!title) return;
+    const artist = renameArtist.value.trim();
+    try {
+      const updated = await updateSongTitle(renameSongId, title, artist);
+      menu.updateSong(songFullToSong(updated));
+    } catch (err) {
+      console.error("Failed to rename song:", err);
+    }
+    renamePopup.classList.add("hidden");
+    renameSongId = null;
+  });
+
+  btnRenameCancel.addEventListener("click", () => {
+    renamePopup.classList.add("hidden");
+    renameSongId = null;
+  });
+
+  renamePopup.addEventListener("click", (e) => {
+    if (e.target === renamePopup) {
+      renamePopup.classList.add("hidden");
+      renameSongId = null;
+    }
+  });
+
+  function handleRenameEnter(e: KeyboardEvent): void {
+    if (e.key === "Enter") {
+      e.preventDefault();
+      btnRenameSave.click();
+    }
+  }
+
+  renameTitle.addEventListener("keydown", handleRenameEnter);
+  renameArtist.addEventListener("keydown", handleRenameEnter);
+
+  menu.onRename = (song) => showRenamePopup(song);
+
   menu.onStart = async (song) => {
     setMode(false);
     setPracticeHand(PracticeHand.Both);
@@ -400,15 +458,17 @@ async function init(): Promise<void> {
         const needsSelection = song.tracks && song.tracks.length > 2
           && (song.selectedTrackIndices?.length ?? 0) === 0;
         const proceed = (finalSong: Song, midiFile: File) => {
-          categorySelect.onConfirm = async (categoryId) => {
+          categorySelect.onConfirm = async (categoryId, title, artist) => {
             categorySelect.onConfirm = null;
             categorySelect.onCancel = null;
             try {
+              const finalTitle = title || finalSong.title;
+              const finalArtist = artist || finalSong.artist;
               const full = await uploadSong({
                 midiFile,
                 metadata: {
-                  title: finalSong.title,
-                  artist: finalSong.artist,
+                  title: finalTitle,
+                  artist: finalArtist,
                   bpm: finalSong.bpm,
                   difficulty: finalSong.difficulty,
                   notes: finalSong.notes,
@@ -432,7 +492,7 @@ async function init(): Promise<void> {
             categorySelect.onCancel = null;
             menu.setMidiStatus(midiInput.connected, 'Import cancelled');
           };
-          categorySelect.show();
+          categorySelect.show(song);
         };
 
         if (needsSelection) {
