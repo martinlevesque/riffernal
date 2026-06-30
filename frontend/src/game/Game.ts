@@ -7,7 +7,7 @@ import { LoopDefinitionState } from './Loop.js';
 export { LoopDefinitionState };
 import { NoteManager, SCROLL_SPEED, HIT_ZONE_Y_RATIO } from './NoteManager.js';
 import type { HitResult, SongNote } from './NoteManager.js';
-import { NoteGrade, gradeLabel, TAP_NOTE_THRESHOLD, SUCCESS_PARTICLE_HOLD_RATIO } from './scoring.js';
+import { NoteGrade, gradeLabel, TAP_NOTE_THRESHOLD, SUCCESS_PARTICLE_HOLD_RATIO, comboBoost } from './scoring.js';
 import { NOTE_TO_LANE, handColor, getPianoKeyLayout, PracticeHand, GM_DRUM_CHANNEL } from '../utils/notes.js';
 import { formatTime } from '../utils/helpers.js';
 import type { VisibleRange } from '../utils/notes.js';
@@ -326,7 +326,7 @@ export class Game {
         const keyLayout = getPianoKeyLayout(note.key, this.renderer.width, this.usedNoteRange);
         const noteColor = handColor(note.key);
         const combo = this.noteManager.scoring.combo;
-        const count = 10 + Math.floor(Math.min(1, Math.log(1 + combo) / Math.log(81)) * 20);
+        const count = 10 + Math.floor(comboBoost(combo) * 20);
         this.renderer.spawnParticles(
           keyLayout.x + keyLayout.width / 2,
           hitZoneY,
@@ -372,7 +372,7 @@ export class Game {
   private _spawnPerfectParticles(results: HitResult[]): void {
     const hitZoneY = this.renderer.height * HIT_ZONE_Y_RATIO;
     const combo = this.noteManager.scoring.combo;
-    const comboBoost = Math.min(1, Math.log(1 + combo) / Math.log(81));
+    const comboBoostValue = comboBoost(combo);
     for (const result of results) {
       if (result.result === NoteGrade.PERFECT) {
         const noteColor = handColor(result.note.key);
@@ -381,7 +381,7 @@ export class Game {
           keyLayout.x + keyLayout.width / 2,
           hitZoneY,
           noteColor,
-          15 + Math.floor(comboBoost * 25),
+          15 + Math.floor(comboBoostValue * 25),
         );
       }
     }

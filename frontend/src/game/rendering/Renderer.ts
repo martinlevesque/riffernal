@@ -4,6 +4,7 @@
 import { NOTE_NAMES, getPianoKeyLayout, WHITE_KEY_COUNT, handForKey, handColor, HandSide, NOTE_SHORT_NAMES, whiteKeyWidth, countWhiteKeysInRange } from '../../utils/notes.js';
 import type { VisibleRange } from '../../utils/notes.js';
 import { HIT_ZONE_Y_RATIO } from '../NoteManager.js';
+import { comboBoost } from '../scoring.js';
 import { LoopDefinitionState } from '../Loop.js';
 import { PianoRenderer } from './PianoRenderer.js';
 import type { SongNote } from '../NoteManager.js';
@@ -428,33 +429,33 @@ export class Renderer {
     const sprite = this._getFlameSprite(width);
     const baseScale = width / Math.max(4, Math.round(width / 2) * 2);
 
-    const comboBoost = Math.min(1, Math.log(1 + combo) / Math.log(81));
-    const scale = baseScale * (1 + comboBoost * 0.6);
+    const cb = comboBoost(combo);
+    const scale = baseScale * (1 + cb * 0.6);
 
     const t = this._now / 1000;
-    const flickerAmp = 0.12 + comboBoost * 0.06;
+    const flickerAmp = 0.12 + cb * 0.06;
     const flicker = 0.82
       + flickerAmp * Math.sin(t * 7.7)
       + flickerAmp * 0.5 * Math.sin(t * 12.1);
-    const heightFlicker = flicker * (1 + (0.04 + comboBoost * 0.03) * Math.sin(t * 5.3));
+    const heightFlicker = flicker * (1 + (0.04 + cb * 0.03) * Math.sin(t * 5.3));
 
     if (!this._isLowEnd) {
       const GLOW_CENTER = 'rgba(255, 140, 30, ';
       const GLOW_MID = 'rgba(255, 80, 0, ';
       const GLOW_EDGE = 'rgba(255, 50, 0, 0)';
-      const glowR = width * (1.2 + comboBoost * 1.2);
+      const glowR = width * (1.2 + cb * 1.2);
       const glowGrad = ctx.createRadialGradient(cx, baseY, 0, cx, baseY, glowR);
-      glowGrad.addColorStop(0, `${GLOW_CENTER}${(0.12 + comboBoost * 0.15).toFixed(3)})`);
-      glowGrad.addColorStop(0.5, `${GLOW_MID}${(0.05 + comboBoost * 0.06).toFixed(3)})`);
+      glowGrad.addColorStop(0, `${GLOW_CENTER}${(0.12 + cb * 0.15).toFixed(3)})`);
+      glowGrad.addColorStop(0.5, `${GLOW_MID}${(0.05 + cb * 0.06).toFixed(3)})`);
       glowGrad.addColorStop(1, GLOW_EDGE);
       ctx.globalAlpha = flicker;
       ctx.fillStyle = glowGrad;
       ctx.fillRect(cx - glowR, baseY - glowR, glowR * 2, glowR * 2);
 
-      if (comboBoost > 0.5) {
-        const hotR = width * (0.4 + comboBoost * 0.4);
+      if (cb > 0.5) {
+        const hotR = width * (0.4 + cb * 0.4);
         const hotGrad = ctx.createRadialGradient(cx, baseY, 0, cx, baseY, hotR);
-        hotGrad.addColorStop(0, `rgba(255, 240, 200, ${(comboBoost - 0.5) * 0.25})`);
+        hotGrad.addColorStop(0, `rgba(255, 240, 200, ${(cb - 0.5) * 0.25})`);
         hotGrad.addColorStop(1, 'rgba(255, 200, 100, 0)');
         ctx.fillStyle = hotGrad;
         ctx.fillRect(cx - hotR, baseY - hotR, hotR * 2, hotR * 2);
@@ -471,9 +472,9 @@ export class Renderer {
     );
 
     if (!this._isLowEnd) {
-      const wispScale = scale * (0.4 + comboBoost * 0.25);
+      const wispScale = scale * (0.4 + cb * 0.25);
       const wispOffsetX = width * 0.12 * Math.sin(t * 6.1);
-      ctx.globalAlpha = flicker * (0.55 + comboBoost * 0.2);
+      ctx.globalAlpha = flicker * (0.55 + cb * 0.2);
       ctx.drawImage(
         sprite,
         cx + wispOffsetX - sprite.width / 2 * wispScale,
@@ -482,8 +483,8 @@ export class Renderer {
         sprite.height * wispScale * heightFlicker * 0.85
       );
 
-      const coreScale = scale * (0.28 + comboBoost * 0.14);
-      ctx.globalAlpha = flicker * (0.7 + comboBoost * 0.15);
+      const coreScale = scale * (0.28 + cb * 0.14);
+      ctx.globalAlpha = flicker * (0.7 + cb * 0.15);
       ctx.drawImage(
         sprite,
         cx - sprite.width / 2 * coreScale,
@@ -495,18 +496,18 @@ export class Renderer {
 
     ctx.globalAlpha = 1;
 
-    if (!this._isLowEnd) {
-      const emberCount = 2 + Math.floor(comboBoost * 5);
+    if (!this._isLowEnd && this.particles.length < 500) {
+      const emberCount = 2 + Math.floor(cb * 5);
       for (let i = 0; i < emberCount; i++) {
-        if (Math.random() > 0.3 + comboBoost * 0.3) continue;
+        if (Math.random() > 0.3 + cb * 0.3) continue;
         this.particles.push({
-          x: cx + (Math.random() - 0.5) * width * (0.5 + comboBoost * 0.3),
+          x: cx + (Math.random() - 0.5) * width * (0.5 + cb * 0.3),
           y: baseY - sprite.height * scale * heightFlicker * (0.5 + Math.random() * 0.5),
-          vx: (Math.random() - 0.5) * (1.5 + comboBoost * 1),
-          vy: -(1.5 + Math.random() * 2.5 + comboBoost * 2),
-          size: 0.8 + Math.random() * (1.2 + comboBoost * 0.8),
+          vx: (Math.random() - 0.5) * (1.5 + cb * 1),
+          vy: -(1.5 + Math.random() * 2.5 + cb * 2),
+          size: 0.8 + Math.random() * (1.2 + cb * 0.8),
           color: Math.random() > 0.4 ? HOLD_EMBER_LIGHT : HOLD_EMBER_DARK,
-          life: 0.3 + Math.random() * (0.3 + comboBoost * 0.2),
+          life: 0.3 + Math.random() * (0.3 + cb * 0.2),
         });
       }
     }

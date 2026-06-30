@@ -69,6 +69,18 @@ export function comboBonus(combo: number): number {
   return Math.floor(combo / COMBO_DIVISOR) * COMBO_BONUS_PER_STEP;
 }
 
+/** Returns a 0..1 boost factor that ramps up logarithmically with combo,
+ *  reaching 1.0 at combo 80. Used for visual scaling (flame, particles).
+ *
+ *  Formula: log₈₁(1 + combo), clamped to [0, 1].
+ *  Logarithmic shape means early combos (0→20) produce dramatic visual
+ *  gains, while high combos (60→80) add subtlety — feels natural in play.
+ *
+ *  combo:  0 → 0.00, 10 → 0.53, 20 → 0.72, 40 → 0.86, 80+ → 1.00 */
+export function comboBoost(combo: number): number {
+  return Math.min(1, Math.log(1 + combo) / Math.log(81));
+}
+
 export function accuracyWeight(grade: NoteGrade): number {
   return ACCURACY_WEIGHTS[grade];
 }

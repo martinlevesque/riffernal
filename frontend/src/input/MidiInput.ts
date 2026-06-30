@@ -60,6 +60,7 @@ export class MidiInput {
   private _connectInputs(): void {
     if (!this.midiAccess) return;
 
+    this._heldNotes.clear();
     this._logDevices();
 
     let found = false;

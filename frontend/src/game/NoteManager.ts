@@ -530,13 +530,11 @@ export class NoteManager {
       (n) => n.lane === lane && !n.hit && !n.missed && !n.holding && !n.failing && !n.resolved && !this._isAutoPlayNote(n) && Math.abs(n.time - currentTime) <= TIMING.GOOD,
     );
     if (!hasPlayableNote) {
-      if (!this.hasUnresolvedNoteInLane(lane, currentTime)) {
-        this.scoring.recordWrongPress();
-        return { results: [], wrong: true };
-      }
       return { results: [], wrong: false };
     }
     if (this._learningAnchor === null) {
+      // Unreachable: hasPlayableNote already confirmed a note exists within
+      // TIMING.GOOD, so _tryNormalHit will always find it.
       const result = this._tryNormalHit(currentTime, lane);
       return { results: result ? [result] : [], wrong: false };
     }
