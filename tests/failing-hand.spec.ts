@@ -42,7 +42,7 @@ function evaluateTest(page: import('@playwright/test').Page, arg: TestArg): Prom
     function renderNotes(renderer, active) {
       renderer.clear();
       for (const n of active) {
-        renderer.drawNote(n.lane, n.y, n.height, n.color, n.alpha, renderer.sheetBottom, n.key, n.holding, n.failing);
+        renderer.drawNote(n.lane, n.y, n.height, n.color, n.alpha, renderer.sheetBottom, 0, n.key, n.holding, n.failing);
       }
     }
     function sampleLane(renderer, noteKey) {

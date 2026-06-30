@@ -10,6 +10,7 @@ export class MidiInput {
   enabled = true;
   connected = false;
   private _onMidiMessage: (event: MIDIMessageEvent) => void;
+  private _heldNotes = new Set<number>();
 
   constructor() {
     this._onMidiMessage = (event) => this._handleMidiMessage(event);
@@ -47,6 +48,7 @@ export class MidiInput {
   }
 
   stop(): void {
+    this._heldNotes.clear();
     if (this.midiAccess) {
       for (const input of this.midiAccess.inputs.values()) {
         input.onmidimessage = null;
@@ -58,6 +60,7 @@ export class MidiInput {
   private _connectInputs(): void {
     if (!this.midiAccess) return;
 
+    this._heldNotes.clear();
     this._logDevices();
 
     let found = false;
@@ -96,9 +99,15 @@ export class MidiInput {
     }
 
     if (command === 0x90 && velocity > 0) {
+      if (this._heldNotes.has(noteNumber)) {
+        console.log('[MIDI] Duplicate Note On ignored:', noteName);
+        return;
+      }
+      this._heldNotes.add(noteNumber);
       console.log('[MIDI] Note On:', noteName, 'vel', velocity);
       if (this.onNoteOn) this.onNoteOn(noteName, `midi_${noteNumber}`);
     } else if (command === 0x80 || (command === 0x90 && velocity === 0)) {
+      this._heldNotes.delete(noteNumber);
       console.log('[MIDI] Note Off:', noteName);
       if (this.onNoteOff) this.onNoteOff(noteName, `midi_${noteNumber}`);
     }

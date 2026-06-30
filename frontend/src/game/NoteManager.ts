@@ -334,10 +334,19 @@ export class NoteManager {
 
   checkHit(currentTime: number, lane: number): HitResult | null {
     const result = this._tryRecoverFailingNote(currentTime, lane) ?? this._tryNormalHit(currentTime, lane);
-    if (result === null) {
+    if (result === null && !this.hasUnresolvedNoteInLane(lane, currentTime)) {
       this.scoring.recordWrongPress();
     }
     return result;
+  }
+
+  /** Returns true if there is an unresolved note in the given lane within
+   *  the hittable window of `currentTime`. Pressing a key for a note beyond
+   *  that is a wrong key press. */
+  hasUnresolvedNoteInLane(lane: number, currentTime: number): boolean {
+    return this.activeNotes.some(
+      (n) => n.lane === lane && !n.resolved && Math.abs(n.time - currentTime) <= TIMING.GOOD,
+    );
   }
 
   private _beginHold(note: SongNote, currentTime: number): void {
@@ -374,6 +383,7 @@ export class NoteManager {
           !n.holding &&
           !n.failing &&
           !n.resolved &&
+          !this._isAutoPlayNote(n) &&
           Math.abs(n.time - currentTime) <= TIMING.GOOD + EARLY_HIT_WINDOW,
       );
       if (hasFreshNote) continue;
@@ -407,6 +417,7 @@ export class NoteManager {
     for (const note of this.activeNotes) {
       if (note.hit || note.missed || note.holding || note.failing) continue;
       if (note.lane !== lane) continue;
+      if (this._isAutoPlayNote(note)) continue;
       const diff = Math.abs(note.time - currentTime);
       const isEarly = currentTime < note.time;
       const maxWindow = isEarly ? (TIMING.GOOD + EARLY_HIT_WINDOW) : TIMING.GOOD;
@@ -498,8 +509,8 @@ export class NoteManager {
         for (let j = i; j < this.notes.length; j++) {
           const n = this.notes[j];
           if (n.time > this._learningAnchor) break;
-          if (this._isAutoPlayNote(n)) continue;
           if (n.resolved || n.holding || n.failing || n.hit) continue;
+          if (this._isAutoPlayNote(n)) continue;
           this._learningChordLanes.add(n.lane);
         }
         return note.time;
@@ -510,15 +521,22 @@ export class NoteManager {
   }
 
   checkLearningHit(currentTime: number, lane: number, realTime: number = performance.now()): LearningHitOutcome {
+    const recoverResult = this._tryRecoverFailingNote(currentTime, lane);
+    if (recoverResult) {
+      return { results: [recoverResult], wrong: false };
+    }
+
     const hasPlayableNote = this.activeNotes.some(
-      (n) => n.lane === lane && !n.hit && !n.missed && !n.holding && !n.failing && !n.resolved && !this._isAutoPlayNote(n),
+      (n) => n.lane === lane && !n.hit && !n.missed && !n.holding && !n.failing && !n.resolved && !this._isAutoPlayNote(n) && Math.abs(n.time - currentTime) <= TIMING.GOOD,
     );
     if (!hasPlayableNote) {
       return { results: [], wrong: false };
     }
     if (this._learningAnchor === null) {
-      const result = this.checkHit(currentTime, lane);
-      return { results: result ? [result] : [], wrong: result === null };
+      // Unreachable: hasPlayableNote already confirmed a note exists within
+      // TIMING.GOOD, so _tryNormalHit will always find it.
+      const result = this._tryNormalHit(currentTime, lane);
+      return { results: result ? [result] : [], wrong: false };
     }
     if (!this._learningChordLanes.has(lane)) {
       return { results: [], wrong: false };

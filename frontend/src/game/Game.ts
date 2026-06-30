@@ -7,7 +7,7 @@ import { LoopDefinitionState } from './Loop.js';
 export { LoopDefinitionState };
 import { NoteManager, SCROLL_SPEED, HIT_ZONE_Y_RATIO } from './NoteManager.js';
 import type { HitResult, SongNote } from './NoteManager.js';
-import { NoteGrade, gradeLabel, TAP_NOTE_THRESHOLD, SUCCESS_PARTICLE_HOLD_RATIO } from './scoring.js';
+import { NoteGrade, gradeLabel, TAP_NOTE_THRESHOLD, SUCCESS_PARTICLE_HOLD_RATIO, comboBoost } from './scoring.js';
 import { NOTE_TO_LANE, handColor, getPianoKeyLayout, PracticeHand, GM_DRUM_CHANNEL } from '../utils/notes.js';
 import { formatTime } from '../utils/helpers.js';
 import type { VisibleRange } from '../utils/notes.js';
@@ -158,7 +158,10 @@ export class Game {
   beginLoopDefine(): void { this.loop.beginDefine(); }
   setLoopBoundary(time: number): LoopDefinitionState {
     const result = this.loop.setBoundary(time);
-    if (result === LoopDefinitionState.Off) this._applyScoringEnabled();
+    if (result === LoopDefinitionState.Off) {
+      this.noteManager.scoring.resetCombo();
+      this._applyScoringEnabled();
+    }
     return result;
   }
   deactivateLoop(): void { this.loop.deactivate(); this.loopPlay = false; this._applyScoringEnabled(); }
@@ -189,6 +192,7 @@ export class Game {
     if (
       this.loop.shouldRewind(this.currentTime, this.noteManager.getLoopEffectiveEnd(this.loop.end!))
     ) {
+      this.noteManager.scoring.resetCombo();
       this.seekTo(this.loop.start!);
     }
   }
@@ -209,8 +213,9 @@ export class Game {
     );
 
     const activeNotes = this.noteManager.getActiveNotes(this.currentTime, this.renderer.height, this.learningMode);
+    const combo = this.noteManager.scoring.combo;
     for (const note of activeNotes) {
-      this.renderer.drawNote(note.lane, note.y, note.height, note.selected ? note.color : '#555566', note.alpha, this.renderer.sheetBottom, note.key, note.holding, note.failing, note.waiting, this.usedNoteRange);
+      this.renderer.drawNote(note.lane, note.y, note.height, note.selected ? note.color : '#555566', note.alpha, this.renderer.sheetBottom, combo, note.key, note.holding, note.failing, note.waiting, this.usedNoteRange);
     }
 
     this.scoreDisplay?.update(this.noteManager.scoring);
@@ -320,11 +325,13 @@ export class Game {
         const hitZoneY = this.renderer.height * HIT_ZONE_Y_RATIO;
         const keyLayout = getPianoKeyLayout(note.key, this.renderer.width, this.usedNoteRange);
         const noteColor = handColor(note.key);
+        const combo = this.noteManager.scoring.combo;
+        const count = 10 + Math.floor(comboBoost(combo) * 20);
         this.renderer.spawnParticles(
           keyLayout.x + keyLayout.width / 2,
           hitZoneY,
           noteColor,
-          10,
+          count,
         );
       }
     };
@@ -356,12 +363,16 @@ export class Game {
       return outcome.results;
     }
     const r = this.noteManager.checkHit(this.currentTime, lane);
-    if (r === null) this.scoreDisplay?.showFeedback('Wrong', FEEDBACK_COLORS.MISS);
+    if (r === null && !this.noteManager.hasUnresolvedNoteInLane(lane, this.currentTime)) {
+      this.scoreDisplay?.showFeedback('Wrong', FEEDBACK_COLORS.MISS);
+    }
     return r ? [r] : [];
   }
 
   private _spawnPerfectParticles(results: HitResult[]): void {
     const hitZoneY = this.renderer.height * HIT_ZONE_Y_RATIO;
+    const combo = this.noteManager.scoring.combo;
+    const comboBoostValue = comboBoost(combo);
     for (const result of results) {
       if (result.result === NoteGrade.PERFECT) {
         const noteColor = handColor(result.note.key);
@@ -370,7 +381,7 @@ export class Game {
           keyLayout.x + keyLayout.width / 2,
           hitZoneY,
           noteColor,
-          15
+          15 + Math.floor(comboBoostValue * 25),
         );
       }
     }
