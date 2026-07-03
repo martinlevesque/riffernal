@@ -206,4 +206,30 @@ test.describe('Results Screen', () => {
     await expect(stats).toContainText('Score');
     await expect(stats).toContainText('Accuracy');
   });
+
+  test('new best banner appears on first play completion', async ({ page }) => {
+    await startGame(page);
+    await expect(page.locator('#play-screen')).toHaveClass(/active/, { timeout: 5000 });
+
+    await speedUp(page);
+    await waitForResults(page);
+
+    await expect(page.locator('.new-best-banner')).toBeVisible();
+    await expect(page.locator('.new-best-banner')).toContainText('BEST SCORE');
+  });
+
+  test('new best banner absent in learn mode', async ({ page }) => {
+    await startGame(page);
+    await expect(page.locator('#play-screen')).toHaveClass(/active/, { timeout: 5000 });
+
+    await page.locator('#mode-learn').click();
+    await expect(page.locator('#mode-learn')).toHaveClass(/active/);
+    await page.locator('#mode-play').click();
+    await expect(page.locator('#mode-play')).toHaveClass(/active/);
+
+    await speedUp(page);
+    await waitForResults(page);
+
+    await expect(page.locator('.new-best-banner')).not.toBeVisible();
+  });
 });

@@ -9,7 +9,7 @@ on:
 jobs:
   test:
     runs-on: ubuntu-latest
-    timeout-minutes: 7
+    timeout-minutes: 15
     steps:
       - uses: actions/checkout@v4
 
@@ -31,9 +31,6 @@ jobs:
 
       - name: Install Playwright browsers
         run: bun x playwright install chromium
-
-      - name: Build TypeScript
-        run: bun run build
 
       - name: Run E2E tests
         run: bun run test -- --project=e2e

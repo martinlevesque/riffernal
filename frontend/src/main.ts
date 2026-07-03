@@ -13,9 +13,10 @@ import { PracticeHand } from './utils/notes.js';
 import type { Song } from './utils/MidiParser.js';
 import {
   fetchSongs, fetchSong, uploadSong, songFullToSong, summaryToSong, markSongPlayed,
-  updateSongTitle,
+  updateSongTitle, recordBestScore,
 } from './api/SongApi.js';
 import { fetchUserSettings, updateUserSettings } from './api/UserApi.js';
+import { formatTime, formatScore } from './utils/helpers.js';
 
 const SHEET_STAFF_LINE_SPACING = 10;
 const BASE_SHEET_HEIGHT = 5 + 4 * SHEET_STAFF_LINE_SPACING + 8 + 4 * SHEET_STAFF_LINE_SPACING + 5;
@@ -382,10 +383,55 @@ async function init(): Promise<void> {
 
   menu.onRename = (song) => showRenamePopup(song);
 
+  // -- Song-info popup (pre-game) -------------------------------------------
+  const songInfoPopup = document.getElementById('song-info-popup')!;
+  const songInfoDuration = document.getElementById('song-info-duration')!;
+  const songInfoBestScore = document.getElementById('song-info-best-score')!;
+  const btnCloseSongInfo = document.getElementById('btn-close-song-info')!;
+  let songInfoTimer: ReturnType<typeof setTimeout> | null = null;
+
+  function closeSongInfoPopup(): void {
+    if (songInfoTimer !== null) {
+      clearTimeout(songInfoTimer);
+      songInfoTimer = null;
+    }
+    songInfoPopup.classList.add('hidden');
+
+    // Resume the game after pre-game popup disappears
+    if (game.state === GameState.Playing && game.paused) {
+      game.togglePause();
+      updatePauseBtn();
+    }
+  }
+
+  btnCloseSongInfo.addEventListener('click', closeSongInfoPopup);
+
+  function showSongInfoPopup(song: Song): void {
+    const duration = game.noteManager.getSongDuration();
+    songInfoDuration.textContent = formatTime(duration);
+    songInfoBestScore.textContent =
+      song.bestScore != null ? formatScore(song.bestScore) : 'No record yet';
+    songInfoPopup.classList.remove('hidden');
+    songInfoTimer = setTimeout(closeSongInfoPopup, 4000);
+  }
+
+  // -- Best-score persistence -----------------------------------------------
+  game.onResults = (scoring, song) => {
+    if (!song.id) return;
+
+    recordBestScore(song.id, scoring.score)
+      .then(({ bestScore }) => {
+        song.bestScore = bestScore;
+        menu.updateSongBestScore(song.id!, bestScore);
+      })
+      .catch((e) => console.error('Failed to record best score:', e));
+  };
+
   menu.onStart = async (song) => {
     setMode(false);
     setPracticeHand(PracticeHand.Both);
     let fullSong = song;
+
     if (song.id !== undefined && song.notes.length === 0) {
       try {
         fullSong = songFullToSong(await fetchSong(song.id));
@@ -393,7 +439,12 @@ async function init(): Promise<void> {
         console.warn('Failed to fetch full song:', e);
       }
     }
+
     game.start(fullSong);
+    game.pause();
+    updatePauseBtn();
+    showSongInfoPopup(fullSong);
+
     if (song.id !== undefined) {
       markSongPlayed(song.id).catch((e) =>
         console.warn('Failed to mark song played:', e)
@@ -412,6 +463,7 @@ async function init(): Promise<void> {
   };
 
   document.getElementById('btn-play')!.addEventListener('click', () => {
+    closeSongInfoPopup();
     closeSheetView();
     game.setPracticeHand(PracticeHand.Both);
     setMode(false);
@@ -420,6 +472,7 @@ async function init(): Promise<void> {
     updatePauseBtn();
   });
   document.getElementById('btn-retry')!.addEventListener('click', () => {
+    closeSongInfoPopup();
     closeSheetView();
     game.retry();
     setMode(game.learningMode);
@@ -428,10 +481,12 @@ async function init(): Promise<void> {
     updatePauseBtn();
   });
   document.getElementById('btn-menu')!.addEventListener('click', () => {
+    closeSongInfoPopup();
     closeSheetView();
     game.backToMenu();
   });
   document.getElementById('btn-restart')!.addEventListener('click', () => {
+    closeSongInfoPopup();
     closeSheetView();
     game.retry();
     setMode(game.learningMode);
@@ -604,7 +659,9 @@ async function init(): Promise<void> {
 
   document.addEventListener('keydown', (e) => {
     if (game.state !== GameState.Playing) return;
+
     if (e.code === 'KeyR') {
+      closeSongInfoPopup();
       closeSheetView();
       game.retry();
     }

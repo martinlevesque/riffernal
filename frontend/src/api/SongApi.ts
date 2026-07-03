@@ -11,6 +11,7 @@ export interface SongSummary {
   imported: boolean;
   createdAt: string;
   lastPlayedAt: string | null;
+  bestScore: number | null;
 }
 
 export interface SongFull extends SongSummary {
@@ -130,6 +131,19 @@ export async function markSongPlayed(id: number): Promise<void> {
   if (!res.ok) throw new Error(await parseError(res));
 }
 
+export async function recordBestScore(
+  id: number,
+  score: number,
+): Promise<{ isNew: boolean; bestScore: number }> {
+  const res = await fetch(`/api/songs/${id}/best-score`, {
+    method: "PUT",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ score }),
+  });
+  if (!res.ok) throw new Error(await parseError(res));
+  return res.json() as Promise<{ isNew: boolean; bestScore: number }>;
+}
+
 export function summaryToSong(s: SongSummary): Song {
   return {
     id: s.id,
@@ -141,6 +155,7 @@ export function summaryToSong(s: SongSummary): Song {
     imported: s.imported,
     categoryId: s.categoryId,
     lastPlayedAt: s.lastPlayedAt,
+    bestScore: s.bestScore,
   };
 }
 
@@ -159,5 +174,6 @@ export function songFullToSong(full: SongFull): Song {
     backgroundTracks: full.backgroundTracks,
     categoryId: full.categoryId,
     lastPlayedAt: full.lastPlayedAt,
+    bestScore: full.bestScore,
   };
 }
