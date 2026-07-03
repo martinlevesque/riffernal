@@ -359,7 +359,9 @@ export class Game {
   private _resolveHit(lane: number): HitResult[] {
     if (this.learningMode) {
       const outcome = this.noteManager.checkLearningHit(this.currentTime, lane, performance.now());
-      if (outcome.wrong) this.scoreDisplay?.showFeedback('Wrong', FEEDBACK_COLORS.MISS);
+      if (outcome.wrong) {
+        this.scoreDisplay?.showFeedback('Wrong', FEEDBACK_COLORS.MISS);
+      }
       return outcome.results;
     }
     const r = this.noteManager.checkHit(this.currentTime, lane);

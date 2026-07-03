@@ -65,6 +65,7 @@ test('Learn mode: duplicate MIDI Note On does not produce Wrong', async ({ page 
       }
     }
     function noteOn(name) { return new Uint8Array([0x90, NOTE_TO_MIDI[name], 64]); }
+    function noteOff(name) { return new Uint8Array([0x80, NOTE_TO_MIDI[name], 0]); }
 
     const canvas = document.getElementById('gameCanvas');
     const midiInput = new MidiInput();
@@ -96,6 +97,10 @@ test('Learn mode: duplicate MIDI Note On does not produce Wrong', async ({ page 
       // Send duplicate Note On (no Note Off in between) — exactly like the real keyboard
       handler({ data: noteOn(name) });
       handler({ data: noteOn(name) });
+      // Send Note Off to reset the held-note state before the next key
+      handler({ data: noteOff(name) });
+      // Wait for the game clock to advance to the next frozen note before pressing the next key
+      await new Promise(r => setTimeout(r, 150));
     }
 
     await new Promise(r => setTimeout(r, 200));

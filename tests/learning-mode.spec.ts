@@ -167,6 +167,42 @@ test.describe('Learning Mode - NoteManager', () => {
     expect(result.hit).toBe(true);
   });
 
+  test('pressing a wrong key (no note in that lane) returns wrong:true', async ({ page }) => {
+    await page.goto('/');
+    const song = makeSong([{ time: 2.0, key: 'C3', duration: 0.25 }]);
+    const result = await nmEval(page, song, `
+      nm.update(1.5, H); nm.update(2.0, H);
+      nm.getEarliestWaitTime(2.0);
+      const wrongLane = NOTE_TO_LANE.get('D3');
+      const o = nm.checkLearningHit(2.0, wrongLane);
+      return { results: o.results.length, wrong: o.wrong, noteHit: nm.notes[0].hit };
+    `);
+    expect(result.results).toBe(0);
+    expect(result.wrong).toBe(true);
+    expect(result.noteHit).toBe(false);
+  });
+
+  test('pressing a wrong key resets the combo', async ({ page }) => {
+    await page.goto('/');
+    const song = makeSong([
+      { time: 1.0, key: 'C3', duration: 0.25 },
+      { time: 2.0, key: 'E3', duration: 0.25 },
+    ]);
+    const result = await nmEval(page, song, `
+      nm.update(1.0, H);
+      nm.checkLearningHit(1.0, NOTE_TO_LANE.get('C3'));
+      const comboBefore = nm.scoring.combo;
+      nm.update(2.0, H);
+      nm.getEarliestWaitTime(2.0);
+      const wrongLane = NOTE_TO_LANE.get('D3');
+      const o = nm.checkLearningHit(2.0, wrongLane);
+      return { comboBefore, comboAfter: nm.scoring.combo, wrong: o.wrong };
+    `);
+    expect(result.comboBefore).toBeGreaterThan(0);
+    expect(result.wrong).toBe(true);
+    expect(result.comboAfter).toBe(0);
+  });
+
   test('pressing a non-chord note while frozen does not resolve it', async ({ page }) => {
     await page.goto('/');
     const song = makeSong([
