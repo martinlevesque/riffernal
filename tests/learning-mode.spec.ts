@@ -203,6 +203,32 @@ test.describe('Learning Mode - NoteManager', () => {
     expect(result.comboAfter).toBe(0);
   });
 
+  test('pressing a previously-hit note when a different note is expected returns wrong:true', async ({ page }) => {
+    await page.goto('/');
+    // Simulates: play A, F, E correctly, then press E again when D is expected.
+    // The previously-hit E is close in time to the current D anchor, so it must
+    // still count as Wrong (not silently ignored as a "recently hit duplicate").
+    const song = makeSong([
+      { time: 1.0, key: 'C3', duration: 0.1 },
+      { time: 1.1, key: 'E3', duration: 0.1 },
+      { time: 1.2, key: 'D3', duration: 0.1 },
+    ]);
+    const result = await nmEval(page, song, `
+      nm.update(1.0, H); nm.getEarliestWaitTime(1.0);
+      nm.checkLearningHit(1.0, NOTE_TO_LANE.get('C3'));
+      nm.update(1.1, H); nm.getEarliestWaitTime(1.1);
+      nm.checkLearningHit(1.1, NOTE_TO_LANE.get('E3'));
+      const comboBefore = nm.scoring.combo;
+      nm.update(1.2, H); nm.getEarliestWaitTime(1.2);
+      // Press E again — D is expected, E was the previous correct note
+      const o = nm.checkLearningHit(1.2, NOTE_TO_LANE.get('E3'));
+      return { wrong: o.wrong, comboAfter: nm.scoring.combo, comboBefore };
+    `);
+    expect(result.wrong).toBe(true);
+    expect(result.comboBefore).toBeGreaterThan(0);
+    expect(result.comboAfter).toBe(0);
+  });
+
   test('pressing a non-chord note while frozen does not resolve it', async ({ page }) => {
     await page.goto('/');
     const song = makeSong([

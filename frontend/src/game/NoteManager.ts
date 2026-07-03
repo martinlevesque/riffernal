@@ -534,8 +534,10 @@ export class NoteManager {
       // Silently ignore if:
       //   - the lane belongs to an auto-play note (non-practiced hand) — pressing
       //     it is not a mistake, the game handles those automatically
-      //   - there is any note in this lane near the current time (e.g. a duplicate
-      //     press after the note was already hit)
+      //   - there is a note in this lane currently in the active window (e.g. a
+      //     duplicate press before update() runs) AND no anchor is set
+      //     (when an anchor IS set we know exactly which lane is expected, so
+      //     "recently hit" should not mask a wrong-key press)
       // Only penalise when the lane truly has no note at all.
       const isAutoPlayLane = this.notes.some(
         (n) => n.lane === lane && this._isAutoPlayNote(n),
@@ -545,16 +547,20 @@ export class NoteManager {
         return { results: [], wrong: false };
       }
 
-      const hasAnyNearNote =
-        this.activeNotes.some(
-          (n) => n.lane === lane && Math.abs(n.time - currentTime) <= TIMING.GOOD,
-        ) ||
-        this.notes.some(
-          (n) => n.lane === lane && n.hit && currentTime - n.time <= TIMING.GOOD + EARLY_HIT_WINDOW,
-        );
+      // When no anchor is set, also forgive duplicate presses of a recently-hit
+      // note (MIDI hardware can fire two Note On events for the same key).
+      if (this._learningAnchor === null) {
+        const hasAnyNearNote =
+          this.activeNotes.some(
+            (n) => n.lane === lane && Math.abs(n.time - currentTime) <= TIMING.GOOD,
+          ) ||
+          this.notes.some(
+            (n) => n.lane === lane && n.hit && currentTime - n.time <= TIMING.GOOD + EARLY_HIT_WINDOW,
+          );
 
-      if (hasAnyNearNote) {
-        return { results: [], wrong: false };
+        if (hasAnyNearNote) {
+          return { results: [], wrong: false };
+        }
       }
 
       this.scoring.recordWrongPress();
