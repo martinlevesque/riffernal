@@ -550,7 +550,8 @@ export class NoteManager {
       return { results: result ? [result] : [], wrong: false };
     }
     if (!this._learningChordLanes.has(lane)) {
-      return { results: [], wrong: false };
+      this.scoring.recordWrongPress();
+      return { results: [], wrong: true };
     }
 
     if (this._learningChordPresses.size > 0 && realTime - this._learningChordFirstPressRealTime > LEARNING_CHORD_WINDOW) {

@@ -229,7 +229,7 @@ test.describe('Learning Mode - NoteManager', () => {
     expect(result.comboAfter).toBe(0);
   });
 
-  test('pressing a non-chord note while frozen does not resolve it', async ({ page }) => {
+  test('pressing a note outside the current chord while frozen is wrong', async ({ page }) => {
     await page.goto('/');
     const song = makeSong([
       { time: 2.0, key: 'C3', duration: 0.25 },
@@ -241,16 +241,18 @@ test.describe('Learning Mode - NoteManager', () => {
       nm.learningMode = true;
       nm.getEarliestWaitTime(2.0);
       const secondNote = NOTE_TO_LANE.get('E3');
+      const comboBefore = nm.scoring.combo;
       const o = nm.checkLearningHit(2.0, secondNote);
       return {
         results: o.results.length,
         wrong: o.wrong,
+        comboAfter: nm.scoring.combo,
         firstHit: nm.notes[0].hit,
         secondHit: nm.notes[1].hit,
       };
     `);
     expect(result.results).toBe(0);
-    expect(result.wrong).toBe(false);
+    expect(result.wrong).toBe(true);
     expect(result.firstHit).toBe(false);
     expect(result.secondHit).toBe(false);
   });
