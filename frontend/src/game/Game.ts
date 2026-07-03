@@ -321,7 +321,7 @@ export class Game {
       const holdRatio = note.duration > 0 ? note.accumulatedHeldDuration / note.duration : 0;
       const isTapNote = note.duration <= TAP_NOTE_THRESHOLD;
 
-      if ((note.failing && holdRatio >= SUCCESS_PARTICLE_HOLD_RATIO) || isTapNote) {
+      if (holdRatio >= SUCCESS_PARTICLE_HOLD_RATIO || isTapNote) {
         const hitZoneY = this.renderer.height * HIT_ZONE_Y_RATIO;
         const keyLayout = getPianoKeyLayout(note.key, this.renderer.width, this.usedNoteRange);
         const noteColor = handColor(note.key);
