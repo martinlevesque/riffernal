@@ -191,6 +191,10 @@ export class Scoring {
     return Math.round((weighted / total) * 10) / 10;
   }
 
+  get totalResolvedNotes(): number {
+    return this.perfects + this.greats + this.goods + this.misses + this.failures;
+  }
+
   getGrade(): Grade {
     return letterGrade(this.getAccuracy());
   }
