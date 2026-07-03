@@ -303,7 +303,7 @@ export class Renderer {
     ctx.fill();
   }
 
-  drawNote(laneIndex: number, y: number, noteHeight: number, color: string, alpha: number, sheetBottom: number, combo: number, noteName?: string, holding?: boolean, failing?: boolean, waiting?: boolean, visibleRange?: VisibleRange | null): void {
+  drawNote(laneIndex: number, y: number, noteHeight: number, color: string, alpha: number, sheetBottom: number, _combo: number, noteName?: string, holding?: boolean, failing?: boolean, waiting?: boolean, visibleRange?: VisibleRange | null): void {
     const ctx = this.ctx;
     const drawColor = failing && noteName
       ? (handForKey(noteName) === HandSide.Left ? FAIL_COLOR_LEFT : FAIL_COLOR_RIGHT)
@@ -346,7 +346,7 @@ export class Renderer {
     if (holding) {
       const cx = L.drawX + L.scaledWidth / 2;
       const baseY = headDrawY + L.scaledHeadHeight / 2;
-      this._drawFlame(ctx, cx, baseY, L.scaledWidth, combo);
+      this._drawFlame(ctx, cx, baseY, L.scaledWidth);
     }
 
     if (noteName) {
@@ -366,7 +366,7 @@ export class Renderer {
     ctx.fillText(shortName, drawX + width / 2, drawY + height);
   }
 
-  private _drawFlame(ctx: CanvasRenderingContext2D, cx: number, baseY: number, width: number, _combo: number): void {
+  private _drawFlame(ctx: CanvasRenderingContext2D, cx: number, baseY: number, width: number): void {
     const t = this._now / 1000;
     const pulse = 0.85 + 0.15 * Math.sin(t * 5);
     const r = width * 1.4 * pulse;
