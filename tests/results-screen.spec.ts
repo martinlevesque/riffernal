@@ -164,4 +164,46 @@ test.describe('Results Screen', () => {
     await expect(page.locator('#mode-play')).toHaveClass(/active/);
     await expect(page.locator('#mode-learn')).not.toHaveClass(/active/);
   });
+
+  test('practice mode results show accuracy and note breakdown', async ({ page }) => {
+    await startGame(page);
+    await expect(page.locator('#play-screen')).toHaveClass(/active/, { timeout: 5000 });
+
+    await page.locator('#mode-learn').click();
+    await expect(page.locator('#mode-learn')).toHaveClass(/active/);
+    await page.locator('#mode-play').click();
+    await expect(page.locator('#mode-play')).toHaveClass(/active/);
+
+    await speedUp(page);
+    await waitForResults(page);
+
+    await expect(page.locator('#result-grade')).toHaveText('PRACTICE');
+    const stats = page.locator('#result-stats');
+    await expect(stats).toContainText('Accuracy');
+    await expect(stats).toContainText('%');
+    await expect(stats).toContainText('Perfect');
+    await expect(stats).toContainText('/');
+    await expect(stats).toContainText('Great');
+    await expect(stats).toContainText('Good');
+    await expect(stats).toContainText('Miss');
+    await expect(stats).toContainText('Max Combo');
+    await expect(stats).toContainText('Score');
+  });
+
+  test('play mode results show stats without practice label', async ({ page }) => {
+    await startGame(page);
+    await expect(page.locator('#play-screen')).toHaveClass(/active/, { timeout: 5000 });
+
+    await speedUp(page);
+    await waitForResults(page);
+
+    const grade = page.locator('#result-grade');
+    await expect(grade).not.toHaveText('PRACTICE');
+    const gradeText = await grade.textContent();
+    expect(['S', 'A', 'B', 'C', 'D']).toContain(gradeText);
+
+    const stats = page.locator('#result-stats');
+    await expect(stats).toContainText('Score');
+    await expect(stats).toContainText('Accuracy');
+  });
 });

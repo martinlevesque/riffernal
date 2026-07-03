@@ -940,6 +940,53 @@ kbd {
   font-weight: bold;
 }
 
+.stats-practice-highlight {
+  margin-bottom: 1rem;
+}
+
+.stats-practice-highlight .stat-large {
+  font-size: 1.4rem;
+}
+
+.stats-practice-highlight .stat-xlarge {
+  font-size: 2rem;
+  color: var(--text-primary);
+  font-weight: 900;
+  text-shadow: 0 0 20px currentColor;
+}
+
+.stat-secondary {
+  color: var(--text-secondary);
+  font-size: 0.8rem;
+}
+
+.stats-row {
+  display: flex;
+  justify-content: center;
+  gap: 2rem;
+  margin: 0.4rem 0;
+}
+
+.stats-center {
+  text-align: center;
+  margin: 0.4rem 0;
+}
+
+.stats-col {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  min-width: 5rem;
+}
+
+.stat-label {
+  color: var(--text-secondary);
+  font-size: 0.75rem;
+  text-transform: uppercase;
+  letter-spacing: 0.1em;
+  margin-bottom: 0.1rem;
+}
+
 /* ============================================
    TRACK SELECT SCREEN
    ============================================ */
