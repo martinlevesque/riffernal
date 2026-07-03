@@ -368,20 +368,21 @@ export class Renderer {
 
   private _drawFlame(ctx: CanvasRenderingContext2D, cx: number, baseY: number, width: number): void {
     const t = this._now / 1000;
-    const pulse = 0.85 + 0.15 * Math.sin(t * 5);
-    const r = width * 1.4 * pulse;
+    const pulse = 0.8 + 0.2 * Math.sin(t * 5);
+    const r = width * 2.0 * pulse;
 
     const grad = ctx.createRadialGradient(cx, baseY, 0, cx, baseY, r);
-    grad.addColorStop(0, 'rgba(255, 200, 60, 0.8)');
-    grad.addColorStop(0.3, 'rgba(255, 120, 20, 0.45)');
-    grad.addColorStop(0.7, 'rgba(255, 60, 0, 0.15)');
+    grad.addColorStop(0, 'rgba(255, 210, 70, 0.9)');
+    grad.addColorStop(0.25, 'rgba(255, 140, 30, 0.55)');
+    grad.addColorStop(0.6, 'rgba(255, 70, 0, 0.2)');
     grad.addColorStop(1, 'rgba(200, 30, 0, 0)');
     ctx.fillStyle = grad;
     ctx.fillRect(cx - r, baseY - r, r * 2, r * 2);
 
-    const r2 = width * 0.5;
+    const r2 = width * 0.7;
     const grad2 = ctx.createRadialGradient(cx, baseY, 0, cx, baseY, r2);
-    grad2.addColorStop(0, 'rgba(255, 240, 180, 0.7)');
+    grad2.addColorStop(0, 'rgba(255, 245, 200, 0.85)');
+    grad2.addColorStop(0.5, 'rgba(255, 200, 100, 0.3)');
     grad2.addColorStop(1, 'rgba(255, 180, 60, 0)');
     ctx.fillStyle = grad2;
     ctx.fillRect(cx - r2, baseY - r2, r2 * 2, r2 * 2);
