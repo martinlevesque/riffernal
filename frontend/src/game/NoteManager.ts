@@ -476,6 +476,12 @@ export class NoteManager {
     return { note: holdingNote, penalty: 0, holdRatio: cumulativeRatio, grade: holdingNote.grade! };
   }
 
+  private _isAutoPlayLane(lane: number): boolean {
+    return this.activeNotes.some(
+      (n) => n.lane === lane && !n.resolved && this._isAutoPlayNote(n),
+    );
+  }
+
   getEarliestWaitTime(rawTime: number): number | null {
     if (this._learningAnchor !== null) {
       let allEngaged = true;
@@ -530,6 +536,10 @@ export class NoteManager {
       (n) => n.lane === lane && !n.hit && !n.missed && !n.holding && !n.failing && !n.resolved && !this._isAutoPlayNote(n) && Math.abs(n.time - currentTime) <= TIMING.GOOD,
     );
     if (!hasPlayableNote) {
+      if (!this._isAutoPlayLane(lane)) {
+        this.scoring.recordWrongPress();
+        return { results: [], wrong: true };
+      }
       return { results: [], wrong: false };
     }
     if (this._learningAnchor === null) {
@@ -539,6 +549,10 @@ export class NoteManager {
       return { results: result ? [result] : [], wrong: false };
     }
     if (!this._learningChordLanes.has(lane)) {
+      if (!this._isAutoPlayLane(lane)) {
+        this.scoring.recordWrongPress();
+        return { results: [], wrong: true };
+      }
       return { results: [], wrong: false };
     }
 

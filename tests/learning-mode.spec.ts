@@ -188,9 +188,30 @@ test.describe('Learning Mode - NoteManager', () => {
       };
     `);
     expect(result.results).toBe(0);
-    expect(result.wrong).toBe(false);
+    expect(result.wrong).toBe(true);
     expect(result.firstHit).toBe(false);
     expect(result.secondHit).toBe(false);
+  });
+
+  test('wrong key press in learn mode resets combo and marks wrong note', async ({ page }) => {
+    await page.goto('/');
+    const song = makeSong([{ time: 2.0, key: 'C3', duration: 0.25 }]);
+    const result = await nmEval(page, song, `
+      nm.update(1.5, H); nm.update(2.0, H);
+      nm.learningMode = true;
+      nm.getEarliestWaitTime(2.0);
+      nm.scoring.combo = 5;
+      const wrongLane = NOTE_TO_LANE.get('E3');
+      const o = nm.checkLearningHit(2.0, wrongLane);
+      return {
+        wrong: o.wrong,
+        combo: nm.scoring.combo,
+        wrongNotes: nm.scoring.wrongNotes,
+      };
+    `);
+    expect(result.wrong).toBe(true);
+    expect(result.combo).toBe(0);
+    expect(result.wrongNotes).toBe(1);
   });
 });
 
