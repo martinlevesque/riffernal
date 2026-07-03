@@ -288,6 +288,14 @@ body {
   opacity: 0.5;
 }
 
+.song-best-score {
+  font-size: 0.7rem;
+  color: var(--accent-yellow);
+  margin-top: 0.1rem;
+  letter-spacing: 0.05em;
+  opacity: 0.85;
+}
+
 .song-edit-btn {
   position: absolute;
   top: 0.4rem;
@@ -928,6 +936,21 @@ kbd {
 .grade-d { color: var(--accent-red); }
 .grade-practice { color: var(--accent-purple); }
 
+.new-best-banner {
+  color: var(--accent-yellow);
+  font-size: 2rem;
+  font-weight: 900;
+  letter-spacing: 0.2em;
+  text-shadow: 0 0 20px var(--accent-yellow);
+  margin: 0.5rem 0 1rem;
+  animation: pulse-glow 0.6s ease-in-out infinite alternate;
+}
+
+@keyframes pulse-glow {
+  from { opacity: 0.8; text-shadow: 0 0 20px var(--accent-yellow); }
+  to   { opacity: 1;   text-shadow: 0 0 35px var(--accent-yellow); }
+}
+
 #result-stats {
   font-size: 0.9rem;
   color: var(--text-secondary);
@@ -1411,4 +1434,25 @@ kbd {
 .popup-actions {
   display: flex;
   justify-content: center;
+}
+
+.song-info-row {
+  display: flex;
+  justify-content: space-between;
+  gap: 2rem;
+  padding: 0.5rem 0;
+  border-bottom: 1px solid #222;
+}
+
+.song-info-row:last-child {
+  border-bottom: none;
+}
+
+.song-info-label {
+  color: var(--text-secondary);
+}
+
+.song-info-value {
+  color: var(--text-primary);
+  font-weight: bold;
 }

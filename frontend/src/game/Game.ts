@@ -8,6 +8,7 @@ export { LoopDefinitionState };
 import { NoteManager, SCROLL_SPEED, HIT_ZONE_Y_RATIO } from './NoteManager.js';
 import type { HitResult, SongNote } from './NoteManager.js';
 import { NoteGrade, gradeLabel, TAP_NOTE_THRESHOLD, SUCCESS_PARTICLE_HOLD_RATIO, comboBoost } from './scoring.js';
+import type { Scoring } from './scoring.js';
 import { NOTE_TO_LANE, handColor, getPianoKeyLayout, PracticeHand, GM_DRUM_CHANNEL } from '../utils/notes.js';
 import { formatTime } from '../utils/helpers.js';
 import type { VisibleRange } from '../utils/notes.js';
@@ -62,12 +63,15 @@ export class Game {
   loopPlay = false;
   practiceHand: PracticeHand = PracticeHand.Both;
   private _usedLearningMode = false;
+  get usedLearningMode(): boolean { return this._usedLearningMode; }
   songBpm = 120;
   showUsedKeys = false;
   usedNoteRange: VisibleRange | null = null;
 
   private _paused = false;
   get paused(): boolean { return this._paused; }
+
+  onResults: ((scoring: Scoring, song: Song) => void) | null = null;
 
   readonly loop = new LoopController();
   private resultsScreen = new ResultsScreen();
@@ -269,6 +273,12 @@ export class Game {
     this._boundLoop();
   }
 
+  /** Pause the game loop. Used by main.ts to freeze the game while the
+   *  pre-game info popup is visible. */
+  pause(): void {
+    this._paused = true;
+  }
+
   private _computeUsedNoteRange(song: Song): void {
     if (!this.showUsedKeys) {
       this.usedNoteRange = null;
@@ -404,7 +414,18 @@ export class Game {
   private _showResults(): void {
     this.state = GameState.Results;
     this.playScreen.classList.remove('active');
-    this.resultsScreen.show(this.noteManager.scoring, this._usedLearningMode);
+
+    const isNewBest =
+      !this._usedLearningMode &&
+      this.currentSong != null &&
+      (this.currentSong.bestScore == null ||
+        this.noteManager.scoring.score > this.currentSong.bestScore);
+
+    this.resultsScreen.show(this.noteManager.scoring, this._usedLearningMode, isNewBest);
+
+    if (this.currentSong) {
+      this.onResults?.(this.noteManager.scoring, this.currentSong);
+    }
 
     this.keyboardInput.stop();
     this.midiInput.onNoteOn = null;

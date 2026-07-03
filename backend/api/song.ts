@@ -6,6 +6,9 @@ import {
   updateSongTitle,
   deleteSong,
   touchLastPlayed,
+  getAllBestScores,
+  getUserSongBestScore,
+  upsertBestScore,
   type SongRow,
 } from "../db.ts";
 import { json, parseJson, errMsg, numOrNull, type Handler } from "./router.ts";
@@ -20,6 +23,7 @@ interface SongSummary {
   imported: boolean;
   createdAt: string;
   lastPlayedAt: string | null;
+  bestScore: number | null;
 }
 
 interface SongFull extends SongSummary {
@@ -30,7 +34,7 @@ interface SongFull extends SongSummary {
   backgroundTracks: number[];
 }
 
-function rowToSummary(row: SongRow): SongSummary {
+function rowToSummary(row: SongRow, bestScore: number | null = null): SongSummary {
   return {
     id: row.id,
     title: row.title,
@@ -41,12 +45,13 @@ function rowToSummary(row: SongRow): SongSummary {
     imported: row.imported === 1,
     createdAt: row.created_at,
     lastPlayedAt: row.last_played_at,
+    bestScore,
   };
 }
 
-function rowToFull(row: SongRow): SongFull {
+function rowToFull(row: SongRow, bestScore: number | null = null): SongFull {
   return {
-    ...rowToSummary(row),
+    ...rowToSummary(row, bestScore),
     notes: JSON.parse(row.notes ?? "[]"),
     tracks: row.tracks ? JSON.parse(row.tracks) : [],
     selectedTrackIndices: row.selected_track_indices ? JSON.parse(row.selected_track_indices) : [],
@@ -69,7 +74,10 @@ export const songRoutes = [
   {
     method: "GET",
     path: "/api/songs",
-    handler: (() => json(getAllSongs().map(rowToSummary))) as Handler,
+    handler: (() => {
+      const bestScores = getAllBestScores();
+      return json(getAllSongs().map((row) => rowToSummary(row, bestScores.get(row.id) ?? null)));
+    }) as Handler,
   },
   {
     method: "POST",
@@ -91,7 +99,7 @@ export const songRoutes = [
           track_hands: (form.get("track_hands") as string | null) ?? null,
           background_tracks: (form.get("background_tracks") as string | null) ?? null,
         });
-        return json(rowToFull(row), 201);
+        return json(rowToFull(row, null), 201);
       } catch (err) {
         return json({ error: errMsg(err) }, /UNIQUE|empty/i.test(errMsg(err)) ? 400 : 500);
       }
@@ -100,7 +108,11 @@ export const songRoutes = [
   {
     method: "GET",
     path: "/api/songs/:id",
-    handler: ((_req: Request, { id }: Record<string, string>) => withSong(id, (row) => json(rowToFull(row)))) as Handler,
+    handler: ((_req: Request, { id }: Record<string, string>) =>
+      withSong(id, (row) => {
+        const bestScore = getUserSongBestScore(row.id);
+        return json(rowToFull(row, bestScore));
+      })) as Handler,
   },
   {
     method: "DELETE",
@@ -137,7 +149,8 @@ export const songRoutes = [
           }
 
           const updated = getSongById(songId)!;
-          return json(rowToFull(updated));
+          const bestScore = getUserSongBestScore(songId);
+          return json(rowToFull(updated, bestScore));
         })
         .catch(() => json({ error: "Invalid request" }, 400))) as Handler,
   },
@@ -149,5 +162,26 @@ export const songRoutes = [
         touchLastPlayed(Number(id));
         return json({ ok: true });
       })) as Handler,
+  },
+  {
+    method: "PUT",
+    path: "/api/songs/:id/best-score",
+    handler: ((req: Request, { id }: Record<string, string>) =>
+      parseJson<{ score: number }>(req)
+        .then(({ score }) => {
+          if (typeof score !== "number" || !isFinite(score) || score < 0) {
+            return json({ error: "Invalid score" }, 400);
+          }
+
+          const songId = Number(id);
+
+          if (!getSongById(songId)) {
+            return json({ error: "Not found" }, 404);
+          }
+
+          const { bestScore, isNew } = upsertBestScore(songId, score);
+          return json({ isNew, bestScore });
+        })
+        .catch(() => json({ error: "Invalid request" }, 400))) as Handler,
   },
 ];

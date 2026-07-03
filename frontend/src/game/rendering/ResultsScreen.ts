@@ -9,17 +9,25 @@ export class ResultsScreen {
   private gradeEl: HTMLElement;
   private statsEl: HTMLElement;
   private playBtn: HTMLElement;
+  private newBestEl: HTMLElement;
 
   constructor() {
     this.el = document.getElementById('results-screen')!;
     this.gradeEl = document.getElementById('result-grade')!;
     this.statsEl = document.getElementById('result-stats')!;
     this.playBtn = document.getElementById('btn-play')!;
+
+    this.newBestEl = document.createElement('div');
+    this.newBestEl.className = 'new-best-banner';
+    this.newBestEl.textContent = 'BEST SCORE!';
+    this.newBestEl.style.display = 'none';
+    this.gradeEl.insertAdjacentElement('afterend', this.newBestEl);
   }
 
-  show(scoring: Scoring, usedLearningMode: boolean): void {
+  show(scoring: Scoring, usedLearningMode: boolean, isNewBest = false): void {
     this.el.classList.add('active');
     this.playBtn.style.display = usedLearningMode ? '' : 'none';
+    this.newBestEl.style.display = isNewBest ? '' : 'none';
 
     if (usedLearningMode) {
       this.gradeEl.textContent = 'PRACTICE';
@@ -78,5 +86,6 @@ export class ResultsScreen {
 
   hide(): void {
     this.el.classList.remove('active');
+    this.newBestEl.style.display = 'none';
   }
 }

@@ -51,3 +51,13 @@ db.exec(`
   );
 `);
 db.exec(`INSERT OR IGNORE INTO users (id, game_settings) VALUES (1, '{}');`);
+
+db.exec(`
+  CREATE TABLE IF NOT EXISTS user_songs (
+    user_id INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+    song_id INTEGER NOT NULL REFERENCES songs(id) ON DELETE CASCADE,
+    best_score INTEGER NOT NULL,
+    updated_at TEXT NOT NULL DEFAULT (datetime('now')),
+    PRIMARY KEY (user_id, song_id)
+  );
+`);

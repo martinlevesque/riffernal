@@ -1,4 +1,5 @@
 import type { Song } from "../utils/MidiParser.js";
+import { formatScore } from "../utils/helpers.js";
 import {
   fetchCategories,
   type CategoryData,
@@ -64,6 +65,15 @@ export class Menu {
       this.songs[idx] = { ...this.songs[idx], title: updated.title, artist: updated.artist };
     }
     this._render();
+  }
+
+  updateSongBestScore(id: number, bestScore: number): void {
+    const song = this.songs.find((s) => s.id === id);
+
+    if (song) {
+      song.bestScore = bestScore;
+      this._render();
+    }
   }
 
   private _loadCollapsed(): Set<string> {
@@ -250,11 +260,19 @@ export class Menu {
     el.appendChild(difficulty);
 
     const lastPlayed = this._formatLastPlayed(song.lastPlayedAt);
+
     if (lastPlayed) {
       const lastPlayedEl = document.createElement("div");
       lastPlayedEl.className = "song-last-played";
       lastPlayedEl.textContent = lastPlayed;
       el.appendChild(lastPlayedEl);
+    }
+
+    if (song.bestScore != null) {
+      const bestEl = document.createElement("div");
+      bestEl.className = "song-best-score";
+      bestEl.textContent = `Best: ${formatScore(song.bestScore)}`;
+      el.appendChild(bestEl);
     }
 
     const editBtn = document.createElement("button");
