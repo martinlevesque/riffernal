@@ -411,17 +411,21 @@ export class Game {
 
   // -- Results & navigation -------------------------------------------------
 
+  /** Returns true when the current score beats the stored best for this song. */
+  isNewBest(): boolean {
+    return (
+      !this._usedLearningMode &&
+      this.currentSong != null &&
+      (this.currentSong.bestScore == null ||
+        this.noteManager.scoring.score > this.currentSong.bestScore)
+    );
+  }
+
   private _showResults(): void {
     this.state = GameState.Results;
     this.playScreen.classList.remove('active');
 
-    const isNewBest =
-      !this._usedLearningMode &&
-      this.currentSong != null &&
-      (this.currentSong.bestScore == null ||
-        this.noteManager.scoring.score > this.currentSong.bestScore);
-
-    this.resultsScreen.show(this.noteManager.scoring, this._usedLearningMode, isNewBest);
+    this.resultsScreen.show(this.noteManager.scoring, this._usedLearningMode, this.isNewBest());
 
     if (this.currentSong) {
       this.onResults?.(this.noteManager.scoring, this.currentSong);
