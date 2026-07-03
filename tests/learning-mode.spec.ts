@@ -259,6 +259,40 @@ test.describe('Learning Mode - NoteManager', () => {
 // -- freeze resume tests -----------------------------------------------------
 
 test.describe('Learning Mode - freeze resume', () => {
+  test('wrong key pressed in same tick as correct key (rapid press) is penalised', async ({ page }) => {
+    test.setTimeout(15000);
+    const songJson = JSON.stringify(makeSong([
+      { time: 0.500, key: 'A4', duration: 0.144 },
+      { time: 0.644, key: 'F4', duration: 0.144 },
+      { time: 0.788, key: 'E4', duration: 0.144 },
+      { time: 0.932, key: 'D4', duration: 0.25 },
+    ], 'RapidWrong'));
+
+    await page.goto('/');
+
+    const result = await page.evaluate(freezeResumeBody(songJson, `
+      game._handleNoteOn('A4', 'test');
+      await new Promise(r => setTimeout(r, 150));
+      game._handleNoteOn('F4', 'test');
+      await new Promise(r => setTimeout(r, 150));
+
+      // Press E4 correct, then E4 wrong immediately in same JS tick (no rAF between)
+      const wrongBefore = game.noteManager.scoring.wrongNotes;
+      const comboBefore = game.noteManager.scoring.combo;
+      game._handleNoteOn('E4', 'test');
+      game._handleNoteOn('E4', 'test');
+
+      await new Promise(r => setTimeout(r, 100));
+      return {
+        comboBefore,
+        comboAfter: game.noteManager.scoring.combo,
+        wrongNotesDelta: game.noteManager.scoring.wrongNotes - wrongBefore,
+      };
+    `)) as { frozenTime: number; comboBefore: number; comboAfter: number; wrongNotesDelta: number };
+
+    expect(result.wrongNotesDelta).toBe(1);
+    expect(result.comboAfter).toBe(0);
+  });
   test('waiting several seconds before pressing does not jump game time forward', async ({ page }) => {
     test.setTimeout(15000);
     const songJson = JSON.stringify(makeSong([
