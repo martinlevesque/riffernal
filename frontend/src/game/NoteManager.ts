@@ -526,57 +526,65 @@ export class NoteManager {
       return { results: [recoverResult], wrong: false };
     }
 
-    const hasPlayableNote = this.activeNotes.some(
-      (n) => n.lane === lane && !n.hit && !n.missed && !n.holding && !n.failing && !n.resolved && !this._isAutoPlayNote(n) && Math.abs(n.time - currentTime) <= TIMING.GOOD,
-    );
+    // --- chord grouping: when anchor is set, buffer presses ---
+    if (this._learningAnchor !== null) {
+      if (this._learningChordPresses.size > 0 && realTime - this._learningChordFirstPressRealTime > LEARNING_CHORD_WINDOW) {
+        this._learningChordPresses.clear();
+      }
 
-    if (!hasPlayableNote) {
+      if (this._learningChordPresses.size === 0) {
+        this._learningChordFirstPressRealTime = realTime;
+      }
+
       // Silently ignore presses on auto-play lanes (non-practiced hand).
-      const isAutoPlayLane = this.notes.some(
-        (n) => n.lane === lane && this._isAutoPlayNote(n),
-      );
-
-      if (isAutoPlayLane) {
+      if (this.notes.some((n) => n.lane === lane && this._isAutoPlayNote(n))) {
         return { results: [], wrong: false };
       }
 
-      this.scoring.recordWrongPress();
-      return { results: [], wrong: true };
-    }
-    if (this._learningAnchor === null) {
-      // Unreachable: hasPlayableNote already confirmed a note exists within
-      // TIMING.GOOD, so _tryNormalHit will always find it.
-      const result = this._tryNormalHit(currentTime, lane);
-      return { results: result ? [result] : [], wrong: false };
-    }
-    if (!this._learningChordLanes.has(lane)) {
-      this.scoring.recordWrongPress();
-      return { results: [], wrong: true };
-    }
+      // Wrong key: not part of the current chord.
+      if (!this._learningChordLanes.has(lane)) {
+        this.scoring.recordWrongPress();
+        return { results: [], wrong: true };
+      }
 
-    if (this._learningChordPresses.size > 0 && realTime - this._learningChordFirstPressRealTime > LEARNING_CHORD_WINDOW) {
+      this._learningChordPresses.add(lane);
+
+      // Not all chord lanes pressed yet — wait.
+      if (this._learningChordPresses.size < this._learningChordLanes.size) {
+        return { results: [], wrong: false };
+      }
+
+      // All chord lanes pressed — resolve.
+      const results: HitResult[] = [];
+      for (const pressedLane of this._learningChordPresses) {
+        const r = this.checkHit(currentTime, pressedLane);
+        if (r) results.push(r);
+      }
       this._learningChordPresses.clear();
+      this._learningAnchor = null;
+      this._learningChordLanes.clear();
+      return { results, wrong: false };
     }
 
-    if (this._learningChordPresses.size === 0) {
-      this._learningChordFirstPressRealTime = realTime;
+    // --- single-note path (anchor is null) ---
+    const normalResult = this._tryNormalHit(currentTime, lane);
+    if (normalResult) {
+      return { results: [normalResult], wrong: false };
     }
 
-    this._learningChordPresses.add(lane);
-
-    if (this._learningChordPresses.size < this._learningChordLanes.size) {
+    // Silently ignore presses on auto-play lanes (non-practiced hand).
+    if (this.notes.some((n) => n.lane === lane && this._isAutoPlayNote(n))) {
       return { results: [], wrong: false };
     }
 
-    const results: HitResult[] = [];
-    for (const pressedLane of this._learningChordPresses) {
-      const r = this.checkHit(currentTime, pressedLane);
-      if (r) results.push(r);
+    // Wrong key: no unresolved note in this lane (same check as play mode).
+    if (!this.hasUnresolvedNoteInLane(lane, currentTime)) {
+      this.scoring.recordWrongPress();
+      return { results: [], wrong: true };
     }
-    this._learningChordPresses.clear();
-    this._learningAnchor = null;
-    this._learningChordLanes.clear();
-    return { results, wrong: false };
+
+    // Unresolved note exists but can't hit it yet.
+    return { results: [], wrong: false };
   }
 
   getSongDuration(): number {
