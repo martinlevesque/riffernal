@@ -93,6 +93,26 @@ test.describe('Best Score', () => {
     expect(text).toMatch(/Best:/);
   });
 
+  test('best score is NOT recorded when learn mode was used', async ({ page }) => {
+    await startGameKeepSong(page);
+    await expect(page.locator('#play-screen')).toHaveClass(/active/, { timeout: 5000 });
+
+    // Toggle learn mode on then off — sets _usedLearningMode = true
+    await page.locator('#mode-learn').click();
+    await expect(page.locator('#mode-learn')).toHaveClass(/active/);
+    await page.locator('#mode-play').click();
+    await expect(page.locator('#mode-play')).toHaveClass(/active/);
+
+    await speedUp(page);
+    await waitForResults(page);
+
+    await page.locator('#btn-menu').click();
+    await expect(page.locator('#menu-screen')).toHaveClass(/active/, { timeout: 5000 });
+
+    // Best score should NOT appear — no recordBestScore call was made
+    await expect(page.locator('.song-best-score')).toHaveCount(0, { timeout: 5000 });
+  });
+
   test('best score in song list updates after a better run', async ({ page }) => {
     // First run
     await startGameKeepSong(page);

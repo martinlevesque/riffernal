@@ -31,137 +31,11 @@ async function loadSongs(): Promise<Song[]> {
   }
 }
 
-async function init(): Promise<void> {
-  const canvas = document.getElementById('gameCanvas') as HTMLCanvasElement;
-  const synth = new Synth();
-  const keyboardInput = new KeyboardInput();
-  const midiInput = new MidiInput();
+// ---------------------------------------------------------------------------
+// Setup functions (top-level, each owns its DOM elements)
+// ---------------------------------------------------------------------------
 
-  const game = new Game(canvas, synth, keyboardInput, midiInput);
-  const scoreDisplay = new ScoreDisplay();
-  game.scoreDisplay = scoreDisplay;
-  const trackSelect = new TrackSelect();
-
-  const speedValue = document.getElementById('speed-value')!;
-  const speedDown = document.getElementById('speed-down')!;
-  const speedUp = document.getElementById('speed-up')!;
-
-  const modePlay = document.getElementById('mode-play')!;
-  const modeLearn = document.getElementById('mode-learn')!;
-  const handControl = document.getElementById('hand-control')!;
-  const handLeft = document.getElementById('hand-left')!;
-  const handRight = document.getElementById('hand-right')!;
-
-  const defineLoopBtn = document.getElementById('btn-define-loop')!;
-  const clearLoopBtn = document.getElementById('btn-clear-loop')!;
-  const loopPlayBtn = document.getElementById('btn-loop-play')!;
-  const loopStatus = document.getElementById('loop-status')!;
-
-  // -- Full sheet view ---------------------------------------------------
-  const openSheetBtn = document.getElementById('btn-open-sheet')!;
-  const sheetScreen = document.getElementById('sheet-screen')!;
-  const sheetCanvas = document.getElementById('sheet-canvas') as HTMLCanvasElement;
-  const sheetPrevBtn = document.getElementById('btn-sheet-prev')!;
-  const sheetNextBtn = document.getElementById('btn-sheet-next')!;
-  const sheetCloseBtn = document.getElementById('btn-close-sheet')!;
-  const sheetPageInfo = document.getElementById('sheet-page-info')!;
-  const sheetHint = document.getElementById('sheet-hint')!;
-  const sheetRenderer = new Renderer(sheetCanvas);
-  function pageDuration(): number { return SHEET_BEATS_VISIBLE * (60 / game.songBpm); }
-  let sheetCurrentPage = 0;
-  let sheetOpen = false;
-
-  function applyPracticeHandButtons(): void {
-    const hand = game.practiceHand;
-    handLeft.classList.toggle('active', hand === PracticeHand.Left);
-    handRight.classList.toggle('active', hand === PracticeHand.Right);
-  }
-
-  function setPracticeHand(hand: PracticeHand): void {
-    game.setPracticeHand(hand);
-    applyPracticeHandButtons();
-  }
-
-  function setMode(learning: boolean): void {
-    game.setLearningMode(learning);
-    modePlay.classList.toggle('active', !learning);
-    modeLearn.classList.toggle('active', learning);
-    handControl.classList.toggle('active', learning);
-    if (!learning && game.loopActive) {
-      game.deactivateLoop();
-      updateLoopUI();
-    }
-  }
-
-  function updateLoopUI(): void {
-    const phase = game.loopDefinitionState;
-    defineLoopBtn.classList.toggle('active', phase !== 'off');
-    defineLoopBtn.classList.toggle('loop-active', game.loopActive);
-    const stored = !game.loopActive && game.loopStart !== null && game.loopEnd !== null;
-    defineLoopBtn.classList.toggle('loop-stored', stored);
-
-    const showLoopPlay = game.loopActive && game.learningMode;
-    loopPlayBtn.style.display = showLoopPlay ? '' : 'none';
-    loopPlayBtn.classList.toggle('play-active', game.loopPlay);
-    loopPlayBtn.textContent = game.loopPlay ? '\u23F8' : '\u25B6';
-
-    if (phase === 'start') {
-      loopStatus.textContent = 'Click start note';
-    } else if (phase === 'end') {
-      loopStatus.textContent = 'Click end note';
-    } else if (game.loopActive) {
-      loopStatus.textContent = `Loop ${game.loopStart?.toFixed(2)}s-${game.loopEnd?.toFixed(2)}s`;
-    } else if (stored) {
-      loopStatus.textContent = `Stored ${game.loopStart?.toFixed(2)}s-${game.loopEnd?.toFixed(2)}s`;
-    } else {
-      loopStatus.textContent = 'No loop';
-    }
-  }
-
-  modePlay.addEventListener('click', () => setMode(false));
-  modeLearn.addEventListener('click', () => setMode(true));
-
-  defineLoopBtn.addEventListener('click', () => {
-    const hasExisting = game.loopStart !== null && game.loopEnd !== null;
-    if (hasExisting) {
-      // Keep existing boundaries visible so the user sees what they had,
-      // but deactivate the loop and enter start-defining mode.
-      game.deactivateLoop();
-      game.loopDefinitionState = LoopDefinitionState.Start;
-    } else {
-      game.beginLoopDefine();
-    }
-    if (!game.learningMode) setMode(true);
-    updateLoopUI();
-    if (game.state === GameState.Playing) {
-      openSheetView();
-      startSheetRAF();
-    }
-  });
-
-  clearLoopBtn.addEventListener('click', () => {
-    game.clearLoop();
-    updateLoopUI();
-    if (sheetOpen) renderSheetPage();
-  });
-
-  loopPlayBtn.addEventListener('click', () => {
-    game.loopPlay = !game.loopPlay;
-    updateLoopUI();
-  });
-
-  handLeft.addEventListener('click', () => {
-    const hand = game.practiceHand === PracticeHand.Left
-      ? PracticeHand.Both : PracticeHand.Left;
-    setPracticeHand(hand);
-  });
-  handRight.addEventListener('click', () => {
-    const hand = game.practiceHand === PracticeHand.Right
-      ? PracticeHand.Both : PracticeHand.Right;
-    setPracticeHand(hand);
-  });
-
-  // -- Background track panel ----------------------------------------------
+function setupBackgroundPanel(game: Game): void {
   const toggleBgBtn = document.getElementById('btn-toggle-bg')! as HTMLButtonElement;
   const bgPanel = document.getElementById('bg-panel')!;
   const bgTrackList = document.getElementById('bg-track-list')!;
@@ -206,7 +80,7 @@ async function init(): Promise<void> {
     }
   }
 
-  function toggleBgPanel(): void {
+  toggleBgBtn.addEventListener('click', () => {
     bgPanelOpen = !bgPanelOpen;
     if (bgPanelOpen) {
       renderBgPanel();
@@ -214,9 +88,7 @@ async function init(): Promise<void> {
     } else {
       bgPanel.classList.add('hidden');
     }
-  }
-
-  toggleBgBtn.addEventListener('click', toggleBgPanel);
+  });
 
   document.addEventListener('click', (e) => {
     if (bgPanelOpen && !bgPanel.contains(e.target as Node) && e.target !== toggleBgBtn) {
@@ -224,6 +96,12 @@ async function init(): Promise<void> {
       bgPanel.classList.add('hidden');
     }
   });
+}
+
+function setupSpeedControls(game: Game): void {
+  const speedValue = document.getElementById('speed-value')!;
+  const speedDown = document.getElementById('speed-down')!;
+  const speedUp = document.getElementById('speed-up')!;
 
   function updateSpeedDisplay(): void {
     speedValue.textContent = `${Math.round(game.speedMultiplier * 100)}%`;
@@ -240,93 +118,14 @@ async function init(): Promise<void> {
 
   document.addEventListener('keydown', (e) => {
     if (game.state !== GameState.Playing) return;
-    if (e.code === 'BracketLeft') {
-      changeSpeed(-0.1);
-    } else if (e.code === 'BracketRight') {
-      changeSpeed(0.1);
-    }
-  });
-
-  document.getElementById('btn-next-note')!.addEventListener('click', () => {
-    if (game.state === GameState.Playing) game.seekToNextNote();
-  });
-
-  document.addEventListener('keydown', (e) => {
-    if (game.state !== GameState.Playing) return;
-    if (e.code === 'KeyN') {
-      game.seekToNextNote();
-    }
-  });
-
-  const pauseBtn = document.getElementById('btn-pause')!;
-  function updatePauseBtn(): void {
-    pauseBtn.innerHTML = game.paused ? '&#9654;' : '&#9646;&#9646;';
-    pauseBtn.title = game.paused ? 'Resume (Space)' : 'Pause (Space)';
-  }
-
-  pauseBtn.addEventListener('click', () => {
-    if (game.state === GameState.Playing) {
-      game.togglePause();
-      updatePauseBtn();
-    }
-  });
-
-  document.addEventListener('keydown', (e) => {
-    if (game.state !== GameState.Playing) return;
-    if (e.code === 'Space') {
-      e.preventDefault();
-      game.togglePause();
-      updatePauseBtn();
-    }
+    if (e.code === 'BracketLeft') changeSpeed(-0.1);
+    else if (e.code === 'BracketRight') changeSpeed(0.1);
   });
 
   updateSpeedDisplay();
+}
 
-  const songs = await loadSongs();
-  if (songs.length === 0) {
-    (document.getElementById('btn-start') as HTMLButtonElement).disabled = true;
-  }
-  const menu = new Menu(songs);
-  await menu.loadCategories();
-  const categorySelect = new CategorySelect();
-
-  // -- User settings (show used keys only) ----------------------------------
-  const showUsedKeysCheckbox = document.getElementById('show-used-keys') as HTMLInputElement;
-  try {
-    const settings = await fetchUserSettings();
-    game.showUsedKeys = settings.piano_show_used_keys_only ?? false;
-    showUsedKeysCheckbox.checked = game.showUsedKeys;
-  } catch {
-    // ignore - default is false
-  }
-  showUsedKeysCheckbox.addEventListener('change', () => {
-    const enabled = showUsedKeysCheckbox.checked;
-    game.setShowUsedKeys(enabled);
-    updateUserSettings({ piano_show_used_keys_only: enabled }).catch((e) =>
-      console.warn('Failed to save settings:', e),
-    );
-  });
-
-  // -- Settings popup wiring -----------------------------------------------
-  const btnSettings = document.getElementById('btn-settings')!;
-  const settingsPopup = document.getElementById('settings-popup')!;
-  const btnCloseSettings = document.getElementById('btn-close-settings')!;
-
-  btnSettings.addEventListener('click', () => {
-    settingsPopup.classList.remove('hidden');
-  });
-
-  btnCloseSettings.addEventListener('click', () => {
-    settingsPopup.classList.add('hidden');
-  });
-
-  settingsPopup.addEventListener('click', (e) => {
-    if (e.target === settingsPopup) {
-      settingsPopup.classList.add('hidden');
-    }
-  });
-
-  // -- Rename popup wiring --------------------------------------------------
+function setupRenamePopup(menu: Menu): { onRename: (song: Song) => void } {
   const renamePopup = document.getElementById('rename-popup')!;
   const renameTitle = document.getElementById('rename-song-title') as HTMLInputElement;
   const renameArtist = document.getElementById('rename-song-artist') as HTMLInputElement;
@@ -338,13 +137,13 @@ async function init(): Promise<void> {
     if (song.id === undefined) return;
     renameSongId = song.id;
     renameTitle.value = song.title;
-    renameArtist.value = song.artist || "";
-    renamePopup.classList.remove("hidden");
+    renameArtist.value = song.artist || '';
+    renamePopup.classList.remove('hidden');
     renameTitle.focus();
     renameTitle.select();
   }
 
-  btnRenameSave.addEventListener("click", async () => {
+  btnRenameSave.addEventListener('click', async () => {
     if (renameSongId === null) return;
     const title = renameTitle.value.trim();
     if (!title) return;
@@ -353,37 +152,44 @@ async function init(): Promise<void> {
       const updated = await updateSongTitle(renameSongId, title, artist);
       menu.updateSong(songFullToSong(updated));
     } catch (err) {
-      console.error("Failed to rename song:", err);
+      console.error('Failed to rename song:', err);
     }
-    renamePopup.classList.add("hidden");
+    renamePopup.classList.add('hidden');
     renameSongId = null;
   });
 
-  btnRenameCancel.addEventListener("click", () => {
-    renamePopup.classList.add("hidden");
+  btnRenameCancel.addEventListener('click', () => {
+    renamePopup.classList.add('hidden');
     renameSongId = null;
   });
 
-  renamePopup.addEventListener("click", (e) => {
+  renamePopup.addEventListener('click', (e) => {
     if (e.target === renamePopup) {
-      renamePopup.classList.add("hidden");
+      renamePopup.classList.add('hidden');
       renameSongId = null;
     }
   });
 
   function handleRenameEnter(e: KeyboardEvent): void {
-    if (e.key === "Enter") {
+    if (e.key === 'Enter') {
       e.preventDefault();
       btnRenameSave.click();
     }
   }
 
-  renameTitle.addEventListener("keydown", handleRenameEnter);
-  renameArtist.addEventListener("keydown", handleRenameEnter);
+  renameTitle.addEventListener('keydown', handleRenameEnter);
+  renameArtist.addEventListener('keydown', handleRenameEnter);
 
-  menu.onRename = (song) => showRenamePopup(song);
+  return { onRename: showRenamePopup };
+}
 
-  // -- Song-info popup (pre-game) -------------------------------------------
+function setupSongInfoPopup(
+  game: Game,
+  updatePauseBtn: () => void,
+): {
+  closeSongInfoPopup: () => void;
+  showSongInfoPopup: (song: Song) => void;
+} {
   const songInfoPopup = document.getElementById('song-info-popup')!;
   const songInfoDuration = document.getElementById('song-info-duration')!;
   const songInfoBestScore = document.getElementById('song-info-best-score')!;
@@ -396,8 +202,6 @@ async function init(): Promise<void> {
       songInfoTimer = null;
     }
     songInfoPopup.classList.add('hidden');
-
-    // Resume the game after pre-game popup disappears
     if (game.state === GameState.Playing && game.paused) {
       game.togglePause();
       updatePauseBtn();
@@ -415,92 +219,19 @@ async function init(): Promise<void> {
     songInfoTimer = setTimeout(closeSongInfoPopup, 4000);
   }
 
-  // -- Best-score persistence -----------------------------------------------
-  game.onResults = (scoring, song) => {
-    if (!song.id) return;
+  return { closeSongInfoPopup, showSongInfoPopup };
+}
 
-    recordBestScore(song.id, scoring.score)
-      .then(({ bestScore }) => {
-        song.bestScore = bestScore;
-        menu.updateSongBestScore(song.id!, bestScore);
-      })
-      .catch((e) => console.error('Failed to record best score:', e));
-  };
-
-  menu.onStart = async (song) => {
-    setMode(false);
-    setPracticeHand(PracticeHand.Both);
-    let fullSong = song;
-
-    if (song.id !== undefined && song.notes.length === 0) {
-      try {
-        fullSong = songFullToSong(await fetchSong(song.id));
-      } catch (e) {
-        console.warn('Failed to fetch full song:', e);
-      }
-    }
-
-    game.start(fullSong);
-    game.pause();
-    updatePauseBtn();
-    showSongInfoPopup(fullSong);
-
-    if (song.id !== undefined) {
-      markSongPlayed(song.id).catch((e) =>
-        console.warn('Failed to mark song played:', e)
-      );
-    }
-  };
-
-  await midiInput.start();
-  menu.setMidiStatus(
-    midiInput.connected,
-    midiInput.connected ? 'MIDI device connected' : 'No MIDI device - use keyboard'
-  );
-
-  midiInput.onConnectionChange = (connected, message) => {
-    menu.setMidiStatus(connected, message);
-  };
-
-  document.getElementById('btn-play')!.addEventListener('click', () => {
-    closeSongInfoPopup();
-    closeSheetView();
-    game.setPracticeHand(PracticeHand.Both);
-    setMode(false);
-    game.retry();
-    updateLoopUI();
-    updatePauseBtn();
-  });
-  document.getElementById('btn-retry')!.addEventListener('click', () => {
-    closeSongInfoPopup();
-    closeSheetView();
-    game.retry();
-    setMode(game.learningMode);
-    applyPracticeHandButtons();
-    updateLoopUI();
-    updatePauseBtn();
-  });
-  document.getElementById('btn-menu')!.addEventListener('click', () => {
-    closeSongInfoPopup();
-    closeSheetView();
-    game.backToMenu();
-  });
-  document.getElementById('btn-restart')!.addEventListener('click', () => {
-    closeSongInfoPopup();
-    closeSheetView();
-    game.retry();
-    setMode(game.learningMode);
-    applyPracticeHandButtons();
-    updateLoopUI();
-    updatePauseBtn();
-  });
-
+function setupMidiImport(
+  menu: Menu,
+  midiInput: MidiInput,
+  trackSelect: TrackSelect,
+  categorySelect: CategorySelect,
+): void {
   const importBtn = document.getElementById('btn-import-midi')! as HTMLButtonElement;
   const importInput = document.getElementById('midi-import-input')! as HTMLInputElement;
 
-  importBtn.addEventListener('click', () => {
-    importInput.click();
-  });
+  importBtn.addEventListener('click', () => importInput.click());
 
   importInput.addEventListener('change', () => {
     const file = importInput.files?.[0];
@@ -512,18 +243,17 @@ async function init(): Promise<void> {
         const song = parseMidi(reader.result as ArrayBuffer, file.name);
         const needsSelection = song.tracks && song.tracks.length > 2
           && (song.selectedTrackIndices?.length ?? 0) === 0;
+
         const proceed = (finalSong: Song, midiFile: File) => {
           categorySelect.onConfirm = async (categoryId, title, artist) => {
             categorySelect.onConfirm = null;
             categorySelect.onCancel = null;
             try {
-              const finalTitle = title || finalSong.title;
-              const finalArtist = artist || finalSong.artist;
               const full = await uploadSong({
                 midiFile,
                 metadata: {
-                  title: finalTitle,
-                  artist: finalArtist,
+                  title: title || finalSong.title,
+                  artist: artist || finalSong.artist,
                   bpm: finalSong.bpm,
                   difficulty: finalSong.difficulty,
                   notes: finalSong.notes,
@@ -581,97 +311,66 @@ async function init(): Promise<void> {
     };
     reader.readAsArrayBuffer(file);
   });
+}
 
-  const resizeHandle = document.getElementById('sheet-resize-handle')!;
-  let resizing = false;
-  let resizeRAF = false;
-
-  resizeHandle.addEventListener('pointerdown', (e) => {
-    resizing = true;
-    resizeHandle.setPointerCapture(e.pointerId);
-    e.preventDefault();
-  });
-
-  window.addEventListener('pointermove', (e) => {
-    if (!resizing || resizeRAF) return;
-    if (game.state !== GameState.Playing) return;
-    resizeRAF = true;
-    requestAnimationFrame(() => {
-      const rect = canvas.getBoundingClientRect();
+function setupHoverCursor(
+  game: Game,
+  targetCanvas: HTMLCanvasElement,
+  targetRenderer: Renderer,
+): void {
+  let hoverRAF: number | null = null;
+  targetCanvas.addEventListener('mousemove', (e) => {
+    if (hoverRAF !== null) return;
+    hoverRAF = requestAnimationFrame(() => {
+      hoverRAF = null;
+      if (game.state !== GameState.Playing) {
+        targetCanvas.style.cursor = '';
+        return;
+      }
+      const rect = targetCanvas.getBoundingClientRect();
+      const x = e.clientX - rect.left;
       const y = e.clientY - rect.top;
-      const minSheetHeight = BASE_SHEET_HEIGHT * 0.5;
-      const maxSheetHeight = canvas.height * 0.35;
-      const targetHeight = Math.max(minSheetHeight, Math.min(maxSheetHeight, y - SHEET_TOP_OFFSET));
-      game.renderer.sheetScale = targetHeight / BASE_SHEET_HEIGHT;
-      resizeRAF = false;
+      const inLoopDefine = game.loopDefinitionState === LoopDefinitionState.Start
+        || game.loopDefinitionState === LoopDefinitionState.End;
+      const radius = inLoopDefine ? 50 : 30;
+      const note = game.noteManager.findNearestNoteByClick(x, y, targetRenderer, radius);
+      targetCanvas.style.cursor = note ? 'pointer' : 'crosshair';
     });
   });
-
-  window.addEventListener('pointerup', () => {
-    resizing = false;
+  targetCanvas.addEventListener('mouseleave', () => {
+    targetCanvas.style.cursor = 'crosshair';
   });
+}
 
-  function noteFromClick(
-    rect: DOMRect, clientX: number, clientY: number,
-    renderer: Renderer, maxRadius = 30,
-  ): SongNote | null {
-    const x = clientX - rect.left;
-    const y = clientY - rect.top;
-    const r = renderer;
-    if (r.sheetBarW <= 0) return null;
-    if (x < r.sheetBarX - maxRadius || x > r.sheetBarX + r.sheetBarW + maxRadius) return null;
+function setupSheetView(
+  game: Game,
+  canvas: HTMLCanvasElement,
+  deps: {
+    closeSongInfoPopup: () => void;
+    setMode: (learning: boolean) => void;
+    updateLoopUI: () => void;
+  },
+): { closeSheetView: () => void } {
+  const { closeSongInfoPopup, setMode, updateLoopUI } = deps;
 
-    const note = game.noteManager.findNearestNoteByClick(x, y, r, maxRadius);
-    if (note) return note;
+  const openSheetBtn = document.getElementById('btn-open-sheet')!;
+  const sheetScreen = document.getElementById('sheet-screen')!;
+  const sheetCanvas = document.getElementById('sheet-canvas') as HTMLCanvasElement;
+  const sheetPrevBtn = document.getElementById('btn-sheet-prev')!;
+  const sheetNextBtn = document.getElementById('btn-sheet-next')!;
+  const sheetCloseBtn = document.getElementById('btn-close-sheet')!;
+  const sheetPageInfo = document.getElementById('sheet-page-info')!;
+  const sheetHint = document.getElementById('sheet-hint')!;
+  const sheetRenderer = new Renderer(sheetCanvas);
+  const defineLoopBtn = document.getElementById('btn-define-loop')!;
+  const clearLoopBtn = document.getElementById('btn-clear-loop')!;
 
-    // Fallback: find nearest by time with staff hint (legacy behaviour).
-    const t = r.sheetViewStart
-      + ((x - r.sheetBarX) / r.sheetBarW)
-        * (r.sheetViewEnd - r.sheetViewStart);
-    let staff: 'treble' | 'bass' | undefined;
-    if (y >= r.sheetTrebleTop && y <= r.sheetTrebleBottom) staff = 'treble';
-    else if (y >= r.sheetBassTop && y <= r.sheetBassBottom) staff = 'bass';
-    return game.noteManager.findNearestNote(t, staff);
-  }
-
-  canvas.addEventListener('click', (e) => {
-    if (game.state !== GameState.Playing) return;
-    const inLoopDefine
-      = game.loopDefinitionState === LoopDefinitionState.Start
-      || game.loopDefinitionState === LoopDefinitionState.End;
-    const note = noteFromClick(
-      canvas.getBoundingClientRect(), e.clientX, e.clientY,
-      game.renderer, inLoopDefine ? 50 : 30,
-    );
-    if (!note) return;
-
-    if (inLoopDefine) {
-      const wasStart = game.loopDefinitionState === LoopDefinitionState.Start;
-      game.setLoopBoundary(note.time);
-      updateLoopUI();
-      if (!wasStart && game.loopStart !== null) {
-        game.seekTo(game.loopStart);
-      }
-    } else {
-      game.seekTo(note.time);
-    }
-  });
-
-  document.addEventListener('keydown', (e) => {
-    if (game.state !== GameState.Playing) return;
-
-    if (e.code === 'KeyR') {
-      closeSongInfoPopup();
-      closeSheetView();
-      game.retry();
-    }
-  });
-
-  // -- Full sheet view wiring ---------------------------------------------
+  function pageDuration(): number { return SHEET_BEATS_VISIBLE * (60 / game.songBpm); }
+  let sheetCurrentPage = 0;
+  let sheetOpen = false;
 
   function sheetPageCount(): number {
-    const dur = game.noteManager.getSongDuration();
-    return Math.max(1, Math.ceil(dur / pageDuration()));
+    return Math.max(1, Math.ceil(game.noteManager.getSongDuration() / pageDuration()));
   }
 
   function renderSheetPage(): void {
@@ -706,6 +405,15 @@ async function init(): Promise<void> {
     }
   }
 
+  function jumpSheetToCurrent(): void {
+    const dur = game.noteManager.getSongDuration();
+    sheetCurrentPage = dur <= 0
+      ? 0
+      : Math.min(Math.floor(game.currentTime / pageDuration()), sheetPageCount() - 1);
+    if (sheetCurrentPage < 0) sheetCurrentPage = 0;
+    renderSheetPage();
+  }
+
   function openSheetView(jumpToCurrent = true): void {
     if (sheetOpen) {
       if (jumpToCurrent) jumpSheetToCurrent();
@@ -714,25 +422,10 @@ async function init(): Promise<void> {
     }
     sheetOpen = true;
     sheetScreen.classList.add('active');
-    // Force a resize so the sheet canvas matches the current window size.
     sheetRenderer.resize();
     sheetRenderer.sheetScale = Math.max(sheetRenderer.sheetScale, 1.5);
     if (jumpToCurrent) jumpSheetToCurrent();
     else renderSheetPage();
-  }
-
-  function jumpSheetToCurrent(): void {
-    const dur = game.noteManager.getSongDuration();
-    if (dur <= 0) {
-      sheetCurrentPage = 0;
-    } else {
-      sheetCurrentPage = Math.min(
-        Math.floor(game.currentTime / pageDuration()),
-        sheetPageCount() - 1,
-      );
-      if (sheetCurrentPage < 0) sheetCurrentPage = 0;
-    }
-    renderSheetPage();
   }
 
   function closeSheetView(): void {
@@ -745,35 +438,33 @@ async function init(): Promise<void> {
     else openSheetView();
   }
 
-  openSheetBtn.addEventListener('click', () => {
-    if (game.state !== GameState.Playing) return;
-    toggleSheetView();
-  });
+  function noteFromClick(
+    rect: DOMRect, clientX: number, clientY: number,
+    renderer: Renderer, maxRadius = 30,
+  ): SongNote | null {
+    const x = clientX - rect.left;
+    const y = clientY - rect.top;
+    const r = renderer;
+    if (r.sheetBarW <= 0) return null;
+    if (x < r.sheetBarX - maxRadius || x > r.sheetBarX + r.sheetBarW + maxRadius) return null;
+    const note = game.noteManager.findNearestNoteByClick(x, y, r, maxRadius);
+    if (note) return note;
+    const t = r.sheetViewStart
+      + ((x - r.sheetBarX) / r.sheetBarW) * (r.sheetViewEnd - r.sheetViewStart);
+    let staff: 'treble' | 'bass' | undefined;
+    if (y >= r.sheetTrebleTop && y <= r.sheetTrebleBottom) staff = 'treble';
+    else if (y >= r.sheetBassTop && y <= r.sheetBassBottom) staff = 'bass';
+    return game.noteManager.findNearestNote(t, staff);
+  }
 
-  sheetCloseBtn.addEventListener('click', closeSheetView);
-
-  sheetPrevBtn.addEventListener('click', () => {
-    if (sheetCurrentPage > 0) {
-      sheetCurrentPage--;
-      renderSheetPage();
-    }
-  });
-
-  sheetNextBtn.addEventListener('click', () => {
-    if (sheetCurrentPage < sheetPageCount() - 1) {
-      sheetCurrentPage++;
-      renderSheetPage();
-    }
-  });
-
-  sheetCanvas.addEventListener('click', (e) => {
+  function handleCanvasClick(e: MouseEvent, targetCanvas: HTMLCanvasElement, renderer: Renderer): void {
     if (game.state !== GameState.Playing) return;
     const inLoopDefine
       = game.loopDefinitionState === LoopDefinitionState.Start
       || game.loopDefinitionState === LoopDefinitionState.End;
     const note = noteFromClick(
-      sheetCanvas.getBoundingClientRect(), e.clientX, e.clientY,
-      sheetRenderer, inLoopDefine ? 50 : 30,
+      targetCanvas.getBoundingClientRect(), e.clientX, e.clientY,
+      renderer, inLoopDefine ? 50 : 30,
     );
     if (!note) return;
 
@@ -781,73 +472,115 @@ async function init(): Promise<void> {
       const wasStart = game.loopDefinitionState === LoopDefinitionState.Start;
       game.setLoopBoundary(note.time);
       updateLoopUI();
-      if (wasStart) {
-        renderSheetPage();
+      if (targetCanvas === canvas) {
+        if (!wasStart && game.loopStart !== null) game.seekTo(game.loopStart);
       } else {
-        if (game.loopStart !== null) game.seekTo(game.loopStart);
-        closeSheetView();
+        if (wasStart) {
+          renderSheetPage();
+        } else {
+          if (game.loopStart !== null) game.seekTo(game.loopStart);
+          closeSheetView();
+        }
       }
     } else {
       game.seekTo(note.time);
-      closeSheetView();
+      if (targetCanvas !== canvas) closeSheetView();
+    }
+  }
+
+  // Loop define / clear buttons
+  defineLoopBtn.addEventListener('click', () => {
+    const hasExisting = game.loopStart !== null && game.loopEnd !== null;
+    if (hasExisting) {
+      game.deactivateLoop();
+      game.loopDefinitionState = LoopDefinitionState.Start;
+    } else {
+      game.beginLoopDefine();
+    }
+    if (!game.learningMode) setMode(true);
+    updateLoopUI();
+    if (game.state === GameState.Playing) {
+      openSheetView();
+      startSheetRAF();
     }
   });
 
-  // -- Hover cursor feedback for note selection ----------------------------
-  function setupHoverCursor(
-    targetCanvas: HTMLCanvasElement,
-    targetRenderer: Renderer,
-  ): void {
-    let hoverRAF: number | null = null;
-    targetCanvas.addEventListener('mousemove', (e) => {
-      if (hoverRAF !== null) return;
-      hoverRAF = requestAnimationFrame(() => {
-        hoverRAF = null;
-        if (game.state !== GameState.Playing) {
-          targetCanvas.style.cursor = '';
-          return;
-        }
-        const rect = targetCanvas.getBoundingClientRect();
-        const x = e.clientX - rect.left;
-        const y = e.clientY - rect.top;
-        const inLoopDefine = game.loopDefinitionState === LoopDefinitionState.Start
-          || game.loopDefinitionState === LoopDefinitionState.End;
-        const radius = inLoopDefine ? 50 : 30;
-        const note = game.noteManager.findNearestNoteByClick(x, y, targetRenderer, radius);
-        targetCanvas.style.cursor = note ? 'pointer' : 'crosshair';
-      });
-    });
-    targetCanvas.addEventListener('mouseleave', () => {
-      targetCanvas.style.cursor = 'crosshair';
-    });
-  }
-  setupHoverCursor(canvas, game.renderer);
-  setupHoverCursor(sheetCanvas, sheetRenderer);
+  clearLoopBtn.addEventListener('click', () => {
+    game.clearLoop();
+    updateLoopUI();
+    if (sheetOpen) renderSheetPage();
+  });
 
-  // Arrow keys / Escape for sheet navigation
+  // Sheet resize
+  const resizeHandle = document.getElementById('sheet-resize-handle')!;
+  let resizing = false;
+  let resizeRAF = false;
+
+  resizeHandle.addEventListener('pointerdown', (e) => {
+    resizing = true;
+    resizeHandle.setPointerCapture(e.pointerId);
+    e.preventDefault();
+  });
+
+  window.addEventListener('pointermove', (e) => {
+    if (!resizing || resizeRAF) return;
+    if (game.state !== GameState.Playing) return;
+    resizeRAF = true;
+    requestAnimationFrame(() => {
+      const rect = canvas.getBoundingClientRect();
+      const y = e.clientY - rect.top;
+      const minSheetHeight = BASE_SHEET_HEIGHT * 0.5;
+      const maxSheetHeight = canvas.height * 0.35;
+      const targetHeight = Math.max(minSheetHeight, Math.min(maxSheetHeight, y - SHEET_TOP_OFFSET));
+      game.renderer.sheetScale = targetHeight / BASE_SHEET_HEIGHT;
+      resizeRAF = false;
+    });
+  });
+
+  window.addEventListener('pointerup', () => { resizing = false; });
+
+  // Canvas click (seeking / loop define)
+  canvas.addEventListener('click', (e) => handleCanvasClick(e, canvas, game.renderer));
+
+  // Keyboard: R to retry
+  document.addEventListener('keydown', (e) => {
+    if (game.state !== GameState.Playing) return;
+    if (e.code === 'KeyR') {
+      closeSongInfoPopup();
+      closeSheetView();
+      game.retry();
+    }
+  });
+
+  // Sheet toolbar / canvas listeners
+  openSheetBtn.addEventListener('click', () => {
+    if (game.state === GameState.Playing) toggleSheetView();
+  });
+  sheetCloseBtn.addEventListener('click', closeSheetView);
+  sheetPrevBtn.addEventListener('click', () => {
+    if (sheetCurrentPage > 0) { sheetCurrentPage--; renderSheetPage(); }
+  });
+  sheetNextBtn.addEventListener('click', () => {
+    if (sheetCurrentPage < sheetPageCount() - 1) { sheetCurrentPage++; renderSheetPage(); }
+  });
+  sheetCanvas.addEventListener('click', (e) => handleCanvasClick(e, sheetCanvas, sheetRenderer));
+
+  // Keyboard: arrow keys & Escape for sheet navigation
   document.addEventListener('keydown', (e) => {
     if (!sheetOpen) return;
     if (e.code === 'ArrowLeft') {
       e.preventDefault();
-      if (sheetCurrentPage > 0) {
-        sheetCurrentPage--;
-        renderSheetPage();
-      }
+      if (sheetCurrentPage > 0) { sheetCurrentPage--; renderSheetPage(); }
     } else if (e.code === 'ArrowRight') {
       e.preventDefault();
-      if (sheetCurrentPage < sheetPageCount() - 1) {
-        sheetCurrentPage++;
-        renderSheetPage();
-      }
+      if (sheetCurrentPage < sheetPageCount() - 1) { sheetCurrentPage++; renderSheetPage(); }
     } else if (e.code === 'Escape') {
       e.preventDefault();
       closeSheetView();
     }
   });
 
-  // Re-render the sheet page while the sheet view is open to keep the
-  // loop region overlay and current-time cursor in sync (cheap, only a
-  // single drawSheetMusic call per frame).
+  // RAF loop to keep sheet overlay in sync
   let sheetRAF: number | null = null;
   function sheetRAFLoop(): void {
     if (!sheetOpen || game.state !== GameState.Playing) {
@@ -862,12 +595,226 @@ async function init(): Promise<void> {
     if (sheetRAF === null) sheetRAF = requestAnimationFrame(sheetRAFLoop);
   }
 
-  // Close the sheet view when the game exits playing state (retry/menu/back).
+  // Backdrop click closes sheet
   sheetScreen.addEventListener('click', (e) => {
-    // Click on the backdrop but not on the content closes the sheet. The
-    // toolbar/canvas are inside #sheet-screen-content which has its own pointer handlers.
     if (e.target === sheetScreen) closeSheetView();
   });
+
+  // Hover cursor on sheet canvas
+  setupHoverCursor(game, sheetCanvas, sheetRenderer);
+
+  return { closeSheetView };
+}
+
+function setupResultButtons(
+  game: Game,
+  deps: {
+    closeSongInfoPopup: () => void;
+    closeSheetView: () => void;
+    setMode: (learning: boolean) => void;
+    applyPracticeHandButtons: () => void;
+    updateLoopUI: () => void;
+    updatePauseBtn: () => void;
+  },
+): void {
+  const { closeSongInfoPopup, closeSheetView, setMode, applyPracticeHandButtons, updateLoopUI, updatePauseBtn } = deps;
+
+  document.getElementById('btn-play')!.addEventListener('click', () => {
+    closeSongInfoPopup();
+    closeSheetView();
+    game.setPracticeHand(PracticeHand.Both);
+    setMode(false);
+    game.retry();
+    updateLoopUI();
+    updatePauseBtn();
+  });
+
+  document.getElementById('btn-retry')!.addEventListener('click', () => {
+    closeSongInfoPopup();
+    closeSheetView();
+    game.retry();
+    setMode(game.learningMode);
+    applyPracticeHandButtons();
+    updateLoopUI();
+    updatePauseBtn();
+  });
+
+  document.getElementById('btn-menu')!.addEventListener('click', () => {
+    closeSongInfoPopup();
+    closeSheetView();
+    game.backToMenu();
+  });
+
+  document.getElementById('btn-restart')!.addEventListener('click', () => {
+    closeSongInfoPopup();
+    closeSheetView();
+    game.retry();
+    setMode(game.learningMode);
+    applyPracticeHandButtons();
+    updateLoopUI();
+    updatePauseBtn();
+  });
+}
+
+// ---------------------------------------------------------------------------
+// init
+// ---------------------------------------------------------------------------
+
+async function init(): Promise<void> {
+  const canvas = document.getElementById('gameCanvas') as HTMLCanvasElement;
+  const synth = new Synth();
+  const keyboardInput = new KeyboardInput();
+  const midiInput = new MidiInput();
+  const game = new Game(canvas, synth, keyboardInput, midiInput);
+  game.scoreDisplay = new ScoreDisplay();
+  const trackSelect = new TrackSelect();
+
+  const modePlay = document.getElementById('mode-play')!;
+  const modeLearn = document.getElementById('mode-learn')!;
+  const handControl = document.getElementById('hand-control')!;
+  const handLeft = document.getElementById('hand-left')!;
+  const handRight = document.getElementById('hand-right')!;
+  const loopPlayBtn = document.getElementById('btn-loop-play')!;
+  const pauseBtn = document.getElementById('btn-pause')!;
+
+  // --- Shared helpers -------------------------------------------------------
+  function applyPracticeHandButtons(): void {
+    handLeft.classList.toggle('active', game.practiceHand === PracticeHand.Left);
+    handRight.classList.toggle('active', game.practiceHand === PracticeHand.Right);
+  }
+
+  function setPracticeHand(hand: PracticeHand): void {
+    game.setPracticeHand(hand);
+    applyPracticeHandButtons();
+  }
+
+  function setMode(learning: boolean): void {
+    game.setLearningMode(learning);
+    modePlay.classList.toggle('active', !learning);
+    modeLearn.classList.toggle('active', learning);
+    handControl.classList.toggle('active', learning);
+    if (!learning && game.loopActive) {
+      game.deactivateLoop();
+      updateLoopUI();
+    }
+  }
+
+  function updateLoopUI(): void {
+    const defineLoopBtn = document.getElementById('btn-define-loop')!;
+    const loopStatus = document.getElementById('loop-status')!;
+    const phase = game.loopDefinitionState;
+    defineLoopBtn.classList.toggle('active', phase !== 'off');
+    defineLoopBtn.classList.toggle('loop-active', game.loopActive);
+    const stored = !game.loopActive && game.loopStart !== null && game.loopEnd !== null;
+    defineLoopBtn.classList.toggle('loop-stored', stored);
+
+    loopPlayBtn.style.display = (game.loopActive && game.learningMode) ? '' : 'none';
+    loopPlayBtn.classList.toggle('play-active', game.loopPlay);
+    loopPlayBtn.textContent = game.loopPlay ? '\u23F8' : '\u25B6';
+
+    if (phase === 'start') loopStatus.textContent = 'Click start note';
+    else if (phase === 'end') loopStatus.textContent = 'Click end note';
+    else if (game.loopActive) loopStatus.textContent = `Loop ${game.loopStart?.toFixed(2)}s-${game.loopEnd?.toFixed(2)}s`;
+    else if (stored) loopStatus.textContent = `Stored ${game.loopStart?.toFixed(2)}s-${game.loopEnd?.toFixed(2)}s`;
+    else loopStatus.textContent = 'No loop';
+  }
+
+  function updatePauseBtn(): void {
+    pauseBtn.innerHTML = game.paused ? '&#9654;' : '&#9646;&#9646;';
+    pauseBtn.title = game.paused ? 'Resume (Space)' : 'Pause (Space)';
+  }
+
+  // --- Inline wiring --------------------------------------------------------
+  modePlay.addEventListener('click', () => setMode(false));
+  modeLearn.addEventListener('click', () => setMode(true));
+  loopPlayBtn.addEventListener('click', () => { game.loopPlay = !game.loopPlay; updateLoopUI(); });
+  handLeft.addEventListener('click', () => setPracticeHand(
+    game.practiceHand === PracticeHand.Left ? PracticeHand.Both : PracticeHand.Left));
+  handRight.addEventListener('click', () => setPracticeHand(
+    game.practiceHand === PracticeHand.Right ? PracticeHand.Both : PracticeHand.Right));
+  pauseBtn.addEventListener('click', () => {
+    if (game.state === GameState.Playing) { game.togglePause(); updatePauseBtn(); }
+  });
+  document.addEventListener('keydown', (e) => {
+    if (game.state !== GameState.Playing) return;
+    if (e.code === 'Space') { e.preventDefault(); game.togglePause(); updatePauseBtn(); }
+    else if (e.code === 'KeyN') game.seekToNextNote();
+  });
+  document.getElementById('btn-next-note')!.addEventListener('click', () => {
+    if (game.state === GameState.Playing) game.seekToNextNote();
+  });
+
+  // Settings popup
+  const settingsPopup = document.getElementById('settings-popup')!;
+  document.getElementById('btn-settings')!.addEventListener('click', () => settingsPopup.classList.remove('hidden'));
+  document.getElementById('btn-close-settings')!.addEventListener('click', () => settingsPopup.classList.add('hidden'));
+  settingsPopup.addEventListener('click', (e) => { if (e.target === settingsPopup) settingsPopup.classList.add('hidden'); });
+
+  // User settings
+  const showUsedKeysCheckbox = document.getElementById('show-used-keys') as HTMLInputElement;
+  try {
+    const settings = await fetchUserSettings();
+    game.showUsedKeys = settings.piano_show_used_keys_only ?? false;
+    showUsedKeysCheckbox.checked = game.showUsedKeys;
+  } catch { /* ignore */ }
+  showUsedKeysCheckbox.addEventListener('change', () => {
+    game.setShowUsedKeys(showUsedKeysCheckbox.checked);
+    updateUserSettings({ piano_show_used_keys_only: showUsedKeysCheckbox.checked })
+      .catch((e) => console.warn('Failed to save settings:', e));
+  });
+
+  // --- Setup functions that depend on local helpers -------------------------
+  const { closeSongInfoPopup, showSongInfoPopup } = setupSongInfoPopup(game, updatePauseBtn);
+
+  game.onResults = (scoring, song) => {
+    if (!song.id || game.usedLearningMode) return;
+    recordBestScore(song.id, scoring.score)
+      .then(({ bestScore }) => {
+        song.bestScore = bestScore;
+        menu.updateSongBestScore(song.id!, bestScore);
+      })
+      .catch((e) => console.error('Failed to record best score:', e));
+  };
+
+  // --- Song loading & menu --------------------------------------------------
+  const songs = await loadSongs();
+  if (songs.length === 0) {
+    (document.getElementById('btn-start') as HTMLButtonElement).disabled = true;
+  }
+  const menu = new Menu(songs);
+  await menu.loadCategories();
+  const categorySelect = new CategorySelect();
+
+  menu.onStart = async (song) => {
+    setMode(false);
+    setPracticeHand(PracticeHand.Both);
+    let fullSong = song;
+    if (song.id !== undefined && song.notes.length === 0) {
+      try { fullSong = songFullToSong(await fetchSong(song.id)); }
+      catch (e) { console.warn('Failed to fetch full song:', e); }
+    }
+    game.start(fullSong);
+    game.pause();
+    updatePauseBtn();
+    showSongInfoPopup(fullSong);
+    if (song.id !== undefined) markSongPlayed(song.id).catch((e) => console.warn('Failed to mark song played:', e));
+  };
+
+  // --- MIDI input -----------------------------------------------------------
+  await midiInput.start();
+  menu.setMidiStatus(midiInput.connected, midiInput.connected ? 'MIDI device connected' : 'No MIDI device - use keyboard');
+  midiInput.onConnectionChange = (connected, message) => menu.setMidiStatus(connected, message);
+
+  // --- Top-level setup functions (no local-helper deps) ---------------------
+  setupBackgroundPanel(game);
+  setupSpeedControls(game);
+  menu.onRename = setupRenamePopup(menu).onRename;
+  setupMidiImport(menu, midiInput, trackSelect, categorySelect);
+  setupHoverCursor(game, canvas, game.renderer);
+
+  // --- Functions that depend on other setup functions ------------------------
+  const { closeSheetView } = setupSheetView(game, canvas, { closeSongInfoPopup, setMode, updateLoopUI });
+  setupResultButtons(game, { closeSongInfoPopup, closeSheetView, setMode, applyPracticeHandButtons, updateLoopUI, updatePauseBtn });
 }
 
 init();
