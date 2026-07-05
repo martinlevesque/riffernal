@@ -213,6 +213,41 @@ test.describe('Learning Mode - NoteManager', () => {
     expect(result.combo).toBe(0);
     expect(result.wrongNotes).toBe(1);
   });
+
+  test('non-selected, non-background notes (phantoms) do not block chord in learn mode', async ({ page }) => {
+    await page.goto('/');
+    const song = {
+      title: 'Phantom', artist: 'Test', bpm: 120, difficulty: 'easy',
+      notes: [
+        { time: 2.0, key: 'C3', duration: 0.25, track: 0 },
+        { time: 2.0, key: 'E3', duration: 0.25, track: 1 },
+      ],
+      tracks: [
+        { index: 0, name: 'Lead', noteCount: 1 },
+        { index: 1, name: 'Bg', noteCount: 1 },
+      ],
+      selectedTrackIndices: [0],
+      backgroundTracks: [],
+    };
+    const result = await nmEval(page, song, `
+      nm.learningMode = true;
+      nm.update(1.5, H); nm.update(2.0, H);
+      const freezeTime = nm.getEarliestWaitTime(2.0);
+      const lane = k => NOTE_TO_LANE.get(k);
+      const chordLanes = [...nm._learningChordLanes];
+      const c3Lane = lane('C3');
+      const e3Lane = lane('E3');
+      const o = nm.checkLearningHit(2.0, c3Lane);
+      const afterHit = nm.getEarliestWaitTime(2.0);
+      return { freezeTime, chordLanes, c3Lane, e3Lane, committed: o.results.length, afterHit, selectedHit: nm.notes[0].hit };
+    `);
+    expect(result.freezeTime).toBe(2.0);
+    expect(result.chordLanes).toEqual([result.c3Lane]);
+    expect(result.chordLanes).not.toContain(result.e3Lane);
+    expect(result.committed).toBe(1);
+    expect(result.selectedHit).toBe(true);
+    expect(result.afterHit).toBe(null);
+  });
 });
 
 // -- freeze resume tests -----------------------------------------------------

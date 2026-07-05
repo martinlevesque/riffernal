@@ -516,7 +516,7 @@ export class NoteManager {
           const n = this.notes[j];
           if (n.time > this._learningAnchor) break;
           if (n.resolved || n.holding || n.failing || n.hit) continue;
-          if (this._isAutoPlayNote(n)) continue;
+          if (!n.selected || this._isAutoPlayNote(n)) continue;
           this._learningChordLanes.add(n.lane);
         }
         return note.time;
