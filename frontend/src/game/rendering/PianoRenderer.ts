@@ -52,7 +52,7 @@ export class PianoRenderer {
     const OCTAVE_NOTES = ['C1', 'C2', 'C3', 'C4', 'C5', 'C6', 'C7', 'C8'];
     ctx.fillStyle = c.keyLabel;
     const keyWidth = whiteKeyWidth(width, visibleRange);
-    ctx.font = `${Math.max(14, keyWidth * 0.35)}px ${themeManager.fonts.mono}`;
+    ctx.font = `${Math.max(16, keyWidth * 0.4)}px ${themeManager.fonts.mono}`;
     ctx.textAlign = 'center';
     for (const noteName of OCTAVE_NOTES) {
       const layout = getPianoKeyLayout(noteName, width, visibleRange);
