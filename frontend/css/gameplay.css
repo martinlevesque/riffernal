@@ -1,0 +1,277 @@
+/* ============================================
+   GAMEPLAY HUD
+   ============================================ */
+
+#score-display {
+  position: absolute;
+  top: 10px;
+  left: 50%;
+  transform: translateX(-50%);
+  display: flex;
+  align-items: baseline;
+  gap: 0.7em;
+  padding: 0.3rem 0.9rem;
+  background: rgba(14, 14, 14, 0.85);
+  backdrop-filter: blur(8px);
+  border: 1px solid var(--border-medium);
+  border-radius: 8px;
+  font-family: var(--font-mono);
+  font-size: 1.1rem;
+  font-weight: bold;
+  letter-spacing: 0.04em;
+  pointer-events: none;
+  z-index: 11;
+  white-space: nowrap;
+  max-width: calc(100% - 24rem);
+  overflow: hidden;
+  contain: layout style;
+}
+
+#score-value {
+  font-size: 1.4rem;
+  text-shadow: 0 0 10px rgba(255, 255, 255, 0.25);
+}
+
+#combo-display {
+  font-size: 0.85rem;
+  color: var(--accent-yellow);
+}
+
+#accuracy-display {
+  font-size: 0.8rem;
+  color: var(--text-secondary);
+  font-family: var(--font-mono);
+}
+
+#time-display {
+  font-size: 0.8rem;
+  color: var(--text-secondary);
+  letter-spacing: 0.05em;
+  font-family: var(--font-mono);
+}
+
+#score-display > .hud-sep {
+  color: var(--border-medium);
+  font-weight: normal;
+}
+
+#speed-control {
+  position: absolute;
+  top: 12px;
+  right: 1rem;
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  background: rgba(20, 20, 20, 0.85);
+  backdrop-filter: blur(8px);
+  padding: 0.4rem 0.8rem;
+  border-radius: 6px;
+  border: 1px solid var(--border-medium);
+  pointer-events: auto;
+  z-index: 11;
+}
+
+#mode-control {
+  position: absolute;
+  top: 12px;
+  left: 1rem;
+  display: flex;
+  align-items: center;
+  gap: 0.4rem;
+  background: rgba(20, 20, 20, 0.85);
+  backdrop-filter: blur(8px);
+  padding: 0.4rem 0.8rem;
+  border-radius: 6px;
+  border: 1px solid var(--border-medium);
+  pointer-events: auto;
+  z-index: 11;
+}
+
+.mode-label {
+  font-size: 0.7rem;
+  color: var(--text-secondary);
+  letter-spacing: 0.15em;
+  margin-right: 0.2rem;
+}
+
+.mode-btn {
+  font-family: var(--font-ui);
+  font-size: 0.8rem;
+  background: transparent;
+  border: 1px solid #555;
+  color: var(--text-secondary);
+  padding: 0.2rem 0.6rem;
+  border-radius: 3px;
+  cursor: pointer;
+  transition: all 0.15s;
+  letter-spacing: 0.1em;
+}
+
+.mode-btn:hover {
+  border-color: var(--text-primary);
+  color: var(--text-primary);
+}
+
+#mode-play.active {
+  border-color: var(--accent-orange);
+  color: var(--accent-orange);
+  background: rgba(255, 102, 34, 0.12);
+}
+
+#mode-learn.active {
+  border-color: var(--accent-blue);
+  color: var(--accent-blue);
+  background: rgba(34, 136, 255, 0.12);
+}
+
+#hand-control {
+  display: none;
+  align-items: center;
+  gap: 0.4rem;
+  margin-left: 0.4rem;
+  padding-left: 0.6rem;
+  border-left: 1px solid #444;
+}
+
+#hand-control.active {
+  display: flex;
+}
+
+#hand-left.active {
+  border-color: var(--accent-blue);
+  color: var(--accent-blue);
+  background: rgba(34, 136, 255, 0.12);
+}
+
+#hand-right.active {
+  border-color: var(--accent-orange);
+  color: var(--accent-orange);
+  background: rgba(255, 102, 34, 0.12);
+}
+
+.speed-btn {
+  font-family: var(--font-ui);
+  font-size: 0.8rem;
+  background: transparent;
+  border: 1px solid #555;
+  color: var(--text-secondary);
+  padding: 0.2rem 0.4rem;
+  border-radius: 3px;
+  cursor: pointer;
+  transition: all 0.15s;
+}
+
+.speed-btn:hover {
+  border-color: var(--accent-red);
+  color: var(--text-primary);
+}
+
+#speed-value {
+  font-size: 0.9rem;
+  font-weight: bold;
+  color: var(--text-primary);
+  font-family: var(--font-mono);
+  min-width: 3.5em;
+  text-align: center;
+}
+
+#hit-feedback {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  font-family: var(--font-ui);
+  font-size: 1.5rem;
+  font-weight: 900;
+  letter-spacing: 0.15em;
+  pointer-events: none;
+  opacity: 0;
+  transition: opacity 0.1s;
+  text-shadow: 0 0 20px currentColor, 0 0 40px currentColor;
+}
+
+#hit-feedback.show {
+  opacity: 1;
+}
+
+/* ============================================
+   LOOP CONTROL
+   ============================================ */
+
+#loop-control {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.3rem;
+  margin-left: 0.4rem;
+  padding-left: 0.6rem;
+  border-left: 1px solid #444;
+}
+
+.loop-btn {
+  font-family: var(--font-ui);
+  font-size: 0.8rem;
+  background: transparent;
+  border: 1px solid #555;
+  color: var(--text-secondary);
+  padding: 0.2rem 0.6rem;
+  border-radius: 3px;
+  cursor: pointer;
+  transition: all 0.15s;
+  letter-spacing: 0.1em;
+}
+
+.loop-btn:hover {
+  border-color: var(--accent-purple);
+  color: var(--text-primary);
+}
+
+#btn-define-loop.active {
+  border-color: var(--accent-purple);
+  color: var(--accent-purple);
+  background: rgba(170, 102, 255, 0.15);
+}
+
+#btn-define-loop.loop-active {
+  border-color: var(--accent-purple);
+  color: var(--accent-purple);
+  background: rgba(170, 102, 255, 0.25);
+  box-shadow: 0 0 8px rgba(170, 102, 255, 0.4);
+}
+
+#btn-define-loop.loop-stored {
+  border-color: #7744aa;
+  color: #aa99cc;
+  background: rgba(120, 90, 180, 0.08);
+}
+
+.loop-btn-play {
+  padding: 0.2rem 0.45rem;
+}
+
+.loop-btn-play.play-active {
+  border-color: var(--accent-green);
+  color: var(--accent-green);
+  background: rgba(34, 255, 102, 0.15);
+}
+
+#loop-status {
+  font-size: 0.7rem;
+  color: var(--text-secondary);
+  font-family: var(--font-mono);
+  min-width: 6em;
+  text-align: right;
+  letter-spacing: 0.05em;
+  margin-left: 0.2rem;
+  margin-right: 0.2rem;
+}
+
+.loop-btn-clear {
+  padding: 0.2rem 0.4rem;
+  border-color: #444;
+  margin-left: 0.2rem;
+}
+
+.loop-btn-clear:hover {
+  border-color: var(--accent-red);
+  color: var(--accent-red);
+}

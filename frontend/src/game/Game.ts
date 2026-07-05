@@ -24,6 +24,7 @@ import type { ScoreDisplay } from '../ui/ScoreDisplay.js';
 import type { Song } from '../utils/MidiParser.js';
 import { LoopController } from './LoopController.js';
 import { ResultsScreen } from './rendering/ResultsScreen.js';
+import { themeManager } from '../themes/ThemeManager.js';
 
 export enum GameState {
   Menu = 'menu',
@@ -31,12 +32,15 @@ export enum GameState {
   Results = 'results',
 }
 
-const FEEDBACK_COLORS: Record<NoteGrade | 'MISS', string> = {
-  [NoteGrade.PERFECT]: '#ffdd22',
-  [NoteGrade.GREAT]: '#22ff66',
-  [NoteGrade.GOOD]: '#2288ff',
-  MISS: '#ff2244',
-};
+function getFeedbackColors(): Record<NoteGrade | 'MISS', string> {
+  const c = themeManager.css;
+  return {
+    [NoteGrade.PERFECT]: c.accentYellow,
+    [NoteGrade.GREAT]: c.accentGreen,
+    [NoteGrade.GOOD]: c.accentBlue,
+    MISS: c.accentRed,
+  };
+}
 
 const COUNTDOWN_SECONDS = 1.5;
 const RESULTS_DELAY_SECONDS = 1;
@@ -219,7 +223,7 @@ export class Game {
     const activeNotes = this.noteManager.getActiveNotes(this.currentTime, this.renderer.height, this.learningMode);
     const combo = this.noteManager.scoring.combo;
     for (const note of activeNotes) {
-      this.renderer.drawNote(note.lane, note.y, note.height, note.selected ? note.color : '#555566', note.alpha, this.renderer.sheetBottom, combo, note.key, note.holding, note.failing, note.waiting, this.usedNoteRange);
+      this.renderer.drawNote(note.lane, note.y, note.height, note.selected ? note.color : themeManager.canvas.backingNote, note.alpha, this.renderer.sheetBottom, combo, note.key, note.holding, note.failing, note.waiting, this.usedNoteRange);
     }
 
     this.scoreDisplay?.update(this.noteManager.scoring);
@@ -320,11 +324,11 @@ export class Game {
     this.noteManager.onResolve = (result) => {
       const grade = result.grade;
       if (grade === null) {
-        this.scoreDisplay?.showFeedback('Miss', FEEDBACK_COLORS.MISS);
+        this.scoreDisplay?.showFeedback('Miss', getFeedbackColors().MISS);
         return;
       }
       const label = gradeLabel(grade);
-      const color = FEEDBACK_COLORS[grade];
+      const color = getFeedbackColors()[grade];
       this.scoreDisplay?.showFeedback(`+${result.score} ${label}`, color);
 
       const note = result.note;
@@ -369,12 +373,12 @@ export class Game {
   private _resolveHit(lane: number): HitResult[] {
     if (this.learningMode) {
       const outcome = this.noteManager.checkLearningHit(this.currentTime, lane, performance.now());
-      if (outcome.wrong) this.scoreDisplay?.showFeedback('Wrong', FEEDBACK_COLORS.MISS);
+      if (outcome.wrong) this.scoreDisplay?.showFeedback('Wrong', getFeedbackColors().MISS);
       return outcome.results;
     }
     const r = this.noteManager.checkHit(this.currentTime, lane);
     if (r === null && !this.noteManager.hasUnresolvedNoteInLane(lane, this.currentTime)) {
-      this.scoreDisplay?.showFeedback('Wrong', FEEDBACK_COLORS.MISS);
+      this.scoreDisplay?.showFeedback('Wrong', getFeedbackColors().MISS);
     }
     return r ? [r] : [];
   }

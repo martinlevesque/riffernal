@@ -1,0 +1,159 @@
+/* ============================================
+   BUTTONS
+   ============================================ */
+
+.btn {
+  font-family: var(--font-ui);
+  font-size: 0.85rem;
+  padding: 0.6rem 2rem;
+  border: 1px solid;
+  border-radius: 4px;
+  cursor: pointer;
+  letter-spacing: 0.15em;
+  text-transform: uppercase;
+  transition: all 0.2s ease;
+  margin: 0.4rem;
+  pointer-events: auto;
+}
+
+.btn-primary {
+  background: var(--accent-red);
+  border-color: var(--accent-red);
+  color: #fff;
+}
+
+.btn-primary:hover {
+  background: #cc1133;
+  box-shadow: 0 0 20px rgba(255, 34, 68, 0.3);
+}
+
+.btn-secondary {
+  background: transparent;
+  border-color: var(--border-medium);
+  color: var(--text-secondary);
+}
+
+.btn-secondary:hover {
+  border-color: var(--text-primary);
+  color: var(--text-primary);
+}
+
+.btn-link {
+  background: none;
+  border: none;
+  color: var(--text-secondary);
+  font-family: var(--font-ui);
+  font-size: 0.85rem;
+  letter-spacing: 0.1em;
+  cursor: pointer;
+  padding: 0.3rem 0;
+  border-bottom: 1px solid transparent;
+  transition: all 0.15s;
+}
+
+.btn-link:hover {
+  color: var(--text-primary);
+  border-bottom-color: var(--accent-red);
+}
+
+.btn-icon {
+  background: none;
+  border: 1px solid var(--border-medium);
+  color: var(--text-secondary);
+  font-size: 1rem;
+  width: 32px;
+  height: 32px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 4px;
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+.btn-icon:hover {
+  border-color: var(--accent-red);
+  color: var(--text-primary);
+  box-shadow: 0 0 10px rgba(255, 34, 68, 0.15);
+}
+
+/* ============================================
+   KBD (keycap elements)
+   ============================================ */
+
+kbd {
+  display: inline-block;
+  background: linear-gradient(180deg, #2a2a2a 0%, #1a1a1a 100%);
+  border: 1px solid var(--border-medium);
+  border-bottom: 2px solid #111;
+  border-radius: 4px;
+  padding: 0.15rem 0.4rem;
+  margin: 0 0.08rem;
+  font-family: var(--font-mono);
+  font-size: 0.7rem;
+  color: var(--text-secondary);
+  min-width: 1.4em;
+  text-align: center;
+  box-shadow: 0 2px 0 #0a0a0a;
+}
+
+/* ============================================
+   INPUTS
+   ============================================ */
+
+input[type="text"] {
+  background: var(--bg-dark);
+  border: 1px solid var(--border-medium);
+  border-radius: 4px;
+  padding: 0.5rem 0.7rem;
+  color: var(--text-primary);
+  font-family: var(--font-ui);
+  font-size: 0.85rem;
+  outline: none;
+  transition: border-color 0.15s, box-shadow 0.15s;
+}
+
+input[type="text"]:focus {
+  border-color: var(--accent-blue);
+  box-shadow: 0 0 0 2px rgba(34, 136, 255, 0.15);
+}
+
+.setting-toggle {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  cursor: pointer;
+  color: var(--text-secondary);
+  font-size: 0.9rem;
+  letter-spacing: 0.05em;
+  user-select: none;
+  transition: color 0.15s;
+}
+
+.setting-toggle:hover {
+  color: var(--text-primary);
+}
+
+.setting-toggle input[type="checkbox"] {
+  width: 18px;
+  height: 18px;
+  accent-color: var(--accent-red);
+  cursor: pointer;
+}
+
+/* ============================================
+   MIDI STATUS
+   ============================================ */
+
+.midi-status {
+  font-size: 0.75rem;
+  color: var(--text-secondary);
+  letter-spacing: 0.1em;
+  margin-top: 1rem;
+  min-height: 1em;
+  opacity: 0.6;
+}
+
+.midi-status.connected {
+  color: var(--accent-green);
+}

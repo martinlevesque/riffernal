@@ -1,0 +1,107 @@
+/* ============================================
+   RESULTS SCREEN
+   ============================================ */
+
+.results-content {
+  text-align: center;
+  position: relative;
+  z-index: 1;
+}
+
+#result-title {
+  font-size: 2rem;
+  letter-spacing: 0.3em;
+  margin-bottom: 1rem;
+  text-shadow: 0 0 30px rgba(255, 255, 255, 0.1);
+}
+
+#result-grade {
+  font-size: 6rem;
+  font-weight: 900;
+  margin: 1rem 0;
+  text-shadow: 0 0 40px currentColor, 0 0 80px currentColor;
+  position: relative;
+}
+
+.grade-s { color: var(--accent-yellow); }
+.grade-a { color: var(--accent-green); }
+.grade-b { color: var(--accent-blue); }
+.grade-c { color: var(--accent-orange); }
+.grade-d { color: var(--accent-red); }
+.grade-practice { color: var(--accent-purple); }
+
+.new-best-banner {
+  color: var(--accent-yellow);
+  font-size: 2rem;
+  font-weight: 900;
+  letter-spacing: 0.2em;
+  text-shadow: 0 0 20px var(--accent-yellow), 0 0 40px var(--accent-yellow);
+  margin: 0.5rem 0 1rem;
+  animation: pulse-glow 0.6s ease-in-out infinite alternate;
+}
+
+@keyframes pulse-glow {
+  from { opacity: 0.8; text-shadow: 0 0 20px var(--accent-yellow); }
+  to   { opacity: 1;   text-shadow: 0 0 35px var(--accent-yellow), 0 0 50px var(--accent-yellow); }
+}
+
+#result-stats {
+  font-size: 0.9rem;
+  color: var(--text-secondary);
+  margin: 1.5rem 0;
+  line-height: 1.8;
+}
+
+#result-stats .stat-value {
+  color: var(--text-primary);
+  font-weight: bold;
+  font-family: var(--font-mono);
+}
+
+.stats-practice-highlight {
+  margin-bottom: 1rem;
+}
+
+.stats-practice-highlight .stat-large {
+  font-size: 1.4rem;
+}
+
+.stats-practice-highlight .stat-xlarge {
+  font-size: 2rem;
+  color: var(--text-primary);
+  font-weight: 900;
+  font-family: var(--font-mono);
+  text-shadow: 0 0 20px currentColor;
+}
+
+.stat-secondary {
+  color: var(--text-secondary);
+  font-size: 0.8rem;
+}
+
+.stats-row {
+  display: flex;
+  justify-content: center;
+  gap: 2rem;
+  margin: 0.4rem 0;
+}
+
+.stats-center {
+  text-align: center;
+  margin: 0.4rem 0;
+}
+
+.stats-col {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  min-width: 5rem;
+}
+
+.stat-label {
+  color: var(--text-secondary);
+  font-size: 0.75rem;
+  text-transform: uppercase;
+  letter-spacing: 0.1em;
+  margin-bottom: 0.1rem;
+}

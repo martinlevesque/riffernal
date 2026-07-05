@@ -8,39 +8,9 @@ import { LoopDefinitionState } from '../Loop.js';
 import { PianoRenderer } from './PianoRenderer.js';
 import type { SongNote } from '../NoteManager.js';
 import { isLowEndDevice } from '../../utils/device.js';
+import { themeManager } from '../../themes/ThemeManager.js';
 
 export const SHEET_TOP_OFFSET = 84;
-
-const BACKING_COLOR = '#555566';
-
-export const FAIL_COLOR_LEFT = '#aa2266';
-export const FAIL_COLOR_RIGHT = '#aa3322';
-export const FAIL_COLOR_SHEET_LEFT = '#662244';
-export const FAIL_COLOR_SHEET_RIGHT = '#882222';
-
-export const FAIL_PARTICLE_LEFT = '#ff44aa';
-export const FAIL_PARTICLE_RIGHT = '#ff8822';
-
-const CANVAS_BG = '#0a0a0a';
-const HIGHWAY_BG = '#0e0e0e';
-const HIGHWAY_LANE_COLOR = '#1a1a1a';
-
-const NOTE_HEAD_LABEL_COLOR = '#000';
-
-const NOTE_HIGHLIGHT_COLOR = '#fff';
-
-const STAFF_LINE_COLOR = '#444';
-const CLEF_COLOR = '#888';
-const MEASURE_LINE_COLOR = '#555';
-const BEAT_LINE_COLOR = '#222';
-const SHEET_BORDER_COLOR = '#333';
-const HIT_NOTE_COLOR = '#555';
-
-const PLAYBACK_CURSOR_COLOR = '#ff2244';
-const LOOP_MARKER_COLOR = '#aa66ff';
-const LOOP_OVERLAY_ACTIVE = 'rgba(170, 102, 255, 0.20)';
-const LOOP_OVERLAY_INACTIVE = 'rgba(120, 90, 180, 0.10)';
-const LOOP_DEFINING_PREVIEW = 'rgba(170, 102, 255, 0.07)';
 
 const HIGHWAY_BELOW_HIT_ZONE = 10;
 const CLEF_WIDTH = 25;
@@ -207,26 +177,26 @@ export class Renderer {
   }
 
   clear(): void {
-    this.ctx.fillStyle = CANVAS_BG;
+    this.ctx.fillStyle = themeManager.canvas.bg;
     this.ctx.fillRect(0, 0, this.width, this.height);
   }
 
-  /** Call once per frame before any draw calls. */
   beginFrame(nowMs: number): void {
     this._now = nowMs;
   }
 
   drawHighway(_scrollOffset: number, visibleRange?: VisibleRange | null): void {
     const ctx = this.ctx;
+    const c = themeManager.canvas;
     const hitZoneY = this.height * HIT_ZONE_Y_RATIO;
     const highwayTop = 0;
     const highwayBottom = hitZoneY + HIGHWAY_BELOW_HIT_ZONE;
     const keyWidth = whiteKeyWidth(this.width, visibleRange);
 
-    ctx.fillStyle = HIGHWAY_BG;
+    ctx.fillStyle = c.highwayBg;
     ctx.fillRect(0, highwayTop, this.width, highwayBottom - highwayTop);
 
-    ctx.strokeStyle = HIGHWAY_LANE_COLOR;
+    ctx.strokeStyle = c.highwayLane;
     ctx.lineWidth = 1;
     ctx.beginPath();
     const laneCount = visibleRange
@@ -238,7 +208,6 @@ export class Renderer {
       ctx.lineTo(x, highwayBottom);
     }
     ctx.stroke();
-
   }
 
   drawHitZone(pressedLanes: Set<number>, visibleRange?: VisibleRange | null): void {
@@ -249,10 +218,6 @@ export class Renderer {
     this.piano.drawPiano(this.ctx, this.width, this.height, pressedLanes, visibleRange);
   }
 
-  /** Return the pixel (x, y) of a note's head on the sheet, using the
-   *  coordinate state set by the most recent drawSheetMusic() call.
-   *  Returns null if the note falls outside the current view or if the
-   *  renderer has no valid layout yet. */
   notePixelPosition(note: SongNote): { x: number; y: number } | null {
     if (this.sheetBarW <= 0) return null;
     const { sheetBarX: barX, sheetBarW: barW, sheetViewStart: vs, sheetViewEnd: ve } = this;
@@ -305,8 +270,9 @@ export class Renderer {
 
   drawNote(laneIndex: number, y: number, noteHeight: number, color: string, alpha: number, sheetBottom: number, _combo: number, noteName?: string, holding?: boolean, failing?: boolean, waiting?: boolean, visibleRange?: VisibleRange | null): void {
     const ctx = this.ctx;
+    const c = themeManager.canvas;
     const drawColor = failing && noteName
-      ? (handForKey(noteName) === HandSide.Left ? FAIL_COLOR_LEFT : FAIL_COLOR_RIGHT)
+      ? (handForKey(noteName) === HandSide.Left ? c.failColorLeft : c.failColorRight)
       : color;
     const L = this._noteLayout(laneIndex, y, noteHeight, sheetBottom, noteName, visibleRange);
 
@@ -329,7 +295,7 @@ export class Renderer {
     if (L.scaledTailHeight > 0.5) {
       this._drawNotePart(ctx, L.drawX, L.drawY, L.scaledWidth, L.scaledTailHeight, L.cornerRadius, drawColor);
       ctx.globalAlpha = alpha * TAIL_HIGHLIGHT_ALPHA;
-      ctx.fillStyle = NOTE_HIGHLIGHT_COLOR;
+      ctx.fillStyle = c.noteHighlight;
       roundRect(ctx, L.drawX, L.drawY, L.scaledWidth, L.scaledTailHeight, L.cornerRadius);
       ctx.fill();
       ctx.globalAlpha = alpha;
@@ -338,7 +304,7 @@ export class Renderer {
     const headDrawY = L.drawY + L.scaledTailHeight;
     this._drawNotePart(ctx, L.drawX, headDrawY, L.scaledWidth, L.scaledHeadHeight, L.cornerRadius, drawColor);
     ctx.globalAlpha = alpha * HEAD_HIGHLIGHT_ALPHA;
-    ctx.fillStyle = NOTE_HIGHLIGHT_COLOR;
+    ctx.fillStyle = c.noteHighlight;
     roundRect(ctx, L.drawX, headDrawY, L.scaledWidth, L.scaledHeadHeight, L.cornerRadius);
     ctx.fill();
     ctx.globalAlpha = alpha;
@@ -359,10 +325,10 @@ export class Renderer {
   private _drawNoteLabel(ctx: CanvasRenderingContext2D, noteName: string, drawX: number, drawY: number, width: number, height: number): void {
     const shortName = NOTE_SHORT_NAMES[noteName] ?? noteName;
     const fontSize = Math.max(11, width * 0.6);
-    ctx.font = `bold ${fontSize}px Courier New`;
+    ctx.font = `bold ${fontSize}px ${themeManager.fonts.mono}`;
     ctx.textAlign = 'center';
     ctx.textBaseline = 'bottom';
-    ctx.fillStyle = NOTE_HEAD_LABEL_COLOR;
+    ctx.fillStyle = themeManager.canvas.noteHeadLabel;
     ctx.fillText(shortName, drawX + width / 2, drawY + height);
   }
 
@@ -403,6 +369,7 @@ export class Renderer {
   }
 
   private _renderStaffCache(sheetTop: number, trebleTop: number, bassTop: number, staffLineSpacing: number, _clefW: number, margin: number, sheetBottom: number): void {
+    const c = themeManager.canvas;
     const w = this.canvas.width;
     const h = sheetBottom;
     this._staffCache = document.createElement('canvas');
@@ -410,10 +377,10 @@ export class Renderer {
     this._staffCache.height = h;
     const ctx = this._staffCache.getContext('2d')!;
 
-    ctx.fillStyle = CANVAS_BG;
+    ctx.fillStyle = c.bg;
     ctx.fillRect(0, sheetTop, w, sheetBottom);
 
-    ctx.strokeStyle = STAFF_LINE_COLOR;
+    ctx.strokeStyle = c.staffLine;
     ctx.lineWidth = 0.5;
     for (let i = 0; i < 5; i++) {
       ctx.beginPath();
@@ -428,7 +395,7 @@ export class Renderer {
       ctx.stroke();
     }
 
-    ctx.fillStyle = CLEF_COLOR;
+    ctx.fillStyle = c.clef;
     ctx.font = `bold ${staffLineSpacing * 5}px serif`;
     ctx.textAlign = 'left';
     ctx.textBaseline = 'middle';
@@ -487,7 +454,7 @@ export class Renderer {
     this._drawPlaybackCursor(L, currentTime, viewWindow);
     this._drawLoopRegion(L, loop, trebleNotes, bassNotes);
 
-    ctx.strokeStyle = SHEET_BORDER_COLOR;
+    ctx.strokeStyle = themeManager.canvas.sheetBorder;
     ctx.lineWidth = 0.5;
     ctx.beginPath();
     ctx.moveTo(0, sheetBottom);
@@ -497,11 +464,11 @@ export class Renderer {
 
   private _drawBeatLines(L: SheetLayout, bpm: number): void {
     const { ctx, sheetTop, sheetBottom, barX, barW, viewStart, viewEnd } = L;
+    const c = themeManager.canvas;
     const firstBeat = Math.ceil(viewStart / (60 / bpm));
     const lastBeat = Math.floor(viewEnd / (60 / bpm));
 
-    // Batch measure lines
-    ctx.strokeStyle = MEASURE_LINE_COLOR;
+    ctx.strokeStyle = c.measureLine;
     ctx.lineWidth = 1;
     ctx.beginPath();
     for (let beat = firstBeat; beat <= lastBeat; beat++) {
@@ -513,8 +480,7 @@ export class Renderer {
     }
     ctx.stroke();
 
-    // Batch beat lines
-    ctx.strokeStyle = BEAT_LINE_COLOR;
+    ctx.strokeStyle = c.beatLine;
     ctx.lineWidth = 0.5;
     ctx.beginPath();
     for (let beat = firstBeat; beat <= lastBeat; beat++) {
@@ -528,6 +494,7 @@ export class Renderer {
   }
 
   private _drawSheetNote(note: SongNote, staffTop: number, L: SheetLayout): void {
+    const c = themeManager.canvas;
     const { ctx, barX, barW, viewStart, viewEnd, staffLineSpacing } = L;
     const pos = SHEET_NOTE_POSITIONS[note.key];
     if (pos === undefined) return;
@@ -535,16 +502,16 @@ export class Renderer {
 
     const x = barX + ((note.time - viewStart) / (viewEnd - viewStart)) * barW;
     const r = SHEET_NOTE_RADIUS * this.sheetScale;
-    const color = note.selected ? handColor(note.key) : BACKING_COLOR;
+    const color = note.selected ? handColor(note.key) : c.backingNote;
     const filled = note.duration < 0.75;
 
     if (note.failing) {
-      const sheetColor = handForKey(note.key) === HandSide.Left ? FAIL_COLOR_SHEET_LEFT : FAIL_COLOR_SHEET_RIGHT;
+      const sheetColor = handForKey(note.key) === HandSide.Left ? c.failColorSheetLeft : c.failColorSheetRight;
       ctx.fillStyle = sheetColor;
       ctx.strokeStyle = sheetColor;
     } else if (note.hit) {
-      ctx.fillStyle = HIT_NOTE_COLOR;
-      ctx.strokeStyle = HIT_NOTE_COLOR;
+      ctx.fillStyle = c.hitNote;
+      ctx.strokeStyle = c.hitNote;
     } else {
       ctx.fillStyle = color;
       ctx.strokeStyle = color;
@@ -589,6 +556,7 @@ export class Renderer {
 
   private _drawPlaybackCursor(L: SheetLayout, currentTime: number, viewWindow?: { start: number; end: number }): void {
     const { ctx, barX, barW, viewStart, viewEnd, sheetTop, sheetBottom } = L;
+    const cursorColor = themeManager.canvas.playbackCursor;
     const showCursor = viewWindow
       ? currentTime >= viewStart && currentTime <= viewEnd
       : true;
@@ -596,7 +564,7 @@ export class Renderer {
     const cursorX = viewWindow
       ? barX + ((currentTime - viewStart) / (viewEnd - viewStart)) * barW
       : barX;
-    ctx.fillStyle = PLAYBACK_CURSOR_COLOR;
+    ctx.fillStyle = cursorColor;
     if (viewWindow) {
       ctx.globalAlpha = 0.25;
       ctx.fillRect(cursorX - 4, sheetTop, 8, sheetBottom - sheetTop);
@@ -616,6 +584,7 @@ export class Renderer {
     trebleNotes: SongNote[],
     bassNotes: SongNote[],
   ): void {
+    const c = themeManager.canvas;
     const { ctx, barX, barW, viewStart, viewEnd, sheetTop, sheetBottom } = L;
     const loopStart = loop?.start ?? null;
     const loopEnd = loop?.end ?? null;
@@ -665,23 +634,23 @@ export class Renderer {
       const lx0 = barX + ((loopStart - viewStart) / (viewEnd - viewStart)) * barW;
       const lx1 = barX + ((loopEnd - viewStart) / (viewEnd - viewStart)) * barW;
       ctx.save();
-      ctx.fillStyle = loop?.active ? LOOP_OVERLAY_ACTIVE : LOOP_OVERLAY_INACTIVE;
+      ctx.fillStyle = loop?.active ? c.loopOverlayActive : c.loopOverlayInactive;
       ctx.fillRect(Math.min(lx0, lx1), sheetTop, Math.abs(lx1 - lx0), sheetBottom - sheetTop);
       ctx.restore();
-      drawMarker(loopStart, LOOP_MARKER_COLOR, 'A');
-      drawMarker(loopEnd, LOOP_MARKER_COLOR, 'B');
-      highlightAt(loopStart, LOOP_MARKER_COLOR, 0.7);
-      highlightAt(loopEnd, LOOP_MARKER_COLOR, 0.7);
+      drawMarker(loopStart, c.loopMarker, 'A');
+      drawMarker(loopEnd, c.loopMarker, 'B');
+      highlightAt(loopStart, c.loopMarker, 0.7);
+      highlightAt(loopEnd, c.loopMarker, 0.7);
     } else if (loopDefining === LoopDefinitionState.End && loopStart !== null) {
-      drawMarker(loopStart, LOOP_MARKER_COLOR, 'A');
-      highlightAt(loopStart, LOOP_MARKER_COLOR, 0.9);
+      drawMarker(loopStart, c.loopMarker, 'A');
+      highlightAt(loopStart, c.loopMarker, 0.9);
       const lx0 = barX + ((loopStart - viewStart) / (viewEnd - viewStart)) * barW;
       ctx.save();
-      ctx.fillStyle = LOOP_DEFINING_PREVIEW;
+      ctx.fillStyle = c.loopDefiningPreview;
       ctx.fillRect(Math.max(lx0, barX), sheetTop, barX + barW - Math.max(lx0, barX), sheetBottom - sheetTop);
       ctx.restore();
     } else if (loopDefining === LoopDefinitionState.Start && loopStart !== null) {
-      drawMarker(loopStart, LOOP_MARKER_COLOR, 'A');
+      drawMarker(loopStart, c.loopMarker, 'A');
     }
   }
 
