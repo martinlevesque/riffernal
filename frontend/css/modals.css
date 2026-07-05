@@ -1,0 +1,432 @@
+/* ============================================
+   TRACK SELECT SCREEN
+   ============================================ */
+
+#track-select-screen.active {
+  background: rgba(10, 10, 10, 0.95);
+  pointer-events: auto;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 20;
+}
+
+#track-select-card {
+  background: var(--bg-surface);
+  border: 1px solid var(--border-medium);
+  border-radius: 8px;
+  padding: 2rem;
+  max-width: 500px;
+  width: 90%;
+  max-height: 80vh;
+  display: flex;
+  flex-direction: column;
+  box-shadow: 0 0 40px rgba(0, 0, 0, 0.5);
+}
+
+#track-select-title {
+  font-size: 1.4rem;
+  letter-spacing: 0.2em;
+  text-align: center;
+  margin-bottom: 0.3rem;
+}
+
+#track-select-hint {
+  font-size: 0.8rem;
+  color: var(--text-secondary);
+  text-align: center;
+  margin-bottom: 1rem;
+}
+
+#track-list {
+  list-style: none;
+  overflow-y: auto;
+  flex: 1;
+  margin-bottom: 1rem;
+  max-height: 50vh;
+}
+
+.track-item {
+  display: flex;
+  align-items: center;
+  gap: 0.6rem;
+  padding: 0.6rem 0.8rem;
+  border: 1px solid var(--border-medium);
+  border-radius: 4px;
+  margin-bottom: 0.4rem;
+  cursor: pointer;
+  transition: all 0.15s;
+}
+
+.track-item:hover {
+  border-color: var(--accent-blue);
+  background: var(--bg-surface-2);
+}
+
+.track-item.selected {
+  border-color: var(--accent-blue);
+  background: rgba(34, 136, 255, 0.12);
+}
+
+.track-select-btn {
+  font-family: var(--font-ui);
+  font-size: 0.9rem;
+  background: transparent;
+  border: 1px solid #555;
+  color: var(--text-primary);
+  padding: 0.2rem 0.6rem;
+  border-radius: 3px;
+  cursor: pointer;
+  transition: all 0.15s;
+  flex: 1;
+  text-align: left;
+}
+
+.track-item.selected .track-select-btn {
+  border-color: var(--accent-blue);
+  color: var(--accent-blue);
+}
+
+.track-info {
+  font-size: 0.75rem;
+  color: var(--text-secondary);
+  font-family: var(--font-mono);
+  min-width: 5em;
+}
+
+.track-hand-btn {
+  font-family: var(--font-ui);
+  font-size: 0.75rem;
+  background: transparent;
+  border: 1px solid #555;
+  color: var(--text-secondary);
+  padding: 0.15rem 0.5rem;
+  border-radius: 3px;
+  cursor: pointer;
+  transition: all 0.15s;
+  letter-spacing: 0.1em;
+  min-width: 3.5em;
+}
+
+.track-hand-btn:hover:not(:disabled) {
+  border-color: var(--accent-orange);
+  color: var(--accent-orange);
+}
+
+.track-hand-btn:disabled {
+  opacity: 0.3;
+  cursor: default;
+}
+
+#track-select-actions {
+  display: flex;
+  justify-content: center;
+  gap: 0.8rem;
+}
+
+/* ============================================
+   TRACK BACKGROUND BUTTON (in TrackSelect)
+   ============================================ */
+
+.track-bg-btn {
+  font-family: var(--font-ui);
+  font-size: 0.85rem;
+  background: transparent;
+  border: 1px solid #555;
+  color: var(--text-secondary);
+  padding: 0.15rem 0.4rem;
+  border-radius: 3px;
+  cursor: pointer;
+  transition: all 0.15s;
+  min-width: 2em;
+  text-align: center;
+}
+
+.track-bg-btn:hover:not(.disabled) {
+  border-color: var(--accent-green);
+  color: var(--accent-green);
+}
+
+.track-bg-btn.disabled {
+  opacity: 0.3;
+  cursor: default;
+}
+
+/* ============================================
+   BACKGROUND TRACKS PANEL (during gameplay)
+   ============================================ */
+
+.bg-panel {
+  position: absolute;
+  top: 52px;
+  right: 1rem;
+  background: var(--bg-surface);
+  border: 1px solid var(--border-medium);
+  border-radius: 6px;
+  padding: 0.6rem;
+  min-width: 200px;
+  max-height: 300px;
+  overflow-y: auto;
+  z-index: 12;
+  pointer-events: auto;
+  box-shadow: 0 4px 20px rgba(0, 0, 0, 0.4);
+}
+
+.bg-panel.hidden {
+  display: none;
+}
+
+.bg-panel-title {
+  font-size: 0.75rem;
+  color: var(--text-secondary);
+  letter-spacing: 0.1em;
+  margin-bottom: 0.4rem;
+  text-transform: uppercase;
+}
+
+.bg-panel ul {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+}
+
+.bg-track-item {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.5rem;
+  padding: 0.3rem 0;
+  border-bottom: 1px solid var(--border-subtle);
+}
+
+.bg-track-item:last-child {
+  border-bottom: none;
+}
+
+.bg-track-label {
+  font-size: 0.8rem;
+  color: var(--text-primary);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.bg-track-toggle {
+  font-family: var(--font-ui);
+  font-size: 0.85rem;
+  background: transparent;
+  border: 1px solid #555;
+  color: var(--text-secondary);
+  padding: 0.1rem 0.35rem;
+  border-radius: 3px;
+  cursor: pointer;
+  transition: all 0.15s;
+  flex-shrink: 0;
+}
+
+.bg-track-toggle:hover {
+  border-color: var(--accent-green);
+  color: var(--accent-green);
+}
+
+/* ============================================
+   CATEGORY SELECT MODAL
+   ============================================ */
+
+#category-select-screen.active {
+  background: rgba(10, 10, 10, 0.95);
+  pointer-events: auto;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 20;
+}
+
+#category-select-card {
+  background: var(--bg-surface);
+  border: 1px solid var(--border-medium);
+  border-radius: 8px;
+  padding: 2rem;
+  max-width: 460px;
+  width: 90%;
+  max-height: 80vh;
+  display: flex;
+  flex-direction: column;
+  box-shadow: 0 0 40px rgba(0, 0, 0, 0.5);
+}
+
+#category-select-card h2 {
+  font-size: 1.4rem;
+  letter-spacing: 0.2em;
+  text-align: center;
+  margin-bottom: 0.3rem;
+}
+
+#category-select-count {
+  font-size: 0.8rem;
+  color: var(--text-secondary);
+  text-align: center;
+  margin-bottom: 1rem;
+}
+
+#category-list {
+  list-style: none;
+  flex: 1;
+  overflow-y: auto;
+  margin: 0 0 1rem 0;
+  padding: 0;
+  max-height: 40vh;
+}
+
+.category-item {
+  padding: 0.6rem 0.9rem;
+  border: 1px solid var(--border-medium);
+  border-radius: 4px;
+  margin-bottom: 0.4rem;
+  cursor: pointer;
+  transition: all 0.15s;
+  color: var(--text-primary);
+  font-size: 0.9rem;
+}
+
+.category-item:hover {
+  border-color: var(--accent-purple);
+  background: var(--bg-surface-2);
+}
+
+.category-item.selected {
+  border-color: var(--accent-purple);
+  background: rgba(170, 102, 255, 0.15);
+  color: var(--accent-purple);
+}
+
+#category-create {
+  display: flex;
+  gap: 0.5rem;
+  margin-bottom: 1rem;
+}
+
+#new-category-name {
+  flex: 1;
+}
+
+#category-create .btn {
+  margin: 0;
+  padding: 0.5rem 0.9rem;
+  font-size: 0.8rem;
+  white-space: nowrap;
+}
+
+#category-select-actions {
+  display: flex;
+  justify-content: space-between;
+  gap: 0.8rem;
+}
+
+#category-select-actions .btn {
+  margin: 0;
+  flex: 1;
+}
+
+.field-label {
+  display: flex;
+  flex-direction: column;
+  gap: 0.3rem;
+  margin-bottom: 0.8rem;
+}
+
+.field-label span {
+  font-size: 0.75rem;
+  color: var(--text-secondary);
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+}
+
+.import-field-label input:focus {
+  border-color: var(--accent-blue);
+}
+
+#import-song-fields {
+  margin-bottom: 1rem;
+  padding-bottom: 1rem;
+  border-bottom: 1px solid var(--border-medium);
+}
+
+.rename-fields {
+  margin-bottom: 1rem;
+}
+
+/* ============================================
+   SETTINGS POPUP
+   ============================================ */
+
+.popup {
+  position: fixed;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  background: rgba(0, 0, 0, 0.8);
+  backdrop-filter: blur(4px);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 100;
+  pointer-events: auto;
+}
+
+.popup.hidden {
+  display: none;
+}
+
+.popup-card {
+  background: var(--bg-surface);
+  border: 1px solid var(--border-medium);
+  border-radius: 8px;
+  padding: 2rem 2.5rem;
+  max-width: 360px;
+  width: 90%;
+  box-shadow:
+    0 0 40px rgba(0, 0, 0, 0.5),
+    0 0 1px rgba(255, 255, 255, 0.05);
+}
+
+.popup-card h2 {
+  font-size: 0.85rem;
+  letter-spacing: 0.25em;
+  text-align: center;
+  margin-bottom: 1.5rem;
+  color: var(--text-secondary);
+  font-weight: 400;
+}
+
+.popup-body {
+  margin-bottom: 1.5rem;
+}
+
+.popup-actions {
+  display: flex;
+  justify-content: center;
+}
+
+.song-info-row {
+  display: flex;
+  justify-content: space-between;
+  gap: 2rem;
+  padding: 0.5rem 0;
+  border-bottom: 1px solid var(--border-subtle);
+}
+
+.song-info-row:last-child {
+  border-bottom: none;
+}
+
+.song-info-label {
+  color: var(--text-secondary);
+}
+
+.song-info-value {
+  color: var(--text-primary);
+  font-weight: bold;
+  font-family: var(--font-mono);
+}

@@ -17,6 +17,7 @@ import {
 } from './api/SongApi.js';
 import { fetchUserSettings, updateUserSettings } from './api/UserApi.js';
 import { formatTime, formatScore } from './utils/helpers.js';
+import { themeManager } from './themes/ThemeManager.js';
 
 const SHEET_STAFF_LINE_SPACING = 10;
 const BASE_SHEET_HEIGHT = 5 + 4 * SHEET_STAFF_LINE_SPACING + 8 + 4 * SHEET_STAFF_LINE_SPACING + 5;
@@ -661,6 +662,8 @@ function setupResultButtons(
 // ---------------------------------------------------------------------------
 
 async function init(): Promise<void> {
+  themeManager.init();
+
   const canvas = document.getElementById('gameCanvas') as HTMLCanvasElement;
   const synth = new Synth();
   const keyboardInput = new KeyboardInput();
@@ -749,6 +752,36 @@ async function init(): Promise<void> {
   document.getElementById('btn-settings')!.addEventListener('click', () => settingsPopup.classList.remove('hidden'));
   document.getElementById('btn-close-settings')!.addEventListener('click', () => settingsPopup.classList.add('hidden'));
   settingsPopup.addEventListener('click', (e) => { if (e.target === settingsPopup) settingsPopup.classList.add('hidden'); });
+
+  // Theme dropdown
+  const btnTheme = document.getElementById('btn-theme')!;
+  const themeDropdown = document.getElementById('theme-dropdown')!;
+
+  function renderThemeDropdown(): void {
+    themeDropdown.innerHTML = '';
+    for (const theme of themeManager.availableThemes) {
+      const option = document.createElement('button');
+      option.className = `theme-option${theme.id === themeManager.current.id ? ' active' : ''}`;
+      option.textContent = theme.name;
+      option.addEventListener('click', () => {
+        themeManager.apply(theme);
+        renderThemeDropdown();
+        themeDropdown.classList.add('hidden');
+      });
+      themeDropdown.appendChild(option);
+    }
+  }
+
+  renderThemeDropdown();
+
+  btnTheme.addEventListener('click', (e) => {
+    e.stopPropagation();
+    themeDropdown.classList.toggle('hidden');
+  });
+
+  document.addEventListener('click', () => {
+    themeDropdown.classList.add('hidden');
+  });
 
   // User settings
   const showUsedKeysCheckbox = document.getElementById('show-used-keys') as HTMLInputElement;
