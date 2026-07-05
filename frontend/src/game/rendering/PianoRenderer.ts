@@ -48,16 +48,16 @@ export class PianoRenderer {
     }
 
     const c = themeManager.canvas;
-    const pianoBottomY = height;
+    const pianoTop = height - height * PIANO_HEIGHT_RATIO;
     const OCTAVE_NOTES = ['C1', 'C2', 'C3', 'C4', 'C5', 'C6', 'C7', 'C8'];
     ctx.fillStyle = c.keyLabel;
     const keyWidth = whiteKeyWidth(width, visibleRange);
-    ctx.font = `${Math.max(8, keyWidth * 0.22)}px ${themeManager.fonts.mono}`;
+    ctx.font = `${Math.max(16, keyWidth * 0.4)}px ${themeManager.fonts.mono}`;
     ctx.textAlign = 'center';
     for (const noteName of OCTAVE_NOTES) {
       const layout = getPianoKeyLayout(noteName, width, visibleRange);
       if (layout.width === 0) continue;
-      ctx.fillText(noteName, layout.x + layout.width / 2, pianoBottomY - 2);
+      ctx.fillText(noteName, layout.x + layout.width / 2, pianoTop + 14);
     }
   }
 
