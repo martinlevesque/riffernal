@@ -14,7 +14,7 @@ export const TIMING: Record<NoteGrade, number> = {
 };
 
 // Extra seconds allowed before the GOOD window for early hits (scores with penalty)
-export const EARLY_HIT_WINDOW = 0.1;
+export const EARLY_HIT_WINDOW = 0.15;
 
 // Multiplier applied to score for early-buffer hits (0.5 = 50% of GOOD score)
 export const EARLY_PENALTY_RATIO = 0.5;
