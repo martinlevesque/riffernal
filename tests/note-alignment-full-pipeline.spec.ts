@@ -1,5 +1,5 @@
 import { test, expect } from '@playwright/test';
-import { W, H, makeSong } from './helpers.js';
+import { CANVAS_WIDTH, CANVAS_HEIGHT, makeSong } from './helpers/index.js';
 
 test('game renders chord notes at same center Y', async ({ page }) => {
   await page.goto('/');
@@ -74,7 +74,7 @@ test('game renders chord notes at same center Y', async ({ page }) => {
       bottomUniqueCount: bottomValues.length,
       pixelCenters: centers,
     };
-  }, { song: songData, W, H });
+  }, { song: songData, W: CANVAS_WIDTH, H: CANVAS_HEIGHT });
 
   expect(result.bottomUniqueCount).toBe(1);
   expect(result.yUniqueCount).toBeGreaterThan(1);

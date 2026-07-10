@@ -1,5 +1,5 @@
 import { test, expect, type APIRequestContext } from "@playwright/test";
-import { wipeDatabase, cleanupSongs, cleanupCategoriesByLabel } from "../helpers.js";
+import { wipeDatabase, cleanupSongs, cleanupCategoriesByLabel } from "../helpers/index.js";
 
 const MIDI_HEADER = [0x4d, 0x54, 0x68, 0x64, 0x00, 0x00, 0x00, 0x06, 0x00, 0x00, 0x00, 0x01, 0x01, 0xe0];
 

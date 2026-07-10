@@ -1,14 +1,14 @@
 import { test, expect } from '@playwright/test';
-import { startGame } from './helpers.js';
+import { startGame, expectPlayScreenActive } from './helpers/index.js';
 
 test.describe('Gameplay', () => {
   test.beforeEach(async ({ page }) => {
     await startGame(page);
-    await expect(page.locator('#play-screen')).toHaveClass(/active/, { timeout: 5000 });
+    await expectPlayScreenActive(page);
   });
 
   test('transitions to play screen on start', async ({ page }) => {
-    await expect(page.locator('#play-screen')).toHaveClass(/active/);
+    await expectPlayScreenActive(page);
   });
 
   test('canvas is rendered during play', async ({ page }) => {

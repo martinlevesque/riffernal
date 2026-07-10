@@ -1,5 +1,5 @@
 import { test, expect } from '@playwright/test';
-import { H, makeSong } from './helpers.js';
+import { CANVAS_HEIGHT, makeSong } from './helpers/index.js';
 
 test('notes with same start time share same Y coordinate', async ({ page }) => {
   await page.goto('/');
@@ -22,7 +22,7 @@ test('notes with same start time share same Y coordinate', async ({ page }) => {
     const active = nm.getActiveNotes(currentTime, H);
 
     return active.map((n: any) => ({ y: n.y, height: n.height, bottom: n.y + n.height }));
-  }, { song: songData, H });
+  }, { song: songData, H: CANVAS_HEIGHT });
 
   expect(result).toHaveLength(3);
 

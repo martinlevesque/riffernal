@@ -1,5 +1,5 @@
 import { test, expect } from '@playwright/test';
-import { H, makeSong } from './helpers.js';
+import { CANVAS_HEIGHT, makeSong } from './helpers/index.js';
 
 test('getActiveNotes returns key property for label rendering', async ({ page }) => {
   await page.goto('/');
@@ -17,7 +17,7 @@ test('getActiveNotes returns key property for label rendering', async ({ page })
     nm.loadSong(song);
     nm.update(1.0, H);
     return nm.getActiveNotes(1.0, H).map((n: any) => n.key);
-  }, { song: songData, H });
+  }, { song: songData, H: CANVAS_HEIGHT });
 
   expect(result).toEqual(['C2', 'F#4', 'B5']);
 });

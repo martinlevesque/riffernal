@@ -1,5 +1,14 @@
 import { test, expect } from '@playwright/test';
-import { startGame, makeSong, nmEval } from './helpers.js';
+import {
+  startGame,
+  makeSong,
+  evaluateWithNoteManager,
+  expectLoopStatus,
+  expectSheetScreenActive,
+  expectSheetScreenInactive,
+  openSheet,
+  closeSheet,
+} from './helpers/index.js';
 import { LoopDefinitionState } from '../frontend/src/game/Loop.js';
 
 // -- NoteManager.resetFromTime unit tests -----------------------------------
@@ -12,7 +21,7 @@ test.describe('Loops - NoteManager.resetFromTime', () => {
       { time: 2.0, key: 'E3', duration: 0.25 },
       { time: 3.0, key: 'G3', duration: 0.25 },
     ]);
-    const result = await nmEval(page, song, `
+    const result = await evaluateWithNoteManager(page, song, `
       nm.update(1.0, H);
       nm.checkHit(1.0, NOTE_TO_LANE.get('C3'));
       nm.update(2.0, H);
@@ -53,8 +62,7 @@ test.describe('Loops - NoteManager.resetFromTime', () => {
       { time: 2.0, key: 'E3', duration: 0.25 },
       { time: 3.5, key: 'G3', duration: 0.25 },
     ]);
-    const result = await nmEval(page, song, `
-      // No notes played yet — fresh seek to 2.0.
+    const result = await evaluateWithNoteManager(page, song, `
       nm.resetFromTime(2.0);
       return {
         firstResolved: nm.notes[0].resolved,
@@ -84,7 +92,7 @@ test.describe('Loops - NoteManager.resetFromTime', () => {
       { time: 2.0, key: 'E3', duration: 0.25 },
       { time: 3.0, key: 'G3', duration: 0.25 },
     ]);
-    const result = await nmEval(page, song, `
+    const result = await evaluateWithNoteManager(page, song, `
       nm.update(1.0, H);
       nm.checkHit(1.0, NOTE_TO_LANE.get('C3'));
       nm.update(2.0, H);
@@ -108,7 +116,7 @@ test.describe('Loops - NoteManager.resetFromTime', () => {
       { time: 2.0, key: 'C5', duration: 0.25 },
       { time: 3.0, key: 'E3', duration: 0.25 },
     ]);
-    const result = await nmEval(page, song, `
+    const result = await evaluateWithNoteManager(page, song, `
       return {
         nearest1_8: nm.findNearestNote(1.8).time,
         nearest2_2: nm.findNearestNote(2.2).time,
@@ -192,8 +200,6 @@ test.describe('Loops - Game.seekTo & loop wrap', () => {
   });
 
   test('loop wrap waits for the last note in the loop to finish before rewinding', async ({ page }) => {
-    // Note at t=2.0 with duration 1.0 (ends at 3.0). loopEnd=2.5 is mid-note,
-    // so the loop must not wrap until currentTime reaches 3.0.
     const songJson = JSON.stringify(makeSong([
       { time: 0.5, key: 'C3', duration: 0.25 },
       { time: 2.0, key: 'E3', duration: 1.0 },
@@ -204,8 +210,6 @@ test.describe('Loops - Game.seekTo & loop wrap', () => {
       game.loopActive = true;
       game.loopStart = 1.0;
       game.loopEnd = 2.5;
-      // Anchor just before the effective end (3.0). After 200ms the game time
-      // advances past 3.0 and the loop should wrap to loopStart.
       game.refGameTime = 2.9;
       game.refRealTime = performance.now() / 1000;
       await new Promise(r => setTimeout(r, 300));
@@ -358,7 +362,7 @@ test.describe('Loops - Game.seekTo & loop wrap', () => {
       await new Promise(r => setTimeout(r, 100));
       game.loopStart = 5.0;
       game.loopEnd = 8.0;
-      game.loopActive = false; // stored but inactive
+      game.loopActive = false;
       game.retry();
       await new Promise(r => setTimeout(r, 50));
       return {
@@ -405,7 +409,7 @@ test.describe('Loops - UI', () => {
     await startGame(page);
     await expect(page.locator('#loop-control')).toBeVisible();
     await expect(page.locator('#btn-define-loop')).toBeVisible();
-    await expect(page.locator('#loop-status')).toHaveText('No loop');
+    await expectLoopStatus(page, 'No loop');
     await expect(page.locator('#btn-open-sheet')).toBeVisible();
   });
 
@@ -414,8 +418,8 @@ test.describe('Loops - UI', () => {
     await page.locator('#btn-define-loop').click();
     await expect(page.locator('#mode-learn')).toHaveClass(/active/);
     await expect(page.locator('#btn-define-loop')).toHaveClass(/active/);
-    await expect(page.locator('#loop-status')).toHaveText('Click start note');
-    await expect(page.locator('#sheet-screen')).toHaveClass(/active/);
+    await expectLoopStatus(page, 'Click start note');
+    await expectSheetScreenActive(page);
   });
 
   test('clicking define loop opens sheet view with start phase', async ({ page }) => {
@@ -423,20 +427,20 @@ test.describe('Loops - UI', () => {
     await page.locator('#btn-define-loop').click();
     await expect(page.locator('#mode-learn')).toHaveClass(/active/);
     await expect(page.locator('#btn-define-loop')).toHaveClass(/active/);
-    await expect(page.locator('#sheet-screen')).toHaveClass(/active/);
+    await expectSheetScreenActive(page);
     await expect(page.locator('#sheet-hint')).toHaveText('Click the start note');
-    await expect(page.locator('#loop-status')).toHaveText('Click start note');
+    await expectLoopStatus(page, 'Click start note');
   });
 
   test('closing and re-clicking define loop re-enters start phase', async ({ page }) => {
     await startGame(page);
     await page.locator('#btn-define-loop').click();
-    await expect(page.locator('#loop-status')).toHaveText('Click start note');
+    await expectLoopStatus(page, 'Click start note');
     await page.locator('#btn-close-sheet').click();
-    await expect(page.locator('#sheet-screen')).not.toHaveClass(/active/);
+    await expectSheetScreenInactive(page);
     await page.locator('#btn-define-loop').click();
-    await expect(page.locator('#sheet-screen')).toHaveClass(/active/);
-    await expect(page.locator('#loop-status')).toHaveText('Click start note');
+    await expectSheetScreenActive(page);
+    await expectLoopStatus(page, 'Click start note');
   });
 
   test('clear loop button resets status to "No loop" after sheet closed', async ({ page }) => {
@@ -445,72 +449,52 @@ test.describe('Loops - UI', () => {
     await expect(page.locator('#loop-status')).not.toHaveText('No loop');
     await page.locator('#btn-close-sheet').click();
     await page.locator('#btn-clear-loop').click();
-    await expect(page.locator('#loop-status')).toHaveText('No loop');
+    await expectLoopStatus(page, 'No loop');
   });
 
   test('open-sheet button toggles the full sheet view', async ({ page }) => {
     await startGame(page);
-    await expect(page.locator('#sheet-screen')).not.toHaveClass(/active/);
-    await page.locator('#btn-open-sheet').click();
-    await expect(page.locator('#sheet-screen')).toHaveClass(/active/);
+    await expectSheetScreenInactive(page);
+    await openSheet(page);
     await expect(page.locator('#sheet-page-info')).toContainText(/1 \//);
-    await page.locator('#btn-close-sheet').click();
-    await expect(page.locator('#sheet-screen')).not.toHaveClass(/active/);
+    await closeSheet(page);
   });
 
   test('Escape closes the sheet view', async ({ page }) => {
     await startGame(page);
-    await page.locator('#btn-open-sheet').click();
-    await expect(page.locator('#sheet-screen')).toHaveClass(/active/);
+    await openSheet(page);
     await page.keyboard.press('Escape');
-    await expect(page.locator('#sheet-screen')).not.toHaveClass(/active/);
+    await expectSheetScreenInactive(page);
   });
 
   test('clicking a note in the full sheet view seeks the game to that note', async ({ page }) => {
     await startGame(page);
 
-    // Open the full sheet view.
-    await page.locator('#btn-open-sheet').click();
-    await expect(page.locator('#sheet-screen')).toHaveClass(/active/);
+    await openSheet(page);
 
-    // Navigate to page 2 (view window [9s, 18s] @ 9s/page).
     await page.locator('#btn-sheet-next').click();
     await expect(page.locator('#sheet-page-info')).toContainText('2 /');
 
-    // Click in the treble area at ~40% width (maps to ~12.6s in the [9,18] window).
     const rect = await page.locator('#sheet-canvas').boundingBox();
     expect(rect).not.toBeNull();
     const clickX = rect!.x + rect!.width * 0.40;
-    const clickY = rect!.y + 120; // treble staff is ~91-151px from canvas top
+    const clickY = rect!.y + 120;
     await page.mouse.click(clickX, clickY);
 
-    // Sheet closes on click. Re-open: jumpSheetToCurrent derives the page
-    // from game.currentTime. If seekTo worked we stay on page 2 (t≈12.6s);
-    // if it failed we land on page 1 (t≈0).
-    await expect(page.locator('#sheet-screen')).not.toHaveClass(/active/);
-    await page.locator('#btn-open-sheet').click();
-    await expect(page.locator('#sheet-screen')).toHaveClass(/active/);
+    await expectSheetScreenInactive(page);
+    await openSheet(page);
     await expect(page.locator('#sheet-page-info')).toContainText('2 /');
   });
 
   test('clicking the game-screen sheet seeks the game without opening the full sheet', async ({ page }) => {
     await startGame(page);
-    // The small sheet at the top of the game screen shows the current window.
-    // Clicking a note on it seeks (and does NOT open the full sheet screen).
     const rect = await page.locator('#gameCanvas').boundingBox();
     expect(rect).not.toBeNull();
-    // The treble staff on the game canvas is ~89-149px from the canvas top
-    // (SHEET_TOP_OFFSET=84 scale=1). Click at ~30% width within the bar.
     const clickX = rect!.x + rect!.width * 0.30;
     const clickY = rect!.y + 110;
     await page.mouse.click(clickX, clickY);
-    // Full sheet screen must NOT have opened.
-    await expect(page.locator('#sheet-screen')).not.toHaveClass(/active/);
-    // Opening the full sheet should land on a page > 1 (currentTime jumped
-    // forward into the visible window, which on page 1 maps to a later time
-    // than the very start). At minimum, page-info should show some page.
-    await page.locator('#btn-open-sheet').click();
-    await expect(page.locator('#sheet-screen')).toHaveClass(/active/);
+    await expectSheetScreenInactive(page);
+    await openSheet(page);
     await expect(page.locator('#sheet-page-info')).toContainText('/ 2');
   });
 });

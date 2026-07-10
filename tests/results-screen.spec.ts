@@ -1,16 +1,16 @@
 import { test, expect } from '@playwright/test';
-import { startGame, makeSong, H } from './helpers.js';
-
-async function speedUp(page: import('@playwright/test').Page): Promise<void> {
-  for (let i = 0; i < 10; i++) {
-    await page.locator('#speed-up').click();
-  }
-}
-
-async function waitForResults(page: import('@playwright/test').Page): Promise<void> {
-  await expect(page.locator('#results-screen')).toHaveClass(/active/, { timeout: 120000 });
-  await expect(page.locator('#result-grade')).not.toBeEmpty();
-}
+import {
+  startGame,
+  makeSong,
+  CANVAS_HEIGHT,
+  speedUp,
+  waitForResults,
+  expectPlayScreenActive,
+  clickRetry,
+  clickPlay,
+  toggleLearnMode,
+  togglePlayMode,
+} from './helpers/index.js';
 
 test.describe('Results Screen', () => {
   test('long missed note does not block game completion', async ({ page }) => {
@@ -58,7 +58,7 @@ test.describe('Results Screen', () => {
       };
 
       return { afterShortResolves, afterLongEnds };
-    }, { song: songData, H });
+    }, { song: songData, H: CANVAS_HEIGHT });
 
     // After the short note resolves, the long note should still be unresolved
     expect(result.afterShortResolves.shortNoteResolved).toBe(true);
@@ -75,7 +75,7 @@ test.describe('Results Screen', () => {
     page.on('pageerror', (err) => errors.push(err.message));
 
     await startGame(page);
-    await expect(page.locator('#play-screen')).toHaveClass(/active/, { timeout: 5000 });
+    await expectPlayScreenActive(page);
 
     await speedUp(page);
 
@@ -88,13 +88,12 @@ test.describe('Results Screen', () => {
     page.on('pageerror', (err) => errors.push(err.message));
 
     await startGame(page);
-    await expect(page.locator('#play-screen')).toHaveClass(/active/, { timeout: 5000 });
+    await expectPlayScreenActive(page);
 
     await speedUp(page);
     await waitForResults(page);
 
-    await page.locator('#btn-retry').click();
-    await expect(page.locator('#play-screen')).toHaveClass(/active/, { timeout: 5000 });
+    await clickRetry(page);
 
     await waitForResults(page);
     expect(errors).toEqual([]);
@@ -106,14 +105,13 @@ test.describe('Results Screen', () => {
     page.on('pageerror', (err) => errors.push(err.message));
 
     await startGame(page);
-    await expect(page.locator('#play-screen')).toHaveClass(/active/, { timeout: 5000 });
+    await expectPlayScreenActive(page);
 
     await speedUp(page);
 
     for (let attempt = 0; attempt < 3; attempt++) {
       await waitForResults(page);
-      await page.locator('#btn-retry').click();
-      await expect(page.locator('#play-screen')).toHaveClass(/active/, { timeout: 5000 });
+      await clickRetry(page);
     }
 
     await waitForResults(page);
@@ -122,7 +120,7 @@ test.describe('Results Screen', () => {
 
   test('play button is hidden after PLAY mode completion', async ({ page }) => {
     await startGame(page);
-    await expect(page.locator('#play-screen')).toHaveClass(/active/, { timeout: 5000 });
+    await expectPlayScreenActive(page);
 
     await speedUp(page);
     await waitForResults(page);
@@ -132,11 +130,11 @@ test.describe('Results Screen', () => {
 
   test('play button is visible after LEARN mode completion', async ({ page }) => {
     await startGame(page);
-    await expect(page.locator('#play-screen')).toHaveClass(/active/, { timeout: 5000 });
+    await expectPlayScreenActive(page);
 
-    await page.locator('#mode-learn').click();
+    await toggleLearnMode(page);
     await expect(page.locator('#mode-learn')).toHaveClass(/active/);
-    await page.locator('#mode-play').click();
+    await togglePlayMode(page);
     await expect(page.locator('#mode-play')).toHaveClass(/active/);
 
     await speedUp(page);
@@ -147,31 +145,31 @@ test.describe('Results Screen', () => {
 
   test('clicking play button restarts in PLAY mode', async ({ page }) => {
     await startGame(page);
-    await expect(page.locator('#play-screen')).toHaveClass(/active/, { timeout: 5000 });
+    await expectPlayScreenActive(page);
 
-    await page.locator('#mode-learn').click();
+    await toggleLearnMode(page);
     await expect(page.locator('#mode-learn')).toHaveClass(/active/);
-    await page.locator('#mode-play').click();
+    await togglePlayMode(page);
     await expect(page.locator('#mode-play')).toHaveClass(/active/);
 
     await speedUp(page);
     await waitForResults(page);
 
     await expect(page.locator('#btn-play')).toBeVisible();
-    await page.locator('#btn-play').click();
+    await clickPlay(page);
 
-    await expect(page.locator('#play-screen')).toHaveClass(/active/, { timeout: 5000 });
+    await expectPlayScreenActive(page);
     await expect(page.locator('#mode-play')).toHaveClass(/active/);
     await expect(page.locator('#mode-learn')).not.toHaveClass(/active/);
   });
 
   test('practice mode results show accuracy and note breakdown', async ({ page }) => {
     await startGame(page);
-    await expect(page.locator('#play-screen')).toHaveClass(/active/, { timeout: 5000 });
+    await expectPlayScreenActive(page);
 
-    await page.locator('#mode-learn').click();
+    await toggleLearnMode(page);
     await expect(page.locator('#mode-learn')).toHaveClass(/active/);
-    await page.locator('#mode-play').click();
+    await togglePlayMode(page);
     await expect(page.locator('#mode-play')).toHaveClass(/active/);
 
     await speedUp(page);
@@ -192,7 +190,7 @@ test.describe('Results Screen', () => {
 
   test('play mode results show stats without practice label', async ({ page }) => {
     await startGame(page);
-    await expect(page.locator('#play-screen')).toHaveClass(/active/, { timeout: 5000 });
+    await expectPlayScreenActive(page);
 
     await speedUp(page);
     await waitForResults(page);
@@ -209,7 +207,7 @@ test.describe('Results Screen', () => {
 
   test('new best banner appears on first play completion', async ({ page }) => {
     await startGame(page);
-    await expect(page.locator('#play-screen')).toHaveClass(/active/, { timeout: 5000 });
+    await expectPlayScreenActive(page);
 
     await speedUp(page);
     await waitForResults(page);
@@ -220,11 +218,11 @@ test.describe('Results Screen', () => {
 
   test('new best banner absent in learn mode', async ({ page }) => {
     await startGame(page);
-    await expect(page.locator('#play-screen')).toHaveClass(/active/, { timeout: 5000 });
+    await expectPlayScreenActive(page);
 
-    await page.locator('#mode-learn').click();
+    await toggleLearnMode(page);
     await expect(page.locator('#mode-learn')).toHaveClass(/active/);
-    await page.locator('#mode-play').click();
+    await togglePlayMode(page);
     await expect(page.locator('#mode-play')).toHaveClass(/active/);
 
     await speedUp(page);

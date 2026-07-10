@@ -1,18 +1,27 @@
 import { test, expect } from '@playwright/test';
-import { startGame, makeSong, nmEval, freezeResumeBody, expectMode } from './helpers.js';
+import {
+  startGame,
+  makeSong,
+  evaluateWithNoteManager,
+  buildFreezeResumeScript,
+  expectMode,
+  expectPracticeHand,
+  toggleLearnMode,
+  togglePlayMode,
+  expectPlayScreenActive,
+  expectMenuScreenActive,
+} from './helpers/index.js';
 
 // -- NoteManager unit tests --------------------------------------------------
 
 test.describe('Practice Hand - NoteManager', () => {
   test('getEarliestWaitTime skips non-practiced hand notes (left practice)', async ({ page }) => {
     await page.goto('/');
-    // Right-hand note at t=1.0, left-hand note at t=2.0; practicing left should
-    // skip the right-hand note (auto-played) and freeze only at the left-hand note.
     const song = makeSong([
       { time: 1.0, key: 'C5', duration: 0.25 },
       { time: 2.0, key: 'C3', duration: 0.25 },
     ]);
-    expect(await nmEval(page, song, `
+    expect(await evaluateWithNoteManager(page, song, `
       const { PracticeHand } = await import('/js/utils/notes.js');
       nm.learningMode = true;
       nm.practiceHand = PracticeHand.Left;
@@ -30,7 +39,7 @@ test.describe('Practice Hand - NoteManager', () => {
       { time: 1.0, key: 'C3', duration: 0.25 },
       { time: 2.0, key: 'C5', duration: 0.25 },
     ]);
-    expect(await nmEval(page, song, `
+    expect(await evaluateWithNoteManager(page, song, `
       const { PracticeHand } = await import('/js/utils/notes.js');
       nm.learningMode = true;
       nm.practiceHand = PracticeHand.Right;
@@ -45,7 +54,7 @@ test.describe('Practice Hand - NoteManager', () => {
   test('auto-play tap note auto-resolves at note.time without scoring', async ({ page }) => {
     await page.goto('/');
     const song = makeSong([{ time: 1.0, key: 'C5', duration: 0.25 }]);
-    const result = await nmEval(page, song, `
+    const result = await evaluateWithNoteManager(page, song, `
       const { PracticeHand } = await import('/js/utils/notes.js');
       nm.learningMode = true;
       nm.practiceHand = PracticeHand.Left;
@@ -62,7 +71,7 @@ test.describe('Practice Hand - NoteManager', () => {
   test('auto-play hold note triggers onAutoPlayOn and finalizes without scoring', async ({ page }) => {
     await page.goto('/');
     const song = makeSong([{ time: 1.0, key: 'C5', duration: 1.0 }]);
-    const result = await nmEval(page, song, `
+    const result = await evaluateWithNoteManager(page, song, `
       const { PracticeHand } = await import('/js/utils/notes.js');
       nm.learningMode = true;
       nm.practiceHand = PracticeHand.Left;
@@ -86,7 +95,7 @@ test.describe('Practice Hand - NoteManager', () => {
   test('no auto-play when practiceHand is Both', async ({ page }) => {
     await page.goto('/');
     const song = makeSong([{ time: 1.0, key: 'C5', duration: 0.25 }]);
-    const result = await nmEval(page, song, `
+    const result = await evaluateWithNoteManager(page, song, `
       const { PracticeHand } = await import('/js/utils/notes.js');
       nm.learningMode = true;
       nm.practiceHand = PracticeHand.Both;
@@ -100,7 +109,7 @@ test.describe('Practice Hand - NoteManager', () => {
   test('no auto-play when learningMode is false (PLAY mode)', async ({ page }) => {
     await page.goto('/');
     const song = makeSong([{ time: 1.0, key: 'C5', duration: 0.25 }]);
-    const result = await nmEval(page, song, `
+    const result = await evaluateWithNoteManager(page, song, `
       const { PracticeHand } = await import('/js/utils/notes.js');
       nm.learningMode = false;
       nm.practiceHand = PracticeHand.Left;
@@ -113,10 +122,8 @@ test.describe('Practice Hand - NoteManager', () => {
 
   test('checkLearningHit silently ignores auto-play lane press (not wrong)', async ({ page }) => {
     await page.goto('/');
-    // Practicing left; right-hand note is auto-played. Pressing the right-hand
-    // lane should return no results AND not be marked wrong.
     const song = makeSong([{ time: 1.0, key: 'C5', duration: 0.25 }]);
-    const result = await nmEval(page, song, `
+    const result = await evaluateWithNoteManager(page, song, `
       const { PracticeHand } = await import('/js/utils/notes.js');
       nm.learningMode = true;
       nm.practiceHand = PracticeHand.Left;
@@ -132,7 +139,7 @@ test.describe('Practice Hand - NoteManager', () => {
   test('practiced hand note still freezes and registers hits normally', async ({ page }) => {
     await page.goto('/');
     const song = makeSong([{ time: 1.0, key: 'C3', duration: 0.25 }]);
-    const result = await nmEval(page, song, `
+    const result = await evaluateWithNoteManager(page, song, `
       const { PracticeHand } = await import('/js/utils/notes.js');
       nm.learningMode = true;
       nm.practiceHand = PracticeHand.Left;
@@ -159,7 +166,7 @@ test.describe('Practice Hand - freeze resume', () => {
 
     await page.goto('/');
 
-    const result = await page.evaluate(freezeResumeBody(songJson, `
+    const result = await page.evaluate(buildFreezeResumeScript(songJson, `
       const { PracticeHand } = await import('/js/utils/notes.js');
       game.setPracticeHand(PracticeHand.Left);
       await new Promise(r => setTimeout(r, 1200));
@@ -169,11 +176,8 @@ test.describe('Practice Hand - freeze resume', () => {
       return { frozenTime: game.currentTime, rightAutoPlayed, leftFailing, leftMissed };
     `)) as { frozenTime: number; rightAutoPlayed: boolean; leftFailing: boolean; leftMissed: boolean };
 
-    // Frozen at the left-hand note (t=3.0), not racing past it.
     expect(result.frozenTime).toBeLessThan(3.0);
-    // Right-hand note auto-played without user input.
     expect(result.rightAutoPlayed).toBe(true);
-    // Left-hand note not yet failed/missed (frozen before it).
     expect(result.leftFailing).toBe(false);
     expect(result.leftMissed).toBe(false);
   });
@@ -190,7 +194,7 @@ test.describe('Practice Hand - freeze resume', () => {
 
     await page.goto('/');
 
-    const result = await page.evaluate(freezeResumeBody(songJson, `
+    const result = await page.evaluate(buildFreezeResumeScript(songJson, `
       const { PracticeHand } = await import('/js/utils/notes.js');
       const { NOTE_TO_LANE } = await import('/js/utils/notes.js');
       const laneToKey = new Map([...NOTE_TO_LANE].map(([k, v]) => [v, k]));
@@ -228,22 +232,17 @@ test.describe('Practice Hand - freeze resume', () => {
 
 // -- UI tests ----------------------------------------------------------------
 
-async function expectPracticeHand(page: import('@playwright/test').Page, hand: 'left' | 'right' | 'both'): Promise<void> {
-  await expect(page.locator('#hand-left')).toHaveClass(hand === 'left' ? /active/ : /^(?!.*\bactive\b).*$/);
-  await expect(page.locator('#hand-right')).toHaveClass(hand === 'right' ? /active/ : /^(?!.*\bactive\b).*$/);
-}
-
 test.describe('Practice Hand - UI', () => {
   test('hand-control is hidden in PLAY mode and shown in LEARN mode', async ({ page }) => {
     await startGame(page);
     await expect(page.locator('#hand-control')).not.toHaveClass(/active/);
-    await page.locator('#mode-learn').click();
+    await toggleLearnMode(page);
     await expect(page.locator('#hand-control')).toHaveClass(/active/);
   });
 
   test('clicking LEFT toggles left practice on, then off', async ({ page }) => {
     await startGame(page);
-    await page.locator('#mode-learn').click();
+    await toggleLearnMode(page);
     await page.locator('#hand-left').click();
     await expectPracticeHand(page, 'left');
     await page.locator('#hand-left').click();
@@ -252,7 +251,7 @@ test.describe('Practice Hand - UI', () => {
 
   test('clicking RIGHT toggles right practice on, then off', async ({ page }) => {
     await startGame(page);
-    await page.locator('#mode-learn').click();
+    await toggleLearnMode(page);
     await page.locator('#hand-right').click();
     await expectPracticeHand(page, 'right');
     await page.locator('#hand-right').click();
@@ -261,7 +260,7 @@ test.describe('Practice Hand - UI', () => {
 
   test('LEFT and RIGHT are mutually exclusive', async ({ page }) => {
     await startGame(page);
-    await page.locator('#mode-learn').click();
+    await toggleLearnMode(page);
     await page.locator('#hand-left').click();
     await expectPracticeHand(page, 'left');
     await page.locator('#hand-right').click();
@@ -270,7 +269,7 @@ test.describe('Practice Hand - UI', () => {
 
   test('practice hand is preserved on restart', async ({ page }) => {
     await startGame(page);
-    await page.locator('#mode-learn').click();
+    await toggleLearnMode(page);
     await page.locator('#hand-left').click();
     await expectPracticeHand(page, 'left');
     await page.locator('#btn-restart').click();
@@ -280,7 +279,7 @@ test.describe('Practice Hand - UI', () => {
 
   test('practice hand is preserved on retry from results', async ({ page }) => {
     await startGame(page);
-    await page.locator('#mode-learn').click();
+    await toggleLearnMode(page);
     await page.locator('#hand-right').click();
     await expectPracticeHand(page, 'right');
     await page.evaluate(() => document.getElementById('btn-retry')?.click());
@@ -290,22 +289,22 @@ test.describe('Practice Hand - UI', () => {
 
   test('practice hand resets to both when starting fresh from menu', async ({ page }) => {
     await startGame(page);
-    await page.locator('#mode-learn').click();
+    await toggleLearnMode(page);
     await page.locator('#hand-left').click();
     await expectPracticeHand(page, 'left');
     await page.evaluate(() => document.getElementById('btn-menu')?.click());
-    await expect(page.locator('#menu-screen')).toHaveClass(/active/, { timeout: 5000 });
+    await expectMenuScreenActive(page);
     await page.locator('.song-item').first().click();
     await page.locator('#btn-start').click();
-    await expect(page.locator('#play-screen')).toHaveClass(/active/, { timeout: 5000 });
+    await expectPlayScreenActive(page);
     await expectPracticeHand(page, 'both');
   });
 
   test('switching back to PLAY mode hides hand-control', async ({ page }) => {
     await startGame(page);
-    await page.locator('#mode-learn').click();
+    await toggleLearnMode(page);
     await expect(page.locator('#hand-control')).toHaveClass(/active/);
-    await page.locator('#mode-play').click();
+    await togglePlayMode(page);
     await expect(page.locator('#hand-control')).not.toHaveClass(/active/);
   });
 });

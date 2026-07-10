@@ -1,5 +1,5 @@
 import { test, expect, type Page, type APIRequestContext } from '@playwright/test';
-import { wipeDatabase } from './helpers.js';
+import { wipeDatabase } from './helpers/index.js';
 
 async function importMidiFile(page: Page, name: string, buffer: Buffer): Promise<void> {
   await page.waitForFunction(() => (document.getElementById('midi-status') as HTMLElement).textContent.length > 0);
