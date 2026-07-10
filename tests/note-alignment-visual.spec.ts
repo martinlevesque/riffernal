@@ -1,5 +1,5 @@
 import { test, expect } from '@playwright/test';
-import { W, H, makeSong } from './helpers.js';
+import { CANVAS_WIDTH, CANVAS_HEIGHT, makeSong } from './helpers/index.js';
 
 test('chord notes have heads at same vertical position', async ({ page }) => {
   await page.goto('/');
@@ -77,7 +77,7 @@ test('chord notes have heads at same vertical position', async ({ page }) => {
       bottoms,
       tops,
     };
-  }, { song: songData, W, H });
+  }, { song: songData, W: CANVAS_WIDTH, H: CANVAS_HEIGHT });
 
   const bottomMaxDiff = Math.max(...(result.bottoms as number[])) - Math.min(...(result.bottoms as number[]));
   expect(bottomMaxDiff).toBeLessThanOrEqual(1.5);

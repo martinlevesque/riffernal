@@ -1,5 +1,5 @@
 import { test, expect, type APIRequestContext } from '@playwright/test';
-import { wipeDatabase, deleteSong, seedSongWithNotes } from './helpers.js';
+import { wipeDatabase, deleteSong, seedSongWithNotes } from './helpers/index.js';
 
 test.describe('Menu Screen', () => {
   test.beforeEach(async ({ request }: { request: APIRequestContext }) => {

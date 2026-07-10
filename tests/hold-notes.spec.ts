@@ -1,6 +1,6 @@
 import { test, expect } from '@playwright/test';
 import type { ResolveResult } from '../frontend/src/game/NoteManager.js';
-import { H, makeSong, startGame } from './helpers.js';
+import { CANVAS_HEIGHT, makeSong, startGame } from './helpers/index.js';
 
 test.describe('Hold notes', () => {
   test('full hold gives full base score, no failing flag', async ({ page }) => {
@@ -28,14 +28,14 @@ test.describe('Hold notes', () => {
         hit: nm.notes[0].hit,
         failures: nm.scoring.failures,
       };
-    }, { song: songData, H });
+  }, { song: songData, H: CANVAS_HEIGHT });
 
-    expect(result.hitHit).toBe(true);
-    expect(result.releaseNull).toBe(true);
-    expect(result.hit).toBe(true);
-    expect(result.failing).toBe(false);
-    expect(result.failures).toBe(0);
-    expect(result.score).toBeGreaterThanOrEqual(300);
+  expect(result.hitHit).toBe(true);
+  expect(result.releaseNull).toBe(true);
+  expect(result.hit).toBe(true);
+  expect(result.failing).toBe(false);
+  expect(result.failures).toBe(0);
+  expect(result.score).toBeGreaterThanOrEqual(300);
   });
 
   test('50% hold gives half score, failing flag, combo kept', async ({ page }) => {
@@ -69,7 +69,7 @@ test.describe('Hold notes', () => {
         hit: nm.notes[0].hit,
         failures: nm.scoring.failures,
       };
-    }, { song: songData, H });
+    }, { song: songData, H: CANVAS_HEIGHT });
 
     expect(result.hitHit).toBe(true);
     expect(result.releaseNull).toBe(false);
@@ -107,7 +107,7 @@ test.describe('Hold notes', () => {
         score: nm.scoring.score,
         isComplete: nm.isComplete(),
       };
-    }, { song: songData, H });
+    }, { song: songData, H: CANVAS_HEIGHT });
 
     expect(result.hitHit).toBe(true);
     expect(result.holding).toBe(false);
@@ -139,7 +139,7 @@ test.describe('Hold notes', () => {
         missed: nm.notes[0].missed,
         holding: nm.notes[0].holding,
       };
-    }, { song: songData, H });
+    }, { song: songData, H: CANVAS_HEIGHT });
 
     expect(result.hitHit).toBe(true);
     expect(result.missed).toBe(false);
@@ -180,7 +180,7 @@ test.describe('Hold notes', () => {
         failures: nm.scoring.failures,
         score: nm.scoring.score,
       };
-    }, { song: songData, H });
+    }, { song: songData, H: CANVAS_HEIGHT });
 
     expect(result.hit1Hit).toBe(true);
     expect(result.release1Null).toBe(false);
@@ -217,7 +217,7 @@ test.describe('Hold notes', () => {
         failures: nm.scoring.failures,
         score: nm.scoring.score,
       };
-    }, { song: songData, H });
+    }, { song: songData, H: CANVAS_HEIGHT });
 
     expect(result.hitHit).toBe(true);
     expect(result.releaseNull).toBe(true);
@@ -264,7 +264,7 @@ test.describe('Hold notes', () => {
         e3Missed: nm.notes[1].missed,
         e3FailingFlag: nm.notes[1].failing,
       };
-    }, { song: songData, H });
+    }, { song: songData, H: CANVAS_HEIGHT });
 
     expect(result.c3Visible).toBe(true);
     expect(result.c3Failing).toBe(true);
@@ -302,7 +302,7 @@ test.describe('Hold notes', () => {
       const afterEnd = resolves.length;
 
       return { beforeEnd, afterEnd, resolves };
-    }, { song: songData, H });
+    }, { song: songData, H: CANVAS_HEIGHT });
 
     expect(result.beforeEnd).toBe(0);
     expect(result.afterEnd).toBe(1);
@@ -334,7 +334,7 @@ test.describe('Hold notes', () => {
       nm.update(3.1, H);
 
       return { count: resolves.length, resolve: resolves[0], missed, failing, resolvedAtMiss };
-    }, { song: songData, H });
+    }, { song: songData, H: CANVAS_HEIGHT });
 
     expect(result.count).toBe(1);
     expect(result.resolve.score).toBe(0);
@@ -363,7 +363,7 @@ test.describe('Hold notes', () => {
       nm.checkHit(2.0, c3);
 
       return { count: resolves.length, resolve: resolves[0] };
-    }, { song: songData, H });
+    }, { song: songData, H: CANVAS_HEIGHT });
 
     expect(result.count).toBe(1);
     expect(result.resolve.score).toBeGreaterThanOrEqual(300);
@@ -417,7 +417,7 @@ test.describe('Hold notes', () => {
         penalty: WRONG_PRESS_PENALTY,
         misses: nm.scoring.misses,
       };
-    }, { song: songData, H });
+    }, { song: songData, H: CANVAS_HEIGHT });
 
     expect(result.comboBefore).toBe(2);
     expect(result.comboAfter).toBe(0);
@@ -476,7 +476,7 @@ test.describe('Hold notes', () => {
       const accuracyAfter = nm.scoring.getAccuracy();
 
       return { accuracyBefore, accuracyAfter };
-    }, { song: songData, H });
+    }, { song: songData, H: CANVAS_HEIGHT });
 
     expect(result.accuracyBefore).toBe(100);
     expect(result.accuracyAfter).toBeLessThan(100);
@@ -507,7 +507,7 @@ test.describe('Hold notes', () => {
         goods: nm.scoring.goods,
         failures: nm.scoring.failures,
       };
-    }, { song: songData, H });
+    }, { song: songData, H: CANVAS_HEIGHT });
 
     expect(result.hitHit).toBe(true);
     expect(result.grade).toBe('GOOD');
@@ -555,7 +555,7 @@ test.describe('Hold notes', () => {
         misses: nm.scoring.misses,
         combo: nm.scoring.combo,
       };
-    }, { song: songData, H });
+    }, { song: songData, H: CANVAS_HEIGHT });
 
     expect(result.atMiss.missed).toBe(true);
     expect(result.atMiss.failing).toBe(true);
@@ -602,7 +602,7 @@ test.describe('Hold notes', () => {
         misses: nm.scoring.misses,
         combo: nm.scoring.combo,
       };
-    }, { song: songData, H });
+    }, { song: songData, H: CANVAS_HEIGHT });
 
     expect(result.hitHit).toBe(true);
     expect(result.grade).toBe('GOOD');
@@ -653,7 +653,7 @@ test.describe('Hold notes', () => {
         perfects: nm.scoring.perfects,
         combo: nm.scoring.combo,
       };
-    }, { song: songData, H });
+    }, { song: songData, H: CANVAS_HEIGHT });
 
     expect(result.hitHit).toBe(true);
     expect(result.releaseNull).toBe(false);

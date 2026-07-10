@@ -1,5 +1,5 @@
 import { test, expect } from '@playwright/test';
-import { makeSong } from './helpers.js';
+import { makeSong } from './helpers/index.js';
 
 // Reproduce the real MIDI file structure:
 // Track 0 = Janne (selected), Tracks 1-4 = background

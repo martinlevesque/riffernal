@@ -1,5 +1,16 @@
 import { test, expect } from '@playwright/test';
-import { startGame, makeSong, nmEval, freezeResumeBody, expectMode } from './helpers.js';
+import {
+  startGame,
+  makeSong,
+  evaluateWithNoteManager,
+  buildFreezeResumeScript,
+  expectMode,
+  toggleLearnMode,
+  togglePlayMode,
+  clickRestart,
+  expectPlayScreenActive,
+  expectMenuScreenActive,
+} from './helpers/index.js';
 
 // -- NoteManager unit tests --------------------------------------------------
 
@@ -7,9 +18,9 @@ test.describe('Learning Mode - NoteManager', () => {
   test('getEarliestWaitTime: null before arrival, note time when arrived, null after hit', async ({ page }) => {
     await page.goto('/');
     const song = makeSong([{ time: 2.0, key: 'C3', duration: 0.25 }]);
-    expect(await nmEval(page, song, `nm.update(0.5, H); return nm.getEarliestWaitTime(0.5);`)).toBe(null);
-    expect(await nmEval(page, song, `nm.update(2.0, H); return nm.getEarliestWaitTime(2.0);`)).toBe(2.0);
-    expect(await nmEval(page, song, `
+    expect(await evaluateWithNoteManager(page, song, `nm.update(0.5, H); return nm.getEarliestWaitTime(0.5);`)).toBe(null);
+    expect(await evaluateWithNoteManager(page, song, `nm.update(2.0, H); return nm.getEarliestWaitTime(2.0);`)).toBe(2.0);
+    expect(await evaluateWithNoteManager(page, song, `
       nm.update(2.0, H);
       nm.checkHit(2.0, NOTE_TO_LANE.get('C3'));
       return nm.getEarliestWaitTime(2.1);
@@ -19,7 +30,7 @@ test.describe('Learning Mode - NoteManager', () => {
   test('note does not fail when time is frozen at note time', async ({ page }) => {
     await page.goto('/');
     const song = makeSong([{ time: 2.0, key: 'C3', duration: 0.25 }]);
-    const result = await nmEval(page, song, `
+    const result = await evaluateWithNoteManager(page, song, `
       nm.update(2.0, H);
       const waitTime = nm.getEarliestWaitTime(3.0);
       const frozenTime = waitTime !== null ? Math.min(3.0, waitTime) : 3.0;
@@ -34,13 +45,13 @@ test.describe('Learning Mode - NoteManager', () => {
   test('getActiveNotes marks waiting based on learning mode', async ({ page }) => {
     await page.goto('/');
     const song = makeSong([{ time: 2.0, key: 'C3', duration: 0.25 }]);
-    const learn = await nmEval(page, song, `
+    const learn = await evaluateWithNoteManager(page, song, `
       nm.update(2.0, H);
       return nm.getActiveNotes(2.0, H, true).map(n => ({ key: n.key, waiting: n.waiting }));
     `);
     expect(learn.length).toBeGreaterThan(0);
     expect(learn[0].waiting).toBe(true);
-    const play = await nmEval(page, song, `
+    const play = await evaluateWithNoteManager(page, song, `
       nm.update(2.0, H);
       return nm.getActiveNotes(2.0, H, false).map(n => ({ key: n.key, waiting: n.waiting }));
     `);
@@ -54,9 +65,7 @@ test.describe('Learning Mode - NoteManager', () => {
       { time: 1.0, key: 'C3', duration: 0.25 },
       { time: 2.0, key: 'E3', duration: 0.25 },
     ]);
-    // getEarliestWaitTime is called BEFORE update in the real loop,
-    // so notes haven't been marked failing yet
-    expect(await nmEval(page, song, `nm.update(0.5, H); return nm.getEarliestWaitTime(2.5);`)).toBe(1.0);
+    expect(await evaluateWithNoteManager(page, song, `nm.update(0.5, H); return nm.getEarliestWaitTime(2.5);`)).toBe(1.0);
   });
 
   test('chord: presses outside LEARNING_CHORD_WINDOW expire earlier presses', async ({ page }) => {
@@ -67,7 +76,7 @@ test.describe('Learning Mode - NoteManager', () => {
       { time: 2.0, key: 'G2', duration: 0.25 },
       { time: 2.0, key: 'C5', duration: 0.25 },
     ]);
-    const result = await nmEval(page, song, `
+    const result = await evaluateWithNoteManager(page, song, `
       nm.update(1.5, H); nm.update(2.0, H);
       const freezeTime = nm.getEarliestWaitTime(2.0);
       const lane = k => NOTE_TO_LANE.get(k);
@@ -92,7 +101,7 @@ test.describe('Learning Mode - NoteManager', () => {
       { time: 2.0, key: 'G2', duration: 0.25 },
       { time: 2.0, key: 'C5', duration: 0.25 },
     ]);
-    const result = await nmEval(page, song, `
+    const result = await evaluateWithNoteManager(page, song, `
       nm.update(1.5, H); nm.update(2.0, H);
       const freezeTime = nm.getEarliestWaitTime(2.0);
       const lane = k => NOTE_TO_LANE.get(k);
@@ -119,7 +128,7 @@ test.describe('Learning Mode - NoteManager', () => {
       { time: 2.04, key: 'G2', duration: 0.25 },
       { time: 2.06, key: 'C5', duration: 0.25 },
     ]);
-    const result = await nmEval(page, song, `
+    const result = await evaluateWithNoteManager(page, song, `
       nm.update(1.5, H); nm.update(2.0, H);
       const freezeTime = nm.getEarliestWaitTime(2.0);
       const lane = k => NOTE_TO_LANE.get(k);
@@ -142,7 +151,7 @@ test.describe('Learning Mode - NoteManager', () => {
       { time: 2.0, key: 'C3', duration: 0.25 },
       { time: 2.5, key: 'E3', duration: 0.25 },
     ]);
-    const result = await nmEval(page, song, `
+    const result = await evaluateWithNoteManager(page, song, `
       nm.update(1.5, H); nm.update(2.0, H);
       const freezeTime = nm.getEarliestWaitTime(2.0);
       const o = nm.checkLearningHit(2.0, NOTE_TO_LANE.get('C3'));
@@ -157,7 +166,7 @@ test.describe('Learning Mode - NoteManager', () => {
   test('single note commits immediately (no buffering delay)', async ({ page }) => {
     await page.goto('/');
     const song = makeSong([{ time: 2.0, key: 'C3', duration: 0.25 }]);
-    const result = await nmEval(page, song, `
+    const result = await evaluateWithNoteManager(page, song, `
       nm.update(1.5, H); nm.update(2.0, H);
       nm.getEarliestWaitTime(2.0);
       const o = nm.checkLearningHit(2.0, NOTE_TO_LANE.get('C3'));
@@ -173,7 +182,7 @@ test.describe('Learning Mode - NoteManager', () => {
       { time: 2.0, key: 'C3', duration: 0.25 },
       { time: 2.1, key: 'E3', duration: 0.25 },
     ]);
-    const result = await nmEval(page, song, `
+    const result = await evaluateWithNoteManager(page, song, `
       nm.update(1.5, H); nm.update(2.0, H);
       nm.update(2.0, H);
       nm.learningMode = true;
@@ -196,7 +205,7 @@ test.describe('Learning Mode - NoteManager', () => {
   test('wrong key press in learn mode resets combo and marks wrong note', async ({ page }) => {
     await page.goto('/');
     const song = makeSong([{ time: 2.0, key: 'C3', duration: 0.25 }]);
-    const result = await nmEval(page, song, `
+    const result = await evaluateWithNoteManager(page, song, `
       nm.update(1.5, H); nm.update(2.0, H);
       nm.learningMode = true;
       nm.getEarliestWaitTime(2.0);
@@ -229,7 +238,7 @@ test.describe('Learning Mode - NoteManager', () => {
       selectedTrackIndices: [0],
       backgroundTracks: [],
     };
-    const result = await nmEval(page, song, `
+    const result = await evaluateWithNoteManager(page, song, `
       nm.learningMode = true;
       nm.update(1.5, H); nm.update(2.0, H);
       const freezeTime = nm.getEarliestWaitTime(2.0);
@@ -262,7 +271,7 @@ test.describe('Learning Mode - freeze resume', () => {
 
     await page.goto('/');
 
-    const result = await page.evaluate(freezeResumeBody(songJson, `
+    const result = await page.evaluate(buildFreezeResumeScript(songJson, `
       await new Promise(r => setTimeout(r, 1500));
       game._handleNoteOn('C3', 'test');
       await new Promise(r => setTimeout(r, 250));
@@ -278,7 +287,6 @@ test.describe('Learning Mode - freeze resume', () => {
     expect(result.firstHit).toBe(true);
     expect(result.secondFailing).toBe(false);
     expect(result.secondMissed).toBe(false);
-    // currentTime resumed smoothly — within ~0.5s of frozen time, not 1.5s ahead
     expect(result.currentTime - result.frozenTime).toBeLessThan(0.5);
   });
 
@@ -294,7 +302,7 @@ test.describe('Learning Mode - freeze resume', () => {
 
     await page.goto('/');
 
-    const result = await page.evaluate(freezeResumeBody(songJson, `
+    const result = await page.evaluate(buildFreezeResumeScript(songJson, `
       game._handleNoteOn('C2', 'test');
       await new Promise(r => setTimeout(r, 300));
       const afterOne = {
@@ -331,7 +339,7 @@ test.describe('Learning Mode - freeze resume', () => {
 
     await page.goto('/');
 
-    const result = await page.evaluate(freezeResumeBody(songJson, `
+    const result = await page.evaluate(buildFreezeResumeScript(songJson, `
       game._handleNoteOn('C2', 't1');
       game._handleNoteOn('E2', 't2');
       game._handleNoteOn('G2', 't3');
@@ -362,23 +370,23 @@ test.describe('Learning Mode - UI', () => {
 
   test('clicking LEARN then PLAY toggles active class', async ({ page }) => {
     await startGame(page);
-    await page.locator('#mode-learn').click();
+    await toggleLearnMode(page);
     await expectMode(page, 'learn');
-    await page.locator('#mode-play').click();
+    await togglePlayMode(page);
     await expectMode(page, 'play');
   });
 
   test('mode is preserved on restart', async ({ page }) => {
     await startGame(page);
-    await page.locator('#mode-learn').click();
+    await toggleLearnMode(page);
     await expectMode(page, 'learn');
-    await page.locator('#btn-restart').click();
+    await clickRestart(page);
     await expectMode(page, 'learn');
   });
 
   test('mode is preserved on retry from results', async ({ page }) => {
     await startGame(page);
-    await page.locator('#mode-learn').click();
+    await toggleLearnMode(page);
     await expectMode(page, 'learn');
     await page.evaluate(() => document.getElementById('btn-retry')?.click());
     await expectMode(page, 'learn');
@@ -386,13 +394,13 @@ test.describe('Learning Mode - UI', () => {
 
   test('mode resets to PLAY when starting fresh from menu', async ({ page }) => {
     await startGame(page);
-    await page.locator('#mode-learn').click();
+    await toggleLearnMode(page);
     await expectMode(page, 'learn');
     await page.evaluate(() => document.getElementById('btn-menu')?.click());
-    await expect(page.locator('#menu-screen')).toHaveClass(/active/, { timeout: 5000 });
+    await expectMenuScreenActive(page);
     await page.locator('.song-item').first().click();
     await page.locator('#btn-start').click();
-    await expect(page.locator('#play-screen')).toHaveClass(/active/, { timeout: 5000 });
+    await expectPlayScreenActive(page);
     await expectMode(page, 'play');
   });
 });

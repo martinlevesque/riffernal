@@ -1,5 +1,5 @@
 import { test, expect } from '@playwright/test';
-import { W, H, makeSong, type NoteSpec } from './helpers.js';
+import { CANVAS_WIDTH, CANVAS_HEIGHT, makeSong, type NoteSpec } from './helpers/index.js';
 
 interface SampleResult {
   activeCount: number;
@@ -31,10 +31,10 @@ function evaluateTest(page: import('@playwright/test').Page, arg: TestArg): Prom
     const { getPianoKeyLayout } = await import('/js/utils/notes.js');
 
     function createRenderer(canvas) {
-      canvas.width = ${W}; canvas.height = ${H};
+      canvas.width = ${CANVAS_WIDTH}; canvas.height = ${CANVAS_HEIGHT};
       const r = new Renderer(canvas);
-      r.width = ${W}; r.height = ${H};
-      r.canvas.width = ${W}; r.canvas.height = ${H};
+      r.width = ${CANVAS_WIDTH}; r.height = ${CANVAS_HEIGHT};
+      r.canvas.width = ${CANVAS_WIDTH}; r.canvas.height = ${CANVAS_HEIGHT};
       r.ctx.setTransform(1, 0, 0, 1, 0, 0);
       r.sheetBottom = 120;
       return r;
@@ -46,13 +46,13 @@ function evaluateTest(page: import('@playwright/test').Page, arg: TestArg): Prom
       }
     }
     function sampleLane(renderer, noteKey) {
-      const layout = getPianoKeyLayout(noteKey, ${W});
-      const pixels = renderer.ctx.getImageData(0, 0, ${W}, ${H}).data;
+      const layout = getPianoKeyLayout(noteKey, ${CANVAS_WIDTH});
+      const pixels = renderer.ctx.getImageData(0, 0, ${CANVAS_WIDTH}, ${CANVAS_HEIGHT}).data;
       const xs = Math.floor(layout.x + 1), xe = Math.floor(layout.x + layout.width - 1);
       let n = 0, rs = 0, bs = 0;
-      for (let y = 0; y < ${H}; y++)
+      for (let y = 0; y < ${CANVAS_HEIGHT}; y++)
         for (let x = xs; x < xe; x++) {
-          const i = (y * ${W} + x) * 4;
+          const i = (y * ${CANVAS_WIDTH} + x) * 4;
           if (pixels[i + 3] > 10 && pixels[i] > 40) { n++; rs += pixels[i]; bs += pixels[i + 2]; }
         }
       return { n, rs, bs };
@@ -60,7 +60,7 @@ function evaluateTest(page: import('@playwright/test').Page, arg: TestArg): Prom
 
     const nm = new NoteManager();
     nm.loadSong(${songJson});
-    const HH = ${H};
+    const HH = ${CANVAS_HEIGHT};
 ${indent(arg.setup, 4)}
     nm.update(${arg.currentTime}, HH);
     const active = nm.getActiveNotes(${arg.currentTime}, HH);

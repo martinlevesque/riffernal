@@ -1,5 +1,5 @@
 import { test, expect, type APIRequestContext } from "@playwright/test";
-import { wipeDatabase, cleanupCategoriesByLabel } from "../helpers.js";
+import { wipeDatabase, cleanupCategoriesByLabel } from "../helpers/index.js";
 
 test.beforeAll(async ({ request }: { request: APIRequestContext }) => {
   await wipeDatabase(request);
