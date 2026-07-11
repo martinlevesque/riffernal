@@ -805,7 +805,7 @@ async function init(): Promise<void> {
       .then(({ bestScore, lastScore }) => {
         song.bestScore = bestScore;
         song.lastScore = lastScore;
-        menu.updateSongBestScore(song.id!, bestScore, lastScore);
+        menu.updateSongStats(song.id!, bestScore, lastScore);
       })
       .catch((e) => console.error('Failed to record best score:', e));
   };

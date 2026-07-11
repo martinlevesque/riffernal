@@ -67,7 +67,7 @@ export class Menu {
     this._render();
   }
 
-  updateSongBestScore(id: number, bestScore: number, lastScore?: number): void {
+  updateSongStats(id: number, bestScore: number, lastScore?: number): void {
     const song = this.songs.find((s) => s.id === id);
 
     if (song) {
