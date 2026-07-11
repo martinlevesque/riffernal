@@ -6,10 +6,8 @@ import {
   updateSongTitle,
   deleteSong,
   touchLastPlayed,
-  getAllBestScores,
-  getAllLastScores,
-  getUserSongBestScore,
-  getUserSongLastScore,
+  getAllScoreStats,
+  getUserSongScoreStats,
   upsertBestScore,
   type SongRow,
 } from "../db.ts";
@@ -79,9 +77,11 @@ export const songRoutes = [
     method: "GET",
     path: "/api/songs",
     handler: (() => {
-      const bestScores = getAllBestScores();
-      const lastScores = getAllLastScores();
-      return json(getAllSongs().map((row) => rowToSummary(row, bestScores.get(row.id) ?? null, lastScores.get(row.id) ?? null)));
+      const scoreStats = getAllScoreStats();
+      return json(getAllSongs().map((row) => {
+        const stats = scoreStats.get(row.id);
+        return rowToSummary(row, stats?.bestScore ?? null, stats?.lastScore ?? null);
+      }));
     }) as Handler,
   },
   {
@@ -115,9 +115,8 @@ export const songRoutes = [
     path: "/api/songs/:id",
     handler: ((_req: Request, { id }: Record<string, string>) =>
       withSong(id, (row) => {
-        const bestScore = getUserSongBestScore(row.id);
-        const lastScore = getUserSongLastScore(row.id);
-        return json(rowToFull(row, bestScore, lastScore));
+        const stats = getUserSongScoreStats(row.id);
+        return json(rowToFull(row, stats.bestScore, stats.lastScore));
       })) as Handler,
   },
   {
@@ -155,9 +154,8 @@ export const songRoutes = [
           }
 
           const updated = getSongById(songId)!;
-          const bestScore = getUserSongBestScore(songId);
-          const lastScore = getUserSongLastScore(songId);
-          return json(rowToFull(updated, bestScore, lastScore));
+          const stats = getUserSongScoreStats(songId);
+          return json(rowToFull(updated, stats.bestScore, stats.lastScore));
         })
         .catch(() => json({ error: "Invalid request" }, 400))) as Handler,
   },

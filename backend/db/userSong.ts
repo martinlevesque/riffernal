@@ -8,18 +8,16 @@ export interface UserSongRow {
   updated_at: string;
 }
 
-export function getUserSongBestScore(songId: number): number | null {
-  const row = db
-    .query("SELECT best_score FROM user_songs WHERE user_id = 1 AND song_id = ?")
-    .get(songId) as { best_score: number } | undefined;
-  return row?.best_score ?? null;
+export interface ScoreStats {
+  bestScore: number | null;
+  lastScore: number | null;
 }
 
-export function getUserSongLastScore(songId: number): number | null {
+export function getUserSongScoreStats(songId: number): ScoreStats {
   const row = db
-    .query("SELECT last_score FROM user_songs WHERE user_id = 1 AND song_id = ?")
-    .get(songId) as { last_score: number | null } | undefined;
-  return row?.last_score ?? null;
+    .query("SELECT best_score, last_score FROM user_songs WHERE user_id = 1 AND song_id = ?")
+    .get(songId) as { best_score: number; last_score: number | null } | undefined;
+  return { bestScore: row?.best_score ?? null, lastScore: row?.last_score ?? null };
 }
 
 /** Upsert best score for the default user (id=1) and the given song.
@@ -46,29 +44,15 @@ export function upsertBestScore(
   return { bestScore: row.best_score, lastScore: row.last_score, isNew: row.best_score === score };
 }
 
-/** Return best scores keyed by song_id for all songs of the default user. */
-export function getAllBestScores(): Map<number, number> {
+/** Return score stats (best + last) keyed by song_id for all songs of the default user. */
+export function getAllScoreStats(): Map<number, ScoreStats> {
   const rows = db
-    .query("SELECT song_id, best_score FROM user_songs WHERE user_id = 1")
-    .all() as { song_id: number; best_score: number }[];
-  const map = new Map<number, number>();
+    .query("SELECT song_id, best_score, last_score FROM user_songs WHERE user_id = 1")
+    .all() as { song_id: number; best_score: number; last_score: number | null }[];
+  const map = new Map<number, ScoreStats>();
 
   for (const row of rows) {
-    map.set(row.song_id, row.best_score);
-  }
-
-  return map;
-}
-
-/** Return last scores keyed by song_id for all songs of the default user. */
-export function getAllLastScores(): Map<number, number> {
-  const rows = db
-    .query("SELECT song_id, last_score FROM user_songs WHERE user_id = 1 AND last_score IS NOT NULL")
-    .all() as { song_id: number; last_score: number }[];
-  const map = new Map<number, number>();
-
-  for (const row of rows) {
-    map.set(row.song_id, row.last_score);
+    map.set(row.song_id, { bestScore: row.best_score, lastScore: row.last_score });
   }
 
   return map;
