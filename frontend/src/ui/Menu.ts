@@ -67,11 +67,14 @@ export class Menu {
     this._render();
   }
 
-  updateSongBestScore(id: number, bestScore: number): void {
+  updateSongBestScore(id: number, bestScore: number, lastScore?: number): void {
     const song = this.songs.find((s) => s.id === id);
 
     if (song) {
       song.bestScore = bestScore;
+      if (lastScore !== undefined) {
+        song.lastScore = lastScore;
+      }
       this._render();
     }
   }
@@ -268,11 +271,21 @@ export class Menu {
       el.appendChild(lastPlayedEl);
     }
 
-    if (song.bestScore != null) {
-      const bestEl = document.createElement("div");
-      bestEl.className = "song-best-score";
-      bestEl.textContent = `Best: ${formatScore(song.bestScore)}`;
-      el.appendChild(bestEl);
+    if (song.bestScore != null || song.lastScore != null) {
+      const scoreEl = document.createElement("div");
+      scoreEl.className = "song-scores";
+      const parts: string[] = [];
+
+      if (song.lastScore != null) {
+        parts.push(`Last: ${formatScore(song.lastScore)}`);
+      }
+
+      if (song.bestScore != null) {
+        parts.push(`Best: ${formatScore(song.bestScore)}`);
+      }
+
+      scoreEl.textContent = parts.join(" | ");
+      el.appendChild(scoreEl);
     }
 
     const editBtn = document.createElement("button");

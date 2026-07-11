@@ -14,7 +14,9 @@ export {
 export {
   type UserSongRow,
   getUserSongBestScore,
+  getUserSongLastScore,
   upsertBestScore,
   getAllBestScores,
+  getAllLastScores,
 } from "./userSong.ts";
 export { type UserRow, type GameSettings, getUser, getUserGameSettings, updateUserGameSettings } from "./user.ts";

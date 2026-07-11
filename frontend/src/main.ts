@@ -802,9 +802,10 @@ async function init(): Promise<void> {
   game.onResults = (scoring, song) => {
     if (!song.id || game.usedLearningMode) return;
     recordBestScore(song.id, scoring.score)
-      .then(({ bestScore }) => {
+      .then(({ bestScore, lastScore }) => {
         song.bestScore = bestScore;
-        menu.updateSongBestScore(song.id!, bestScore);
+        song.lastScore = lastScore;
+        menu.updateSongBestScore(song.id!, bestScore, lastScore);
       })
       .catch((e) => console.error('Failed to record best score:', e));
   };

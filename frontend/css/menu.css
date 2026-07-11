@@ -196,7 +196,7 @@
   opacity: 0.5;
 }
 
-.song-best-score {
+.song-scores {
   font-size: 0.7rem;
   color: var(--accent-yellow);
   margin-top: 0.1rem;

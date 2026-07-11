@@ -61,3 +61,9 @@ db.exec(`
     PRIMARY KEY (user_id, song_id)
   );
 `);
+
+try {
+  db.exec("ALTER TABLE user_songs ADD COLUMN last_score INTEGER");
+} catch {
+  // Column already exists — ignore
+}

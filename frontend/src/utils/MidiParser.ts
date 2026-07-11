@@ -33,6 +33,7 @@ export interface Song {
   categoryId?: number | null;
   lastPlayedAt?: string | null;
   bestScore?: number | null;
+  lastScore?: number | null;
 }
 
 export function normalizeSong(song: Song): Song {

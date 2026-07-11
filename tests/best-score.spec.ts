@@ -48,8 +48,8 @@ test.describe('Best Score', () => {
     await clickBackToMenu(page);
 
     // recordBestScore is async — wait for the menu to re-render with the score
-    await expect(page.locator('.song-best-score').first()).toBeVisible({ timeout: 10000 });
-    const text = await page.locator('.song-best-score').first().textContent();
+    await expect(page.locator('.song-scores').first()).toBeVisible({ timeout: 10000 });
+    const text = await page.locator('.song-scores').first().textContent();
     expect(text).toMatch(/Best:/);
   });
 
@@ -69,7 +69,7 @@ test.describe('Best Score', () => {
     await clickBackToMenu(page);
 
     // Best score should NOT appear — no recordBestScore call was made
-    await expect(page.locator('.song-best-score')).toHaveCount(0, { timeout: 5000 });
+    await expect(page.locator('.song-scores')).toHaveCount(0, { timeout: 5000 });
   });
 
   test('best score in song list updates after a better run', async ({ page }) => {
@@ -81,8 +81,8 @@ test.describe('Best Score', () => {
     await clickBackToMenu(page);
 
     // Wait for best score to appear after async API call
-    await expect(page.locator('.song-best-score').first()).toBeVisible({ timeout: 10000 });
-    const firstScore = await page.locator('.song-best-score').first().textContent();
+    await expect(page.locator('.song-scores').first()).toBeVisible({ timeout: 10000 });
+    const firstScore = await page.locator('.song-scores').first().textContent();
 
     // Second run — re-select and start (song is already selected)
     await page.locator('#btn-start').click();
@@ -92,8 +92,8 @@ test.describe('Best Score', () => {
     await clickBackToMenu(page);
 
     // Best score element should still be present (may or may not have changed)
-    await expect(page.locator('.song-best-score').first()).toBeVisible({ timeout: 10000 });
-    const secondScore = await page.locator('.song-best-score').first().textContent();
+    await expect(page.locator('.song-scores').first()).toBeVisible({ timeout: 10000 });
+    const secondScore = await page.locator('.song-scores').first().textContent();
     expect(secondScore).toMatch(/Best:/);
     // Score should not have decreased
     const parse = (s: string | null) => parseInt((s ?? '').replace(/\D/g, '') || '0', 10);
