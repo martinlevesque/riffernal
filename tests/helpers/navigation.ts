@@ -15,8 +15,7 @@ export async function startGame(page: Page, options: StartGameOptions = {}): Pro
   const { id } = await seedSong(request, songTitle);
   await page.goto('/');
   await page.locator('.song-item').first().waitFor({ timeout: 5000 });
-  await page.locator('.song-item').first().click();
-  await page.locator('#btn-start').click();
+  await page.locator('.song-item').first().dblclick();
   await page.locator('#play-screen').waitFor({ state: 'attached', timeout: 5000 });
   if (!keepSong) {
     // Clean up the seeded song after the page navigates away from the menu.
