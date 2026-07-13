@@ -296,6 +296,9 @@ export class Menu {
       e.stopPropagation();
       if (this.onRename) this.onRename(song);
     });
+    editBtn.addEventListener("dblclick", (e) => {
+      e.stopPropagation();
+    });
     el.appendChild(editBtn);
 
     el.addEventListener("click", () => {
@@ -306,6 +309,13 @@ export class Menu {
       el.classList.add("selected");
       this.startBtn.disabled = false;
     });
+
+    el.addEventListener("dblclick", () => {
+      if (this.onStart) {
+        this.onStart(song);
+      }
+    });
+
     return el;
   }
 
