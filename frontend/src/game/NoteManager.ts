@@ -2,7 +2,7 @@
 // Tracks active notes, handles press/release events, and resolves
 // notes based on timing windows and scoring rules.
 
-import { NOTE_TO_LANE, handForKey, handColor, HandSide, PracticeHand } from '../utils/notes.js';
+import { NOTE_TO_LANE, pitchClassForLane, handForKey, handColor, HandSide, PracticeHand } from '../utils/notes.js';
 import type { Song, Note } from '../utils/MidiParser.js';
 import type { Renderer } from './rendering/Renderer.js';
 import { Scoring, TIMING, TAP_NOTE_THRESHOLD, EARLY_HIT_WINDOW, EARLY_PENALTY_RATIO, LEARNING_CHORD_WINDOW, gradeFromDiff, NoteGrade } from './scoring.js';
@@ -25,6 +25,7 @@ export interface SongNote extends Note {
   hit: boolean;
   missed: boolean;
   lane: number;
+  pitchClass: string;
   holding: boolean;
   pressStartTime: number;
   failing: boolean;
@@ -115,6 +116,7 @@ export class NoteManager {
         hit: false,
         missed: false,
         lane: NOTE_TO_LANE.get(n.key) ?? -1,
+        pitchClass: n.key.replace(/\d/g, ''),
         holding: false,
         pressStartTime: 0,
         failing: false,
@@ -332,9 +334,10 @@ export class NoteManager {
     this.activeNotes.length = writeIdx;
   }
 
-  checkHit(currentTime: number, lane: number): HitResult | null {
-    const result = this._tryRecoverFailingNote(currentTime, lane) ?? this._tryNormalHit(currentTime, lane);
-    if (result === null && !this.hasUnresolvedNoteInLane(lane, currentTime)) {
+  checkHit(currentTime: number, lane: number, octaveAgnostic = false): HitResult | null {
+    const result = this._tryRecoverFailingNote(currentTime, lane, octaveAgnostic)
+      ?? this._tryNormalHit(currentTime, lane, octaveAgnostic);
+    if (result === null && !this.hasUnresolvedNoteInLane(lane, currentTime, octaveAgnostic)) {
       this.scoring.recordWrongPress();
     }
     return result;
@@ -343,9 +346,11 @@ export class NoteManager {
   /** Returns true if there is an unresolved note in the given lane within
    *  the hittable window of `currentTime`. Pressing a key for a note beyond
    *  that is a wrong key press. */
-  hasUnresolvedNoteInLane(lane: number, currentTime: number): boolean {
+  hasUnresolvedNoteInLane(lane: number, currentTime: number, octaveAgnostic = false): boolean {
+    const targetPitchClass = octaveAgnostic ? pitchClassForLane(lane) : '';
     return this.activeNotes.some(
-      (n) => n.lane === lane && !n.resolved && Math.abs(n.time - currentTime) <= TIMING.GOOD,
+      (n) => this._noteMatchesLane(n, lane, octaveAgnostic, targetPitchClass)
+        && !n.resolved && Math.abs(n.time - currentTime) <= TIMING.GOOD,
     );
   }
 
@@ -363,9 +368,11 @@ export class NoteManager {
     if (this.onResolve) this.onResolve({ note, score: note.earnedScore, grade });
   }
 
-  private _tryRecoverFailingNote(currentTime: number, lane: number): HitResult | null {
+  private _tryRecoverFailingNote(currentTime: number, lane: number, octaveAgnostic = false): HitResult | null {
+    const targetPitchClass = octaveAgnostic ? pitchClassForLane(lane) : '';
     for (const note of this.activeNotes) {
-      if (!note.failing || note.holding || note.resolved || note.lane !== lane) continue;
+      if (!note.failing || note.holding || note.resolved) continue;
+      if (!this._noteMatchesLane(note, lane, octaveAgnostic, targetPitchClass)) continue;
 
       const noteEnd = note.time + note.duration;
       if (currentTime >= noteEnd) continue;
@@ -377,7 +384,7 @@ export class NoteManager {
       const hasFreshNote = this.activeNotes.some(
         (n) =>
           n !== note &&
-          n.lane === lane &&
+          this._noteMatchesLane(n, lane, octaveAgnostic, targetPitchClass) &&
           !n.hit &&
           !n.missed &&
           !n.holding &&
@@ -409,14 +416,15 @@ export class NoteManager {
     return null;
   }
 
-  private _tryNormalHit(currentTime: number, lane: number): HitResult | null {
+  private _tryNormalHit(currentTime: number, lane: number, octaveAgnostic = false): HitResult | null {
     let bestNote: SongNote | null = null;
     let bestDiff = Infinity;
     let isEarlyHit = false;
+    const targetPitchClass = octaveAgnostic ? pitchClassForLane(lane) : '';
 
     for (const note of this.activeNotes) {
       if (note.hit || note.missed || note.holding || note.failing) continue;
-      if (note.lane !== lane) continue;
+      if (!this._noteMatchesLane(note, lane, octaveAgnostic, targetPitchClass)) continue;
       if (this._isAutoPlayNote(note)) continue;
       const diff = Math.abs(note.time - currentTime);
       const isEarly = currentTime < note.time;
@@ -445,10 +453,11 @@ export class NoteManager {
     return { note: bestNote, result: grade };
   }
 
-  checkRelease(currentTime: number, lane: number): ReleaseResult | null {
+  checkRelease(currentTime: number, lane: number, octaveAgnostic = false): ReleaseResult | null {
     let holdingNote: SongNote | null = null;
+    const targetPitchClass = octaveAgnostic ? pitchClassForLane(lane) : '';
     for (const note of this.activeNotes) {
-      if (note.holding && note.lane === lane) {
+      if (note.holding && this._noteMatchesLane(note, lane, octaveAgnostic, targetPitchClass)) {
         if (note.autoPlayed) return null;
         holdingNote = note;
         break;
@@ -476,10 +485,28 @@ export class NoteManager {
     return { note: holdingNote, penalty: 0, holdRatio: cumulativeRatio, grade: holdingNote.grade! };
   }
 
-  private _isAutoPlayLane(lane: number): boolean {
+  private _isAutoPlayLane(lane: number, octaveAgnostic = false): boolean {
+    const targetPitchClass = octaveAgnostic ? pitchClassForLane(lane) : '';
     return this.activeNotes.some(
-      (n) => n.lane === lane && !n.resolved && this._isAutoPlayNote(n),
+      (n) => this._noteMatchesLane(n, lane, octaveAgnostic, targetPitchClass) && !n.resolved && this._isAutoPlayNote(n),
     );
+  }
+
+  private _noteMatchesLane(note: SongNote, lane: number, octaveAgnostic: boolean, targetPitchClass: string): boolean {
+    return octaveAgnostic ? note.pitchClass === targetPitchClass : note.lane === lane;
+  }
+
+  private _hasPlayableNote(currentTime: number, lane: number, octaveAgnostic: boolean, targetPitchClass: string): boolean {
+    return this.activeNotes.some(
+      (n) => this._noteMatchesLane(n, lane, octaveAgnostic, targetPitchClass) && !n.hit && !n.missed && !n.holding && !n.failing && !n.resolved && !this._isAutoPlayNote(n) && Math.abs(n.time - currentTime) <= TIMING.GOOD,
+    );
+  }
+
+  private _learningChordLanesHasPitchClass(targetPitchClass: string): boolean {
+    for (const chordLane of this._learningChordLanes) {
+      if (pitchClassForLane(chordLane) === targetPitchClass) return true;
+    }
+    return false;
   }
 
   getEarliestWaitTime(rawTime: number): number | null {
@@ -526,17 +553,16 @@ export class NoteManager {
     return null;
   }
 
-  checkLearningHit(currentTime: number, lane: number, realTime: number = performance.now()): LearningHitOutcome {
-    const recoverResult = this._tryRecoverFailingNote(currentTime, lane);
+  checkLearningHit(currentTime: number, lane: number, realTime: number = performance.now(), octaveAgnostic = false): LearningHitOutcome {
+    const recoverResult = this._tryRecoverFailingNote(currentTime, lane, octaveAgnostic);
     if (recoverResult) {
       return { results: [recoverResult], wrong: false };
     }
 
-    const hasPlayableNote = this.activeNotes.some(
-      (n) => n.lane === lane && !n.hit && !n.missed && !n.holding && !n.failing && !n.resolved && !this._isAutoPlayNote(n) && Math.abs(n.time - currentTime) <= TIMING.GOOD,
-    );
+    const targetPitchClass = octaveAgnostic ? pitchClassForLane(lane) : '';
+    const hasPlayableNote = this._hasPlayableNote(currentTime, lane, octaveAgnostic, targetPitchClass);
     if (!hasPlayableNote) {
-      if (!this._isAutoPlayLane(lane)) {
+      if (!this._isAutoPlayLane(lane, octaveAgnostic)) {
         this.scoring.recordWrongPress();
         return { results: [], wrong: true };
       }
@@ -545,11 +571,14 @@ export class NoteManager {
     if (this._learningAnchor === null) {
       // Unreachable: hasPlayableNote already confirmed a note exists within
       // TIMING.GOOD, so _tryNormalHit will always find it.
-      const result = this._tryNormalHit(currentTime, lane);
+      const result = this._tryNormalHit(currentTime, lane, octaveAgnostic);
       return { results: result ? [result] : [], wrong: false };
     }
-    if (!this._learningChordLanes.has(lane)) {
-      if (!this._isAutoPlayLane(lane)) {
+    const inChord = octaveAgnostic
+      ? this._learningChordLanesHasPitchClass(targetPitchClass)
+      : this._learningChordLanes.has(lane);
+    if (!inChord) {
+      if (!this._isAutoPlayLane(lane, octaveAgnostic)) {
         this.scoring.recordWrongPress();
         return { results: [], wrong: true };
       }
@@ -572,7 +601,7 @@ export class NoteManager {
 
     const results: HitResult[] = [];
     for (const pressedLane of this._learningChordPresses) {
-      const r = this.checkHit(currentTime, pressedLane);
+      const r = this.checkHit(currentTime, pressedLane, octaveAgnostic);
       if (r) results.push(r);
     }
     this._learningChordPresses.clear();

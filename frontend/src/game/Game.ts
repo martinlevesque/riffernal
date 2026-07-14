@@ -70,6 +70,7 @@ export class Game {
   get usedLearningMode(): boolean { return this._usedLearningMode; }
   songBpm = 120;
   showUsedKeys = false;
+  octaveAgnostic = false;
   usedNoteRange: VisibleRange | null = null;
 
   private _paused = false;
@@ -372,12 +373,12 @@ export class Game {
 
   private _resolveHit(lane: number): HitResult[] {
     if (this.learningMode) {
-      const outcome = this.noteManager.checkLearningHit(this.currentTime, lane, performance.now());
+      const outcome = this.noteManager.checkLearningHit(this.currentTime, lane, performance.now(), this.octaveAgnostic);
       if (outcome.wrong) this.scoreDisplay?.showFeedback('Wrong', getFeedbackColors().MISS);
       return outcome.results;
     }
-    const r = this.noteManager.checkHit(this.currentTime, lane);
-    if (r === null && !this.noteManager.hasUnresolvedNoteInLane(lane, this.currentTime)) {
+    const r = this.noteManager.checkHit(this.currentTime, lane, this.octaveAgnostic);
+    if (r === null && !this.noteManager.hasUnresolvedNoteInLane(lane, this.currentTime, this.octaveAgnostic)) {
       this.scoreDisplay?.showFeedback('Wrong', getFeedbackColors().MISS);
     }
     return r ? [r] : [];
@@ -409,7 +410,7 @@ export class Game {
     this.synth.noteOff(noteName);
 
     if (this.state === GameState.Playing) {
-      this.noteManager.checkRelease(this.currentTime, lane);
+      this.noteManager.checkRelease(this.currentTime, lane, this.octaveAgnostic);
     }
   }
 

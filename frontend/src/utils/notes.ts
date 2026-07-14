@@ -48,6 +48,7 @@ const RIGHT_HAND_COLORS = ['#ff2244', '#ff6622', '#ffaa22', '#ffdd22', '#ddff22'
 const _chromaticMap: Record<string, number> = { C: 0, 'C#': 1, D: 2, 'D#': 3, E: 4, F: 5, 'F#': 6, G: 7, 'G#': 8, A: 9, 'A#': 10, B: 11 };
 
 const _handSideCache = new Map<string, HandSide>();
+
 for (const name of NOTE_NAMES) {
   const match = name.match(/^([A-G]#?)(\d)$/);
   if (!match) { _handSideCache.set(name, HandSide.Right); continue; }
@@ -61,6 +62,18 @@ export function handForKey(noteKey: string): HandSide {
 
 export const NOTE_SHORT_NAMES: Record<string, string> = Object.create(null);
 for (const name of NOTE_NAMES) NOTE_SHORT_NAMES[name] = name.replace(/\d/g, '');
+
+export const NOTE_NAMES_TO_PITCH_CLASS: Record<string, string> = Object.create(null);
+
+for (const name of NOTE_NAMES) {
+  NOTE_NAMES_TO_PITCH_CLASS[name] = name.replace(/\d/g, '');
+}
+
+const _LANE_TO_PITCH_CLASS: string[] = NOTE_NAMES.map((name) => name.replace(/\d/g, ''));
+
+export function pitchClassForLane(lane: number): string {
+  return _LANE_TO_PITCH_CLASS[lane] ?? '';
+}
 
 export function handColor(noteKey: string): string {
   const match = noteKey.match(/^([A-G]#?)(\d)$/);

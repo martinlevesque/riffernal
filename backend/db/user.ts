@@ -2,6 +2,7 @@ import { db } from "./connection.ts";
 
 export interface GameSettings {
   piano_show_used_keys_only?: boolean;
+  octave_agnostic?: boolean;
 }
 
 export interface UserRow {

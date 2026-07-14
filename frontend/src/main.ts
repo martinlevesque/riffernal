@@ -785,14 +785,22 @@ async function init(): Promise<void> {
 
   // User settings
   const showUsedKeysCheckbox = document.getElementById('show-used-keys') as HTMLInputElement;
+  const octaveAgnosticCheckbox = document.getElementById('octave-agnostic') as HTMLInputElement;
   try {
     const settings = await fetchUserSettings();
     game.showUsedKeys = settings.piano_show_used_keys_only ?? false;
     showUsedKeysCheckbox.checked = game.showUsedKeys;
+    game.octaveAgnostic = settings.octave_agnostic ?? false;
+    octaveAgnosticCheckbox.checked = game.octaveAgnostic;
   } catch { /* ignore */ }
   showUsedKeysCheckbox.addEventListener('change', () => {
     game.setShowUsedKeys(showUsedKeysCheckbox.checked);
     updateUserSettings({ piano_show_used_keys_only: showUsedKeysCheckbox.checked })
+      .catch((e) => console.warn('Failed to save settings:', e));
+  });
+  octaveAgnosticCheckbox.addEventListener('change', () => {
+    game.octaveAgnostic = octaveAgnosticCheckbox.checked;
+    updateUserSettings({ octave_agnostic: octaveAgnosticCheckbox.checked })
       .catch((e) => console.warn('Failed to save settings:', e));
   });
 
