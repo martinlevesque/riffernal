@@ -45,8 +45,8 @@ test('chord notes have heads at same vertical position', async ({ page }) => {
     const imageData = ctx.getImageData(0, 0, W, H);
     const pixels = imageData.data;
 
-    function findNotePixelBounds(noteName: string): { bottomY: number | null; topY: number | null } {
-      const layout = getPianoKeyLayout(noteName, W);
+    function findNotePixelBounds(note: { key: string; y: number; height: number }): { bottomY: number | null; topY: number | null } {
+      const layout = getPianoKeyLayout(note.key, W);
       const xStart = Math.floor(layout.x + 1);
       const xEnd = Math.floor(layout.x + layout.width - 1);
       let minY: number | null = null;
@@ -67,7 +67,7 @@ test('chord notes have heads at same vertical position', async ({ page }) => {
       return { bottomY: maxY, topY: minY };
     }
 
-    const bounds = active.map((n: any) => findNotePixelBounds(n.key));
+    const bounds = active.map((n: any) => findNotePixelBounds(n));
     const bottoms = bounds.map((b: any) => b.bottomY);
     const tops = bounds.map((b: any) => b.topY);
 

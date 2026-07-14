@@ -50,8 +50,8 @@ test('game renders chord notes at same center Y', async ({ page }) => {
     const imageData = ctx.getImageData(0, 0, W, H);
     const pixels = imageData.data;
 
-    function findNoteCenter(noteName: string): number | null {
-      const layout = getPianoKeyLayout(noteName, W);
+    function findNoteCenter(note: { key: string; y: number; height: number }): number | null {
+      const layout = getPianoKeyLayout(note.key, W);
       const xStart = Math.floor(layout.x + 1);
       const xEnd = Math.floor(layout.x + layout.width - 1);
       const ys: number[] = [];
@@ -67,7 +67,7 @@ test('game renders chord notes at same center Y', async ({ page }) => {
       return (ys[0] + ys[ys.length - 1]) / 2;
     }
 
-    const centers = chordNotes.map((n: any) => findNoteCenter(n.key));
+    const centers = chordNotes.map((n: any) => findNoteCenter(n));
 
     return {
       yUniqueCount: yValues.length,

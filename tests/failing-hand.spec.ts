@@ -45,12 +45,40 @@ function evaluateTest(page: import('@playwright/test').Page, arg: TestArg): Prom
         renderer.drawNote(n.lane, n.y, n.height, n.color, n.alpha, renderer.sheetBottom, 0, n.key, n.holding, n.failing);
       }
     }
-    function sampleLane(renderer, noteKey) {
-      const layout = getPianoKeyLayout(noteKey, ${CANVAS_WIDTH});
+    // Sample the note's own fill color (hand-tinted, incl. the fail-color swap), not
+    // the decorations layered on top of it: failing notes get a thin pulsing outline
+    // + bright label drawn over the fill. Inset the sample both horizontally (middle
+    // of the note) and vertically (skip the label band near the bottom of the head)
+    // to isolate the fill itself.
+    function sampleLane(renderer, note) {
+      const layout = getPianoKeyLayout(note.key, ${CANVAS_WIDTH});
+      const centerX = layout.x + layout.width / 2;
+      const halfWidth = (layout.width / 2) * 0.6;
+      const xs = Math.floor(centerX - halfWidth), xe = Math.floor(centerX + halfWidth);
       const pixels = renderer.ctx.getImageData(0, 0, ${CANVAS_WIDTH}, ${CANVAS_HEIGHT}).data;
-      const xs = Math.floor(layout.x + 1), xe = Math.floor(layout.x + layout.width - 1);
-      let n = 0, rs = 0, bs = 0;
+
+      // First pass: find the note's vertical extent. The 3D gradient fill lightens
+      // toward the far (tail) end of a long held/failing note, which would skew a
+      // whole-note average; the label band at the very bottom of the head is drawn
+      // over the fill too. Sample a narrow band just above the label, near the head,
+      // where the fill is most saturated and representative of the base color.
+      let minY = null, maxY = null;
       for (let y = 0; y < ${CANVAS_HEIGHT}; y++)
+        for (let x = xs; x < xe; x++) {
+          const i = (y * ${CANVAS_WIDTH} + x) * 4;
+          if (pixels[i + 3] > 10 && Math.max(pixels[i], pixels[i+1], pixels[i+2]) > 40) {
+            if (minY === null) minY = y;
+            maxY = y;
+          }
+        }
+      if (minY === null) return { n: 0, rs: 0, bs: 0 };
+      const LABEL_BAND = 20;
+      const BODY_SAMPLE_BAND = 30;
+      const bodyMaxY = Math.max(minY, maxY - LABEL_BAND);
+      const bodyMinY = Math.max(minY, bodyMaxY - BODY_SAMPLE_BAND);
+
+      let n = 0, rs = 0, bs = 0;
+      for (let y = bodyMinY; y <= bodyMaxY; y++)
         for (let x = xs; x < xe; x++) {
           const i = (y * ${CANVAS_WIDTH} + x) * 4;
           if (pixels[i + 3] > 10 && pixels[i] > 40) { n++; rs += pixels[i]; bs += pixels[i + 2]; }
@@ -68,7 +96,8 @@ ${indent(arg.setup, 4)}
     const c = document.createElement('canvas');
     const r = createRenderer(c);
     renderNotes(r, active);
-    const s = sampleLane(r, ${JSON.stringify(arg.sampleKey)});
+    const target = active.find((n) => n.key === ${JSON.stringify(arg.sampleKey)});
+    const s = target ? sampleLane(r, target) : { n: 0, rs: 0, bs: 0 };
     return { activeCount: active.length, count: s.n, avgRed: s.n ? s.rs / s.n : 0, avgBlue: s.n ? s.bs / s.n : 0 };
   })()`;
 

@@ -48,6 +48,9 @@ export interface ThemeCanvas {
   failColorSheetRight: string;
   failParticleLeft: string;
   failParticleRight: string;
+  failOutline: string;
+  failGlow: string;
+  failLabel: string;
   noteHeadLabel: string;
   noteHighlight: string;
 }

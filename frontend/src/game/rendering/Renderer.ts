@@ -109,6 +109,49 @@ const SHEET_NOTE_POSITIONS: Record<string, number> = Object.assign(
 const TAIL_HIGHLIGHT_ALPHA = 0.06;
 const HEAD_HIGHLIGHT_ALPHA = 0.18;
 
+/** Lightens (amount > 0) or darkens (amount < 0) a '#rrggbb' color for simple 3D shading.
+ *  Adjusts HSL lightness rather than mixing RGB channels toward white/black directly,
+ *  so it preserves hue instead of desaturating dark, saturated colors (e.g. a fail
+ *  color with a near-zero blue channel would otherwise skew toward gray/blue-white). */
+function shade(hex: string, amount: number): string {
+  const m = /^#([0-9a-f]{6})$/i.exec(hex);
+  if (!m) return hex;
+  const num = parseInt(m[1], 16);
+  const r = ((num >> 16) & 0xff) / 255;
+  const g = ((num >> 8) & 0xff) / 255;
+  const b = (num & 0xff) / 255;
+
+  const max = Math.max(r, g, b);
+  const min = Math.min(r, g, b);
+  let h = 0;
+  const l = (max + min) / 2;
+  const d = max - min;
+  const s = d === 0 ? 0 : d / (1 - Math.abs(2 * l - 1));
+  if (d !== 0) {
+    if (max === r) h = ((g - b) / d) % 6;
+    else if (max === g) h = (b - r) / d + 2;
+    else h = (r - g) / d + 4;
+    h *= 60;
+    if (h < 0) h += 360;
+  }
+
+  const newL = Math.max(0, Math.min(1, amount >= 0 ? l + (1 - l) * amount : l * (1 + amount)));
+
+  const c = (1 - Math.abs(2 * newL - 1)) * s;
+  const x = c * (1 - Math.abs(((h / 60) % 2) - 1));
+  const mAdj = newL - c / 2;
+  let [r1, g1, b1] = [0, 0, 0];
+  if (h < 60) [r1, g1, b1] = [c, x, 0];
+  else if (h < 120) [r1, g1, b1] = [x, c, 0];
+  else if (h < 180) [r1, g1, b1] = [0, c, x];
+  else if (h < 240) [r1, g1, b1] = [0, x, c];
+  else if (h < 300) [r1, g1, b1] = [x, 0, c];
+  else [r1, g1, b1] = [c, 0, x];
+
+  const toByte = (v: number): number => Math.max(0, Math.min(255, Math.round((v + mAdj) * 255)));
+  return `rgb(${toByte(r1)}, ${toByte(g1)}, ${toByte(b1)})`;
+}
+
 interface NoteLayout {
   drawX: number;
   drawY: number;
@@ -202,10 +245,11 @@ export class Renderer {
     const laneCount = visibleRange
       ? countWhiteKeysInRange(visibleRange)
       : WHITE_KEY_COUNT;
+
     for (let i = 1; i < laneCount; i++) {
-      const x = i * keyWidth;
-      ctx.moveTo(x, highwayTop);
-      ctx.lineTo(x, highwayBottom);
+      const bottomX = i * keyWidth;
+      ctx.moveTo(bottomX, highwayTop);
+      ctx.lineTo(bottomX, highwayBottom);
     }
     ctx.stroke();
   }
@@ -243,7 +287,8 @@ export class Renderer {
     const scaleRange = hitZoneY - sheetBottom;
     const headBottom = y + noteHeight;
     const clampedY = Math.max(sheetBottom, Math.min(headBottom, hitZoneY));
-    const scale = 0.45 + 0.55 * ((clampedY - sheetBottom) / scaleRange);
+    const depthT = (clampedY - sheetBottom) / scaleRange;
+    const scale = 0.45 + 0.55 * depthT;
 
     const HEAD_HEIGHT = 14;
     const scaledHeadHeight = HEAD_HEIGHT * scale;
@@ -266,6 +311,62 @@ export class Renderer {
     ctx.fillStyle = color;
     roundRect(ctx, drawX, drawY, w, h, r);
     ctx.fill();
+  }
+
+  /** Vertical gradient (gloss top -> base -> shadow bottom) for the 3D note look, or a
+   *  flat color on low-end devices where gradients aren't worth the cost. */
+  private _blockFill(ctx: CanvasRenderingContext2D, color: string, drawY: number, height: number): string | CanvasGradient {
+    if (this._isLowEnd || height <= 0) return color;
+    const g = ctx.createLinearGradient(0, drawY, 0, drawY + height);
+    g.addColorStop(0, shade(color, 0.35));
+    g.addColorStop(0.5, color);
+    g.addColorStop(1, shade(color, -0.35));
+    return g;
+  }
+
+  private _drawNote3dDetail(ctx: CanvasRenderingContext2D, color: string, drawX: number, drawY: number, width: number, height: number, cornerRadius: number, alpha: number): void {
+    // Gloss band across the top of the block.
+    ctx.globalAlpha = alpha * HEAD_HIGHLIGHT_ALPHA;
+    ctx.fillStyle = themeManager.canvas.noteHighlight;
+    roundRect(ctx, drawX, drawY, width, Math.min(height, height * 0.4), cornerRadius);
+    ctx.fill();
+
+    // Shadow edge along the bottom of the block.
+    const shadowH = Math.max(1.5, height * 0.12);
+    ctx.globalAlpha = alpha * 0.25;
+    ctx.fillStyle = 'rgba(0, 0, 0, 1)';
+    roundRect(ctx, drawX, drawY + height - shadowH, width, shadowH, cornerRadius);
+    ctx.fill();
+
+    // Side bevel highlight.
+    ctx.globalAlpha = alpha * 0.5;
+    ctx.strokeStyle = shade(color, 0.5);
+    ctx.lineWidth = 1;
+    roundRect(ctx, drawX + 0.5, drawY + 0.5, Math.max(0, width - 1), Math.max(0, height - 1), cornerRadius);
+    ctx.stroke();
+
+    ctx.globalAlpha = alpha;
+  }
+
+  private _drawFailingOutline(ctx: CanvasRenderingContext2D, drawX: number, drawY: number, width: number, height: number, cornerRadius: number, alpha: number): void {
+    const c = themeManager.canvas;
+    const pulse = 0.5 + 0.5 * Math.sin(this._now / 1000 * 6.0);
+
+    if (!this._isLowEnd) {
+      const glowW = 3 + pulse * 6;
+      ctx.globalAlpha = alpha * (0.15 + 0.15 * pulse);
+      ctx.fillStyle = c.failGlow;
+      roundRect(ctx, drawX - glowW, drawY - glowW, width + glowW * 2, height + glowW * 2, cornerRadius + glowW);
+      ctx.fill();
+    }
+
+    ctx.globalAlpha = alpha * (0.55 + 0.35 * pulse);
+    ctx.strokeStyle = c.failOutline;
+    ctx.lineWidth = 2 + pulse * 1.5;
+    roundRect(ctx, drawX, drawY, width, height, cornerRadius);
+    ctx.stroke();
+
+    ctx.globalAlpha = alpha;
   }
 
   drawNote(laneIndex: number, y: number, noteHeight: number, color: string, alpha: number, sheetBottom: number, _combo: number, noteName?: string, holding?: boolean, failing?: boolean, waiting?: boolean, visibleRange?: VisibleRange | null): void {
@@ -293,7 +394,7 @@ export class Renderer {
     }
 
     if (L.scaledTailHeight > 0.5) {
-      this._drawNotePart(ctx, L.drawX, L.drawY, L.scaledWidth, L.scaledTailHeight, L.cornerRadius, drawColor);
+      this._drawNotePart(ctx, L.drawX, L.drawY, L.scaledWidth, L.scaledTailHeight, L.cornerRadius, this._blockFill(ctx, drawColor, L.drawY, L.scaledTailHeight));
       ctx.globalAlpha = alpha * TAIL_HIGHLIGHT_ALPHA;
       ctx.fillStyle = c.noteHighlight;
       roundRect(ctx, L.drawX, L.drawY, L.scaledWidth, L.scaledTailHeight, L.cornerRadius);
@@ -302,12 +403,16 @@ export class Renderer {
     }
 
     const headDrawY = L.drawY + L.scaledTailHeight;
-    this._drawNotePart(ctx, L.drawX, headDrawY, L.scaledWidth, L.scaledHeadHeight, L.cornerRadius, drawColor);
-    ctx.globalAlpha = alpha * HEAD_HIGHLIGHT_ALPHA;
-    ctx.fillStyle = c.noteHighlight;
-    roundRect(ctx, L.drawX, headDrawY, L.scaledWidth, L.scaledHeadHeight, L.cornerRadius);
-    ctx.fill();
-    ctx.globalAlpha = alpha;
+    this._drawNotePart(ctx, L.drawX, headDrawY, L.scaledWidth, L.scaledHeadHeight, L.cornerRadius, this._blockFill(ctx, drawColor, headDrawY, L.scaledHeadHeight));
+    if (this._isLowEnd) {
+      ctx.globalAlpha = alpha * HEAD_HIGHLIGHT_ALPHA;
+      ctx.fillStyle = c.noteHighlight;
+      roundRect(ctx, L.drawX, headDrawY, L.scaledWidth, L.scaledHeadHeight, L.cornerRadius);
+      ctx.fill();
+      ctx.globalAlpha = alpha;
+    } else {
+      this._drawNote3dDetail(ctx, drawColor, L.drawX, headDrawY, L.scaledWidth, L.scaledHeadHeight, L.cornerRadius, alpha);
+    }
 
     if (holding) {
       const cx = L.drawX + L.scaledWidth / 2;
@@ -315,21 +420,44 @@ export class Renderer {
       this._drawFlame(ctx, cx, baseY, L.scaledWidth);
     }
 
+    if (failing) {
+      this._drawFailingOutline(ctx, L.drawX, L.drawY, L.scaledWidth, L.scaledHeadHeight + L.scaledTailHeight, L.cornerRadius, alpha);
+    }
+
     if (noteName) {
-      this._drawNoteLabel(ctx, noteName, L.drawX, headDrawY, L.scaledWidth, L.scaledHeadHeight);
+      this._drawNoteLabel(ctx, noteName, L.drawX, headDrawY, L.scaledWidth, L.scaledHeadHeight, failing);
     }
 
     ctx.globalAlpha = 1;
   }
 
-  private _drawNoteLabel(ctx: CanvasRenderingContext2D, noteName: string, drawX: number, drawY: number, width: number, height: number): void {
+  private _drawNoteLabel(ctx: CanvasRenderingContext2D, noteName: string, drawX: number, drawY: number, width: number, height: number, failing?: boolean): void {
+    const c = themeManager.canvas;
     const shortName = NOTE_SHORT_NAMES[noteName] ?? noteName;
-    const fontSize = Math.max(11, width * 0.6);
+    const sizeBoost = failing ? 1.1 : 1;
+    const fontSize = Math.min(Math.max(12, width * 0.62), height * 0.9) * sizeBoost;
     ctx.font = `bold ${fontSize}px ${themeManager.fonts.mono}`;
     ctx.textAlign = 'center';
     ctx.textBaseline = 'bottom';
-    ctx.fillStyle = themeManager.canvas.noteHeadLabel;
-    ctx.fillText(shortName, drawX + width / 2, drawY + height);
+    const labelX = drawX + width / 2;
+    const labelY = drawY + height;
+
+    if (failing) {
+      // A solid dark outline (not just a soft shadow) keeps the label legible
+      // against the fail color's gradient fill and the pulsing red outline
+      // drawn on top of it, regardless of theme.
+      if (!this._isLowEnd) {
+        ctx.lineJoin = 'round';
+        ctx.miterLimit = 2;
+        ctx.lineWidth = Math.max(2, fontSize * 0.16);
+        ctx.strokeStyle = 'rgba(0, 0, 0, 0.85)';
+        ctx.strokeText(shortName, labelX, labelY);
+      }
+      ctx.fillStyle = c.failLabel;
+    } else {
+      ctx.fillStyle = c.noteHeadLabel;
+    }
+    ctx.fillText(shortName, labelX, labelY);
   }
 
   private _drawFlame(ctx: CanvasRenderingContext2D, cx: number, baseY: number, width: number): void {
