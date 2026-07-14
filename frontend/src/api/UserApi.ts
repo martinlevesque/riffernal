@@ -1,5 +1,6 @@
 export interface GameSettings {
   piano_show_used_keys_only?: boolean;
+  octave_agnostic?: boolean;
 }
 
 async function parseError(res: Response): Promise<string> {

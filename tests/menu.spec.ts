@@ -47,7 +47,7 @@ test.describe('Menu Screen', () => {
     await page.locator('#btn-settings').click();
     await expect(page.locator('#settings-popup')).toBeVisible();
     await expect(page.locator('#show-used-keys')).toBeVisible();
-    await expect(page.locator('.setting-toggle')).toContainText('Show only keys used in song');
+    await expect(page.locator('.setting-toggle').first()).toContainText('Show only keys used in song');
   });
 
   test('show used keys toggle can be toggled', async ({ page }) => {
