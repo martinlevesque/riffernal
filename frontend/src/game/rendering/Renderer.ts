@@ -1,7 +1,7 @@
 // Main canvas renderer: highway, notes, sheet music, particles,
 // and playback cursor. Delegates piano rendering to PianoRenderer.
 
-import { NOTE_NAMES, getPianoKeyLayout, WHITE_KEY_COUNT, handForKey, handColor, HandSide, NOTE_SHORT_NAMES, whiteKeyWidth, countWhiteKeysInRange } from '../../utils/notes.js';
+import { NOTE_NAMES, getPianoKeyLayout, handForKey, handColor, HandSide, NOTE_SHORT_NAMES } from '../../utils/notes.js';
 import type { VisibleRange } from '../../utils/notes.js';
 import { HIT_ZONE_Y_RATIO } from '../NoteManager.js';
 import { LoopDefinitionState } from '../Loop.js';
@@ -228,30 +228,15 @@ export class Renderer {
     this._now = nowMs;
   }
 
-  drawHighway(_scrollOffset: number, visibleRange?: VisibleRange | null): void {
+  drawHighway(_scrollOffset: number, _visibleRange?: VisibleRange | null): void {
     const ctx = this.ctx;
     const c = themeManager.canvas;
     const hitZoneY = this.height * HIT_ZONE_Y_RATIO;
     const highwayTop = 0;
     const highwayBottom = hitZoneY + HIGHWAY_BELOW_HIT_ZONE;
-    const keyWidth = whiteKeyWidth(this.width, visibleRange);
 
     ctx.fillStyle = c.highwayBg;
     ctx.fillRect(0, highwayTop, this.width, highwayBottom - highwayTop);
-
-    ctx.strokeStyle = c.highwayLane;
-    ctx.lineWidth = 1;
-    ctx.beginPath();
-    const laneCount = visibleRange
-      ? countWhiteKeysInRange(visibleRange)
-      : WHITE_KEY_COUNT;
-
-    for (let i = 1; i < laneCount; i++) {
-      const bottomX = i * keyWidth;
-      ctx.moveTo(bottomX, highwayTop);
-      ctx.lineTo(bottomX, highwayBottom);
-    }
-    ctx.stroke();
   }
 
   drawHitZone(pressedLanes: Set<number>, visibleRange?: VisibleRange | null): void {
@@ -324,28 +309,7 @@ export class Renderer {
     return g;
   }
 
-  private _drawNote3dDetail(ctx: CanvasRenderingContext2D, color: string, drawX: number, drawY: number, width: number, height: number, cornerRadius: number, alpha: number): void {
-    // Gloss band across the top of the block.
-    ctx.globalAlpha = alpha * HEAD_HIGHLIGHT_ALPHA;
-    ctx.fillStyle = themeManager.canvas.noteHighlight;
-    roundRect(ctx, drawX, drawY, width, Math.min(height, height * 0.4), cornerRadius);
-    ctx.fill();
-
-    // Shadow edge along the bottom of the block.
-    const shadowH = Math.max(1.5, height * 0.12);
-    ctx.globalAlpha = alpha * 0.25;
-    ctx.fillStyle = 'rgba(0, 0, 0, 1)';
-    roundRect(ctx, drawX, drawY + height - shadowH, width, shadowH, cornerRadius);
-    ctx.fill();
-
-    // Side bevel highlight.
-    ctx.globalAlpha = alpha * 0.5;
-    ctx.strokeStyle = shade(color, 0.5);
-    ctx.lineWidth = 1;
-    roundRect(ctx, drawX + 0.5, drawY + 0.5, Math.max(0, width - 1), Math.max(0, height - 1), cornerRadius);
-    ctx.stroke();
-
-    ctx.globalAlpha = alpha;
+  private _drawNote3dDetail(_ctx: CanvasRenderingContext2D, _drawX: number, _drawY: number, _width: number, _height: number, _cornerRadius: number, _alpha: number): void {
   }
 
   private _drawFailingOutline(ctx: CanvasRenderingContext2D, drawX: number, drawY: number, width: number, height: number, cornerRadius: number, alpha: number): void {
@@ -395,11 +359,6 @@ export class Renderer {
 
     if (L.scaledTailHeight > 0.5) {
       this._drawNotePart(ctx, L.drawX, L.drawY, L.scaledWidth, L.scaledTailHeight, L.cornerRadius, this._blockFill(ctx, drawColor, L.drawY, L.scaledTailHeight));
-      ctx.globalAlpha = alpha * TAIL_HIGHLIGHT_ALPHA;
-      ctx.fillStyle = c.noteHighlight;
-      roundRect(ctx, L.drawX, L.drawY, L.scaledWidth, L.scaledTailHeight, L.cornerRadius);
-      ctx.fill();
-      ctx.globalAlpha = alpha;
     }
 
     const headDrawY = L.drawY + L.scaledTailHeight;
@@ -411,7 +370,7 @@ export class Renderer {
       ctx.fill();
       ctx.globalAlpha = alpha;
     } else {
-      this._drawNote3dDetail(ctx, drawColor, L.drawX, headDrawY, L.scaledWidth, L.scaledHeadHeight, L.cornerRadius, alpha);
+      this._drawNote3dDetail(ctx, L.drawX, headDrawY, L.scaledWidth, L.scaledHeadHeight, L.cornerRadius, alpha);
     }
 
     if (holding) {
@@ -435,7 +394,7 @@ export class Renderer {
     const c = themeManager.canvas;
     const shortName = NOTE_SHORT_NAMES[noteName] ?? noteName;
     const sizeBoost = failing ? 1.1 : 1;
-    const fontSize = Math.min(Math.max(12, width * 0.62), height * 0.9) * sizeBoost;
+    const fontSize = Math.min(Math.max(28, width * 1.55), height * 1.9) * sizeBoost;
     ctx.font = `bold ${fontSize}px ${themeManager.fonts.mono}`;
     ctx.textAlign = 'center';
     ctx.textBaseline = 'bottom';
@@ -443,16 +402,6 @@ export class Renderer {
     const labelY = drawY + height;
 
     if (failing) {
-      // A solid dark outline (not just a soft shadow) keeps the label legible
-      // against the fail color's gradient fill and the pulsing red outline
-      // drawn on top of it, regardless of theme.
-      if (!this._isLowEnd) {
-        ctx.lineJoin = 'round';
-        ctx.miterLimit = 2;
-        ctx.lineWidth = Math.max(2, fontSize * 0.16);
-        ctx.strokeStyle = 'rgba(0, 0, 0, 0.85)';
-        ctx.strokeText(shortName, labelX, labelY);
-      }
       ctx.fillStyle = c.failLabel;
     } else {
       ctx.fillStyle = c.noteHeadLabel;
