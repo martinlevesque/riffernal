@@ -51,7 +51,6 @@ export interface ThemeCanvas {
   noteHeadLabel: string;
   noteHighlight: string;
   hitLine: string;
-  laneGlow: string;
 }
 
 export interface ThemeFonts {

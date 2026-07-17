@@ -82,17 +82,18 @@ export interface Particle {
   life: number;
 }
 
+interface RGB { r: number; g: number; b: number; }
+
 interface GrindBeam {
   lane: number;
-  color: string;
-  keyName: string;
+  rgb: RGB;
   endTime: number;
   startMs: number;
 }
 
 interface GrindFlash {
   lane: number;
-  color: string;
+  rgb: RGB;
   startMs: number;
 }
 
@@ -128,9 +129,13 @@ const HEAD_HIGHLIGHT_ALPHA_FAIL = 0.18;
 const GRIND_FLASH_MS = 320;
 const GRIND_FLASH_HEIGHT = 140;
 const GRIND_FLASH_SPARKS = 14;
+const GRIND_FLASH_SEGMENTS = 8;
 const GRIND_BEAM_SEGMENTS = 18;
 const GRIND_JAGGER = 0.32;
 const GRIND_BEAM_RAMP_MS = 260;
+const LANE_GLOW_HEIGHT = 220;
+const GRIND_BEAM_SCROLL_PX_PER_SEC = 400;
+const MAX_GRIND_FLASHES = 12;
 
 interface NoteLayout {
   drawX: number;
@@ -162,6 +167,7 @@ export class Renderer {
   particles: Particle[] = [];
   private _grindBeams = new Map<number, GrindBeam>();
   private _grindFlashes: GrindFlash[] = [];
+  private _glowGradCache = new Map<number, { top: number; bottom: number; rgb: RGB; grad: CanvasGradient }>();
   sheetBottom = 0;
   sheetScale = 1.0;
   sheetBarX = 0;
@@ -199,6 +205,7 @@ export class Renderer {
     this.ctx.scale(dpr, dpr);
     this.width = cssW;
     this.height = cssH;
+    this._glowGradCache.clear();
   }
 
   clear(): void {
@@ -235,9 +242,9 @@ export class Renderer {
     ctx.stroke();
 
     const sheetBottom = this.sheetBottom > 0 ? this.sheetBottom : 0;
-    const glowTop = Math.max(sheetBottom, hitZoneY - 220);
+    const glowTop = Math.max(sheetBottom, hitZoneY - LANE_GLOW_HEIGHT);
 
-if (pressedLanes.size > 0) {
+    if (pressedLanes.size > 0) {
       for (const lane of pressedLanes) {
         const noteName = NOTE_NAMES[lane];
         if (!noteName) continue;
@@ -246,9 +253,7 @@ if (pressedLanes.size > 0) {
         const color = NOTE_COLORS[noteName] || c.noteFallbackColor;
         const cx = layout.x + layout.width / 2;
         const colW = layout.width * 0.9;
-        const grad = ctx.createLinearGradient(0, glowTop, 0, hitZoneY);
-        grad.addColorStop(0, 'rgba(0,0,0,0)');
-        grad.addColorStop(1, this._withAlpha(color, 0.22));
+        const grad = this._laneGlowGrad(lane, color, glowTop, hitZoneY);
         ctx.fillStyle = grad;
         ctx.fillRect(cx - colW / 2, glowTop, colW, hitZoneY - glowTop);
       }
@@ -263,8 +268,10 @@ if (pressedLanes.size > 0) {
 
     ctx.strokeStyle = c.hitLine;
     ctx.lineWidth = 3;
-    ctx.shadowColor = c.hitLine;
-    ctx.shadowBlur = 16;
+    if (!this._isLowEnd) {
+      ctx.shadowColor = c.hitLine;
+      ctx.shadowBlur = 16;
+    }
     ctx.beginPath();
     ctx.moveTo(0, hitZoneY);
     ctx.lineTo(this.width, hitZoneY);
@@ -272,15 +279,35 @@ if (pressedLanes.size > 0) {
     ctx.shadowBlur = 0;
   }
 
+  private _parseRgb(color: string): RGB {
+    if (!color.startsWith('#')) return { r: 0, g: 0, b: 0 };
+    const hex = color.slice(1);
+    const r = parseInt(hex.length === 3 ? hex[0] + hex[0] : hex.slice(0, 2), 16);
+    const g = parseInt(hex.length === 3 ? hex[1] + hex[1] : hex.slice(2, 4), 16);
+    const b = parseInt(hex.length === 3 ? hex[2] + hex[2] : hex.slice(4, 6), 16);
+    return { r, g, b };
+  }
+
+  private _rgba(rgb: RGB, alpha: number): string {
+    return `rgba(${rgb.r}, ${rgb.g}, ${rgb.b}, ${alpha})`;
+  }
+
   private _withAlpha(color: string, alpha: number): string {
-    if (color.startsWith('#')) {
-      const hex = color.slice(1);
-      const r = parseInt(hex.length === 3 ? hex[0] + hex[0] : hex.slice(0, 2), 16);
-      const g = parseInt(hex.length === 3 ? hex[1] + hex[1] : hex.slice(2, 4), 16);
-      const b = parseInt(hex.length === 3 ? hex[2] + hex[2] : hex.slice(4, 6), 16);
-      return `rgba(${r}, ${g}, ${b}, ${alpha})`;
+    return this._rgba(this._parseRgb(color), alpha);
+  }
+
+  private _laneGlowGrad(lane: number, color: string, top: number, bottom: number): CanvasGradient {
+    const rgb = this._parseRgb(color);
+    const entry = this._glowGradCache.get(lane);
+    if (entry && entry.top === top && entry.bottom === bottom
+        && entry.rgb.r === rgb.r && entry.rgb.g === rgb.g && entry.rgb.b === rgb.b) {
+      return entry.grad;
     }
-    return color;
+    const grad = this.ctx.createLinearGradient(0, top, 0, bottom);
+    grad.addColorStop(0, 'rgba(0,0,0,0)');
+    grad.addColorStop(1, this._rgba(rgb, 0.22));
+    this._glowGradCache.set(lane, { top, bottom, rgb, grad });
+    return grad;
   }
 
   drawHitZone(pressedLanes: Set<number>, visibleRange?: VisibleRange | null): void {
@@ -430,11 +457,14 @@ if (pressedLanes.size > 0) {
   // -- Grind effect (Guitar-Hero-style electric trail) --------------------
 
   triggerGrindFlash(lane: number, color: string): void {
-    this._grindFlashes.push({ lane, color, startMs: this._now });
+    if (this._grindFlashes.length >= MAX_GRIND_FLASHES) {
+      this._grindFlashes.shift();
+    }
+    this._grindFlashes.push({ lane, rgb: this._parseRgb(color), startMs: this._now });
   }
 
-  startGrindBeam(lane: number, color: string, keyName: string, endTime: number): void {
-    this._grindBeams.set(lane, { lane, color, keyName, endTime, startMs: this._now });
+  startGrindBeam(lane: number, color: string, endTime: number): void {
+    this._grindBeams.set(lane, { lane, rgb: this._parseRgb(color), endTime, startMs: this._now });
   }
 
   endGrindBeam(lane: number): void {
@@ -459,9 +489,9 @@ if (pressedLanes.size > 0) {
       const noteName = NOTE_NAMES[lane];
       const layout = getPianoKeyLayout(noteName ?? 'C4', this.width, visibleRange);
       if (layout.width === 0) continue;
-      const beamEndY = Math.max(sheetBottom, hitZoneY - (beam.endTime - currentTime) * 400);
+      const beamEndY = Math.max(sheetBottom, hitZoneY - (beam.endTime - currentTime) * GRIND_BEAM_SCROLL_PX_PER_SEC);
       const ramp = Math.min(1, (this._now - beam.startMs) / GRIND_BEAM_RAMP_MS);
-      this._drawGrindBeam(ctx, layout.x + layout.width / 2, hitZoneY, beamEndY, layout.width * 0.9, beam.color, ramp);
+      this._drawGrindBeam(ctx, layout.x + layout.width / 2, hitZoneY, beamEndY, layout.width * 0.9, beam.rgb, ramp);
     }
 
     for (let i = this._grindFlashes.length - 1; i >= 0; i--) {
@@ -474,59 +504,61 @@ if (pressedLanes.size > 0) {
       const noteName = NOTE_NAMES[f.lane];
       const layout = getPianoKeyLayout(noteName ?? 'C4', this.width, visibleRange);
       if (layout.width === 0) continue;
-      this._drawGrindFlash(ctx, layout.x + layout.width / 2, hitZoneY, f.color, elapsed, layout.width * 0.9);
+      this._drawGrindFlash(ctx, layout.x + layout.width / 2, hitZoneY, f.rgb, elapsed, layout.width * 0.9);
     }
   }
 
-  private _drawGrindBeam(ctx: CanvasRenderingContext2D, cx: number, hitZoneY: number, beamTop: number, laneW: number, color: string, ramp = 1): void {
+  private _jitterX(cx: number, halfW: number, sFreq: number, cFreq: number, i: number, phase: number): number {
+    const jitter = halfW * 2 * GRIND_JAGGER;
+    const j = jitter * (Math.sin(sFreq + i * 1.7 + phase) + Math.cos(cFreq + i * 2.3 + phase));
+    return cx + Math.max(-halfW + 2, Math.min(halfW - 2, j));
+  }
+
+  private _drawGrindBeam(ctx: CanvasRenderingContext2D, cx: number, hitZoneY: number, beamTop: number, laneW: number, rgb: RGB, ramp: number): void {
     const t = this._now / 1000;
     const pulse = 0.7 + 0.3 * Math.sin(t * 12);
     const beamH = hitZoneY - beamTop;
     if (beamH <= 0) return;
-    const intensity = Math.max(0, Math.min(1, ramp));
+    const intensity = Math.max(0, ramp);
 
     const colW = laneW;
     const glow = ctx.createLinearGradient(0, beamTop, 0, hitZoneY);
-    glow.addColorStop(0, this._withAlpha(color, 0.0));
-    glow.addColorStop(0.5, this._withAlpha(color, 0.12 * pulse * intensity));
-    glow.addColorStop(1, this._withAlpha(color, 0.32 * pulse * intensity));
+    glow.addColorStop(0, this._rgba(rgb, 0));
+    glow.addColorStop(0.5, this._rgba(rgb, 0.12 * pulse * intensity));
+    glow.addColorStop(1, this._rgba(rgb, 0.32 * pulse * intensity));
     ctx.fillStyle = glow;
     ctx.fillRect(cx - colW / 2, beamTop, colW, beamH);
 
-    const jitter = laneW * GRIND_JAGGER;
     const halfW = laneW * 0.5;
     ctx.save();
     ctx.globalAlpha = intensity;
-    ctx.shadowColor = color;
-    ctx.shadowBlur = 14 * pulse;
     ctx.strokeStyle = '#ffffff';
     ctx.lineWidth = Math.max(2, laneW * 0.10);
     ctx.lineCap = 'round';
     ctx.lineJoin = 'round';
+    if (!this._isLowEnd) {
+      ctx.shadowColor = this._rgba(rgb, 1);
+      ctx.shadowBlur = 14 * pulse;
+    }
     ctx.beginPath();
-    const segs = Math.max(6, Math.floor(GRIND_BEAM_SEGMENTS * (beamH / 220)));
-    let prevX = cx;
-    ctx.moveTo(prevX, hitZoneY);
+    const segs = Math.max(6, Math.floor(GRIND_BEAM_SEGMENTS * (beamH / LANE_GLOW_HEIGHT)));
+    ctx.moveTo(cx, hitZoneY);
     for (let i = 1; i <= segs; i++) {
       const py = hitZoneY - (beamH * i) / segs;
-      const j = jitter * (Math.sin((t * 40) + i * 1.7) + Math.cos((t * 31) + i * 2.3));
-      const px = cx + Math.max(-halfW + 2, Math.min(halfW - 2, j));
+      const px = this._jitterX(cx, halfW, t * 40, t * 31, i, 0);
       ctx.lineTo(px, py);
-      prevX = px;
     }
     ctx.stroke();
 
-    ctx.strokeStyle = this._withAlpha(color, 0.85 * pulse);
+    ctx.strokeStyle = this._rgba(rgb, 0.85 * pulse);
     ctx.lineWidth = Math.max(1, laneW * 0.05);
-    ctx.shadowBlur = 22 * pulse;
+    if (!this._isLowEnd) ctx.shadowBlur = 22 * pulse;
     ctx.beginPath();
-    ctx.moveTo(prevX, hitZoneY);
+    ctx.moveTo(cx, hitZoneY);
     for (let i = 1; i <= segs; i++) {
       const py = hitZoneY - (beamH * i) / segs;
-      const j = jitter * (Math.sin((t * 40) + i * 1.7 + 0.5) + Math.cos((t * 31) + i * 2.3 + 0.5));
-      const px = cx + Math.max(-halfW + 2, Math.min(halfW - 2, j));
+      const px = this._jitterX(cx, halfW, t * 40, t * 31, i, 0.5);
       ctx.lineTo(px, py);
-      prevX = px;
     }
     ctx.stroke();
     ctx.restore();
@@ -534,27 +566,26 @@ if (pressedLanes.size > 0) {
     const burstR = laneW * 0.9 * pulse * intensity;
     if (burstR > 1) {
       const bgrad = ctx.createRadialGradient(cx, hitZoneY, 0, cx, hitZoneY, burstR);
-      bgrad.addColorStop(0, this._withAlpha(color, 0.7 * pulse * intensity));
-      bgrad.addColorStop(0.5, this._withAlpha(color, 0.25 * pulse * intensity));
-      bgrad.addColorStop(1, this._withAlpha(color, 0));
+      bgrad.addColorStop(0, this._rgba(rgb, 0.7 * pulse * intensity));
+      bgrad.addColorStop(0.5, this._rgba(rgb, 0.25 * pulse * intensity));
+      bgrad.addColorStop(1, this._rgba(rgb, 0));
       ctx.fillStyle = bgrad;
       ctx.fillRect(cx - burstR, hitZoneY - burstR, burstR * 2, burstR * 2);
     }
   }
 
-  private _drawGrindFlash(ctx: CanvasRenderingContext2D, cx: number, hitZoneY: number, color: string, elapsed: number, laneW: number): void {
+  private _drawGrindFlash(ctx: CanvasRenderingContext2D, cx: number, hitZoneY: number, rgb: RGB, elapsed: number, laneW: number): void {
     const p = elapsed / GRIND_FLASH_MS;
     const alpha = 1 - p;
     const streakH = p * GRIND_FLASH_HEIGHT;
     const colW = laneW;
 
     const grad = ctx.createLinearGradient(0, hitZoneY - streakH, 0, hitZoneY);
-    grad.addColorStop(0, this._withAlpha(color, 0));
-    grad.addColorStop(1, this._withAlpha(color, 0.55 * alpha));
+    grad.addColorStop(0, this._rgba(rgb, 0));
+    grad.addColorStop(1, this._rgba(rgb, 0.55 * alpha));
     ctx.fillStyle = grad;
     ctx.fillRect(cx - colW / 2, hitZoneY - streakH, colW, streakH);
 
-    const jitter = laneW * GRIND_JAGGER;
     const halfW = laneW * 0.5;
     ctx.save();
     ctx.globalAlpha = alpha;
@@ -562,15 +593,16 @@ if (pressedLanes.size > 0) {
     ctx.lineWidth = Math.max(2, laneW * 0.10);
     ctx.lineCap = 'round';
     ctx.lineJoin = 'round';
-    ctx.shadowColor = color;
-    ctx.shadowBlur = 16;
+    if (!this._isLowEnd) {
+      ctx.shadowColor = this._rgba(rgb, 1);
+      ctx.shadowBlur = 16;
+    }
     ctx.beginPath();
     ctx.moveTo(cx, hitZoneY);
-    const segs = 8;
+    const segs = GRIND_FLASH_SEGMENTS;
     for (let i = 1; i <= segs; i++) {
       const py = hitZoneY - (streakH * i) / segs;
-      const j = jitter * (Math.sin((this._now / 60) + i * 2.1) + Math.cos((this._now / 53) + i * 1.7));
-      const px = cx + Math.max(-halfW + 2, Math.min(halfW - 2, j));
+      const px = this._jitterX(cx, halfW, this._now / 60, this._now / 53, i, 0);
       ctx.lineTo(px, py);
     }
     ctx.stroke();
@@ -578,11 +610,13 @@ if (pressedLanes.size > 0) {
 
     const burstR = laneW * 0.8 * (0.6 + 0.4 * alpha);
     const bgrad = ctx.createRadialGradient(cx, hitZoneY, 0, cx, hitZoneY, burstR);
-    bgrad.addColorStop(0, this._withAlpha(color, 0.8 * alpha));
-    bgrad.addColorStop(0.5, this._withAlpha(color, 0.3 * alpha));
-    bgrad.addColorStop(1, this._withAlpha(color, 0));
+    bgrad.addColorStop(0, this._rgba(rgb, 0.8 * alpha));
+    bgrad.addColorStop(0.5, this._rgba(rgb, 0.3 * alpha));
+    bgrad.addColorStop(1, this._rgba(rgb, 0));
     ctx.fillStyle = bgrad;
     ctx.fillRect(cx - burstR, hitZoneY - burstR, burstR * 2, burstR * 2);
+
+    if (this._isLowEnd) return;
 
     for (let i = 0; i < GRIND_FLASH_SPARKS; i++) {
       const a = (i / GRIND_FLASH_SPARKS) * Math.PI * 2 + this._now / 200;
@@ -590,7 +624,7 @@ if (pressedLanes.size > 0) {
       const sx = cx + Math.cos(a) * r;
       const sy = hitZoneY - Math.abs(Math.sin(a)) * streakH * 0.3;
       ctx.globalAlpha = alpha * 0.9;
-      ctx.fillStyle = i % 2 === 0 ? '#ffffff' : color;
+      ctx.fillStyle = i % 2 === 0 ? '#ffffff' : this._rgba(rgb, 1);
       ctx.beginPath();
       ctx.arc(sx, sy, 1.6, 0, Math.PI * 2);
       ctx.fill();

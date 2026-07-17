@@ -138,8 +138,6 @@ export class Game {
         this._renderPlayingFrame();
       }
 
-      this.renderer.drawGrind(this.currentTime, this.usedNoteRange);
-
       if (this.renderer.sheetBottom !== this._lastSheetBottom) {
         this._lastSheetBottom = this.renderer.sheetBottom;
         this.resizeHandle.style.top = `${this.renderer.sheetBottom}px`;
@@ -228,6 +226,8 @@ export class Game {
     for (const note of activeNotes) {
       this.renderer.drawNote(note.lane, note.y, note.height, note.selected ? note.color : themeManager.canvas.backingNote, note.alpha, this.renderer.sheetBottom, combo, note.key, note.holding, note.failing, note.waiting, this.usedNoteRange);
     }
+
+    this.renderer.drawGrind(this.currentTime, this.usedNoteRange);
 
     this.scoreDisplay?.update(this.noteManager.scoring);
     if (this._frameCount % 6 === 0) {
@@ -371,7 +371,7 @@ export class Game {
     if (this.state === GameState.Playing) {
       const results = this._resolveHit(lane);
       this._spawnPerfectParticles(results);
-      this._triggerGrind(lane, results);
+      this._triggerGrind(results);
     }
   }
 
@@ -406,14 +406,14 @@ export class Game {
     }
   }
 
-  private _triggerGrind(_lane: number, results: HitResult[]): void {
+  private _triggerGrind(results: HitResult[]): void {
     if (results.length === 0) return;
     for (const result of results) {
       const grindLane = result.note.lane;
       const color = handColor(result.note.key);
       this.renderer.triggerGrindFlash(grindLane, color);
       if (result.note.holding && result.note.duration > TAP_NOTE_THRESHOLD) {
-        this.renderer.startGrindBeam(grindLane, color, result.note.key, result.note.time + result.note.duration);
+        this.renderer.startGrindBeam(grindLane, color, result.note.time + result.note.duration);
       }
     }
   }

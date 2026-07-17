@@ -55,7 +55,6 @@ export const midnightTheme: Theme = {
     noteHeadLabel: '#000',
     noteHighlight: '#fff',
     hitLine: '#00ccff',
-    laneGlow: 'rgba(0, 204, 255, 0.10)',
   },
   fonts: {
     ui: "'Inter', system-ui, -apple-system, sans-serif",
