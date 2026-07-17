@@ -54,6 +54,8 @@ export const ironTheme: Theme = {
     failParticleRight: '#ff8822',
     noteHeadLabel: '#000',
     noteHighlight: '#fff',
+    hitLine: '#ffdd22',
+    laneGlow: 'rgba(255, 221, 34, 0.10)',
   },
   fonts: {
     ui: "'Inter', system-ui, -apple-system, sans-serif",

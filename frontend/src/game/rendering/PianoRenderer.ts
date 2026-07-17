@@ -107,12 +107,12 @@ export class PianoRenderer {
       const isPressed = pressedLanes.has(i);
       const color = NOTE_COLORS[noteName] || c.noteFallbackColor;
 
-      ctx.globalAlpha = isPressed ? 0.5 : 0.8;
-      ctx.fillStyle = isPressed ? color : c.keyIndicatorUnpressed;
+      ctx.globalAlpha = isPressed ? 1 : 0.8;
+      ctx.fillStyle = isPressed ? (c.hitLine || color) : c.keyIndicatorUnpressed;
       ctx.fillRect(layout.x, hitZoneY - indicatorBarOffset - offsetY, layout.width, indicatorBarHeight);
 
       if (isPressed) {
-        ctx.globalAlpha = 0.15;
+        ctx.globalAlpha = 0.25;
         ctx.fillStyle = color;
         ctx.fillRect(layout.x, hitZoneY - PIANO_REGION_OFFSET - offsetY, layout.width, pressedGlowHeight);
       }

@@ -50,6 +50,8 @@ export interface ThemeCanvas {
   failParticleRight: string;
   noteHeadLabel: string;
   noteHighlight: string;
+  hitLine: string;
+  laneGlow: string;
 }
 
 export interface ThemeFonts {
