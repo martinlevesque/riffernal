@@ -132,7 +132,7 @@ export class Game {
 
       this.renderer.clear();
       this.renderer.beginFrame(performance.now());
-      this.renderer.drawHighway(this.scrollOffset, this.usedNoteRange);
+      this.renderer.drawHighway(this.scrollOffset, this.pressedLanes, this.usedNoteRange);
 
       if (this.state === GameState.Playing) {
         this._renderPlayingFrame();
@@ -227,6 +227,8 @@ export class Game {
       this.renderer.drawNote(note.lane, note.y, note.height, note.selected ? note.color : themeManager.canvas.backingNote, note.alpha, this.renderer.sheetBottom, combo, note.key, note.holding, note.failing, note.waiting, this.usedNoteRange);
     }
 
+    this.renderer.drawGrind(this.currentTime, this.usedNoteRange);
+
     this.scoreDisplay?.update(this.noteManager.scoring);
     if (this._frameCount % 6 === 0) {
       this.timeDisplayEl.textContent = `${formatTime(this.currentTime)} / ${formatTime(this.noteManager.getSongDuration())}`;
@@ -264,6 +266,7 @@ export class Game {
     this._completionTime = null;
     this._paused = false;
     this._usedLearningMode = false;
+    this.renderer.clearGrind();
     this._computeUsedNoteRange(song);
 
     this.menuScreen.classList.remove('active');
@@ -368,6 +371,7 @@ export class Game {
     if (this.state === GameState.Playing) {
       const results = this._resolveHit(lane);
       this._spawnPerfectParticles(results);
+      this._triggerGrind(results);
     }
   }
 
@@ -402,12 +406,25 @@ export class Game {
     }
   }
 
+  private _triggerGrind(results: HitResult[]): void {
+    if (results.length === 0) return;
+    for (const result of results) {
+      const grindLane = result.note.lane;
+      const color = handColor(result.note.key);
+      this.renderer.triggerGrindFlash(grindLane, color);
+      if (result.note.holding && result.note.duration > TAP_NOTE_THRESHOLD) {
+        this.renderer.startGrindBeam(grindLane, color, result.note.time + result.note.duration);
+      }
+    }
+  }
+
   private _handleNoteOff(noteName: string, _id: string): void {
     const lane = NOTE_TO_LANE.get(noteName);
     if (lane === undefined) return;
 
     this.pressedLanes.delete(lane);
     this.synth.noteOff(noteName);
+    this.renderer.endGrindBeam(lane);
 
     if (this.state === GameState.Playing) {
       this.noteManager.checkRelease(this.currentTime, lane, this.octaveAgnostic);
@@ -538,6 +555,8 @@ export class Game {
     this.currentTime = clamped;
     this.scrollOffset = 0;
     this._completionTime = null;
+    this.pressedLanes.clear();
+    this.renderer.clearGrind();
     this.noteManager.resetFromTime(clamped);
   }
 

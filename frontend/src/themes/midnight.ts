@@ -54,6 +54,7 @@ export const midnightTheme: Theme = {
     failParticleRight: '#ff8844',
     noteHeadLabel: '#000',
     noteHighlight: '#fff',
+    hitLine: '#00ccff',
   },
   fonts: {
     ui: "'Inter', system-ui, -apple-system, sans-serif",
