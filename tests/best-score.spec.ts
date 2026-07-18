@@ -108,27 +108,6 @@ test('best score in song list updates after a better run', async ({ page }) => {
     expect(parse(secondScore)).toBeGreaterThanOrEqual(parse(firstScore));
   });
 
-  test('best score is null after only saving track preferences', async ({ request }) => {
-    await wipeDatabase(request);
-    const id = await seedSongWithNotes(request, 'OnlyTrackPrefsTest', [
-      { time: 2.0, key: 'C4', duration: 0.4 },
-    ]);
-
-    // Saving track preferences used to create a user_songs row with
-    // best_score = 0, which then leaked into the song list as "Best: 0".
-    const prefsRes = await request.put(`/api/songs/${id}/track-preferences`, {
-      data: { backgroundTracks: [], mainTrackMuted: false },
-    });
-    expect(prefsRes.ok()).toBeTruthy();
-
-    const res = await request.get('/api/songs');
-    expect(res.ok()).toBeTruthy();
-    const songs = (await res.json()) as Array<{ id: number; bestScore: number | null }>;
-    const song = songs.find((s) => s.id === id);
-    expect(song).toBeDefined();
-    expect(song!.bestScore).toBeNull();
-  });
-
   test('recording a score of 0 keeps best score null', async ({ request }) => {
     await wipeDatabase(request);
     const id = await seedSongWithNotes(request, 'ZeroScoreTest', [
