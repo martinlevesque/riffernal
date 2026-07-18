@@ -29,6 +29,9 @@ export interface Song {
   selectedTrackIndices?: number[];
   trackHands?: Record<number, HandSide>;
   backgroundTracks?: number[];
+  /** Per-user-per-song Tracks panel preferences (issue #86). Null until the
+   *  backend has been queried for the user's saved state. */
+  trackPreferences?: { backgroundTracks: number[]; mainTrackMuted: boolean } | null;
   id?: number;
   categoryId?: number | null;
   lastPlayedAt?: string | null;

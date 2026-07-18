@@ -67,3 +67,13 @@ try {
 } catch {
   // Column already exists — ignore
 }
+
+// Per-user-per-song track preferences (issue #86): persist which background
+// tracks the user has muted and whether the main (live) track is muted, so
+// the muted state survives into the next game played. Stored as JSON on
+// the `track_preferences` column.
+try {
+  db.exec("ALTER TABLE user_songs ADD COLUMN track_preferences TEXT");
+} catch {
+  // Column already exists — ignore
+}

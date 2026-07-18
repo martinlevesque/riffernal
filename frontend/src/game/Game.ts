@@ -72,11 +72,18 @@ export class Game {
   showUsedKeys = false;
   octaveAgnostic = false;
   usedNoteRange: VisibleRange | null = null;
+  /** When true, the web app's synth is silent on live key presses; the
+   *  scored/visual note still plays so a plugged-in MIDI keyboard remains
+   *  the audible source (issue #86). Persisted per user-song. */
+  mainTrackMuted = false;
 
   private _paused = false;
   get paused(): boolean { return this._paused; }
 
   onResults: ((scoring: Scoring, song: Song) => void) | null = null;
+  /** Fired (debounced externally) when the user changes the in-game Tracks
+   *  panel state for the current song, so main.ts can persist it (issue #86). */
+  onTrackPreferencesChange: ((song: Song) => void) | null = null;
 
   readonly loop = new LoopController();
   private resultsScreen = new ResultsScreen();
@@ -363,10 +370,12 @@ export class Game {
 
     this.pressedLanes.add(lane);
     const activeNote = this.noteManager.findActiveNoteForLane(this.currentTime, lane);
-    const patch = activeNote
-      ? this._patchForNote(activeNote.program, activeNote.channel)
-      : this.synth.getPatch();
-    this.synth.noteOn(noteName, patch, undefined, activeNote?.rawMidi);
+    if (!this.mainTrackMuted) {
+      const patch = activeNote
+        ? this._patchForNote(activeNote.program, activeNote.channel)
+        : this.synth.getPatch();
+      this.synth.noteOn(noteName, patch, undefined, activeNote?.rawMidi);
+    }
 
     if (this.state === GameState.Playing) {
       const results = this._resolveHit(lane);
@@ -514,6 +523,11 @@ export class Game {
   }
 
   private _playNoteOnce(note: SongNote): void {
+    // Honour the main-track mute for foreground (selected) notes — these are
+    // the "note songs" the player is meant to play, auto-played on miss in
+    // PLAY mode. Background-accompaniment notes are governed by their own
+    // per-track toggle and must keep playing (issue #86).
+    if (note.selected && this.mainTrackMuted) return;
     const realDuration = note.duration * 1000 / this.speedMultiplier;
     const id = `auto_${note.track}_${note.time}_${note.key}`;
     const patch = this._patchForNote(note.program, note.channel);
@@ -595,6 +609,30 @@ export class Game {
           this.currentSong.backgroundTracks = this.currentSong.backgroundTracks.filter((i) => i !== trackIndex);
         }
       }
+      this._syncTrackPreferences();
+      this.onTrackPreferencesChange?.(this.currentSong);
     }
+  }
+
+  /** Mute or unmute the main (live key-press) track. The scored/visual note
+   *  still plays; only the app's synth output for live presses is silenced
+   *  so a plugged-in MIDI keyboard remains audible (issue #86). */
+  setMainTrackMuted(muted: boolean): void {
+    this.mainTrackMuted = muted;
+    if (this.currentSong) {
+      this._syncTrackPreferences();
+      this.onTrackPreferencesChange?.(this.currentSong);
+    }
+  }
+
+  /** Keep `currentSong.trackPreferences` mirroring the live mute state so a
+   *  following `retry()` (which reuses `currentSong`) preserves the user's
+   *  choices, and main.ts can persist the whole struct at once. */
+  private _syncTrackPreferences(): void {
+    if (!this.currentSong) return;
+    this.currentSong.trackPreferences = {
+      backgroundTracks: [...(this.currentSong.backgroundTracks ?? [])],
+      mainTrackMuted: this.mainTrackMuted,
+    };
   }
 }
