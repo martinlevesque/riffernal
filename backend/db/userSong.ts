@@ -1,4 +1,7 @@
 import { db } from "./connection.ts";
+import { isBestScoreValid, type ScoreStats } from "../models/scoreStats.ts";
+
+export type { ScoreStats } from "../models/scoreStats.ts";
 
 export interface UserSongRow {
   user_id: number;
@@ -8,11 +11,6 @@ export interface UserSongRow {
   updated_at: string;
 }
 
-export interface ScoreStats {
-  bestScore: number | null;
-  lastScore: number | null;
-}
-
 /** Per-user-per-song track panel preferences.
  *  `backgroundTracks` is the user's chosen enabled set (overrides the
  *  song-level default stored on the `songs` table). `mainTrackMuted` mutes
@@ -20,14 +18,6 @@ export interface ScoreStats {
 export interface TrackPreferences {
   backgroundTracks: number[];
   mainTrackMuted: boolean;
-}
-
-/** A best score is only meaningful when strictly positive. A row with
- *  best_score = 0 is a placeholder (e.g. created when only track
- *  preferences were saved, or a run that scored nothing) and should be
- *  treated as "no record yet". */
-export function isBestScoreValid(bestScore: number | null): bestScore is number {
-  return bestScore != null && bestScore > 0;
 }
 
 export function getUserSongScoreStats(songId: number): ScoreStats {

@@ -13,7 +13,6 @@ export {
 } from "./song.ts";
 export {
   type UserSongRow,
-  type ScoreStats,
   type TrackPreferences,
   getUserSongScoreStats,
   getUserSongTrackPreferences,
@@ -21,4 +20,5 @@ export {
   upsertUserSongTrackPreferences,
   getAllScoreStats,
 } from "./userSong.ts";
+export { type ScoreStats, isBestScoreValid } from "../models/scoreStats.ts";
 export { type UserRow, type GameSettings, getUser, getUserGameSettings, updateUserGameSettings } from "./user.ts";

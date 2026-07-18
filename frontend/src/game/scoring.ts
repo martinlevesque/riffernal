@@ -199,3 +199,15 @@ export class Scoring {
     return letterGrade(this.getAccuracy());
   }
 }
+
+/** True when a run scored anything meaningful — gates the "New Best!"
+ *  badge on the results screen. A 0-score run must never be celebrated
+ *  as a new best, even on a never-played song (where bestScore is null).
+ *
+ *  This is a presentation-side guard about the current run's score; the
+ *  backend's `isBestScoreValid` is the domain invariant about persisted
+ *  best scores. The two share the `> 0` predicate but answer different
+ *  questions, so they're named distinctly to keep the layers honest. */
+export function hasMeaningfulScore(score: number): boolean {
+  return score > 0;
+}

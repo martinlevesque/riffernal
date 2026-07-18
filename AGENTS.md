@@ -51,3 +51,22 @@ Tests start a local dev server automatically, no manual server startup needed.
 - Do not reference issue numbers (e.g. `#86`, `issue #88`) in source code,
   comments, or test names — use the PR/commit title or git log for traceability
   instead of tying the code to a GitHub issue
+
+## Architecture
+
+The backend follows a Rails-MVC-inspired layering:
+
+- `backend/api/` — **controllers** (HTTP layer: request parsing, response
+  shaping, status codes).
+- `backend/db/` — **persistence** (SQL queries, row types, storage
+  primitives). Domain types and invariants don't live here.
+- `backend/models/` — **domain models**: invariants and shared domain
+  types that aren't HTTP or storage (e.g. `isBestScoreValid`,
+  `ScoreStats`). Persistence code imports from here, not the reverse.
+
+The frontend is a SPA view layer that consumes the backend API. It does
+**not** have a `models/` folder (models are a backend concept).
+Presentation-side domain helpers live in their domain module (e.g.
+`frontend/src/game/scoring.ts`), not in a generic `utils/` grab-bag.
+Generic, framework-agnostic helpers (e.g. `clamp`, `formatTime`,
+`noteNameToMidi`) stay in `frontend/src/utils/helpers.ts`.

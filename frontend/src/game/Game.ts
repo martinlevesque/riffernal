@@ -10,7 +10,8 @@ import type { HitResult, SongNote } from './NoteManager.js';
 import { NoteGrade, gradeLabel, TAP_NOTE_THRESHOLD, SUCCESS_PARTICLE_HOLD_RATIO, comboBoost } from './scoring.js';
 import type { Scoring } from './scoring.js';
 import { NOTE_TO_LANE, handColor, getPianoKeyLayout, PracticeHand, GM_DRUM_CHANNEL } from '../utils/notes.js';
-import { formatTime, isBestScoreValid } from '../utils/helpers.js';
+import { formatTime } from '../utils/helpers.js';
+import { hasMeaningfulScore } from './scoring.js';
 import type { VisibleRange } from '../utils/notes.js';
 import type { Synth } from '../audio/Synth.js';
 import type { Patch } from '../audio/patches/Patch.js';
@@ -451,7 +452,7 @@ export class Game {
     return (
       !this._usedLearningMode &&
       this.currentSong != null &&
-      isBestScoreValid(score) &&
+      hasMeaningfulScore(score) &&
       (this.currentSong.bestScore == null || score > this.currentSong.bestScore)
     );
   }
