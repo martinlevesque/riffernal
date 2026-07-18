@@ -205,15 +205,18 @@ test.describe('Results Screen', () => {
     await expect(stats).toContainText('Accuracy');
   });
 
-  test('new best banner appears on first play completion', async ({ page }) => {
+  test('new best banner is suppressed on a 0-score first play', async ({ page }) => {
     await startGame(page);
     await expectPlayScreenActive(page);
 
     await speedUp(page);
     await waitForResults(page);
 
-    await expect(page.locator('.new-best-banner')).toBeVisible();
-    await expect(page.locator('.new-best-banner')).toContainText('BEST SCORE');
+    // The speed-up helper doesn't play any notes, so the run scores 0. A
+    // 0 score must never be celebrated as a "new best", even on a
+    // never-played song (where bestScore is null) — a meaningless run
+    // shouldn't claim the record.
+    await expect(page.locator('.new-best-banner')).toBeHidden();
   });
 
   test('new best banner absent in learn mode', async ({ page }) => {
