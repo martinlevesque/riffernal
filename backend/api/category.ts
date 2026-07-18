@@ -1,11 +1,11 @@
-import { getAllCategories, createCategory } from "../db.ts";
+import { listCategories, createCategory } from "../models/index.ts";
 import { json, parseJson, errMsg, type Handler } from "./router.ts";
 
 export const categoryRoutes = [
   {
     method: "GET",
     path: "/api/categories",
-    handler: (() => json(getAllCategories())) as Handler,
+    handler: (() => json(listCategories())) as Handler,
   },
   {
     method: "POST",

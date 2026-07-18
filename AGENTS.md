@@ -54,15 +54,22 @@ Tests start a local dev server automatically, no manual server startup needed.
 
 ## Architecture
 
-The backend follows a Rails-MVC-inspired layering:
+The backend follows a Rails-MVC-inspired layering with a strict call
+direction: `api/ → models/ → db/`. Each layer only talks to the one
+below it; `db/` never imports from `models/`, and `api/` never imports
+from `db/` directly.
 
-- `backend/api/` — **controllers** (HTTP layer: request parsing, response
-  shaping, status codes).
+- `backend/api/` — **controllers** (HTTP layer: request parsing,
+  response shaping, status codes). Controllers call `models/` only.
+- `backend/models/` — **domain models**: invariants, domain types,
+  DTO shaping, and orchestration across one or more persistence
+  modules. The model layer owns business rules (e.g. `isBestScoreValid`,
+  "title cannot be empty", game-settings merge) and exposes
+  domain-shaped DTOs (`SongSummary`, `SongFull`, `Category`...) to the
+  controllers. Models call `db/` only.
 - `backend/db/` — **persistence** (SQL queries, row types, storage
-  primitives). Domain types and invariants don't live here.
-- `backend/models/` — **domain models**: invariants and shared domain
-  types that aren't HTTP or storage (e.g. `isBestScoreValid`,
-  `ScoreStats`). Persistence code imports from here, not the reverse.
+  primitives). No domain rules live here — `db/` returns raw rows and
+  leaves the interpretation to `models/`.
 
 The frontend is a SPA view layer that consumes the backend API. It does
 **not** have a `models/` folder (models are a backend concept).
