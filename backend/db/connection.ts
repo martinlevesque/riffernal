@@ -62,18 +62,21 @@ db.exec(`
   );
 `);
 
-try {
-  db.exec("ALTER TABLE user_songs ADD COLUMN last_score INTEGER");
-} catch (err) {
-  console.error(err);
-}
+addColumnIfMissing("user_songs", "last_score", "INTEGER");
 
 // Per-user-per-song track preferences: persist which background
 // tracks the user has muted and whether the main (live) track is muted, so
 // the muted state survives into the next game played. Stored as JSON on
 // the `track_preferences` column.
-try {
-  db.exec("ALTER TABLE user_songs ADD COLUMN track_preferences TEXT");
-} catch (err) {
-  console.error(err);
+addColumnIfMissing("user_songs", "track_preferences", "TEXT");
+
+/** Add a column to a table only when it isn't already present. SQLite has no
+ *  `ALTER TABLE ... ADD COLUMN ... IF NOT EXISTS`, so we inspect
+ *  `PRAGMA table_info` first to avoid the noisy "duplicate column name"
+ *  error on every startup once the column exists. */
+function addColumnIfMissing(table: string, column: string, definition: string): void {
+  const cols = db.query(`PRAGMA table_info(${table})`).all() as Array<{ name: string }>;
+  const exists = cols.some((c) => c.name === column);
+  if (exists) return;
+  db.exec(`ALTER TABLE ${table} ADD COLUMN ${column} ${definition}`);
 }
