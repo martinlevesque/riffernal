@@ -285,13 +285,15 @@ test.describe("API: songs CRUD", () => {
     const reRes = await (await request.get(`/api/songs/${created.id}`)).json();
     expect(reRes.trackPreferences).toEqual({ backgroundTracks: [2, 3], mainTrackMuted: false });
 
-    // 404 for unknown song.
-    const missRes = await request.put(`/api/songs/98887766/track-preferences`, {
+    await cleanupSongs(request, /^E2E-TrackPrefs$/);
+  });
+
+  test("PUT /api/songs/:id/track-preferences returns 404 for missing song", async ({ request }) => {
+    // Use a very large id unlikely to collide with existing rows.
+    const res = await request.put(`/api/songs/98887766/track-preferences`, {
       data: { backgroundTracks: [], mainTrackMuted: false },
       headers: { "Content-Type": "application/json" },
     });
-    expect(missRes.status()).toBe(404);
-
-    await cleanupSongs(request, /^E2E-TrackPrefs$/);
+    expect(res.status()).toBe(404);
   });
 });
