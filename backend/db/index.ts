@@ -14,8 +14,11 @@ export {
 export {
   type UserSongRow,
   type ScoreStats,
+  type TrackPreferences,
   getUserSongScoreStats,
+  getUserSongTrackPreferences,
   upsertBestScore,
+  upsertUserSongTrackPreferences,
   getAllScoreStats,
 } from "./userSong.ts";
 export { type UserRow, type GameSettings, getUser, getUserGameSettings, updateUserGameSettings } from "./user.ts";

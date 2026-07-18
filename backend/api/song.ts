@@ -9,7 +9,10 @@ import {
   getAllScoreStats,
   getUserSongScoreStats,
   upsertBestScore,
+  getUserSongTrackPreferences,
+  upsertUserSongTrackPreferences,
   type SongRow,
+  type TrackPreferences,
 } from "../db.ts";
 import { json, parseJson, errMsg, numOrNull, type Handler } from "./router.ts";
 
@@ -33,6 +36,7 @@ interface SongFull extends SongSummary {
   selectedTrackIndices: number[];
   trackHands: Record<number, string>;
   backgroundTracks: number[];
+  trackPreferences: TrackPreferences | null;
 }
 
 function rowToSummary(row: SongRow, bestScore: number | null = null, lastScore: number | null = null): SongSummary {
@@ -51,7 +55,12 @@ function rowToSummary(row: SongRow, bestScore: number | null = null, lastScore: 
   };
 }
 
-function rowToFull(row: SongRow, bestScore: number | null = null, lastScore: number | null = null): SongFull {
+function rowToFull(
+  row: SongRow,
+  bestScore: number | null = null,
+  lastScore: number | null = null,
+  trackPreferences: TrackPreferences | null = null,
+): SongFull {
   return {
     ...rowToSummary(row, bestScore, lastScore),
     notes: JSON.parse(row.notes ?? "[]"),
@@ -59,6 +68,7 @@ function rowToFull(row: SongRow, bestScore: number | null = null, lastScore: num
     selectedTrackIndices: row.selected_track_indices ? JSON.parse(row.selected_track_indices) : [],
     trackHands: row.track_hands ? JSON.parse(row.track_hands) : {},
     backgroundTracks: row.background_tracks ? JSON.parse(row.background_tracks) : [],
+    trackPreferences,
   };
 }
 
@@ -116,7 +126,8 @@ export const songRoutes = [
     handler: ((_req: Request, { id }: Record<string, string>) =>
       withSong(id, (row) => {
         const stats = getUserSongScoreStats(row.id);
-        return json(rowToFull(row, stats.bestScore, stats.lastScore));
+        const prefs = getUserSongTrackPreferences(row.id);
+        return json(rowToFull(row, stats.bestScore, stats.lastScore, prefs));
       })) as Handler,
   },
   {
@@ -186,6 +197,33 @@ export const songRoutes = [
 
           const { bestScore, lastScore, isNew } = upsertBestScore(songId, score);
           return json({ isNew, bestScore, lastScore });
+        })
+        .catch(() => json({ error: "Invalid request" }, 400))) as Handler,
+  },
+  {
+    method: "PUT",
+    path: "/api/songs/:id/track-preferences",
+    handler: ((req: Request, { id }: Record<string, string>) =>
+      parseJson<{ backgroundTracks?: number[]; mainTrackMuted?: boolean }>(req)
+        .then((body) => {
+          const songId = Number(id);
+
+          if (!getSongById(songId)) {
+            return json({ error: "Not found" }, 404);
+          }
+
+          if (!Array.isArray(body.backgroundTracks) || body.backgroundTracks.some((n) => typeof n !== "number")) {
+            return json({ error: "Invalid backgroundTracks" }, 400);
+          }
+          if (typeof body.mainTrackMuted !== "boolean") {
+            return json({ error: "Invalid mainTrackMuted" }, 400);
+          }
+
+          const prefs = upsertUserSongTrackPreferences(songId, {
+            backgroundTracks: body.backgroundTracks,
+            mainTrackMuted: body.mainTrackMuted,
+          });
+          return json(prefs);
         })
         .catch(() => json({ error: "Invalid request" }, 400))) as Handler,
   },

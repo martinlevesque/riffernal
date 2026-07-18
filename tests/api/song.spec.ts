@@ -235,4 +235,63 @@ test.describe("API: songs CRUD", () => {
 
     await cleanupSongs(request, /^E2E-Played$/);
   });
+
+  test("PUT /api/songs/:id/track-preferences persists and returns prefs (issue #86)", async ({ request }) => {
+    await cleanupSongs(request, /^E2E-TrackPrefs$/);
+    const midi = buildMidi("e2e-trackprefs.mid");
+    const form: Record<string, string | { name: string; mimeType: string; buffer: Buffer }> = {
+      title: "E2E-TrackPrefs",
+      artist: "",
+      bpm: "120",
+      difficulty: "medium",
+      notes: "[]",
+      tracks: "[]",
+      selected_track_indices: "[]",
+      track_hands: "{}",
+      background_tracks: "[]",
+      category_id: "",
+      midi,
+    };
+    const created = await (await request.post("/api/songs", { multipart: form })).json();
+
+    // Brand new song has no stored prefs.
+    const beforeRes = await request.get(`/api/songs/${created.id}`);
+    expect(beforeRes.ok()).toBeTruthy();
+    const before = await beforeRes.json();
+    expect(before.trackPreferences).toBeNull();
+
+    // Save prefs: mute background track 2, mute main track.
+    const saveRes = await request.put(`/api/songs/${created.id}/track-preferences`, {
+      data: { backgroundTracks: [3], mainTrackMuted: true },
+      headers: { "Content-Type": "application/json" },
+    });
+    expect(saveRes.ok()).toBeTruthy();
+    const saved = await saveRes.json();
+    expect(saved.backgroundTracks).toEqual([3]);
+    expect(saved.mainTrackMuted).toBe(true);
+
+    // GET now returns the saved prefs.
+    const afterRes = await request.get(`/api/songs/${created.id}`);
+    expect(afterRes.ok()).toBeTruthy();
+    const after = await afterRes.json();
+    expect(after.trackPreferences).toEqual({ backgroundTracks: [3], mainTrackMuted: true });
+
+    // Re-save to overwrite (e.g. user unmutes the main track next game).
+    const resaveRes = await request.put(`/api/songs/${created.id}/track-preferences`, {
+      data: { backgroundTracks: [2, 3], mainTrackMuted: false },
+      headers: { "Content-Type": "application/json" },
+    });
+    expect(resaveRes.ok()).toBeTruthy();
+    const reRes = await (await request.get(`/api/songs/${created.id}`)).json();
+    expect(reRes.trackPreferences).toEqual({ backgroundTracks: [2, 3], mainTrackMuted: false });
+
+    // 404 for unknown song.
+    const missRes = await request.put(`/api/songs/98887766/track-preferences`, {
+      data: { backgroundTracks: [], mainTrackMuted: false },
+      headers: { "Content-Type": "application/json" },
+    });
+    expect(missRes.status()).toBe(404);
+
+    await cleanupSongs(request, /^E2E-TrackPrefs$/);
+  });
 });

@@ -15,12 +15,19 @@ export interface SongSummary {
   lastScore: number | null;
 }
 
+/** Per-user-per-song in-game Tracks panel preferences (issue #86). */
+export interface TrackPreferences {
+  backgroundTracks: number[];
+  mainTrackMuted: boolean;
+}
+
 export interface SongFull extends SongSummary {
   notes: Note[];
   tracks: TrackInfo[];
   selectedTrackIndices: number[];
   trackHands: Record<number, HandSide>;
   backgroundTracks: number[];
+  trackPreferences: TrackPreferences | null;
 }
 
 export interface CategoryData {
@@ -145,6 +152,22 @@ export async function recordBestScore(
   return res.json() as Promise<{ isNew: boolean; bestScore: number; lastScore: number }>;
 }
 
+/** Persist the user's in-game Tracks panel choices for a song (issue #86):
+ *  the enabled background-track set and whether the main (live) track is
+ *  muted. Both fields are required — the backend stores the full state. */
+export async function saveSongTrackPreferences(
+  id: number,
+  prefs: TrackPreferences,
+): Promise<TrackPreferences> {
+  const res = await fetch(`/api/songs/${id}/track-preferences`, {
+    method: "PUT",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(prefs),
+  });
+  if (!res.ok) throw new Error(await parseError(res));
+  return res.json() as Promise<TrackPreferences>;
+}
+
 export function summaryToSong(s: SongSummary): Song {
   return {
     id: s.id,
@@ -174,6 +197,7 @@ export function songFullToSong(full: SongFull): Song {
     selectedTrackIndices: full.selectedTrackIndices,
     trackHands: full.trackHands,
     backgroundTracks: full.backgroundTracks,
+    trackPreferences: full.trackPreferences,
     categoryId: full.categoryId,
     lastPlayedAt: full.lastPlayedAt,
     bestScore: full.bestScore,

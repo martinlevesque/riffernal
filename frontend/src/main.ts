@@ -13,7 +13,7 @@ import { PracticeHand } from './utils/notes.js';
 import type { Song } from './utils/MidiParser.js';
 import {
   fetchSongs, fetchSong, uploadSong, songFullToSong, summaryToSong, markSongPlayed,
-  updateSongTitle, recordBestScore,
+  updateSongTitle, recordBestScore, saveSongTrackPreferences,
 } from './api/SongApi.js';
 import { fetchUserSettings, updateUserSettings } from './api/UserApi.js';
 import { formatTime, formatScore } from './utils/helpers.js';
@@ -42,17 +42,71 @@ function setupBackgroundPanel(game: Game): void {
   const bgTrackList = document.getElementById('bg-track-list')!;
   let bgPanelOpen = false;
 
+  // Debounced persistence of the in-game Tracks panel state (issue #86).
+  let preferencesTimer: ReturnType<typeof setTimeout> | null = null;
+  function schedulePreferencesSave(song: Song): void {
+    const songId = song.id;
+    if (songId === undefined) return;
+    if (preferencesTimer !== null) clearTimeout(preferencesTimer);
+    preferencesTimer = setTimeout(() => {
+      preferencesTimer = null;
+      const preferences = song.trackPreferences;
+      if (!preferences) return;
+      saveSongTrackPreferences(songId, preferences)
+        .catch((e) => console.warn('Failed to save track preferences:', e));
+    }, 500);
+  }
+  game.onTrackPreferencesChange = schedulePreferencesSave;
+
+  function mainTrackName(song: Song): string {
+    const tracks = song.tracks ?? [];
+    const firstSelected = song.selectedTrackIndices?.[0];
+    const picked = firstSelected !== undefined
+      ? tracks.find((t) => t.index === firstSelected)
+      : undefined;
+    return picked?.name ?? tracks[0]?.name ?? 'Main (piano)';
+  }
+
   function renderBgPanel(): void {
     bgTrackList.innerHTML = '';
     const song = game.song;
-    if (!song?.tracks || song.tracks.length === 0) {
+    if (!song) {
       bgPanel.classList.add('hidden');
+      return;
+    }
+
+    // Main (foreground) track row: toggles whether the web app's synth plays
+    // live key presses. Muting it lets a plugged-in MIDI keyboard be the
+    // audible source instead (issue #86).
+    const mainLi = document.createElement('li');
+    mainLi.className = 'bg-track-item';
+    const mainLabel = document.createElement('span');
+    mainLabel.className = 'bg-track-label';
+    mainLabel.textContent = `${mainTrackName(song)} (main)`;
+    const mainToggle = document.createElement('button');
+    mainToggle.className = 'bg-track-toggle';
+    const mainOn = !game.mainTrackMuted;
+    mainToggle.textContent = mainOn ? '\u{1F50A}' : '\u{1F507}';
+    mainToggle.title = mainOn ? 'Mute main track' : 'Unmute main track';
+    mainToggle.addEventListener('click', () => {
+      const nowMuted = !game.mainTrackMuted; // flip
+      game.setMainTrackMuted(nowMuted);
+      const on = !nowMuted;
+      mainToggle.textContent = on ? '\u{1F50A}' : '\u{1F507}';
+      mainToggle.title = on ? 'Mute main track' : 'Unmute main track';
+    });
+    mainLi.appendChild(mainLabel);
+    mainLi.appendChild(mainToggle);
+    bgTrackList.appendChild(mainLi);
+
+    if (!song.tracks || song.tracks.length === 0) {
+      bgPanel.classList.remove('hidden');
       return;
     }
     const selectedSet = new Set(song.selectedTrackIndices ?? []);
     const bgTracks = song.tracks.filter((t) => !selectedSet.has(t.index));
     if (bgTracks.length === 0) {
-      bgPanel.classList.add('hidden');
+      bgPanel.classList.remove('hidden');
       return;
     }
     for (const track of bgTracks) {
@@ -79,6 +133,7 @@ function setupBackgroundPanel(game: Game): void {
       li.appendChild(toggle);
       bgTrackList.appendChild(li);
     }
+    bgPanel.classList.remove('hidden');
   }
 
   toggleBgBtn.addEventListener('click', () => {
@@ -834,6 +889,17 @@ async function init(): Promise<void> {
     if (song.id !== undefined && song.notes.length === 0) {
       try { fullSong = songFullToSong(await fetchSong(song.id)); }
       catch (e) { console.warn('Failed to fetch full song:', e); }
+    }
+    // Apply the user's saved Tracks panel preferences (issue #86) before
+    // starting, so muted background / main tracks stay muted across games
+    // and across sessions for this song. Note: `game.retry()` reuses
+    // `currentSong` with its trackPreferences already set, so it's covered.
+    if (fullSong.trackPreferences) {
+      fullSong.backgroundTracks = fullSong.trackPreferences.backgroundTracks;
+      game.mainTrackMuted = fullSong.trackPreferences.mainTrackMuted;
+    } else if (game.mainTrackMuted) {
+      // Reset to default when there's no stored pref for this song.
+      game.mainTrackMuted = false;
     }
     game.start(fullSong);
     game.pause();
