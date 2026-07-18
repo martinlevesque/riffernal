@@ -13,7 +13,7 @@ export interface ScoreStats {
   lastScore: number | null;
 }
 
-/** Per-user-per-song track panel preferences (issue #86).
+/** Per-user-per-song track panel preferences.
  *  `backgroundTracks` is the user's chosen enabled set (overrides the
  *  song-level default stored on the `songs` table). `mainTrackMuted` mutes
  *  the sound the web app plays on live key presses. */
@@ -22,11 +22,20 @@ export interface TrackPreferences {
   mainTrackMuted: boolean;
 }
 
+/** A best score is only meaningful when strictly positive. A row with
+ *  best_score = 0 is a placeholder (e.g. created when only track
+ *  preferences were saved, or a run that scored nothing) and should be
+ *  treated as "no record yet". */
+export function isBestScoreValid(bestScore: number | null): bestScore is number {
+  return bestScore != null && bestScore > 0;
+}
+
 export function getUserSongScoreStats(songId: number): ScoreStats {
   const row = db
     .query("SELECT best_score, last_score FROM user_songs WHERE user_id = 1 AND song_id = ?")
     .get(songId) as { best_score: number; last_score: number | null } | undefined;
-  return { bestScore: row?.best_score ?? null, lastScore: row?.last_score ?? null };
+  const best = row?.best_score ?? null;
+  return { bestScore: isBestScoreValid(best) ? best : null, lastScore: row?.last_score ?? null };
 }
 
 /** Read the saved track preferences for the default user (id=1) and a song.
@@ -50,11 +59,14 @@ export function getUserSongTrackPreferences(songId: number): TrackPreferences | 
 /** Upsert best score for the default user (id=1) and the given song.
  *  Only updates best_score when the new score is strictly higher.
  *  Always updates last_score to the latest score.
- *  Returns { bestScore, lastScore, isNew }. */
+ *  Returns { bestScore, lastScore, isNew }. A best_score of 0 means no
+ *  meaningful record yet (e.g. only a placeholder row from saved track
+ *  preferences, or a run that scored nothing), so bestScore is reported
+ *  as null in that case. */
 export function upsertBestScore(
   songId: number,
   score: number,
-): { bestScore: number; lastScore: number; isNew: boolean } {
+): { bestScore: number | null; lastScore: number; isNew: boolean } {
   const row = db
     .query(
       `INSERT INTO user_songs (user_id, song_id, best_score, last_score)
@@ -68,7 +80,8 @@ export function upsertBestScore(
        RETURNING best_score, last_score`,
     )
     .get(songId, score, score) as { best_score: number; last_score: number };
-  return { bestScore: row.best_score, lastScore: row.last_score, isNew: row.best_score === score };
+  const bestScore = isBestScoreValid(row.best_score) ? row.best_score : null;
+  return { bestScore, lastScore: row.last_score, isNew: bestScore != null && row.best_score === score };
 }
 
 /** Persist track preferences for the default user (id=1) and a song.
@@ -96,7 +109,8 @@ export function getAllScoreStats(): Map<number, ScoreStats> {
   const map = new Map<number, ScoreStats>();
 
   for (const row of rows) {
-    map.set(row.song_id, { bestScore: row.best_score, lastScore: row.last_score });
+    const best = row.best_score;
+    map.set(row.song_id, { bestScore: isBestScoreValid(best) ? best : null, lastScore: row.last_score });
   }
 
   return map;

@@ -16,6 +16,13 @@ export function formatScore(score: number): string {
   return score.toString().replace(/\B(?=(\d{3})+(?!\d))/g, ',');
 }
 
+/** A best score is only meaningful when strictly positive. A score of 0
+ *  (no notes hit, or a placeholder row from saved track preferences)
+ *  should be treated as "no record yet". */
+export function isBestScoreValid(bestScore: number | null): bestScore is number {
+  return bestScore != null && bestScore > 0;
+}
+
 export function noteNameToMidi(name: string): number {
   const match = name.match(/^([A-G]#?)(\d)$/);
   if (!match) return -1;

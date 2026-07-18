@@ -48,3 +48,6 @@ Tests start a local dev server automatically, no manual server startup needed.
 
 - Always add a blank line before and after `if`, `else`, `for`, and `while` statements
 - Never leave `catch` blocks empty — at least log the error (e.g., `console.error(err)`)
+- Do not reference issue numbers (e.g. `#86`, `issue #88`) in source code,
+  comments, or test names — use the PR/commit title or git log for traceability
+  instead of tying the code to a GitHub issue

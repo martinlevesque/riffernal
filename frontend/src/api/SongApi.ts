@@ -15,7 +15,7 @@ export interface SongSummary {
   lastScore: number | null;
 }
 
-/** Per-user-per-song in-game Tracks panel preferences (issue #86). */
+/** Per-user-per-song in-game Tracks panel preferences. */
 export interface TrackPreferences {
   backgroundTracks: number[];
   mainTrackMuted: boolean;
@@ -142,17 +142,17 @@ export async function markSongPlayed(id: number): Promise<void> {
 export async function recordBestScore(
   id: number,
   score: number,
-): Promise<{ isNew: boolean; bestScore: number; lastScore: number }> {
+): Promise<{ isNew: boolean; bestScore: number | null; lastScore: number }> {
   const res = await fetch(`/api/songs/${id}/best-score`, {
     method: "PUT",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify({ score }),
   });
   if (!res.ok) throw new Error(await parseError(res));
-  return res.json() as Promise<{ isNew: boolean; bestScore: number; lastScore: number }>;
+  return res.json() as Promise<{ isNew: boolean; bestScore: number | null; lastScore: number }>;
 }
 
-/** Persist the user's in-game Tracks panel choices for a song (issue #86):
+/** Persist the user's in-game Tracks panel choices for a song:
  *  the enabled background-track set and whether the main (live) track is
  *  muted. Both fields are required — the backend stores the full state. */
 export async function saveSongTrackPreferences(

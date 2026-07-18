@@ -42,7 +42,7 @@ function setupBackgroundPanel(game: Game): void {
   const bgTrackList = document.getElementById('bg-track-list')!;
   let bgPanelOpen = false;
 
-  // Debounced persistence of the in-game Tracks panel state (issue #86).
+  // Debounced persistence of the in-game Tracks panel state.
   let preferencesTimer: ReturnType<typeof setTimeout> | null = null;
   function schedulePreferencesSave(song: Song): void {
     const songId = song.id;
@@ -77,7 +77,7 @@ function setupBackgroundPanel(game: Game): void {
 
     // Main (foreground) track row: toggles whether the web app's synth plays
     // live key presses. Muting it lets a plugged-in MIDI keyboard be the
-    // audible source instead (issue #86).
+    // audible source instead.
     const mainLi = document.createElement('li');
     mainLi.className = 'bg-track-item';
     const mainLabel = document.createElement('span');
@@ -890,7 +890,7 @@ async function init(): Promise<void> {
       try { fullSong = songFullToSong(await fetchSong(song.id)); }
       catch (e) { console.warn('Failed to fetch full song:', e); }
     }
-    // Apply the user's saved Tracks panel preferences (issue #86) before
+    // Apply the user's saved Tracks panel preferences before
     // starting, so muted background / main tracks stay muted across games
     // and across sessions for this song. Note: `game.retry()` reuses
     // `currentSong` with its trackPreferences already set, so it's covered.

@@ -236,7 +236,7 @@ test.describe("API: songs CRUD", () => {
     await cleanupSongs(request, /^E2E-Played$/);
   });
 
-  test("PUT /api/songs/:id/track-preferences persists and returns prefs (issue #86)", async ({ request }) => {
+  test("PUT /api/songs/:id/track-preferences persists and returns prefs", async ({ request }) => {
     await cleanupSongs(request, /^E2E-TrackPrefs$/);
     const midi = buildMidi("e2e-trackprefs.mid");
     const form: Record<string, string | { name: string; mimeType: string; buffer: Buffer }> = {

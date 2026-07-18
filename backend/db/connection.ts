@@ -68,7 +68,7 @@ try {
   console.error(err);
 }
 
-// Per-user-per-song track preferences (issue #86): persist which background
+// Per-user-per-song track preferences: persist which background
 // tracks the user has muted and whether the main (live) track is muted, so
 // the muted state survives into the next game played. Stored as JSON on
 // the `track_preferences` column.
