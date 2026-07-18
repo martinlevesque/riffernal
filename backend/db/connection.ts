@@ -64,8 +64,8 @@ db.exec(`
 
 try {
   db.exec("ALTER TABLE user_songs ADD COLUMN last_score INTEGER");
-} catch {
-  // Column already exists — ignore
+} catch (err) {
+  console.error(err);
 }
 
 // Per-user-per-song track preferences (issue #86): persist which background
@@ -74,6 +74,6 @@ try {
 // the `track_preferences` column.
 try {
   db.exec("ALTER TABLE user_songs ADD COLUMN track_preferences TEXT");
-} catch {
-  // Column already exists — ignore
+} catch (err) {
+  console.error(err);
 }
