@@ -11,6 +11,7 @@ import { NoteGrade, gradeLabel, TAP_NOTE_THRESHOLD, SUCCESS_PARTICLE_HOLD_RATIO,
 import type { Scoring } from './scoring.js';
 import { NOTE_TO_LANE, handColor, getPianoKeyLayout, PracticeHand, GM_DRUM_CHANNEL } from '../utils/notes.js';
 import { formatTime } from '../utils/helpers.js';
+import { hasMeaningfulScore } from './scoring.js';
 import type { VisibleRange } from '../utils/notes.js';
 import type { Synth } from '../audio/Synth.js';
 import type { Patch } from '../audio/patches/Patch.js';
@@ -74,7 +75,7 @@ export class Game {
   usedNoteRange: VisibleRange | null = null;
   /** When true, the web app's synth is silent on live key presses; the
    *  scored/visual note still plays so a plugged-in MIDI keyboard remains
-   *  the audible source (issue #86). Persisted per user-song. */
+   *  the audible source. Persisted per user-song. */
   mainTrackMuted = false;
 
   private _paused = false;
@@ -82,7 +83,7 @@ export class Game {
 
   onResults: ((scoring: Scoring, song: Song) => void) | null = null;
   /** Fired (debounced externally) when the user changes the in-game Tracks
-   *  panel state for the current song, so main.ts can persist it (issue #86). */
+   *  panel state for the current song, so main.ts can persist it. */
   onTrackPreferencesChange: ((song: Song) => void) | null = null;
 
   readonly loop = new LoopController();
@@ -442,13 +443,17 @@ export class Game {
 
   // -- Results & navigation -------------------------------------------------
 
-  /** Returns true when the current score beats the stored best for this song. */
+  /** Returns true when the current score beats the stored best for this song.
+   *  A score of 0 (no notes hit) is never considered a new best, so we don't
+   *  present a meaningless "New Best!" for a run that scored nothing. */
   isNewBest(): boolean {
+    const score = this.noteManager.scoring.score;
+
     return (
       !this._usedLearningMode &&
       this.currentSong != null &&
-      (this.currentSong.bestScore == null ||
-        this.noteManager.scoring.score > this.currentSong.bestScore)
+      hasMeaningfulScore(score) &&
+      (this.currentSong.bestScore == null || score > this.currentSong.bestScore)
     );
   }
 
@@ -526,7 +531,7 @@ export class Game {
     // Honour the main-track mute for foreground (selected) notes — these are
     // the "note songs" the player is meant to play, auto-played on miss in
     // PLAY mode. Background-accompaniment notes are governed by their own
-    // per-track toggle and must keep playing (issue #86).
+    // per-track toggle and must keep playing.
     if (note.selected && this.mainTrackMuted) return;
     const realDuration = note.duration * 1000 / this.speedMultiplier;
     const id = `auto_${note.track}_${note.time}_${note.key}`;
@@ -616,7 +621,7 @@ export class Game {
 
   /** Mute or unmute the main (live key-press) track. The scored/visual note
    *  still plays; only the app's synth output for live presses is silenced
-   *  so a plugged-in MIDI keyboard remains audible (issue #86). */
+   *  so a plugged-in MIDI keyboard remains audible. */
   setMainTrackMuted(muted: boolean): void {
     this.mainTrackMuted = muted;
     if (this.currentSong) {

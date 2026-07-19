@@ -48,3 +48,32 @@ Tests start a local dev server automatically, no manual server startup needed.
 
 - Always add a blank line before and after `if`, `else`, `for`, and `while` statements
 - Never leave `catch` blocks empty — at least log the error (e.g., `console.error(err)`)
+- Do not reference issue numbers (e.g. `#86`, `issue #88`) in source code,
+  comments, or test names — use the PR/commit title or git log for traceability
+  instead of tying the code to a GitHub issue
+
+## Architecture
+
+The backend follows a Rails-MVC-inspired layering with a strict call
+direction: `api/ → models/ → db/`. Each layer only talks to the one
+below it; `db/` never imports from `models/`, and `api/` never imports
+from `db/` directly.
+
+- `backend/api/` — **controllers** (HTTP layer: request parsing,
+  response shaping, status codes). Controllers call `models/` only.
+- `backend/models/` — **domain models**: invariants, domain types,
+  DTO shaping, and orchestration across one or more persistence
+  modules. The model layer owns business rules (e.g. `isBestScoreValid`,
+  "title cannot be empty", game-settings merge) and exposes
+  domain-shaped DTOs (`SongSummary`, `SongFull`, `Category`...) to the
+  controllers. Models call `db/` only.
+- `backend/db/` — **persistence** (SQL queries, row types, storage
+  primitives). No domain rules live here — `db/` returns raw rows and
+  leaves the interpretation to `models/`.
+
+The frontend is a SPA view layer that consumes the backend API. It does
+**not** have a `models/` folder (models are a backend concept).
+Presentation-side domain helpers live in their domain module (e.g.
+`frontend/src/game/scoring.ts`), not in a generic `utils/` grab-bag.
+Generic, framework-agnostic helpers (e.g. `clamp`, `formatTime`,
+`noteNameToMidi`) stay in `frontend/src/utils/helpers.ts`.

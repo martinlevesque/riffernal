@@ -1,5 +1,5 @@
 export { DB_PATH, db } from "./connection.ts";
-export { type CategoryRow, getAllCategories, createCategory } from "./category.ts";
+export { type CategoryRow, findAllCategories, findCategoryByName, insertCategoryRow } from "./category.ts";
 export {
   type SongRow,
   type InsertSongInput,
@@ -13,12 +13,11 @@ export {
 } from "./song.ts";
 export {
   type UserSongRow,
-  type ScoreStats,
-  type TrackPreferences,
-  getUserSongScoreStats,
-  getUserSongTrackPreferences,
-  upsertBestScore,
-  upsertUserSongTrackPreferences,
-  getAllScoreStats,
+  type ScoreStatsRow,
+  findScoreStats,
+  findTrackPreferencesJson,
+  upsertBestScoreRaw,
+  upsertTrackPreferencesJson,
+  findAllScoreStats,
 } from "./userSong.ts";
-export { type UserRow, type GameSettings, getUser, getUserGameSettings, updateUserGameSettings } from "./user.ts";
+export { type UserRow, getUserRow, setGameSettingsJson } from "./user.ts";

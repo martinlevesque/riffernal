@@ -8,54 +8,40 @@ export interface UserSongRow {
   updated_at: string;
 }
 
-export interface ScoreStats {
-  bestScore: number | null;
-  lastScore: number | null;
+export interface ScoreStatsRow {
+  best_score: number;
+  last_score: number | null;
 }
 
-/** Per-user-per-song track panel preferences (issue #86).
- *  `backgroundTracks` is the user's chosen enabled set (overrides the
- *  song-level default stored on the `songs` table). `mainTrackMuted` mutes
- *  the sound the web app plays on live key presses. */
-export interface TrackPreferences {
-  backgroundTracks: number[];
-  mainTrackMuted: boolean;
-}
-
-export function getUserSongScoreStats(songId: number): ScoreStats {
-  const row = db
+/** Read the raw best/last score row for the default user (id=1). Returns
+ *  undefined when the user_songs row doesn't exist yet. best_score may be
+ *  0 (a placeholder from saved track preferences, or a run that scored
+ *  nothing) — the model layer decides whether that's a meaningful best. */
+export function findScoreStats(songId: number): ScoreStatsRow | undefined {
+  return db
     .query("SELECT best_score, last_score FROM user_songs WHERE user_id = 1 AND song_id = ?")
-    .get(songId) as { best_score: number; last_score: number | null } | undefined;
-  return { bestScore: row?.best_score ?? null, lastScore: row?.last_score ?? null };
+    .get(songId) as ScoreStatsRow | undefined;
 }
 
-/** Read the saved track preferences for the default user (id=1) and a song.
- *  Returns null when no preferences are stored yet. */
-export function getUserSongTrackPreferences(songId: number): TrackPreferences | null {
+/** Read the raw track_preferences JSON blob for the default user (id=1).
+ *  Returns null when no row exists or no prefs are stored. The model layer
+ *  parses/validates the JSON. */
+export function findTrackPreferencesJson(songId: number): string | null {
   const row = db
     .query("SELECT track_preferences FROM user_songs WHERE user_id = 1 AND song_id = ?")
     .get(songId) as { track_preferences: string | null } | undefined;
-  if (!row || !row.track_preferences) return null;
-  try {
-    const parsed = JSON.parse(row.track_preferences) as Partial<TrackPreferences>;
-    return {
-      backgroundTracks: Array.isArray(parsed.backgroundTracks) ? parsed.backgroundTracks : [],
-      mainTrackMuted: parsed.mainTrackMuted === true,
-    };
-  } catch {
-    return null;
-  }
+  return row?.track_preferences ?? null;
 }
 
-/** Upsert best score for the default user (id=1) and the given song.
- *  Only updates best_score when the new score is strictly higher.
- *  Always updates last_score to the latest score.
- *  Returns { bestScore, lastScore, isNew }. */
-export function upsertBestScore(
+/** Upsert best score for the default user (id=1). Only updates best_score
+ *  when the new score is strictly higher. Always updates last_score. Returns
+ *  the raw best_score/last_score as stored — best_score may be 0; the model
+ *  layer applies the "is this a meaningful record" rule. */
+export function upsertBestScoreRaw(
   songId: number,
   score: number,
-): { bestScore: number; lastScore: number; isNew: boolean } {
-  const row = db
+): { best_score: number; last_score: number } {
+  return db
     .query(
       `INSERT INTO user_songs (user_id, song_id, best_score, last_score)
        VALUES (1, ?, ?, ?)
@@ -68,16 +54,11 @@ export function upsertBestScore(
        RETURNING best_score, last_score`,
     )
     .get(songId, score, score) as { best_score: number; last_score: number };
-  return { bestScore: row.best_score, lastScore: row.last_score, isNew: row.best_score === score };
 }
 
-/** Persist track preferences for the default user (id=1) and a song.
+/** Persist raw track preferences JSON for the default user (id=1) and a song.
  *  Creates the user_songs row if missing (best_score defaults to 0). */
-export function upsertUserSongTrackPreferences(
-  songId: number,
-  prefs: TrackPreferences,
-): TrackPreferences {
-  const json = JSON.stringify(prefs);
+export function upsertTrackPreferencesJson(songId: number, json: string): void {
   db.query(
     `INSERT INTO user_songs (user_id, song_id, best_score, last_score, track_preferences)
      VALUES (1, ?, 0, NULL, ?)
@@ -85,19 +66,13 @@ export function upsertUserSongTrackPreferences(
        track_preferences = excluded.track_preferences,
        updated_at = datetime('now')`,
   ).run(songId, json);
-  return prefs;
 }
 
-/** Return score stats (best + last) keyed by song_id for all songs of the default user. */
-export function getAllScoreStats(): Map<number, ScoreStats> {
-  const rows = db
+/** Return raw score stats rows keyed by song_id for all songs of the default
+ *  user. best_score may be 0 (placeholder rows) — the model layer rules on
+ *  whether that counts as a meaningful best. */
+export function findAllScoreStats(): Array<{ song_id: number; best_score: number; last_score: number | null }> {
+  return db
     .query("SELECT song_id, best_score, last_score FROM user_songs WHERE user_id = 1")
-    .all() as { song_id: number; best_score: number; last_score: number | null }[];
-  const map = new Map<number, ScoreStats>();
-
-  for (const row of rows) {
-    map.set(row.song_id, { bestScore: row.best_score, lastScore: row.last_score });
-  }
-
-  return map;
+    .all() as Array<{ song_id: number; best_score: number; last_score: number | null }>;
 }

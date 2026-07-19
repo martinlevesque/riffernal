@@ -8,6 +8,7 @@ import {
   clickBackToMenu,
   toggleLearnMode,
   togglePlayMode,
+  seedSongWithNotes,
 } from './helpers/index.js';
 
 test.describe('Best Score', () => {
@@ -47,10 +48,14 @@ test.describe('Best Score', () => {
 
     await clickBackToMenu(page);
 
-    // recordBestScore is async — wait for the menu to re-render with the score
+    // recordBestScore is async — wait for the menu to re-render with the score.
+    // The speed-up helper doesn't play any notes, so the score is 0; a
+    // 0 score must NOT be displayed as "Best: 0", only the last-score
+    // line should appear.
     await expect(page.locator('.song-scores').first()).toBeVisible({ timeout: 10000 });
     const text = await page.locator('.song-scores').first().textContent();
-    expect(text).toMatch(/Best:/);
+    expect(text).toMatch(/Last:/);
+    expect(text).not.toMatch(/Best:/);
   });
 
   test('best score is NOT recorded when learn mode was used', async ({ page }) => {
@@ -72,7 +77,7 @@ test.describe('Best Score', () => {
     await expect(page.locator('.song-scores')).toHaveCount(0, { timeout: 5000 });
   });
 
-  test('best score in song list updates after a better run', async ({ page }) => {
+test('best score in song list updates after a better run', async ({ page }) => {
     // First run
     await startGame(page, { keepSong: true, songTitle: 'BestScoreTest' });
     await expectPlayScreenActive(page);
@@ -80,7 +85,9 @@ test.describe('Best Score', () => {
     await waitForResults(page);
     await clickBackToMenu(page);
 
-    // Wait for best score to appear after async API call
+    // Wait for the score line to appear after async API call.
+    // The speed-up helper doesn't play notes, so the score is 0; the
+    // best score must remain null and only "Last:" shows.
     await expect(page.locator('.song-scores').first()).toBeVisible({ timeout: 10000 });
     const firstScore = await page.locator('.song-scores').first().textContent();
 
@@ -91,12 +98,35 @@ test.describe('Best Score', () => {
     await waitForResults(page);
     await clickBackToMenu(page);
 
-    // Best score element should still be present (may or may not have changed)
+    // Score line should still be present (still 0, so still no "Best:")
     await expect(page.locator('.song-scores').first()).toBeVisible({ timeout: 10000 });
     const secondScore = await page.locator('.song-scores').first().textContent();
-    expect(secondScore).toMatch(/Best:/);
+    expect(secondScore).toMatch(/Last:/);
+    expect(secondScore).not.toMatch(/Best:/);
     // Score should not have decreased
     const parse = (s: string | null) => parseInt((s ?? '').replace(/\D/g, '') || '0', 10);
     expect(parse(secondScore)).toBeGreaterThanOrEqual(parse(firstScore));
+  });
+
+  test('recording a score of 0 keeps best score null', async ({ request }) => {
+    await wipeDatabase(request);
+    const id = await seedSongWithNotes(request, 'ZeroScoreTest', [
+      { time: 2.0, key: 'C4', duration: 0.4 },
+    ]);
+
+    const recRes = await request.put(`/api/songs/${id}/best-score`, {
+      data: { score: 0 },
+    });
+    expect(recRes.ok()).toBeTruthy();
+    const recBody = (await recRes.json()) as { bestScore: number | null; isNew: boolean };
+    expect(recBody.bestScore).toBeNull();
+    expect(recBody.isNew).toBe(false);
+
+    const res = await request.get('/api/songs');
+    expect(res.ok()).toBeTruthy();
+    const songs = (await res.json()) as Array<{ id: number; bestScore: number | null }>;
+    const song = songs.find((s) => s.id === id);
+    expect(song).toBeDefined();
+    expect(song!.bestScore).toBeNull();
   });
 });

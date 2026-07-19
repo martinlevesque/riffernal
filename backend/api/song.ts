@@ -1,120 +1,50 @@
 import {
-  getAllSongs,
-  getSongById,
-  insertSong,
-  updateSongCategory,
-  updateSongTitle,
-  deleteSong,
-  touchLastPlayed,
-  getAllScoreStats,
-  getUserSongScoreStats,
-  upsertBestScore,
-  getUserSongTrackPreferences,
-  upsertUserSongTrackPreferences,
-  type SongRow,
+  listSongs,
+  getSong,
+  createSong,
+  updateSong,
+  removeSong,
+  recordPlay,
+  recordBestScore,
+  saveTrackPreferences,
+  type InsertSongInput,
+  type SongUpdate,
   type TrackPreferences,
-} from "../db.ts";
+} from "../models/index.ts";
 import { json, parseJson, errMsg, numOrNull, type Handler } from "./router.ts";
 
-interface SongSummary {
-  id: number;
-  title: string;
-  artist: string;
-  bpm: number;
-  difficulty: string;
-  categoryId: number | null;
-  imported: boolean;
-  createdAt: string;
-  lastPlayedAt: string | null;
-  bestScore: number | null;
-  lastScore: number | null;
-}
-
-interface SongFull extends SongSummary {
-  notes: unknown[];
-  tracks: unknown[];
-  selectedTrackIndices: number[];
-  trackHands: Record<number, string>;
-  backgroundTracks: number[];
-  trackPreferences: TrackPreferences | null;
-}
-
-function rowToSummary(row: SongRow, bestScore: number | null = null, lastScore: number | null = null): SongSummary {
+/** Parse the multipart form for POST /api/songs into an InsertSongInput. */
+async function parseCreateSongForm(req: Request): Promise<InsertSongInput> {
+  const form = await req.formData();
+  const midiFile = form.get("midi") as File | null;
   return {
-    id: row.id,
-    title: row.title,
-    artist: row.artist,
-    bpm: row.bpm,
-    difficulty: row.difficulty,
-    categoryId: row.category_id,
-    imported: row.imported === 1,
-    createdAt: row.created_at,
-    lastPlayedAt: row.last_played_at,
-    bestScore,
-    lastScore,
+    title: String(form.get("title") ?? ""),
+    artist: String(form.get("artist") ?? ""),
+    bpm: Number(form.get("bpm") ?? 120),
+    difficulty: String(form.get("difficulty") ?? "medium"),
+    notes: String(form.get("notes") ?? "[]"),
+    midi_data: midiFile ? new Uint8Array(await midiFile.arrayBuffer()) : null,
+    category_id: numOrNull(form.get("category_id")),
+    tracks: (form.get("tracks") as string | null) ?? null,
+    selected_track_indices: (form.get("selected_track_indices") as string | null) ?? null,
+    track_hands: (form.get("track_hands") as string | null) ?? null,
+    background_tracks: (form.get("background_tracks") as string | null) ?? null,
   };
-}
-
-function rowToFull(
-  row: SongRow,
-  bestScore: number | null = null,
-  lastScore: number | null = null,
-  trackPreferences: TrackPreferences | null = null,
-): SongFull {
-  return {
-    ...rowToSummary(row, bestScore, lastScore),
-    notes: JSON.parse(row.notes ?? "[]"),
-    tracks: row.tracks ? JSON.parse(row.tracks) : [],
-    selectedTrackIndices: row.selected_track_indices ? JSON.parse(row.selected_track_indices) : [],
-    trackHands: row.track_hands ? JSON.parse(row.track_hands) : {},
-    backgroundTracks: row.background_tracks ? JSON.parse(row.background_tracks) : [],
-    trackPreferences,
-  };
-}
-
-function withSong(id: string, fn: (row: SongRow) => Response): Response {
-  const row = getSongById(Number(id));
-
-  if (!row) {
-    return json({ error: "Not found" }, 404);
-  }
-
-  return fn(row);
 }
 
 export const songRoutes = [
   {
     method: "GET",
     path: "/api/songs",
-    handler: (() => {
-      const scoreStats = getAllScoreStats();
-      return json(getAllSongs().map((row) => {
-        const stats = scoreStats.get(row.id);
-        return rowToSummary(row, stats?.bestScore ?? null, stats?.lastScore ?? null);
-      }));
-    }) as Handler,
+    handler: (() => json(listSongs())) as Handler,
   },
   {
     method: "POST",
     path: "/api/songs",
     handler: (async (req: Request) => {
       try {
-        const form = await req.formData();
-        const midiFile = form.get("midi") as File | null;
-        const row = insertSong({
-          title: String(form.get("title") ?? ""),
-          artist: String(form.get("artist") ?? ""),
-          bpm: Number(form.get("bpm") ?? 120),
-          difficulty: String(form.get("difficulty") ?? "medium"),
-          notes: String(form.get("notes") ?? "[]"),
-          midi_data: midiFile ? new Uint8Array(await midiFile.arrayBuffer()) : null,
-          category_id: numOrNull(form.get("category_id")),
-          tracks: (form.get("tracks") as string | null) ?? null,
-          selected_track_indices: (form.get("selected_track_indices") as string | null) ?? null,
-          track_hands: (form.get("track_hands") as string | null) ?? null,
-          background_tracks: (form.get("background_tracks") as string | null) ?? null,
-        });
-        return json(rowToFull(row, null), 201);
+        const input = await parseCreateSongForm(req);
+        return json(createSong(input), 201);
       } catch (err) {
         return json({ error: errMsg(err) }, /UNIQUE|empty/i.test(errMsg(err)) ? 400 : 500);
       }
@@ -123,61 +53,41 @@ export const songRoutes = [
   {
     method: "GET",
     path: "/api/songs/:id",
-    handler: ((_req: Request, { id }: Record<string, string>) =>
-      withSong(id, (row) => {
-        const stats = getUserSongScoreStats(row.id);
-        const prefs = getUserSongTrackPreferences(row.id);
-        return json(rowToFull(row, stats.bestScore, stats.lastScore, prefs));
-      })) as Handler,
+    handler: ((_req: Request, { id }: Record<string, string>) => {
+      const song = getSong(Number(id));
+      return song ? json(song) : json({ error: "Not found" }, 404);
+    }) as Handler,
   },
   {
     method: "DELETE",
     path: "/api/songs/:id",
     handler: ((_req: Request, { id }: Record<string, string>) => {
-      if (!getSongById(Number(id))) {
-        return json({ error: "Not found" }, 404);
-      }
-
-      deleteSong(Number(id));
-      return json({ ok: true });
+      const removed = removeSong(Number(id));
+      return removed ? json({ ok: true }) : json({ error: "Not found" }, 404);
     }) as Handler,
   },
   {
     method: "PUT",
     path: "/api/songs/:id",
     handler: ((req: Request, { id }: Record<string, string>) =>
-      parseJson<{ categoryId?: number | null; title?: string; artist?: string }>(req)
-        .then(({ categoryId, title, artist }) => {
-          const songId = Number(id);
-          if (!getSongById(songId)) {
-            return json({ error: "Not found" }, 404);
+      parseJson<SongUpdate>(req)
+        .then((body) => {
+          try {
+            const updated = updateSong(Number(id), body);
+            return updated ? json(updated) : json({ error: "Not found" }, 404);
+          } catch (err) {
+            return json({ error: errMsg(err) }, 400);
           }
-
-          if (title !== undefined) {
-            if (!title.trim()) {
-              return json({ error: "Title cannot be empty" }, 400);
-            }
-            updateSongTitle(songId, title, artist ?? "");
-          }
-
-          if (categoryId !== undefined) {
-            updateSongCategory(songId, categoryId ?? null);
-          }
-
-          const updated = getSongById(songId)!;
-          const stats = getUserSongScoreStats(songId);
-          return json(rowToFull(updated, stats.bestScore, stats.lastScore));
         })
         .catch(() => json({ error: "Invalid request" }, 400))) as Handler,
   },
   {
     method: "PUT",
     path: "/api/songs/:id/play",
-    handler: ((_req: Request, { id }: Record<string, string>) =>
-      withSong(id, () => {
-        touchLastPlayed(Number(id));
-        return json({ ok: true });
-      })) as Handler,
+    handler: ((_req: Request, { id }: Record<string, string>) => {
+      const touched = recordPlay(Number(id));
+      return touched ? json({ ok: true }) : json({ error: "Not found" }, 404);
+    }) as Handler,
   },
   {
     method: "PUT",
@@ -189,14 +99,10 @@ export const songRoutes = [
             return json({ error: "Invalid score" }, 400);
           }
 
-          const songId = Number(id);
-
-          if (!getSongById(songId)) {
-            return json({ error: "Not found" }, 404);
-          }
-
-          const { bestScore, lastScore, isNew } = upsertBestScore(songId, score);
-          return json({ isNew, bestScore, lastScore });
+          const result = recordBestScore(Number(id), score);
+          return result
+            ? json({ isNew: result.isNew, bestScore: result.bestScore, lastScore: result.lastScore })
+            : json({ error: "Not found" }, 404);
         })
         .catch(() => json({ error: "Invalid request" }, 400))) as Handler,
   },
@@ -206,12 +112,6 @@ export const songRoutes = [
     handler: ((req: Request, { id }: Record<string, string>) =>
       parseJson<{ backgroundTracks?: number[]; mainTrackMuted?: boolean }>(req)
         .then((body) => {
-          const songId = Number(id);
-
-          if (!getSongById(songId)) {
-            return json({ error: "Not found" }, 404);
-          }
-
           if (!Array.isArray(body.backgroundTracks) || body.backgroundTracks.some((n) => typeof n !== "number")) {
             return json({ error: "Invalid backgroundTracks" }, 400);
           }
@@ -219,11 +119,12 @@ export const songRoutes = [
             return json({ error: "Invalid mainTrackMuted" }, 400);
           }
 
-          const prefs = upsertUserSongTrackPreferences(songId, {
+          const prefs: TrackPreferences = {
             backgroundTracks: body.backgroundTracks,
             mainTrackMuted: body.mainTrackMuted,
-          });
-          return json(prefs);
+          };
+          const saved = saveTrackPreferences(Number(id), prefs);
+          return saved ? json(saved) : json({ error: "Not found" }, 404);
         })
         .catch(() => json({ error: "Invalid request" }, 400))) as Handler,
   },
