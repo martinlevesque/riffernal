@@ -1,4 +1,4 @@
-import type { NoteCallback } from './types.js';
+import { DEFAULT_KEYBOARD_VELOCITY, type NoteOnCallback, type NoteOffCallback } from './types.js';
 
 export const KEYBOARD_MAP: Record<string, string> = {
   'KeyZ': 'C2',
@@ -44,8 +44,8 @@ export const KEYBOARD_MAP: Record<string, string> = {
 };
 
 export class KeyboardInput {
-  onNoteOn: NoteCallback | null = null;
-  onNoteOff: NoteCallback | null = null;
+  onNoteOn: NoteOnCallback | null = null;
+  onNoteOff: NoteOffCallback | null = null;
   private pressedKeys = new Set<string>();
   enabled = true;
   private _handleKeyDown: (e: KeyboardEvent) => void;
@@ -78,7 +78,7 @@ export class KeyboardInput {
     if (this.pressedKeys.has(e.code)) return;
     this.pressedKeys.add(e.code);
 
-    if (this.onNoteOn) this.onNoteOn(note, e.code);
+    if (this.onNoteOn) this.onNoteOn(note, e.code, DEFAULT_KEYBOARD_VELOCITY);
   }
 
   private _onKeyUp(e: KeyboardEvent): void {

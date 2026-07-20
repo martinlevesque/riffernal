@@ -1,10 +1,10 @@
 import { midiToNoteName } from '../utils/helpers.js';
 import { NOTE_TO_LANE } from '../utils/notes.js';
-import type { NoteCallback, ConnectionChangeCallback } from './types.js';
+import type { NoteOnCallback, NoteOffCallback, ConnectionChangeCallback } from './types.js';
 
 export class MidiInput {
-  onNoteOn: NoteCallback | null = null;
-  onNoteOff: NoteCallback | null = null;
+  onNoteOn: NoteOnCallback | null = null;
+  onNoteOff: NoteOffCallback | null = null;
   onConnectionChange: ConnectionChangeCallback | null = null;
   private midiAccess: MIDIAccess | null = null;
   enabled = true;
@@ -105,7 +105,7 @@ export class MidiInput {
       }
       this._heldNotes.add(noteNumber);
       console.log('[MIDI] Note On:', noteName, 'vel', velocity);
-      if (this.onNoteOn) this.onNoteOn(noteName, `midi_${noteNumber}`);
+      if (this.onNoteOn) this.onNoteOn(noteName, `midi_${noteNumber}`, velocity);
     } else if (command === 0x80 || (command === 0x90 && velocity === 0)) {
       this._heldNotes.delete(noteNumber);
       console.log('[MIDI] Note Off:', noteName);
