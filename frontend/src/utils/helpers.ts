@@ -2,6 +2,13 @@ export function clamp(value: number, min: number, max: number): number {
   return Math.max(min, Math.min(max, value));
 }
 
+/** Normalized 0..1 intensity derived from a MIDI velocity (1..127), with a
+ *  gamma curve so the lower end of the range is still visibly different from
+ *  silence while the high end still grows. */
+export function velocityIntensity(velocity: number): number {
+  return clamp(velocity / 127, 0, 1) ** 0.6;
+}
+
 export function lerp(a: number, b: number, t: number): number {
   return a + (b - a) * t;
 }

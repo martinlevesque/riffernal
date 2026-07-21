@@ -9,6 +9,7 @@ import { PianoRenderer } from './PianoRenderer.js';
 import type { SongNote } from '../NoteManager.js';
 import { isLowEndDevice } from '../../utils/device.js';
 import { themeManager } from '../../themes/ThemeManager.js';
+import { velocityIntensity } from '../../utils/helpers.js';
 
 export const SHEET_TOP_OFFSET = 84;
 
@@ -167,7 +168,7 @@ export class Renderer {
   particles: Particle[] = [];
   private _grindBeams = new Map<number, GrindBeam>();
   private _grindFlashes: GrindFlash[] = [];
-  private _glowGradCache = new Map<number, { top: number; bottom: number; rgb: RGB; grad: CanvasGradient }>();
+  private _glowGradCache = new Map<number, { top: number; bottom: number; rgb: RGB; intensity: number; grad: CanvasGradient }>();
   sheetBottom = 0;
   sheetScale = 1.0;
   sheetBarX = 0;
@@ -217,7 +218,7 @@ export class Renderer {
     this._now = nowMs;
   }
 
-  drawHighway(_scrollOffset: number, pressedLanes: Set<number>, visibleRange?: VisibleRange | null): void {
+  drawHighway(_scrollOffset: number, pressedLanes: Map<number, number>, visibleRange?: VisibleRange | null): void {
     const ctx = this.ctx;
     const c = themeManager.canvas;
     const hitZoneY = this.height * HIT_ZONE_Y_RATIO;
@@ -245,15 +246,16 @@ export class Renderer {
     const glowTop = Math.max(sheetBottom, hitZoneY - LANE_GLOW_HEIGHT);
 
     if (pressedLanes.size > 0) {
-      for (const lane of pressedLanes) {
+      for (const [lane, velocity] of pressedLanes) {
         const noteName = NOTE_NAMES[lane];
         if (!noteName) continue;
         const layout = getPianoKeyLayout(noteName, this.width, visibleRange);
         if (layout.width === 0) continue;
+        const intensity = velocityIntensity(velocity);
         const color = NOTE_COLORS[noteName] || c.noteFallbackColor;
         const cx = layout.x + layout.width / 2;
-        const colW = layout.width * 0.9;
-        const grad = this._laneGlowGrad(lane, color, glowTop, hitZoneY);
+        const colW = layout.width * (0.55 + 0.45 * intensity);
+        const grad = this._laneGlowGrad(lane, color, glowTop, hitZoneY, intensity);
         ctx.fillStyle = grad;
         ctx.fillRect(cx - colW / 2, glowTop, colW, hitZoneY - glowTop);
       }
@@ -296,25 +298,25 @@ export class Renderer {
     return this._rgba(this._parseRgb(color), alpha);
   }
 
-  private _laneGlowGrad(lane: number, color: string, top: number, bottom: number): CanvasGradient {
+  private _laneGlowGrad(lane: number, color: string, top: number, bottom: number, intensity: number): CanvasGradient {
     const rgb = this._parseRgb(color);
     const entry = this._glowGradCache.get(lane);
-    if (entry && entry.top === top && entry.bottom === bottom
+    if (entry && entry.top === top && entry.bottom === bottom && entry.intensity === intensity
         && entry.rgb.r === rgb.r && entry.rgb.g === rgb.g && entry.rgb.b === rgb.b) {
       return entry.grad;
     }
     const grad = this.ctx.createLinearGradient(0, top, 0, bottom);
     grad.addColorStop(0, 'rgba(0,0,0,0)');
-    grad.addColorStop(1, this._rgba(rgb, 0.22));
-    this._glowGradCache.set(lane, { top, bottom, rgb, grad });
+    grad.addColorStop(1, this._rgba(rgb, 0.22 * intensity));
+    this._glowGradCache.set(lane, { top, bottom, rgb, intensity, grad });
     return grad;
   }
 
-  drawHitZone(pressedLanes: Set<number>, visibleRange?: VisibleRange | null): void {
+  drawHitZone(pressedLanes: Map<number, number>, visibleRange?: VisibleRange | null): void {
     this.piano.drawHitZone(this.ctx, this.width, this.height, pressedLanes, visibleRange);
   }
 
-  drawPiano(pressedLanes: Set<number>, visibleRange?: VisibleRange | null): void {
+  drawPiano(pressedLanes: Map<number, number>, visibleRange?: VisibleRange | null): void {
     this.piano.drawPiano(this.ctx, this.width, this.height, pressedLanes, visibleRange);
   }
 

@@ -24,6 +24,22 @@ When a GitHub URL is pasted, use `gh` CLI (e.g., `gh issue view`, `gh pr view`) 
 
 Tests start a local dev server automatically, no manual server startup needed.
 
+The full Playwright suite is slow — plan for **7–8 minutes** end-to-end
+(startup + browser boots + all specs). When invoking `bun run test`:
+
+- **Run it in the background** and poll for completion in a loop — do
+  not block a single long tool call, and do not kill it early. The
+  shell tool caps individual commands well below the full runtime.
+  Example pattern:
+  ```bash
+  nohup bun run test > /tmp/opencode/test-run.log 2>&1 &
+  TEST_PID=$!
+  ```
+  Then poll every ~10–30s with `kill -0 $TEST_PID` until it exits, and
+  `tail /tmp/opencode/test-run.log` for the summary line.
+- If a prior `bun run dev` is holding port 3000, stop it first
+  (`bun run dev:stop`) so Playwright's `webServer` can boot cleanly.
+
 ## TypeScript
 
 - Source code in `frontend/src/` (`.ts` files, imports use `.js` extensions)

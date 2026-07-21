@@ -60,7 +60,7 @@ export class Game {
   private refGameTime = 0;
   private refRealTime = 0;
   private animationId: number | null = null;
-  private pressedLanes = new Set<number>();
+  private pressedLanes = new Map<number, number>();
   scrollOffset = 0;
   speedMultiplier = 1.0;
   scoreDisplay: ScoreDisplay | null = null;
@@ -319,9 +319,9 @@ export class Game {
   }
 
   private _setupInputHandlers(): void {
-    this.keyboardInput.onNoteOn = (note, keyCode) => this._handleNoteOn(note, keyCode);
+    this.keyboardInput.onNoteOn = (note, keyCode, velocity) => this._handleNoteOn(note, keyCode, velocity);
     this.keyboardInput.onNoteOff = (note, keyCode) => this._handleNoteOff(note, keyCode);
-    this.midiInput.onNoteOn = (note, id) => this._handleNoteOn(note, id);
+    this.midiInput.onNoteOn = (note, id, velocity) => this._handleNoteOn(note, id, velocity);
     this.midiInput.onNoteOff = (note, id) => this._handleNoteOff(note, id);
 
     this.keyboardInput.start();
@@ -365,11 +365,11 @@ export class Game {
 
   // -- Input handling -------------------------------------------------------
 
-  private _handleNoteOn(noteName: string, _id: string): void {
+  private _handleNoteOn(noteName: string, _id: string, velocity: number): void {
     const lane = NOTE_TO_LANE.get(noteName);
     if (lane === undefined) return;
 
-    this.pressedLanes.add(lane);
+    this.pressedLanes.set(lane, velocity);
     const activeNote = this.noteManager.findActiveNoteForLane(this.currentTime, lane);
     if (!this.mainTrackMuted) {
       const patch = activeNote
