@@ -716,6 +716,11 @@ function setupResultButtons(
 // init
 // ---------------------------------------------------------------------------
 
+/**
+ * App bootstrap. Constructs the Synth, KeyboardInput, MidiInput and Game,
+ * wires every UI button to the corresponding game call, connects MIDI input,
+ * then starts the render loop and the setup helpers. Invoked at file end.
+ */
 async function init(): Promise<void> {
   themeManager.init();
 

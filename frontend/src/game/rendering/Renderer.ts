@@ -9,6 +9,7 @@ import { PianoRenderer } from './PianoRenderer.js';
 import type { SongNote } from '../NoteManager.js';
 import { isLowEndDevice } from '../../utils/device.js';
 import { themeManager } from '../../themes/ThemeManager.js';
+import { velocityIntensity } from '../../utils/helpers.js';
 
 export const SHEET_TOP_OFFSET = 84;
 
@@ -250,7 +251,7 @@ export class Renderer {
         if (!noteName) continue;
         const layout = getPianoKeyLayout(noteName, this.width, visibleRange);
         if (layout.width === 0) continue;
-        const intensity = Math.max(0, Math.min(1, velocity / 127));
+        const intensity = velocityIntensity(velocity);
         const color = NOTE_COLORS[noteName] || c.noteFallbackColor;
         const cx = layout.x + layout.width / 2;
         const colW = layout.width * (0.55 + 0.45 * intensity);

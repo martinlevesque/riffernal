@@ -5,6 +5,7 @@ import { NOTE_NAMES, NOTE_COLORS, getPianoKeyLayout, BLACK_KEY_WIDTH_RATIO, NOTE
 import type { VisibleRange } from '../../utils/notes.js';
 import { HIT_ZONE_Y_RATIO } from '../NoteManager.js';
 import { themeManager } from '../../themes/ThemeManager.js';
+import { velocityIntensity } from '../../utils/helpers.js';
 
 const PIANO_REGION_OFFSET = 30;
 const BLACK_KEY_HEIGHT_RATIO = 0.56;
@@ -97,7 +98,7 @@ export class PianoRenderer {
     const c = themeManager.canvas;
     const indicatorBarOffset = 4;
     const indicatorBarHeight = 8;
-    const maxPressedGlowHeight = 60;
+    const basePressedGlowHeight = 60;
 
     for (let i = 0; i < NOTE_NAMES.length; i++) {
       if (visibleRange && (i < visibleRange.minNoteIdx || i > visibleRange.maxNoteIdx)) continue;
@@ -113,10 +114,10 @@ export class PianoRenderer {
       ctx.fillRect(layout.x, hitZoneY - indicatorBarOffset - offsetY, layout.width, indicatorBarHeight);
 
       if (isPressed) {
-        const intensity = Math.max(0, Math.min(1, velocity / 127));
-        ctx.globalAlpha = 0.1 + 0.25 * intensity;
+        const intensity = velocityIntensity(velocity);
+        ctx.globalAlpha = 0.05 + 0.6 * intensity;
         ctx.fillStyle = color;
-        const pressedGlowHeight = maxPressedGlowHeight * (0.5 + 0.5 * intensity);
+        const pressedGlowHeight = basePressedGlowHeight * (0.25 + 1.6 * intensity);
         ctx.fillRect(layout.x, hitZoneY - PIANO_REGION_OFFSET - offsetY, layout.width, pressedGlowHeight);
       }
     }
@@ -147,10 +148,15 @@ export class PianoRenderer {
       ctx.fillRect(layout.x + keyInset, pianoTop + keyInset - offsetY, whiteKeyWidth - keyInset * 2, pianoH - keyInset * 2);
 
       if (isPressed) {
-        const intensity = Math.max(0, Math.min(1, velocity / 127));
+        const intensity = velocityIntensity(velocity);
+        ctx.save();
+        ctx.beginPath();
+        ctx.rect(layout.x, pianoTop - offsetY, whiteKeyWidth, pianoH);
+        ctx.clip();
         ctx.strokeStyle = color;
-        ctx.lineWidth = 1.5 + 1.5 * intensity;
+        ctx.lineWidth = 1 + 6 * intensity;
         ctx.strokeRect(layout.x + keyInset, pianoTop + keyInset - offsetY, whiteKeyWidth - keyInset * 2, pianoH - keyInset * 2);
+        ctx.restore();
       }
 
       ctx.strokeStyle = c.whiteKeyBorder;
@@ -192,12 +198,17 @@ export class PianoRenderer {
       ctx.fill();
 
       if (isPressed) {
-        const intensity = Math.max(0, Math.min(1, velocity / 127));
+        const intensity = velocityIntensity(velocity);
         const bcolor = NOTE_COLORS[noteName] || c.noteFallbackColor;
+        ctx.save();
+        ctx.beginPath();
+        ctx.rect(layout.x, pianoTop - offsetY, blackKeyWidth, blackKeyHeight);
+        ctx.clip();
         ctx.strokeStyle = bcolor;
-        ctx.lineWidth = 1 + 1.5 * intensity;
+        ctx.lineWidth = 1 + 5 * intensity;
         roundRect(ctxR, layout.x + keyInset, pianoTop + keyInset - offsetY, blackKeyWidth - keyInset * 2, blackKeyHeight - keyInset * 2, 1);
         ctx.stroke();
+        ctx.restore();
       }
 
       ctx.strokeStyle = c.blackKeyBorder;
