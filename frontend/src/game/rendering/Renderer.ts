@@ -691,7 +691,13 @@ export class Renderer {
     bassNotes: SongNote[],
     currentTime: number,
     songDuration: number,
-    loop?: { start: number | null; end: number | null; active: boolean; defining: LoopDefinitionState },
+    loop?: {
+      chain: Array<{ startTime: number; endTime: number }>;
+      currentIndex: number | null;
+      draftStart: number | null;
+      draftEnd: number | null;
+      defining: LoopDefinitionState;
+    },
     viewWindow?: { start: number; end: number },
     bpm = 120,
   ): void {
@@ -860,15 +866,19 @@ export class Renderer {
 
   private _drawLoopRegion(
     L: SheetLayout,
-    loop: { start: number | null; end: number | null; active: boolean; defining: LoopDefinitionState } | undefined,
+    loop: {
+      chain: Array<{ startTime: number; endTime: number }>;
+      currentIndex: number | null;
+      draftStart: number | null;
+      draftEnd: number | null;
+      defining: LoopDefinitionState;
+    } | undefined,
     trebleNotes: SongNote[],
     bassNotes: SongNote[],
   ): void {
     const c = themeManager.canvas;
     const { ctx, barX, barW, viewStart, viewEnd, sheetTop, sheetBottom } = L;
-    const loopStart = loop?.start ?? null;
-    const loopEnd = loop?.end ?? null;
-    const loopDefining = loop?.defining ?? LoopDefinitionState.Off;
+    if (!loop) return;
 
     const drawMarker = (t: number, color: string, label: string): void => {
       if (t < viewStart || t > viewEnd) return;
@@ -910,27 +920,46 @@ export class Renderer {
       ctx.restore();
     };
 
-    if (loopStart !== null && loopEnd !== null) {
-      const lx0 = barX + ((loopStart - viewStart) / (viewEnd - viewStart)) * barW;
-      const lx1 = barX + ((loopEnd - viewStart) / (viewEnd - viewStart)) * barW;
+    const drawRegion = (start: number, end: number, fill: string): void => {
+      const lx0 = barX + ((Math.max(start, viewStart) - viewStart) / (viewEnd - viewStart)) * barW;
+      const lx1 = barX + ((Math.min(end, viewEnd) - viewStart) / (viewEnd - viewStart)) * barW;
+      if (lx1 <= lx0) return;
       ctx.save();
-      ctx.fillStyle = loop?.active ? c.loopOverlayActive : c.loopOverlayInactive;
-      ctx.fillRect(Math.min(lx0, lx1), sheetTop, Math.abs(lx1 - lx0), sheetBottom - sheetTop);
+      ctx.fillStyle = fill;
+      ctx.fillRect(lx0, sheetTop, lx1 - lx0, sheetBottom - sheetTop);
       ctx.restore();
-      drawMarker(loopStart, c.loopMarker, 'A');
-      drawMarker(loopEnd, c.loopMarker, 'B');
-      highlightAt(loopStart, c.loopMarker, 0.7);
-      highlightAt(loopEnd, c.loopMarker, 0.7);
-    } else if (loopDefining === LoopDefinitionState.End && loopStart !== null) {
-      drawMarker(loopStart, c.loopMarker, 'A');
-      highlightAt(loopStart, c.loopMarker, 0.9);
-      const lx0 = barX + ((loopStart - viewStart) / (viewEnd - viewStart)) * barW;
-      ctx.save();
-      ctx.fillStyle = c.loopDefiningPreview;
-      ctx.fillRect(Math.max(lx0, barX), sheetTop, barX + barW - Math.max(lx0, barX), sheetBottom - sheetTop);
-      ctx.restore();
-    } else if (loopDefining === LoopDefinitionState.Start && loopStart !== null) {
-      drawMarker(loopStart, c.loopMarker, 'A');
+    };
+
+    // Saved enabled loops: inactive loops get the inactive overlay, the
+    // current (playing) one gets the active overlay. Draw inactive ones
+    // first so the active overlay sits on top.
+    const chain = loop.chain;
+    const currentIndex = loop.currentIndex;
+    for (let i = 0; i < chain.length; i++) {
+      if (i === currentIndex) continue;
+      drawRegion(chain[i].startTime, chain[i].endTime, c.loopOverlayInactive);
+      drawMarker(chain[i].startTime, c.loopMarker, 'A');
+      drawMarker(chain[i].endTime, c.loopMarker, 'B');
+    }
+    if (currentIndex !== null && currentIndex >= 0 && currentIndex < chain.length) {
+      const cur = chain[currentIndex];
+      drawRegion(cur.startTime, cur.endTime, c.loopOverlayActive);
+      drawMarker(cur.startTime, c.loopMarker, 'A');
+      drawMarker(cur.endTime, c.loopMarker, 'B');
+      highlightAt(cur.startTime, c.loopMarker, 0.7);
+      highlightAt(cur.endTime, c.loopMarker, 0.7);
+    }
+
+    // Draft (define-flow) overlay on top of everything.
+    const draftStart = loop.draftStart;
+    const draftDefining = loop.defining;
+    if (draftDefining === LoopDefinitionState.End && draftStart !== null) {
+      drawMarker(draftStart, c.loopMarker, 'A');
+      highlightAt(draftStart, c.loopMarker, 0.9);
+      // Preview fills from the start marker to the right edge of the view.
+      drawRegion(draftStart, viewEnd, c.loopDefiningPreview);
+    } else if (draftDefining === LoopDefinitionState.Start && draftStart !== null) {
+      drawMarker(draftStart, c.loopMarker, 'A');
     }
   }
 

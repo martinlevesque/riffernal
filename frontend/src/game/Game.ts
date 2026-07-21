@@ -45,6 +45,10 @@ function getFeedbackColors(): Record<NoteGrade | 'MISS', string> {
 
 const COUNTDOWN_SECONDS = 1.5;
 const RESULTS_DELAY_SECONDS = 1;
+/** Pre-roll buffer applied at game start and between chained loops, so
+ *  the player has a moment to prepare before notes activate. Matches the
+ *  fresh-game countdown for visual consistency. */
+const LOOP_TRANSITION_SECONDS = COUNTDOWN_SECONDS;
 
 export class Game {
   canvas: HTMLCanvasElement;
@@ -163,26 +167,119 @@ export class Game {
 
   // -- Loop forwarding ------------------------------------------------------
 
+  /** Current (playing) loop's start, or null when the chain is idle. */
   get loopStart(): number | null { return this.loop.start; }
-  set loopStart(v: number | null) { this.loop.start = v; }
+  /** Current loop's end, or null when the chain is idle. */
   get loopEnd(): number | null { return this.loop.end; }
-  set loopEnd(v: number | null) { this.loop.end = v; }
+  /** True when the chain is engaged (≥1 enabled loop, currentIndex set). */
   get loopActive(): boolean { return this.loop.active; }
-  set loopActive(v: boolean) { this.loop.active = v; }
   get loopDefinitionState(): LoopDefinitionState { return this.loop.definitionState; }
   set loopDefinitionState(v: LoopDefinitionState) { this.loop.definitionState = v; }
 
   beginLoopDefine(): void { this.loop.beginDefine(); }
   setLoopBoundary(time: number): LoopDefinitionState {
-    const result = this.loop.setBoundary(time);
-    if (result === LoopDefinitionState.Off) {
-      this.noteManager.scoring.resetCombo();
+    return this.loop.setBoundary(time);
+  }
+  /** Abort the in-progress define draft. */
+  cancelLoopDraft(): void { this.loop.cancelDraft(); }
+  /** Disengage the chain (e.g. when switching to PLAY mode). Saved loops
+   *  are kept; only the active playback position is cleared. */
+  deactivateLoop(): void { this.loop.disengage(); this.loopPlay = false; this._applyScoringEnabled(); }
+  /** Fully reset loop state — used by `start()` on a fresh game. */
+  clearLoop(): void { this.loop.clear(); this.loopPlay = false; this._applyScoringEnabled(); }
+
+  /** Engage the chain from the first enabled loop and seek to it with the
+   *  countdown buffer. Returns true when engaged (≥1 enabled loop). Called
+   *  by main.ts after `start()` for a fresh game; `retry()` does NOT call
+   *  this so it can preserve the user's engaged/disengaged state. */
+  engageChain(): boolean {
+    if (!this.loop.engage()) return false;
+    const first = this.loop.current;
+    if (first && this.state === GameState.Playing) {
+      this._seekWithBuffer(first.startTime, COUNTDOWN_SECONDS);
+    }
+    this._applyScoringEnabled();
+    return true;
+  }
+
+  /** Load saved loops for the current song into the controller (no
+   *  chain engagement or seek). Call before `start()` so `start()` can
+   *  engage the chain with the countdown buffer. Also disengages any
+   *  stale chain state from a previous song. */
+  loadLoops(loops: Array<{ id: number; startTime: number; endTime: number; enabled: boolean }>): void {
+    this.loop.setLoops(loops);
+    this.loop.disengage();
+    this.loop.cancelDraft();
+  }
+
+  /** Add a saved loop (already persisted) to the controller's local set.
+   *  If the chain is engaged the new loop participates in the next chain
+   *  recompute. If the chain is idle and the new loop is enabled, engage. */
+  addSavedLoop(loop: { id: number; startTime: number; endTime: number; enabled: boolean }): void {
+    this.loop.addLoop(loop);
+    if (!this.loop.active && this.loop.chain.length > 0) {
+      this.loop.engage();
+      const first = this.loop.current;
+      if (first && this.state === GameState.Playing) {
+        this._seekWithBuffer(first.startTime, LOOP_TRANSITION_SECONDS);
+      }
       this._applyScoringEnabled();
     }
-    return result;
   }
-  deactivateLoop(): void { this.loop.deactivate(); this.loopPlay = false; this._applyScoringEnabled(); }
-  clearLoop(): void { this.loop.clear(); this.loopPlay = false; this._applyScoringEnabled(); }
+
+  /** Update a saved loop's enabled flag. Handles chain transitions:
+   *  - Chain becomes empty → disengage, resume normal play.
+   *  - Chain was empty, now non-empty → engage from the first loop.
+   *  - The currently-playing loop was disabled (or currentIndex is now
+   *    out of bounds after recompute) → re-engage from the first loop.
+   *  - Otherwise (toggle a non-current loop) the current loop keeps
+   *    playing unchanged. */
+  setLoopEnabled(loopId: number, enabled: boolean): void {
+    const wasCurrent = this.loop.current?.id === loopId;
+    this.loop.setEnabled(loopId, enabled);
+    const chainLen = this.loop.chain.length;
+    if (chainLen === 0) {
+      if (this.loop.active) {
+        this.loop.disengage();
+        this.loopPlay = false;
+      }
+      this._applyScoringEnabled();
+      return;
+    }
+    // Re-engage when: chain was empty, OR the current loop was the one
+    // toggled off, OR currentIndex is now out of bounds.
+    const outOfBounds = this.loop.currentIndex !== null && this.loop.currentIndex >= chainLen;
+    const needReengage = this.loop.currentIndex === null || (enabled === false && wasCurrent) || outOfBounds;
+    if (needReengage && this.state === GameState.Playing) {
+      this.loop.engage();
+      const first = this.loop.current;
+      if (first) this._seekWithBuffer(first.startTime, LOOP_TRANSITION_SECONDS);
+      this._applyScoringEnabled();
+    }
+  }
+
+  /** Delete a saved loop. Adjusts the chain: if the current loop was
+   *  removed, advance to the next (or disengage if the chain is empty). */
+  deleteSavedLoop(loopId: number): void {
+    const wasCurrent = this.loop.current?.id === loopId;
+    this.loop.remove(loopId);
+    const chainLen = this.loop.chain.length;
+    if (chainLen === 0) {
+      this.loop.disengage();
+      this.loopPlay = false;
+      this._applyScoringEnabled();
+      return;
+    }
+    if (wasCurrent && this.state === GameState.Playing) {
+      // The current loop was removed. Clamp currentIndex to the new
+      // chain length (lands on the loop that shifted into its slot, or
+      // the last loop if the deleted one was at the end) and seek there.
+      this.loop.currentIndex = Math.min(this.loop.currentIndex ?? 0, chainLen - 1);
+      const current = this.loop.current;
+      if (current) this._seekWithBuffer(current.startTime, LOOP_TRANSITION_SECONDS);
+      this._applyScoringEnabled();
+    }
+  }
 
   // -- Frame time & loop wrap -----------------------------------------------
 
@@ -207,12 +304,41 @@ export class Game {
   }
 
   private _checkLoopWrap(): void {
-    if (
-      this.loop.shouldRewind(this.currentTime, this.noteManager.getLoopEffectiveEnd(this.loop.end!))
-    ) {
-      this.noteManager.scoring.resetCombo();
-      this.seekTo(this.loop.start!);
+    // Cache the chain once: the per-frame read checks below would each
+    // recompute it (filter + sort) via the `chain`/`current`/`active`
+    // getters. `advance()` recomputes it too, but only runs when a wrap
+    // actually fires (~once at the boundary, not every frame).
+    const chain = this.loop.chain;
+    const idx = this.loop.currentIndex;
+    if (chain.length === 0 || idx === null || idx >= chain.length) return;
+    const current = chain[idx];
+    const effectiveEnd = this.noteManager.getLoopEffectiveEnd(current.endTime);
+    if (!(this.currentTime >= effectiveEnd)) return;
+
+    // Advance to the next loop in the chain (wraps to 0 at the end). Apply
+    // a pre-roll buffer only when transitioning to a DIFFERENT loop (the
+    // chain moves to a new region the player hasn't just rehearsed); a
+    // single loop wrapping back to itself restarts immediately, matching
+    // the prior single-loop practice UX.
+    const prevIndex = this.loop.currentIndex;
+    this.noteManager.scoring.resetCombo();
+    const next = this.loop.advance();
+    if (!next) return;
+    const sameLoop = prevIndex !== null && this.loop.currentIndex === prevIndex;
+    if (sameLoop) {
+      this.seekTo(next.startTime);
+    } else {
+      this._seekWithBuffer(next.startTime, LOOP_TRANSITION_SECONDS);
     }
+  }
+
+  /** Seek to `time` with a pre-roll `buffer` (seconds) so the player has a
+   *  visual lead-in before notes activate. Delegates to `seekTo` for the
+   *  shared clamp/reset logic, then backs up the time anchors by `buffer`. */
+  private _seekWithBuffer(time: number, buffer: number): void {
+    this.seekTo(time);
+    this.refGameTime = this.currentTime - buffer;
+    this.currentTime = this.refGameTime;
   }
 
   // -- Playing frame rendering ----------------------------------------------
@@ -283,7 +409,12 @@ export class Game {
     this.resultsScreen.hide();
     this.playScreen.classList.add('active');
 
-    this.clearLoop();
+    // Reset chain/draft state but keep saved loops (loaded by main.ts
+    // via loadLoops before start()). clearLoop() would wipe them.
+    this.loop.disengage();
+    this.loop.cancelDraft();
+    this.loopPlay = false;
+    this._applyScoringEnabled();
     this._setupInputHandlers();
     this._setupNoteCallbacks();
 
@@ -477,18 +608,22 @@ export class Game {
 
   retry(): void {
     if (!this.currentSong) return;
-    // Preserve a stored/active loop across a restart: seek to loopStart so
-    // the player resumes at the beginning of the loop instead of the song.
-    const savedStart = this.loop.start;
-    const savedEnd = this.loop.end;
-    const savedActive = this.loop.active;
-    const hadLoop = savedStart !== null && savedEnd !== null;
+    // Preserve saved loops across a restart. start() disengages the chain
+    // (but keeps saved loops). When in LEARN mode and ≥1 loop is enabled,
+    // restart always goes back to the FIRST enabled loop (index 0) with
+    // the pre-roll buffer — regardless of where playback was before. In
+    // PLAY mode (or with zero enabled loops), the song restarts from the
+    // beginning normally, since loops disable scoring and a competitive
+    // PLAY run should not be looped. Callers (main.ts) call setMode()
+    // before retry(), so learningMode reflects the intended post-retry
+    // mode by the time we reach here.
+    const savedLoops = this.loop.loops;
     this.start(this.currentSong);
-    if (hadLoop) {
-      this.loop.start = savedStart;
-      this.loop.end = savedEnd;
-      this.loop.active = savedActive;
-      this.seekTo(savedStart);
+    this.loop.setLoops(savedLoops);
+    if (this.learningMode && this.loop.chain.length > 0) {
+      this.loop.engage();
+      const first = this.loop.current;
+      if (first) this._seekWithBuffer(first.startTime, LOOP_TRANSITION_SECONDS);
       this._applyScoringEnabled();
     }
   }

@@ -2,8 +2,14 @@ import { defineRoutes, type Route } from "./router.ts";
 import { categoryRoutes } from "./category.ts";
 import { songRoutes } from "./song.ts";
 import { userRoutes } from "./user.ts";
+import { loopRoutes } from "./loop.ts";
 
-const routes: Route[] = defineRoutes([...categoryRoutes, ...songRoutes, ...userRoutes]);
+const routes: Route[] = defineRoutes([
+  ...categoryRoutes,
+  ...songRoutes,
+  ...userRoutes,
+  ...loopRoutes,
+]);
 
 /** Handle an API request. Returns a Response, or null if no route matched. */
 export async function handleApi(req: Request, pathname: string): Promise<Response | null> {

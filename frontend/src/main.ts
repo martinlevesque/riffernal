@@ -15,6 +15,7 @@ import {
   fetchSongs, fetchSong, uploadSong, songFullToSong, summaryToSong, markSongPlayed,
   updateSongTitle, recordBestScore, saveSongTrackPreferences,
 } from './api/SongApi.js';
+import { fetchLoops, createLoop, updateLoopEnabled, deleteLoop } from './api/LoopApi.js';
 import { fetchUserSettings, updateUserSettings } from './api/UserApi.js';
 import { formatTime, formatScore } from './utils/helpers.js';
 import { themeManager } from './themes/ThemeManager.js';
@@ -420,6 +421,133 @@ function setupSheetView(
   const sheetRenderer = new Renderer(sheetCanvas);
   const defineLoopBtn = document.getElementById('btn-define-loop')!;
   const clearLoopBtn = document.getElementById('btn-clear-loop')!;
+  const loopsList = document.getElementById('loops-list')!;
+  const loopsPanelCount = document.getElementById('loops-panel-count')!;
+
+  /** Format a loop's start/end times as used by panel rows and the inline
+   *  status text. */
+  function fmtBounds(start: number, end: number): string {
+    return `${start.toFixed(2)}s-${end.toFixed(2)}s`;
+  }
+
+  /** Render the saved-loops panel rows. Called whenever the saved set or
+   *  draft changes (save/delete/toggle/define complete). */
+  function renderLoopsPanel(): void {
+    loopsList.innerHTML = '';
+    const loops = game.loop.loops;
+    const chain = game.loop.chain;
+    const idx = game.loop.currentIndex;
+    const currentId = (idx !== null && idx >= 0 && idx < chain.length)
+      ? chain[idx].id
+      : null;
+
+    // Header count reflects enabled loops (chain length), not total saved.
+    loopsPanelCount.textContent = chain.length > 0
+      ? `${chain.length} enabled`
+      : '';
+
+    if (loops.length === 0 && !game.loop.hasDraft) {
+      const empty = document.createElement('li');
+      empty.className = 'loops-list-empty';
+      empty.textContent = 'No loops saved — click LOOP to define one';
+      loopsList.appendChild(empty);
+      return;
+    }
+
+    for (const loop of loops) {
+      const li = document.createElement('li');
+      li.className = 'loop-row';
+      if (loop.id === currentId) li.classList.add('loop-row--current');
+
+      const time = document.createElement('span');
+      time.className = 'loop-row-time';
+      time.textContent = fmtBounds(loop.startTime, loop.endTime);
+
+      const toggle = document.createElement('button');
+      toggle.className = 'loop-row-toggle';
+      if (loop.enabled) toggle.classList.add('is-on');
+      toggle.textContent = loop.enabled ? 'ON' : 'OFF';
+      toggle.title = loop.enabled ? 'Disable loop' : 'Enable loop';
+      toggle.addEventListener('click', async () => {
+        const next = !loop.enabled;
+        try {
+          await updateLoopEnabled(loop.id, next);
+          game.setLoopEnabled(loop.id, next);
+          renderLoopsPanel();
+          updateLoopUI();
+          if (sheetOpen) renderSheetPage();
+        } catch (e) {
+          console.error('Failed to update loop:', e);
+        }
+      });
+
+      const delBtn = document.createElement('button');
+      delBtn.className = 'loop-row-delete';
+      delBtn.textContent = 'Delete';
+      delBtn.title = 'Delete this loop';
+      delBtn.addEventListener('click', async () => {
+        try {
+          await deleteLoop(loop.id);
+          game.deleteSavedLoop(loop.id);
+          renderLoopsPanel();
+          updateLoopUI();
+          if (sheetOpen) renderSheetPage();
+        } catch (e) {
+          console.error('Failed to delete loop:', e);
+        }
+      });
+
+      li.appendChild(time);
+      li.appendChild(toggle);
+      li.appendChild(delBtn);
+      loopsList.appendChild(li);
+    }
+
+    // Draft row (boundaries picked, awaiting explicit Save).
+    if (game.loop.hasDraft) {
+      const ds = game.loop.draftStart!;
+      const de = game.loop.draftEnd!;
+      const li = document.createElement('li');
+      li.className = 'loop-row loop-row--draft';
+
+      const time = document.createElement('span');
+      time.className = 'loop-row-time';
+      time.textContent = `${fmtBounds(ds, de)} (new)`;
+
+      const saveBtn = document.createElement('button');
+      saveBtn.className = 'loop-row-save';
+      saveBtn.textContent = 'Save';
+      saveBtn.addEventListener('click', async () => {
+        const song = game.song;
+        if (!song || song.id === undefined) return;
+        try {
+          const created = await createLoop(song.id, { startTime: ds, endTime: de, enabled: true });
+          game.cancelLoopDraft();
+          game.addSavedLoop(created);
+          renderLoopsPanel();
+          updateLoopUI();
+          if (sheetOpen) renderSheetPage();
+        } catch (e) {
+          console.error('Failed to save loop:', e);
+        }
+      });
+
+      const cancelBtn = document.createElement('button');
+      cancelBtn.className = 'loop-row-cancel';
+      cancelBtn.textContent = 'Cancel';
+      cancelBtn.addEventListener('click', () => {
+        game.cancelLoopDraft();
+        renderLoopsPanel();
+        updateLoopUI();
+        if (sheetOpen) renderSheetPage();
+      });
+
+      li.appendChild(time);
+      li.appendChild(saveBtn);
+      li.appendChild(cancelBtn);
+      loopsList.appendChild(li);
+    }
+  }
 
   function pageDuration(): number { return SHEET_BEATS_VISIBLE * (60 / game.songBpm); }
   let sheetCurrentPage = 0;
@@ -440,11 +568,7 @@ function setupSheetView(
       game.noteManager.bassNotes,
       game.currentTime,
       game.noteManager.getSongDuration(),
-      {
-        start: game.loopStart, end: game.loopEnd,
-        active: game.loopActive,
-        defining: game.loopDefinitionState,
-      },
+      game.loop.snapshot(),
       { start, end },
       game.songBpm,
     );
@@ -474,12 +598,14 @@ function setupSheetView(
     if (sheetOpen) {
       if (jumpToCurrent) jumpSheetToCurrent();
       else renderSheetPage();
+      renderLoopsPanel();
       return;
     }
     sheetOpen = true;
     sheetScreen.classList.add('active');
     sheetRenderer.resize();
     sheetRenderer.sheetScale = Math.max(sheetRenderer.sheetScale, 1.5);
+    renderLoopsPanel();
     if (jumpToCurrent) jumpSheetToCurrent();
     else renderSheetPage();
   }
@@ -525,19 +651,13 @@ function setupSheetView(
     if (!note) return;
 
     if (inLoopDefine) {
-      const wasStart = game.loopDefinitionState === LoopDefinitionState.Start;
       game.setLoopBoundary(note.time);
       updateLoopUI();
-      if (targetCanvas === canvas) {
-        if (!wasStart && game.loopStart !== null) game.seekTo(game.loopStart);
-      } else {
-        if (wasStart) {
-          renderSheetPage();
-        } else {
-          if (game.loopStart !== null) game.seekTo(game.loopStart);
-          closeSheetView();
-        }
-      }
+      renderLoopsPanel();
+      // Refresh the sheet so the draft marker / region updates after
+      // the boundary pick. The draft is now visible in the loops panel
+      // awaiting Save.
+      if (targetCanvas === sheetCanvas) renderSheetPage();
     } else {
       game.seekTo(note.time);
       if (targetCanvas !== canvas) closeSheetView();
@@ -546,15 +666,12 @@ function setupSheetView(
 
   // Loop define / clear buttons
   defineLoopBtn.addEventListener('click', () => {
-    const hasExisting = game.loopStart !== null && game.loopEnd !== null;
-    if (hasExisting) {
-      game.deactivateLoop();
-      game.loopDefinitionState = LoopDefinitionState.Start;
-    } else {
-      game.beginLoopDefine();
-    }
+    // beginLoopDefine() resets any in-progress draft and enters the
+    // start-boundary phase.
+    game.beginLoopDefine();
     if (!game.learningMode) setMode(true);
     updateLoopUI();
+    renderLoopsPanel();
     if (game.state === GameState.Playing) {
       openSheetView();
       startSheetRAF();
@@ -562,8 +679,13 @@ function setupSheetView(
   });
 
   clearLoopBtn.addEventListener('click', () => {
-    game.clearLoop();
+    // Cancel an in-progress draft only; saved loops are deleted via the
+    // panel's per-row Delete button.
+    if (game.loopDefinitionState !== LoopDefinitionState.Off || game.loop.hasDraft) {
+      game.cancelLoopDraft();
+    }
     updateLoopUI();
+    renderLoopsPanel();
     if (sheetOpen) renderSheetPage();
   });
 
@@ -638,6 +760,7 @@ function setupSheetView(
 
   // RAF loop to keep sheet overlay in sync
   let sheetRAF: number | null = null;
+  let lastPanelRenderLoopId: number | null = null;
   function sheetRAFLoop(): void {
     if (!sheetOpen || game.state !== GameState.Playing) {
       closeSheetView();
@@ -645,6 +768,12 @@ function setupSheetView(
       return;
     }
     renderSheetPage();
+    // Keep the loops-panel current-loop highlight in sync as the chain
+    // advances. Refresh once per ~30 frames to avoid layout thrash.
+    if (lastPanelRenderLoopId !== game.loop.currentIndex) {
+      lastPanelRenderLoopId = game.loop.currentIndex;
+      renderLoopsPanel();
+    }
     sheetRAF = requestAnimationFrame(sheetRAFLoop);
   }
   function startSheetRAF(): void {
@@ -768,18 +897,26 @@ async function init(): Promise<void> {
     const phase = game.loopDefinitionState;
     defineLoopBtn.classList.toggle('active', phase !== 'off');
     defineLoopBtn.classList.toggle('loop-active', game.loopActive);
-    const stored = !game.loopActive && game.loopStart !== null && game.loopEnd !== null;
-    defineLoopBtn.classList.toggle('loop-stored', stored);
 
+    const enabledCount = game.loop.chain.length;
+    const savedCount = game.loop.loops.length;
     loopPlayBtn.style.display = (game.loopActive && game.learningMode) ? '' : 'none';
     loopPlayBtn.classList.toggle('play-active', game.loopPlay);
     loopPlayBtn.textContent = game.loopPlay ? '\u23F8' : '\u25B6';
 
     if (phase === 'start') loopStatus.textContent = 'Click start note';
     else if (phase === 'end') loopStatus.textContent = 'Click end note';
-    else if (game.loopActive) loopStatus.textContent = `Loop ${game.loopStart?.toFixed(2)}s-${game.loopEnd?.toFixed(2)}s`;
-    else if (stored) loopStatus.textContent = `Stored ${game.loopStart?.toFixed(2)}s-${game.loopEnd?.toFixed(2)}s`;
-    else loopStatus.textContent = 'No loop';
+    else if (game.loop.hasDraft) loopStatus.textContent = 'Draft ready — Save in Loops panel';
+    else if (game.loopActive) {
+      const cur = game.loop.current;
+      loopStatus.textContent = cur
+        ? `Loop ${cur.startTime.toFixed(2)}s-${cur.endTime.toFixed(2)}s`
+        : 'Chain active';
+    } else if (savedCount > 0) {
+      loopStatus.textContent = enabledCount > 0
+        ? `${enabledCount} of ${savedCount} loops enabled`
+        : `${savedCount} loop${savedCount === 1 ? '' : 's'} saved`;
+    } else loopStatus.textContent = 'No loops';
   }
 
   function updatePauseBtn(): void {
@@ -906,9 +1043,27 @@ async function init(): Promise<void> {
       // Reset to default when there's no stored pref for this song.
       game.mainTrackMuted = false;
     }
+    // Load saved loops before start so Game.start() can engage the chain
+    // (with the countdown buffer) when ≥1 loop is enabled.
+    let hasEnabledLoops = false;
+    if (fullSong.id !== undefined) {
+      try {
+        const loops = await fetchLoops(fullSong.id);
+        game.loadLoops(loops);
+        hasEnabledLoops = loops.some((l) => l.enabled);
+      } catch (e) {
+        console.warn('Failed to fetch loops:', e);
+      }
+    }
+    // Loops disable scoring, so auto-switch to LEARN mode (practice) when
+    // any saved loop is enabled. The user can switch back to PLAY mode via
+    // the mode toggle, which disengages the chain.
+    if (hasEnabledLoops) setMode(true);
     game.start(fullSong);
+    game.engageChain();
     game.pause();
     updatePauseBtn();
+    updateLoopUI();
     showSongInfoPopup(fullSong);
     if (song.id !== undefined) markSongPlayed(song.id).catch((e) => console.warn('Failed to mark song played:', e));
   };
