@@ -231,7 +231,7 @@ export class NoteManager {
     this.resetLearningState();
   }
 
-  update(currentTime: number, height: number): void {
+  update(currentTime: number, height: number, loopEndCutoff: number | null = null): void {
     const hitZoneY = height * HIT_ZONE_Y_RATIO;
     const lookAhead = hitZoneY / SCROLL_SPEED;
 
@@ -243,6 +243,14 @@ export class NoteManager {
       const note = this.notes[i];
       if (note.resolved) {
         continue;
+      }
+
+      // When a loop is active, suppress activation/auto-play/miss of any note
+      // whose start is past the loop end. Notes are sorted by time, so once
+      // one is past the cutoff every later note is too — break out. Notes
+      // already holding/failing from inside the loop still drain below.
+      if (loopEndCutoff !== null && note.time > loopEndCutoff && !note.holding && !note.failing) {
+        break;
       }
 
       const timeDiff = note.time - currentTime;
@@ -509,7 +517,7 @@ export class NoteManager {
     return false;
   }
 
-  getEarliestWaitTime(rawTime: number): number | null {
+  getEarliestWaitTime(rawTime: number, loopEndCutoff: number | null = null): number | null {
     if (this._learningAnchor !== null) {
       let allEngaged = true;
       for (let i = this._nextNoteIndex; i < this.notes.length; i++) {
@@ -534,6 +542,10 @@ export class NoteManager {
       const note = this.notes[i];
       if (note.resolved || note.holding || note.failing || note.hit) continue;
       if (!note.selected || this._isAutoPlayNote(note)) continue;
+      // With an active loop, never freeze on a note past the loop end:
+      // the loop wrap will rewind once the in-loop tail finishes, so let
+      // currentTime advance through that tail-out window.
+      if (loopEndCutoff !== null && note.time > loopEndCutoff) return null;
       if (note.time <= rawTime) {
         this._learningAnchor = note.time;
         this._learningChordLanes.clear();

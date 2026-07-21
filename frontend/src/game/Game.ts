@@ -191,7 +191,8 @@ export class Game {
 
     let frameTime = rawTime;
     if (this.learningMode && !this.loopPlay && this.state === GameState.Playing) {
-      const waitTime = this.noteManager.getEarliestWaitTime(rawTime);
+      const loopEndCutoff = this.loop.active ? this.loop.end : null;
+      const waitTime = this.noteManager.getEarliestWaitTime(rawTime, loopEndCutoff);
       if (waitTime !== null) frameTime = Math.min(rawTime, waitTime);
       if (frameTime < rawTime) {
         // Frozen at a waiting note: re-anchor so rawTime doesn't race ahead
@@ -217,7 +218,8 @@ export class Game {
   // -- Playing frame rendering ----------------------------------------------
 
   private _renderPlayingFrame(): void {
-    this.noteManager.update(this.currentTime, this.renderer.height);
+    const loopEndCutoff = this.loop.active ? this.loop.end : null;
+    this.noteManager.update(this.currentTime, this.renderer.height, loopEndCutoff);
 
     this.renderer.drawSheetMusic(
       this.noteManager.trebleNotes,

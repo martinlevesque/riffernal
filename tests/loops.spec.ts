@@ -223,6 +223,121 @@ test.describe('Loops - Game.seekTo & loop wrap', () => {
     expect(result.currentTime).toBeGreaterThanOrEqual(1.0);
   });
 
+  test('active loop does not activate or auto-play notes past loopEnd during the tail-out', async ({ page }) => {
+    const songJson = JSON.stringify(makeSong([
+      { time: 0.5, key: 'C3', duration: 0.25 },
+      { time: 2.0, key: 'E3', duration: 1.0 },
+      { time: 2.7, key: 'G3', duration: 0.1 },
+      { time: 2.9, key: 'A3', duration: 0.1 },
+      { time: 6.0, key: 'C4', duration: 0.25 },
+    ], 'LoopTailSuppress'));
+    await page.goto('/');
+    const result = await page.evaluate(gameEvalBody(songJson, `
+      game.loopActive = true;
+      game.loopStart = 1.0;
+      game.loopEnd = 2.5;
+      game.refGameTime = 2.6;
+      game.refRealTime = performance.now() / 1000;
+      await new Promise(r => setTimeout(r, 600));
+      return {
+        currentTime: game.currentTime,
+        effectiveEnd: game.noteManager.getLoopEffectiveEnd(2.5),
+        gHit: game.noteManager.notes[2].hit,
+        gMissed: game.noteManager.notes[2].missed,
+        gActivated: game.noteManager.notes[2].activated,
+        gResolved: game.noteManager.notes[2].resolved,
+        gAutoPlayed: game.noteManager.notes[2].autoPlayed,
+        aHit: game.noteManager.notes[3].hit,
+        aActivated: game.noteManager.notes[3].activated,
+        aResolved: game.noteManager.notes[3].resolved,
+        aAutoPlayed: game.noteManager.notes[3].autoPlayed,
+      };
+    `)) as {
+      currentTime: number;
+      effectiveEnd: number;
+      gHit: boolean;
+      gMissed: boolean;
+      gActivated: boolean;
+      gResolved: boolean;
+      gAutoPlayed: boolean;
+      aHit: boolean;
+      aActivated: boolean;
+      aResolved: boolean;
+      aAutoPlayed: boolean;
+    };
+    // effectiveEnd extends to 3.0 (last in-loop note tail), so the wrap
+    // fires once that tail drains and currentTime snaps back to loopStart.
+    expect(result.effectiveEnd).toBeCloseTo(3.0, 1);
+    expect(result.currentTime).toBeLessThan(2.5);
+    expect(result.currentTime).toBeGreaterThanOrEqual(1.0);
+    expect(result.gActivated).toBe(false);
+    expect(result.gResolved).toBe(false);
+    expect(result.gHit).toBe(false);
+    expect(result.gAutoPlayed).toBe(false);
+    expect(result.aActivated).toBe(false);
+    expect(result.aResolved).toBe(false);
+    expect(result.aHit).toBe(false);
+    expect(result.aAutoPlayed).toBe(false);
+  });
+
+  test('active loop in learn mode does not freeze on notes past loopEnd', async ({ page }) => {
+    const songJson = JSON.stringify(makeSong([
+      { time: 2.0, key: 'C3', duration: 0.2 },
+      { time: 2.6, key: 'E3', duration: 0.2 },
+    ], 'LoopLearnNoFreeze'));
+    await page.goto('/');
+    const result = await page.evaluate(gameEvalBody(songJson, `
+      const { NOTE_TO_LANE } = await import('/js/utils/notes.js');
+      game.setLearningMode(true);
+      game.loopActive = true;
+      game.loopStart = 1.0;
+      game.loopEnd = 2.5;
+      game.refGameTime = 1.0;
+      game.refRealTime = performance.now() / 1000;
+      let frozen = false;
+      for (let i = 0; i < 40; i++) {
+        await new Promise(r => setTimeout(r, 50));
+        if (game.noteManager._learningAnchor === 2.0) { frozen = true; break; }
+      }
+      const lane = NOTE_TO_LANE.get('C3');
+      const outcome = game.noteManager.checkLearningHit(
+        2.0, lane, performance.now(), false,
+      );
+      let wrapped = false;
+      for (let i = 0; i < 60; i++) {
+        await new Promise(r => setTimeout(r, 50));
+        if (game.currentTime < 2.0) { wrapped = true; break; }
+      }
+      return {
+        frozen,
+        outcomeResults: outcome.results.length,
+        outcomeWrong: outcome.wrong,
+        postLoopActivated: game.noteManager.notes[1].activated,
+        postLoopResolved: game.noteManager.notes[1].resolved,
+        postLoopHit: game.noteManager.notes[1].hit,
+        finalCurrentTime: game.currentTime,
+        wrapped,
+      };
+    `)) as {
+      frozen: boolean;
+      outcomeResults: number;
+      outcomeWrong: boolean;
+      postLoopActivated: boolean;
+      postLoopResolved: boolean;
+      postLoopHit: boolean;
+      finalCurrentTime: number;
+      wrapped: boolean;
+    };
+    expect(result.frozen).toBe(true);
+    expect(result.outcomeWrong).toBe(false);
+    expect(result.outcomeResults).toBe(1);
+    expect(result.postLoopActivated).toBe(false);
+    expect(result.postLoopResolved).toBe(false);
+    expect(result.postLoopHit).toBe(false);
+    expect(result.wrapped).toBe(true);
+    expect(result.finalCurrentTime).toBeLessThan(2.5);
+  });
+
   test('setLoopBoundary: start then end activates loop; swaps if end < start', async ({ page }) => {
     const songJson = JSON.stringify(makeSong([
       { time: 1.0, key: 'C3', duration: 0.25 },
