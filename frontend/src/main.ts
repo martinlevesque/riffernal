@@ -473,6 +473,11 @@ function setupSheetView(
         try {
           await updateLoopEnabled(loop.id, next);
           game.setLoopEnabled(loop.id, next);
+          // Enabling a loop engages the chain (and disables scoring); the
+          // user is now in practice mode, so switch to LEARN. Disabling
+          // leaves the mode alone — the user can switch back to PLAY
+          // themselves if they want a competitive run.
+          if (next && game.loopActive && !game.learningMode) setMode(true);
           renderLoopsPanel();
           updateLoopUI();
           if (sheetOpen) renderSheetPage();

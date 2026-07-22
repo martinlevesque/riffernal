@@ -8,6 +8,9 @@ import {
   expectSheetScreenInactive,
   openSheet,
   closeSheet,
+  expectMode,
+  wipeDatabase,
+  seedSongWithNotes,
 } from './helpers/index.js';
 import { LoopDefinitionState } from '../frontend/src/game/Loop.js';
 
@@ -813,5 +816,88 @@ test.describe('Loops - UI', () => {
     await expectSheetScreenInactive(page);
     await openSheet(page);
     await expect(page.locator('#sheet-page-info')).toContainText('/ 2');
+  });
+});
+
+// -- e2e: saved loops survive restart ----------------------------------------
+test.describe('Loops - end-to-end restart', () => {
+  test('two saved loops re-engage at the first loop after clicking restart', async ({ page, request }) => {
+    await wipeDatabase(request);
+    const notes = [
+      { time: 0.5, key: 'C3', duration: 0.25 },
+      { time: 3.0, key: 'E3', duration: 0.25 },
+      { time: 8.0, key: 'G3', duration: 0.25 },
+      { time: 12.0, key: 'A3', duration: 0.25 },
+    ];
+    const songId = await seedSongWithNotes(request, 'RestartTwoLoops', notes);
+    await request.post(`/api/songs/${songId}/loops`, {
+      data: { startTime: 3.0, endTime: 7.0, enabled: true },
+      headers: { 'Content-Type': 'application/json' },
+    });
+    await request.post(`/api/songs/${songId}/loops`, {
+      data: { startTime: 8.0, endTime: 12.0, enabled: true },
+      headers: { 'Content-Type': 'application/json' },
+    });
+
+    await page.goto('/');
+    await page.locator('.song-item').first().waitFor({ timeout: 5000 });
+    await page.locator('.song-item').first().dblclick();
+    await page.locator('#play-screen').waitFor({ state: 'attached', timeout: 5000 });
+
+    // Song-info popup auto-closes (and unpauses) after 4s; close it now.
+    await page.locator('#btn-close-song-info').click();
+
+    // Loops were loaded at startup, so the chain should auto-engage at the
+    // first enabled loop. Loop-status text shows the active loop's bounds.
+    await expectLoopStatus(page, 'Loop 3.00s-7.00s');
+
+    await page.locator('#btn-restart').click();
+    // After restart, retry() should re-engage the chain at the first loop.
+    await expectLoopStatus(page, 'Loop 3.00s-7.00s');
+  });
+});
+
+// -- e2e: toggle enabled via panel then restart ------------------------------
+test.describe('Loops - end-to-end toggle + restart', () => {
+  test('toggling saved loops ON via the panel then clicking restart seeks to the first loop', async ({ page, request }) => {
+    await wipeDatabase(request);
+    const notes = [
+      { time: 0.5, key: 'C3', duration: 0.25 },
+      { time: 3.0, key: 'E3', duration: 0.25 },
+      { time: 8.0, key: 'G3', duration: 0.25 },
+      { time: 12.0, key: 'A3', duration: 0.25 },
+    ];
+    const songId = await seedSongWithNotes(request, 'ToggleRestart', notes);
+    await request.post(`/api/songs/${songId}/loops`, {
+      data: { startTime: 3.0, endTime: 7.0, enabled: false },
+      headers: { 'Content-Type': 'application/json' },
+    });
+    await request.post(`/api/songs/${songId}/loops`, {
+      data: { startTime: 8.0, endTime: 12.0, enabled: false },
+      headers: { 'Content-Type': 'application/json' },
+    });
+
+    await page.goto('/');
+    await page.locator('.song-item').first().waitFor({ timeout: 5000 });
+    await page.locator('.song-item').first().dblclick();
+    await page.locator('#play-screen').waitFor({ state: 'attached', timeout: 5000 });
+    await page.locator('#btn-close-song-info').click();
+
+    await expectMode(page, 'play');
+
+    await openSheet(page);
+    await expect(page.locator('#loops-list .loop-row-toggle')).toHaveCount(2);
+    await page.locator('#loops-list .loop-row-toggle').first().click();
+    await page.locator('#loops-list .loop-row-toggle').last().click();
+    await expectMode(page, 'learn');
+
+    await closeSheet(page);
+
+    await page.locator('#btn-restart').click();
+    await expectLoopStatus(page, 'Loop 3.00s-7.00s');
+
+    await page.locator('#btn-restart').click();
+    // After restart, retry() re-engages at the first enabled loop.
+    await expectLoopStatus(page, 'Loop 3.00s-7.00s');
   });
 });
