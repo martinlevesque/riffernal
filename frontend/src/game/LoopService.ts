@@ -16,7 +16,7 @@ export interface SavedLoop {
   enabled: boolean;
 }
 
-export class LoopController {
+export class LoopService {
   /** All saved loops for the current song. Order matches insertion; the
    *  chain re-sorts by startTime on every recompute. */
   loops: SavedLoop[] = [];

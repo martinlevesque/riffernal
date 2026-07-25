@@ -1,15 +1,8 @@
+import { parseError } from "./helpers.js";
+
 export interface GameSettings {
   piano_show_used_keys_only?: boolean;
   octave_agnostic?: boolean;
-}
-
-async function parseError(res: Response): Promise<string> {
-  try {
-    const body = await res.json();
-    return (body as { error?: string }).error ?? `Request failed (${res.status})`;
-  } catch {
-    return `Request failed (${res.status})`;
-  }
 }
 
 export async function fetchUserSettings(): Promise<GameSettings> {

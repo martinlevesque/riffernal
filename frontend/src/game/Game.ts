@@ -23,7 +23,7 @@ import type { KeyboardInput } from '../input/KeyboardInput.js';
 import type { MidiInput } from '../input/MidiInput.js';
 import type { ScoreDisplay } from '../ui/ScoreDisplay.js';
 import type { Song } from '../utils/MidiParser.js';
-import { LoopController } from './LoopController.js';
+import { LoopService } from './LoopService.js';
 import { ResultsScreen } from './rendering/ResultsScreen.js';
 import { themeManager } from '../themes/ThemeManager.js';
 
@@ -90,7 +90,7 @@ export class Game {
    *  panel state for the current song, so main.ts can persist it. */
   onTrackPreferencesChange: ((song: Song) => void) | null = null;
 
-  readonly loop = new LoopController();
+  readonly loop = new LoopService();
   private resultsScreen = new ResultsScreen();
 
   private playScreen: HTMLElement;

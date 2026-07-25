@@ -653,7 +653,7 @@ function setupSheetView(
         const ds = game.loop.draftStart!;
         const de = game.loop.draftEnd!;
         try {
-          const created = await createLoop(song.id, { startTime: ds, endTime: de, enabled: true });
+          const created = await createLoop(song.id, ds, de, true);
           game.cancelLoopDraft();
           game.addSavedLoop(created);
           if (game.loopActive && !game.learningMode) setMode(true);

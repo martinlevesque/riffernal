@@ -47,3 +47,12 @@ export function numOrNull(val: FormDataEntryValue | null): number | null {
   const n = Number(val);
   return Number.isNaN(n) ? null : n;
 }
+
+/** Parse and validate a numeric path parameter. Returns the number or
+ *  a 400 Response. Only `id` and `songId` are suitable const names for
+ *  the typical param; these two are equivalent. */
+export function paramId(raw: string): number | Response {
+  const n = Number(raw);
+  if (!Number.isFinite(n) || n <= 0) return json({ error: "Invalid id" }, 400);
+  return n;
+}
