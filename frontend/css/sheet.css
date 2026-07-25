@@ -211,25 +211,6 @@
   border-color: var(--text-primary);
 }
 
-.loop-row-save:hover {
-  color: var(--text-primary);
-}
-
-.loop-row-save {
-  border-color: var(--accent-purple);
-  color: var(--accent-purple);
-}
-
-.loop-row-delete:hover,
-.loop-row-cancel:hover {
-  color: var(--text-primary);
-  border-color: var(--text-primary);
-}
-
-.loop-row-save:hover {
-  color: var(--text-primary);
-}
-
 .loops-list-empty {
   font-family: var(--font-ui);
   font-size: 0.8rem;
