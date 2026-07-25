@@ -508,34 +508,19 @@ function setupSheetView(
       loopsList.appendChild(li);
     }
 
-    // Draft row (boundaries picked, awaiting explicit Save).
-    if (game.loop.hasDraft) {
-      const ds = game.loop.draftStart!;
-      const de = game.loop.draftEnd!;
+    // Draft in progress (mid-define or awaiting auto-save).
+    // The "both boundaries picked" case auto-saves in handleCanvasClick,
+    // so we only show a Cancel option for partial drafts.
+    if (game.loopDefinitionState !== LoopDefinitionState.Off) {
+      const ds = game.loop.draftStart;
       const li = document.createElement('li');
       li.className = 'loop-row loop-row--draft';
 
       const time = document.createElement('span');
       time.className = 'loop-row-time';
-      time.textContent = `${fmtBounds(ds, de)} (new)`;
-
-      const saveBtn = document.createElement('button');
-      saveBtn.className = 'loop-row-save';
-      saveBtn.textContent = 'Save';
-      saveBtn.addEventListener('click', async () => {
-        const song = game.song;
-        if (!song || song.id === undefined) return;
-        try {
-          const created = await createLoop(song.id, { startTime: ds, endTime: de, enabled: true });
-          game.cancelLoopDraft();
-          game.addSavedLoop(created);
-          renderLoopsPanel();
-          updateLoopUI();
-          if (sheetOpen) renderSheetPage();
-        } catch (e) {
-          console.error('Failed to save loop:', e);
-        }
-      });
+      time.textContent = ds !== null
+        ? `${fmtBounds(ds, ds)} (picking end…)`
+        : '(picking start…)';
 
       const cancelBtn = document.createElement('button');
       cancelBtn.className = 'loop-row-cancel';
@@ -548,7 +533,6 @@ function setupSheetView(
       });
 
       li.appendChild(time);
-      li.appendChild(saveBtn);
       li.appendChild(cancelBtn);
       loopsList.appendChild(li);
     }
@@ -644,7 +628,7 @@ function setupSheetView(
     return game.noteManager.findNearestNote(t, staff);
   }
 
-  function handleCanvasClick(e: MouseEvent, targetCanvas: HTMLCanvasElement, renderer: Renderer): void {
+  async function handleCanvasClick(e: MouseEvent, targetCanvas: HTMLCanvasElement, renderer: Renderer): Promise<void> {
     if (game.state !== GameState.Playing) return;
     const inLoopDefine
       = game.loopDefinitionState === LoopDefinitionState.Start
@@ -656,13 +640,30 @@ function setupSheetView(
     if (!note) return;
 
     if (inLoopDefine) {
-      game.setLoopBoundary(note.time);
+      const newState = game.setLoopBoundary(note.time);
       updateLoopUI();
       renderLoopsPanel();
-      // Refresh the sheet so the draft marker / region updates after
-      // the boundary pick. The draft is now visible in the loops panel
-      // awaiting Save.
       if (targetCanvas === sheetCanvas) renderSheetPage();
+
+      // When both boundaries picked (Off returned) and draft exists,
+      // auto-save and auto-enable.
+      if (newState === LoopDefinitionState.Off && game.loop.hasDraft) {
+        const song = game.song;
+        if (!song || song.id === undefined) return;
+        const ds = game.loop.draftStart!;
+        const de = game.loop.draftEnd!;
+        try {
+          const created = await createLoop(song.id, { startTime: ds, endTime: de, enabled: true });
+          game.cancelLoopDraft();
+          game.addSavedLoop(created);
+          if (game.loopActive && !game.learningMode) setMode(true);
+          renderLoopsPanel();
+          updateLoopUI();
+          if (sheetOpen) renderSheetPage();
+        } catch (err) {
+          console.error('Failed to auto-save loop:', err);
+        }
+      }
     } else {
       game.seekTo(note.time);
       if (targetCanvas !== canvas) closeSheetView();
@@ -822,8 +823,8 @@ function setupResultButtons(
   document.getElementById('btn-retry')!.addEventListener('click', () => {
     closeSongInfoPopup();
     closeSheetView();
-    game.retry();
     setMode(game.learningMode);
+    game.retry();
     applyPracticeHandButtons();
     updateLoopUI();
     updatePauseBtn();
@@ -838,8 +839,8 @@ function setupResultButtons(
   document.getElementById('btn-restart')!.addEventListener('click', () => {
     closeSongInfoPopup();
     closeSheetView();
-    game.retry();
     setMode(game.learningMode);
+    game.retry();
     applyPracticeHandButtons();
     updateLoopUI();
     updatePauseBtn();
@@ -863,6 +864,8 @@ async function init(): Promise<void> {
   const keyboardInput = new KeyboardInput();
   const midiInput = new MidiInput();
   const game = new Game(canvas, synth, keyboardInput, midiInput);
+  // Exposed for tests so they can read game.currentTime etc.
+  (window as unknown as Record<string, unknown>)._game = game;
   game.scoreDisplay = new ScoreDisplay();
   const trackSelect = new TrackSelect();
 

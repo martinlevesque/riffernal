@@ -646,7 +646,7 @@ export class Game {
   }
 
   private _applyScoringEnabled(): void {
-    this.noteManager.scoring.enabled = !this.loop.active;
+    this.noteManager.scoring.enabled = !this.loop.active || !this.learningMode;
   }
 
   private _patchForNote(program: number, channel: number): Patch {
