@@ -8,6 +8,9 @@ import {
   expectSheetScreenInactive,
   openSheet,
   closeSheet,
+  expectMode,
+  wipeDatabase,
+  seedSongWithNotes,
 } from './helpers/index.js';
 import { LoopDefinitionState } from '../frontend/src/game/Loop.js';
 
@@ -181,10 +184,9 @@ test.describe('Loops - Game.seekTo & loop wrap', () => {
     ], 'LoopWrap'));
     await page.goto('/');
     const result = await page.evaluate(gameEvalBody(songJson, `
-      game.loopActive = true;
-      game.loopStart = 1.0;
-      game.loopEnd = 3.0;
-      game.refGameTime = 3.05;
+      game.loop.setLoops([{ id: 1, startTime: 1.0, endTime: 3.0, enabled: true }]);
+      game.loop.engage();
+      game.seekTo(3.05);
       game.refRealTime = performance.now() / 1000;
       await new Promise(r => setTimeout(r, 300));
       return {
@@ -207,10 +209,9 @@ test.describe('Loops - Game.seekTo & loop wrap', () => {
     ], 'LoopWrapLong'));
     await page.goto('/');
     const result = await page.evaluate(gameEvalBody(songJson, `
-      game.loopActive = true;
-      game.loopStart = 1.0;
-      game.loopEnd = 2.5;
-      game.refGameTime = 2.9;
+      game.loop.setLoops([{ id: 1, startTime: 1.0, endTime: 2.5, enabled: true }]);
+      game.loop.engage();
+      game.seekTo(2.9);
       game.refRealTime = performance.now() / 1000;
       await new Promise(r => setTimeout(r, 300));
       return {
@@ -233,10 +234,9 @@ test.describe('Loops - Game.seekTo & loop wrap', () => {
     ], 'LoopTailSuppress'));
     await page.goto('/');
     const result = await page.evaluate(gameEvalBody(songJson, `
-      game.loopActive = true;
-      game.loopStart = 1.0;
-      game.loopEnd = 2.5;
-      game.refGameTime = 2.6;
+      game.loop.setLoops([{ id: 1, startTime: 1.0, endTime: 2.5, enabled: true }]);
+      game.loop.engage();
+      game.seekTo(2.6);
       game.refRealTime = performance.now() / 1000;
       await new Promise(r => setTimeout(r, 600));
       return {
@@ -289,10 +289,9 @@ test.describe('Loops - Game.seekTo & loop wrap', () => {
     const result = await page.evaluate(gameEvalBody(songJson, `
       const { NOTE_TO_LANE } = await import('/js/utils/notes.js');
       game.setLearningMode(true);
-      game.loopActive = true;
-      game.loopStart = 1.0;
-      game.loopEnd = 2.5;
-      game.refGameTime = 1.0;
+      game.loop.setLoops([{ id: 1, startTime: 1.0, endTime: 2.5, enabled: true }]);
+      game.loop.engage();
+      game.seekTo(1.0);
       game.refRealTime = performance.now() / 1000;
       let frozen = false;
       for (let i = 0; i < 40; i++) {
@@ -338,7 +337,7 @@ test.describe('Loops - Game.seekTo & loop wrap', () => {
     expect(result.finalCurrentTime).toBeLessThan(2.5);
   });
 
-  test('setLoopBoundary: start then end activates loop; swaps if end < start', async ({ page }) => {
+  test('setLoopBoundary fills draft boundaries and swaps if end < start; does not auto-activate', async ({ page }) => {
     const songJson = JSON.stringify(makeSong([
       { time: 1.0, key: 'C3', duration: 0.25 },
       { time: 3.0, key: 'E3', duration: 0.25 },
@@ -348,39 +347,62 @@ test.describe('Loops - Game.seekTo & loop wrap', () => {
       game.beginLoopDefine();
       const phase1 = game.setLoopBoundary(2.0);
       const phase2 = game.setLoopBoundary(4.0);
-      const first = { start: game.loopStart, end: game.loopEnd, active: game.loopActive };
+      const first = {
+        draftStart: game.loop.draftStart,
+        draftEnd: game.loop.draftEnd,
+        hasDraft: game.loop.hasDraft,
+        active: game.loopActive,
+      };
       game.beginLoopDefine();
       game.setLoopBoundary(5.0);
       game.setLoopBoundary(1.0);
-      const swapped = { start: game.loopStart, end: game.loopEnd, active: game.loopActive };
+      const swapped = {
+        draftStart: game.loop.draftStart,
+        draftEnd: game.loop.draftEnd,
+        hasDraft: game.loop.hasDraft,
+        active: game.loopActive,
+      };
       return { phase1, phase2, first, swapped };
-    `)) as { phase1: string; phase2: string; first: { start: number; end: number; active: boolean }; swapped: { start: number; end: number; active: boolean } };
+    `)) as {
+      phase1: string;
+      phase2: string;
+      first: { draftStart: number; draftEnd: number; hasDraft: boolean; active: boolean };
+      swapped: { draftStart: number; draftEnd: number; hasDraft: boolean; active: boolean };
+    };
     expect(result.phase1).toBe(LoopDefinitionState.End);
     expect(result.phase2).toBe(LoopDefinitionState.Off);
-    expect(result.first).toEqual({ start: 2.0, end: 4.0, active: true });
-    expect(result.swapped).toEqual({ start: 1.0, end: 5.0, active: true });
+    expect(result.first).toEqual({ draftStart: 2.0, draftEnd: 4.0, hasDraft: true, active: false });
+    expect(result.swapped).toEqual({ draftStart: 1.0, draftEnd: 5.0, hasDraft: true, active: false });
   });
 
-  test('deactivateLoop keeps boundaries, clearLoop removes them', async ({ page }) => {
+  test('deactivateLoop keeps saved loops, clearLoop removes them', async ({ page }) => {
     const songJson = JSON.stringify(makeSong([
       { time: 1.0, key: 'C3', duration: 0.25 },
     ]));
     await page.goto('/');
     const result = await page.evaluate(gameEvalBody(songJson, `
-      game.loopStart = 2.0;
-      game.loopEnd = 5.0;
-      game.loopActive = true;
+      game.loop.setLoops([{ id: 1, startTime: 2.0, endTime: 5.0, enabled: true }]);
+      game.loop.engage();
       game.deactivateLoop();
-      const afterDeactivate = { active: game.loopActive, start: game.loopStart, end: game.loopEnd };
+      const afterDeactivate = {
+        active: game.loopActive,
+        loopsCount: game.loop.loops.length,
+      };
       game.clearLoop();
-      const afterClear = { active: game.loopActive, start: game.loopStart, end: game.loopEnd };
+      const afterClear = {
+        active: game.loopActive,
+        loopsCount: game.loop.loops.length,
+      };
       return { afterDeactivate, afterClear };
-    `)) as { afterDeactivate: { active: boolean; start: number | null; end: number | null }; afterClear: { active: boolean; start: number | null; end: number | null } };
-    expect(result.afterDeactivate).toEqual({ active: false, start: 2.0, end: 5.0 });
-    expect(result.afterClear).toEqual({ active: false, start: null, end: null });
+    `)) as {
+      afterDeactivate: { active: boolean; loopsCount: number };
+      afterClear: { active: boolean; loopsCount: number };
+    };
+    expect(result.afterDeactivate).toEqual({ active: false, loopsCount: 1 });
+    expect(result.afterClear).toEqual({ active: false, loopsCount: 0 });
   });
 
-  test('activating a loop disables scoring; deactivating re-enables it', async ({ page }) => {
+  test('activating a loop in LEARN mode disables scoring; in PLAY mode scoring stays on', async ({ page }) => {
     const songJson = JSON.stringify(makeSong([
       { time: 1.0, key: 'C3', duration: 0.25 },
       { time: 3.0, key: 'E3', duration: 0.25 },
@@ -388,41 +410,61 @@ test.describe('Loops - Game.seekTo & loop wrap', () => {
     await page.goto('/');
     const result = await page.evaluate(gameEvalBody(songJson, `
       const before = { enabled: game.noteManager.scoring.enabled };
-      game.beginLoopDefine();
-      game.setLoopBoundary(1.0);
-      game.setLoopBoundary(3.0);
-      const whileActive = {
+      // LEARN mode: engaging a chain disables scoring.
+      game.setLearningMode(true);
+      game.loop.setLoops([{ id: 1, startTime: 1.0, endTime: 3.0, enabled: true }]);
+      game.loop.engage();
+      game._applyScoringEnabled && game._applyScoringEnabled();
+      const whileActiveLearn = {
         active: game.loopActive,
         enabled: game.noteManager.scoring.enabled,
+        learningMode: game.learningMode,
+      };
+      game.deactivateLoop();
+      // PLAY mode: engaging a chain keeps scoring on.
+      game.setLearningMode(false);
+      game.loop.setLoops([{ id: 1, startTime: 1.0, endTime: 3.0, enabled: true }]);
+      game.loop.engage();
+      game._applyScoringEnabled && game._applyScoringEnabled();
+      const whileActivePlay = {
+        active: game.loopActive,
+        enabled: game.noteManager.scoring.enabled,
+        learningMode: game.learningMode,
       };
       game.deactivateLoop();
       const afterDeactivate = { enabled: game.noteManager.scoring.enabled };
       game.clearLoop();
       const afterClear = { enabled: game.noteManager.scoring.enabled };
-      return { before, whileActive, afterDeactivate, afterClear };
-    `)) as { before: { enabled: boolean }; whileActive: { active: boolean; enabled: boolean }; afterDeactivate: { enabled: boolean }; afterClear: { enabled: boolean } };
+      return { before, whileActiveLearn, whileActivePlay, afterDeactivate, afterClear };
+    `)) as { before: { enabled: boolean }; whileActiveLearn: { active: boolean; enabled: boolean; learningMode: boolean }; whileActivePlay: { active: boolean; enabled: boolean; learningMode: boolean }; afterDeactivate: { enabled: boolean }; afterClear: { enabled: boolean } };
     expect(result.before.enabled).toBe(true);
-    expect(result.whileActive).toEqual({ active: true, enabled: false });
+    expect(result.whileActiveLearn).toEqual({ active: true, enabled: false, learningMode: true });
+    expect(result.whileActivePlay).toEqual({ active: true, enabled: true, learningMode: false });
     expect(result.afterDeactivate.enabled).toBe(true);
     expect(result.afterClear.enabled).toBe(true);
   });
 
-  test('retry with an active loop keeps scoring disabled', async ({ page }) => {
+  test('retry with an engaged chain keeps scoring disabled', async ({ page }) => {
     const songJson = JSON.stringify(makeSong([
       { time: 0.5, key: 'C3', duration: 0.25 },
       { time: 5.0, key: 'E3', duration: 0.25 },
     ], 'RetryLoopScoring'));
     await page.goto('/');
     const result = await page.evaluate(gameEvalBody(songJson, `
-      game.loopActive = true;
-      game.loopStart = 5.0;
-      game.loopEnd = 8.0;
+      game.setLearningMode(true);
+      game.loop.setLoops([{ id: 1, startTime: 5.0, endTime: 8.0, enabled: true }]);
+      game.loop.engage();
       game.retry();
       await new Promise(r => setTimeout(r, 50));
-      return { active: game.loopActive, enabled: game.noteManager.scoring.enabled };
-    `)) as { active: boolean; enabled: boolean };
+      return {
+        active: game.loopActive,
+        enabled: game.noteManager.scoring.enabled,
+        loopsCount: game.loop.loops.length,
+      };
+    `)) as { active: boolean; enabled: boolean; loopsCount: number };
     expect(result.active).toBe(true);
     expect(result.enabled).toBe(false);
+    expect(result.loopsCount).toBe(1);
   });
 
   test('retry without a loop leaves scoring enabled', async ({ page }) => {
@@ -439,7 +481,7 @@ test.describe('Loops - Game.seekTo & loop wrap', () => {
     expect(result.enabled).toBe(true);
   });
 
-  test('retry preserves an active loop and seeks to loopStart', async ({ page }) => {
+  test('retry with an engaged chain restarts at the first loop (with buffer)', async ({ page }) => {
     const songJson = JSON.stringify(makeSong([
       { time: 0.5, key: 'C3', duration: 0.25 },
       { time: 5.0, key: 'E3', duration: 0.25 },
@@ -448,25 +490,35 @@ test.describe('Loops - Game.seekTo & loop wrap', () => {
     await page.goto('/');
     const result = await page.evaluate(gameEvalBody(songJson, `
       await new Promise(r => setTimeout(r, 100));
-      game.loopActive = true;
-      game.loopStart = 5.0;
-      game.loopEnd = 8.0;
+      game.setLearningMode(true);
+      game.loop.setLoops([
+        { id: 1, startTime: 5.0, endTime: 8.0, enabled: true },
+        { id: 2, startTime: 10.0, endTime: 12.0, enabled: true },
+      ]);
+      game.loop.engage();
+      // Advance to the second loop so the "preserve current index" path
+      // would seek to 10.0 — but retry should go back to the FIRST loop.
+      game.loop.currentIndex = 1;
       game.retry();
       await new Promise(r => setTimeout(r, 50));
       return {
         currentTime: game.currentTime,
         loopActive: game.loopActive,
-        loopStart: game.loopStart,
-        loopEnd: game.loopEnd,
+        loopsCount: game.loop.loops.length,
+        currentIndex: game.loop.currentIndex,
+        currentStart: game.loopStart,
       };
-    `)) as { currentTime: number; loopActive: boolean; loopStart: number; loopEnd: number };
-    expect(result.currentTime).toBeCloseTo(5.0, 0);
+    `)) as { currentTime: number; loopActive: boolean; loopsCount: number; currentIndex: number | null; currentStart: number | null };
+    // Restart always goes to the first loop (index 0) with a buffer.
     expect(result.loopActive).toBe(true);
-    expect(result.loopStart).toBe(5.0);
-    expect(result.loopEnd).toBe(8.0);
+    expect(result.loopsCount).toBe(2);
+    expect(result.currentIndex).toBe(0);
+    expect(result.currentStart).toBe(5.0);
+    expect(result.currentTime).toBeLessThan(5.0);
+    expect(result.currentTime).toBeGreaterThan(3.0);
   });
 
-  test('retry preserves a stored (inactive) loop and seeks to loopStart without reactivating', async ({ page }) => {
+  test('retry re-engages the chain at the first loop even when it was disengaged', async ({ page }) => {
     const songJson = JSON.stringify(makeSong([
       { time: 0.5, key: 'C3', duration: 0.25 },
       { time: 5.0, key: 'E3', duration: 0.25 },
@@ -475,25 +527,82 @@ test.describe('Loops - Game.seekTo & loop wrap', () => {
     await page.goto('/');
     const result = await page.evaluate(gameEvalBody(songJson, `
       await new Promise(r => setTimeout(r, 100));
-      game.loopStart = 5.0;
-      game.loopEnd = 8.0;
-      game.loopActive = false;
+      game.setLearningMode(true);
+      game.loop.setLoops([{ id: 1, startTime: 5.0, endTime: 8.0, enabled: true }]);
+      // Saved but disengaged (e.g. user disengaged via panel). Restart
+      // in LEARN mode should still go to the first loop's beginning.
+      game.loop.disengage();
       game.retry();
       await new Promise(r => setTimeout(r, 50));
       return {
         currentTime: game.currentTime,
         loopActive: game.loopActive,
-        loopStart: game.loopStart,
-        loopEnd: game.loopEnd,
+        loopsCount: game.loop.loops.length,
+        currentIndex: game.loop.currentIndex,
       };
-    `)) as { currentTime: number; loopActive: boolean; loopStart: number; loopEnd: number };
-    expect(result.currentTime).toBeCloseTo(5.0, 0);
-    expect(result.loopActive).toBe(false);
-    expect(result.loopStart).toBe(5.0);
-    expect(result.loopEnd).toBe(8.0);
+    `)) as { currentTime: number; loopActive: boolean; loopsCount: number; currentIndex: number | null };
+    expect(result.loopActive).toBe(true);
+    expect(result.loopsCount).toBe(1);
+    expect(result.currentIndex).toBe(0);
+    // Pre-roll buffer: currentTime = loopStart - LOOP_TRANSITION_SECONDS.
+    expect(result.currentTime).toBeLessThan(5.0);
+    expect(result.currentTime).toBeGreaterThan(3.0);
   });
 
-  test('retry without a stored loop starts at the song beginning', async ({ page }) => {
+  test('retry with saved-but-all-disabled loops does not engage the chain', async ({ page }) => {
+    const songJson = JSON.stringify(makeSong([
+      { time: 0.5, key: 'C3', duration: 0.25 },
+      { time: 5.0, key: 'E3', duration: 0.25 },
+    ], 'RetryAllDisabled'));
+    await page.goto('/');
+    const result = await page.evaluate(gameEvalBody(songJson, `
+      await new Promise(r => setTimeout(r, 100));
+      game.setLearningMode(true);
+      game.loop.setLoops([{ id: 1, startTime: 5.0, endTime: 8.0, enabled: false }]);
+      game.loop.disengage();
+      game.retry();
+      await new Promise(r => setTimeout(r, 50));
+      return {
+        currentTime: game.currentTime,
+        loopActive: game.loopActive,
+        loopsCount: game.loop.loops.length,
+        chainLen: game.loop.chain.length,
+      };
+    `)) as { currentTime: number; loopActive: boolean; loopsCount: number; chainLen: number };
+    expect(result.loopActive).toBe(false);
+    expect(result.chainLen).toBe(0);
+    expect(result.loopsCount).toBe(1);
+    expect(result.currentTime).toBeLessThan(1.0);
+  });
+
+  test('retry in PLAY mode does not re-engage the chain even when loops are enabled', async ({ page }) => {
+    const songJson = JSON.stringify(makeSong([
+      { time: 0.5, key: 'C3', duration: 0.25 },
+      { time: 5.0, key: 'E3', duration: 0.25 },
+    ], 'RetryPlayMode'));
+    await page.goto('/');
+    const result = await page.evaluate(gameEvalBody(songJson, `
+      await new Promise(r => setTimeout(r, 100));
+      game.setLearningMode(true);
+      game.loop.setLoops([{ id: 1, startTime: 5.0, endTime: 8.0, enabled: true }]);
+      game.loop.engage();
+      // Switch to PLAY mode (as btn-play does) then retry: loops should
+      // stay disengaged so the run is scored.
+      game.setLearningMode(false);
+      game.retry();
+      await new Promise(r => setTimeout(r, 50));
+      return {
+        active: game.loopActive,
+        enabled: game.noteManager.scoring.enabled,
+        loopsCount: game.loop.loops.length,
+      };
+    `)) as { active: boolean; enabled: boolean; loopsCount: number };
+    expect(result.active).toBe(false);
+    expect(result.enabled).toBe(true);
+    expect(result.loopsCount).toBe(1);
+  });
+
+  test('retry without any saved loop starts at the song beginning', async ({ page }) => {
     const songJson = JSON.stringify(makeSong([
       { time: 0.5, key: 'C3', duration: 0.25 },
       { time: 5.0, key: 'E3', duration: 0.25 },
@@ -506,25 +615,135 @@ test.describe('Loops - Game.seekTo & loop wrap', () => {
       return {
         currentTime: game.currentTime,
         loopActive: game.loopActive,
-        loopStart: game.loopStart,
-        loopEnd: game.loopEnd,
+        loopsCount: game.loop.loops.length,
       };
-    `)) as { currentTime: number; loopActive: boolean; loopStart: null; loopEnd: null };
+    `)) as { currentTime: number; loopActive: boolean; loopsCount: number };
     expect(result.currentTime).toBeLessThan(1.0);
     expect(result.loopActive).toBe(false);
-    expect(result.loopStart).toBe(null);
-    expect(result.loopEnd).toBe(null);
+    expect(result.loopsCount).toBe(0);
+  });
+});
+
+// -- Chain (multiple saved loops) tests --------------------------------------
+
+test.describe('Loops - chain', () => {
+  test('game.start engages the chain when loops were loaded and seeks to first loop', async ({ page }) => {
+    const songJson = JSON.stringify(makeSong([
+      { time: 0.5, key: 'C3', duration: 0.25 },
+      { time: 5.0, key: 'E3', duration: 0.25 },
+      { time: 8.0, key: 'G3', duration: 0.25 },
+    ], 'ChainStart'));
+    await page.goto('/');
+    const result = await page.evaluate(`(async () => {
+      const { Game } = await import('/js/game/Game.js');
+      const { Synth } = await import('/js/audio/Synth.js');
+      const { KeyboardInput } = await import('/js/input/KeyboardInput.js');
+      const { MidiInput } = await import('/js/input/MidiInput.js');
+      const canvas = document.getElementById('gameCanvas');
+      const game = new Game(canvas, new Synth(), new KeyboardInput(), new MidiInput());
+      game.setLearningMode(true);
+      game.loadLoops([
+        { id: 1, startTime: 5.0, endTime: 8.0, enabled: true },
+      ]);
+      game.start(${songJson});
+      game.engageChain();
+      await new Promise(r => setTimeout(r, 50));
+      const r = {
+        active: game.loopActive,
+        currentTime: game.currentTime,
+        currentStart: game.loopStart,
+        chainLen: game.loop.chain.length,
+      };
+      game.backToMenu();
+      return r;
+    })()`) as { active: boolean; currentTime: number; currentStart: number | null; chainLen: number };
+    expect(result.active).toBe(true);
+    expect(result.chainLen).toBe(1);
+    expect(result.currentStart).toBe(5.0);
+    // Pre-roll buffer applied at start: currentTime = loopStart - COUNTDOWN.
+    expect(result.currentTime).toBeLessThan(5.0);
+    expect(result.currentTime).toBeGreaterThan(3.0);
+  });
+
+  test('chain advances through multiple loops in time order and wraps back to the first', async ({ page }) => {
+    const songJson = JSON.stringify(makeSong([
+      { time: 0.5, key: 'C3', duration: 0.25 },
+      { time: 2.0, key: 'E3', duration: 0.25 },
+      { time: 6.0, key: 'G3', duration: 0.25 },
+      { time: 8.0, key: 'A3', duration: 0.25 },
+      { time: 11.0, key: 'C4', duration: 0.25 },
+    ], 'ChainAdvance'));
+    await page.goto('/');
+    const result = await page.evaluate(gameEvalBody(songJson, `
+      game.loop.setLoops([
+        { id: 10, startTime: 1.0, endTime: 3.0, enabled: true },
+        { id: 20, startTime: 7.0, endTime: 9.0, enabled: true },
+      ]);
+      game.loop.engage(); // currentIndex = 0
+      // Simulate reaching loop 0's effective end -> advance to loop 1 (with buffer)
+      game.seekTo(3.0);
+      game.refRealTime = performance.now() / 1000;
+      let advancedToOne = false;
+      for (let i = 0; i < 40; i++) {
+        await new Promise(r => setTimeout(r, 50));
+        if (game.loop.currentIndex === 1 && game.currentTime < 9.0) { advancedToOne = true; break; }
+      }
+      // Now reach loop 1's effective end -> wrap back to loop 0 (with buffer)
+      game.seekTo(9.0);
+      game.refRealTime = performance.now() / 1000;
+      let wrappedToZero = false;
+      for (let i = 0; i < 40; i++) {
+        await new Promise(r => setTimeout(r, 50));
+        if (game.loop.currentIndex === 0 && game.currentTime < 3.0) { wrappedToZero = true; break; }
+      }
+      return {
+        advancedToOne,
+        wrappedToZero,
+        finalIndex: game.loop.currentIndex,
+        finalCurrentTime: game.currentTime,
+      };
+    `)) as { advancedToOne: boolean; wrappedToZero: boolean; finalIndex: number | null; finalCurrentTime: number };
+    expect(result.advancedToOne).toBe(true);
+    expect(result.wrappedToZero).toBe(true);
+    expect(result.finalIndex).toBe(0);
+    // After wrapping back to loop 0 with a chain-transition buffer,
+    // currentTime = 1.0 - LOOP_TRANSITION_SECONDS (1.5).
+    expect(result.finalCurrentTime).toBeLessThan(1.0);
+    expect(result.finalCurrentTime).toBeGreaterThan(-1.0);
+  });
+
+  test('zero enabled loops means no chaining and normal play (completion)', async ({ page }) => {
+    const songJson = JSON.stringify(makeSong([
+      { time: 0.5, key: 'C3', duration: 0.25 },
+      { time: 1.0, key: 'E3', duration: 0.25 },
+    ], 'ZeroLoops'));
+    await page.goto('/');
+    const result = await page.evaluate(gameEvalBody(songJson, `
+      game.loop.setLoops([{ id: 1, startTime: 0.5, endTime: 1.0, enabled: false }]);
+      // engage() returns false with zero enabled loops; chain stays idle.
+      const engaged = game.loop.engage();
+      return {
+        engaged,
+        active: game.loopActive,
+        chainLen: game.loop.chain.length,
+        savedCount: game.loop.loops.length,
+      };
+    `)) as { engaged: boolean; active: boolean; chainLen: number; savedCount: number };
+    expect(result.engaged).toBe(false);
+    expect(result.active).toBe(false);
+    expect(result.chainLen).toBe(0);
+    expect(result.savedCount).toBe(1);
   });
 });
 
 // -- UI tests (DOM only) ----------------------------------------------------
 
 test.describe('Loops - UI', () => {
-  test('loop control is visible on play screen with "No loop" status', async ({ page }) => {
+  test('loop control is visible on play screen with "No loops" status', async ({ page }) => {
     await startGame(page);
     await expect(page.locator('#loop-control')).toBeVisible();
     await expect(page.locator('#btn-define-loop')).toBeVisible();
-    await expectLoopStatus(page, 'No loop');
+    await expectLoopStatus(page, 'No loops');
     await expect(page.locator('#btn-open-sheet')).toBeVisible();
   });
 
@@ -558,13 +777,13 @@ test.describe('Loops - UI', () => {
     await expectLoopStatus(page, 'Click start note');
   });
 
-  test('clear loop button resets status to "No loop" after sheet closed', async ({ page }) => {
+  test('clear loop button resets status to "No loops" after sheet closed', async ({ page }) => {
     await startGame(page);
     await page.locator('#btn-define-loop').click();
-    await expect(page.locator('#loop-status')).not.toHaveText('No loop');
+    await expect(page.locator('#loop-status')).not.toHaveText('No loops');
     await page.locator('#btn-close-sheet').click();
     await page.locator('#btn-clear-loop').click();
-    await expectLoopStatus(page, 'No loop');
+    await expectLoopStatus(page, 'No loops');
   });
 
   test('open-sheet button toggles the full sheet view', async ({ page }) => {
@@ -611,5 +830,200 @@ test.describe('Loops - UI', () => {
     await expectSheetScreenInactive(page);
     await openSheet(page);
     await expect(page.locator('#sheet-page-info')).toContainText('/ 2');
+  });
+});
+
+// -- e2e: saved loops survive restart ----------------------------------------
+test.describe('Loops - end-to-end restart', () => {
+  test('two saved loops re-engage at the first loop after clicking restart', async ({ page, request }) => {
+    await wipeDatabase(request);
+    const notes = [
+      { time: 0.5, key: 'C3', duration: 0.25 },
+      { time: 3.0, key: 'E3', duration: 0.25 },
+      { time: 8.0, key: 'G3', duration: 0.25 },
+      { time: 12.0, key: 'A3', duration: 0.25 },
+    ];
+    const songId = await seedSongWithNotes(request, 'RestartTwoLoops', notes);
+    await request.post(`/api/songs/${songId}/loops`, {
+      data: { startTime: 3.0, endTime: 7.0, enabled: true },
+      headers: { 'Content-Type': 'application/json' },
+    });
+    await request.post(`/api/songs/${songId}/loops`, {
+      data: { startTime: 8.0, endTime: 12.0, enabled: true },
+      headers: { 'Content-Type': 'application/json' },
+    });
+
+    await page.goto('/');
+    await page.locator('.song-item').first().waitFor({ timeout: 5000 });
+    await page.locator('.song-item').first().dblclick();
+    await page.locator('#play-screen').waitFor({ state: 'attached', timeout: 5000 });
+
+    // Song-info popup auto-closes (and unpauses) after 4s; close it now.
+    await page.locator('#btn-close-song-info').click();
+
+    // Loops were loaded at startup, so the chain should auto-engage at the
+    // first enabled loop. Loop-status text shows the active loop's bounds.
+    await expectLoopStatus(page, 'Loop 3.00s-7.00s');
+
+    await page.locator('#btn-restart').click();
+    // After restart, retry() should re-engage the chain at the first loop.
+    await expectLoopStatus(page, 'Loop 3.00s-7.00s');
+  });
+
+  test('clicking restart with 1 enabled loop seeks to the loop start, not the song beginning', async ({ page, request }) => {
+    await wipeDatabase(request);
+    const notes = [
+      { time: 0.5, key: 'C3', duration: 0.25 },
+      { time: 5.0, key: 'E3', duration: 0.25 },
+      { time: 8.0, key: 'G3', duration: 0.25 },
+      { time: 12.0, key: 'A3', duration: 0.25 },
+    ];
+    const songId = await seedSongWithNotes(request, 'RestartOneLoop', notes);
+    await request.post(`/api/songs/${songId}/loops`, {
+      data: { startTime: 5.0, endTime: 8.0, enabled: true },
+      headers: { 'Content-Type': 'application/json' },
+    });
+
+    await page.goto('/');
+    await page.locator('.song-item').first().waitFor({ timeout: 5000 });
+    await page.locator('.song-item').first().dblclick();
+    await page.locator('#play-screen').waitFor({ state: 'attached', timeout: 5000 });
+
+    await page.locator('#btn-close-song-info').click();
+    await expectLoopStatus(page, 'Loop 5.00s-8.00s');
+    await expectMode(page, 'learn');
+
+    await page.locator('#btn-restart').click();
+
+    // After restart, loop should still be active and in LEARN mode.
+    await expectLoopStatus(page, 'Loop 5.00s-8.00s');
+    await expectMode(page, 'learn');
+
+    // Read currentTime directly from the game instance. With the pre-roll
+    // buffer, currentTime should be at loopStart - 1.5s ≈ 3.5s, NOT at 0
+    // or -1.5 (which would mean the song restarted from the beginning).
+    await page.waitForTimeout(200);
+    const state = await page.evaluate(() => {
+      const g = (window as any)._game;
+      if (!g) return null;
+      return {
+        currentTime: g.currentTime,
+        learningMode: g.learningMode,
+        loopActive: g.loopActive,
+        currentIndex: g.loop.currentIndex,
+        chainLen: g.loop.chain.length,
+        loopStart: g.loopStart,
+      };
+    });
+    expect(state).not.toBeNull();
+    expect(state!.learningMode).toBe(true);
+    expect(state!.loopActive).toBe(true);
+    expect(state!.chainLen).toBe(1);
+    expect(state!.currentIndex).toBe(0);
+    expect(state!.loopStart).toBe(5.0);
+    // After ~200ms of play from 3.5s, currentTime should be ~3.7s.
+    // Definitely past the song start (0), but before the loop start (5.0).
+    expect(state!.currentTime).toBeGreaterThan(2.0);
+    expect(state!.currentTime).toBeLessThan(5.0);
+  });
+});
+
+// -- e2e: toggle enabled via panel then restart ------------------------------
+test.describe('Loops - end-to-end toggle + restart', () => {
+  test('toggling saved loops ON via the panel then clicking restart seeks to the first loop', async ({ page, request }) => {
+    await wipeDatabase(request);
+    const notes = [
+      { time: 0.5, key: 'C3', duration: 0.25 },
+      { time: 3.0, key: 'E3', duration: 0.25 },
+      { time: 8.0, key: 'G3', duration: 0.25 },
+      { time: 12.0, key: 'A3', duration: 0.25 },
+    ];
+    const songId = await seedSongWithNotes(request, 'ToggleRestart', notes);
+    await request.post(`/api/songs/${songId}/loops`, {
+      data: { startTime: 3.0, endTime: 7.0, enabled: false },
+      headers: { 'Content-Type': 'application/json' },
+    });
+    await request.post(`/api/songs/${songId}/loops`, {
+      data: { startTime: 8.0, endTime: 12.0, enabled: false },
+      headers: { 'Content-Type': 'application/json' },
+    });
+
+    await page.goto('/');
+    await page.locator('.song-item').first().waitFor({ timeout: 5000 });
+    await page.locator('.song-item').first().dblclick();
+    await page.locator('#play-screen').waitFor({ state: 'attached', timeout: 5000 });
+    await page.locator('#btn-close-song-info').click();
+
+    await expectMode(page, 'play');
+
+    await openSheet(page);
+    await expect(page.locator('#loops-list .loop-row-toggle')).toHaveCount(2);
+    await page.locator('#loops-list .loop-row-toggle').first().click();
+    await page.locator('#loops-list .loop-row-toggle').last().click();
+    await expectMode(page, 'learn');
+
+    await closeSheet(page);
+
+    await page.locator('#btn-restart').click();
+    await expectLoopStatus(page, 'Loop 3.00s-7.00s');
+
+    await page.locator('#btn-restart').click();
+    // After restart, retry() re-engages at the first enabled loop.
+    await expectLoopStatus(page, 'Loop 3.00s-7.00s');
+  });
+});
+
+// -- e2e: create loop via define flow, then restart ----------------------------
+test.describe('Loops - end-to-end create + restart', () => {
+  test('loop created via setBoundary + addSavedLoop re-engages on retry', async ({ page }) => {
+    const songJson = JSON.stringify(makeSong([
+      { time: 0.5, key: 'C3', duration: 0.25 },
+      { time: 3.0, key: 'E3', duration: 0.25 },
+      { time: 8.0, key: 'G3', duration: 0.25 },
+      { time: 12.0, key: 'A3', duration: 0.25 },
+    ], 'CreateRestart'));
+    await page.goto('/');
+    const result = await page.evaluate(gameEvalBody(songJson, `
+      await new Promise(r => setTimeout(r, 100));
+      game.setLearningMode(true);
+      // Simulate the define flow: pick start, then end.
+      game.beginLoopDefine();
+      game.setLoopBoundary(3.0);
+      const afterStart = game.loop.definitionState;
+      game.setLoopBoundary(7.0);
+      const afterEnd = game.loop.definitionState;
+      const hasDraft = game.loop.hasDraft;
+      // Simulate auto-save (what handleCanvasClick now does).
+      game.cancelLoopDraft();
+      game.addSavedLoop({ id: 1, startTime: 3.0, endTime: 7.0, enabled: true });
+      // Retry should re-engage the chain.
+      game.retry();
+      await new Promise(r => setTimeout(r, 50));
+      return {
+        afterStart,
+        afterEnd,
+        hasDraft,
+        active: game.loopActive,
+        currentTime: game.currentTime,
+        currentStart: game.loopStart,
+        chainLen: game.loop.chain.length,
+      };
+    `)) as {
+      afterStart: string;
+      afterEnd: string;
+      hasDraft: boolean;
+      active: boolean;
+      currentTime: number;
+      currentStart: number | null;
+      chainLen: number;
+    };
+    expect(result.afterStart).toBe('end');
+    expect(result.afterEnd).toBe('off');
+    expect(result.hasDraft).toBe(true);
+    expect(result.active).toBe(true);
+    expect(result.chainLen).toBe(1);
+    expect(result.currentStart).toBe(3.0);
+    expect(result.currentTime).toBeLessThan(3.0);
+    expect(result.currentTime).toBeGreaterThan(1.0);
   });
 });

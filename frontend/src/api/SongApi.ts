@@ -1,5 +1,6 @@
 import type { Note, TrackInfo, Song } from "../utils/MidiParser.js";
 import type { HandSide } from "../utils/notes.js";
+import { parseError } from "./helpers.js";
 
 export interface SongSummary {
   id: number;
@@ -46,15 +47,6 @@ export interface SongMetadata {
   selectedTrackIndices: number[];
   trackHands: Record<number, HandSide>;
   backgroundTracks: number[];
-}
-
-async function parseError(res: Response): Promise<string> {
-  try {
-    const body = await res.json();
-    return (body as { error?: string }).error ?? `Request failed (${res.status})`;
-  } catch {
-    return `Request failed (${res.status})`;
-  }
 }
 
 export async function fetchSongs(): Promise<SongSummary[]> {

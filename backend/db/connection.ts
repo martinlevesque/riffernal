@@ -70,6 +70,23 @@ addColumnIfMissing("user_songs", "last_score", "INTEGER");
 // the `track_preferences` column.
 addColumnIfMissing("user_songs", "track_preferences", "TEXT");
 
+// Per-user-per-song saved loops. Each row is one loop region (start/end in
+// seconds) with an `enabled` flag controlling whether it participates in
+// chained playback. Ordered for chaining by `start_time` (derived, no
+// explicit order column). Cascade-deleted with the song and the user.
+db.exec(`
+  CREATE TABLE IF NOT EXISTS user_song_loops (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    user_id INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+    song_id INTEGER NOT NULL REFERENCES songs(id) ON DELETE CASCADE,
+    start_time REAL NOT NULL,
+    end_time REAL NOT NULL,
+    enabled INTEGER NOT NULL DEFAULT 1,
+    created_at TEXT NOT NULL DEFAULT (datetime('now'))
+  );
+  CREATE INDEX IF NOT EXISTS idx_user_song_loops ON user_song_loops(user_id, song_id);
+`);
+
 /** Add a column to a table only when it isn't already present. SQLite has no
  *  `ALTER TABLE ... ADD COLUMN ... IF NOT EXISTS`, so we inspect
  *  `PRAGMA table_info` first to avoid the noisy "duplicate column name"

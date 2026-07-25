@@ -3,6 +3,13 @@ export { type Category, listCategories, createCategory } from "./category.ts";
 export { type GameSettings, getGameSettings, updateGameSettings } from "./user.ts";
 export { type TrackPreferences } from "./trackPreferences.ts";
 export {
+  type Loop,
+  listLoops,
+  createLoop,
+  setLoopEnabled,
+  removeLoop,
+} from "./loop.ts";
+export {
   type SongSummary,
   type SongFull,
   type SongUpdate,

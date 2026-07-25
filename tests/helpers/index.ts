@@ -8,6 +8,7 @@ export {
   cleanupAllCategories,
   wipeDatabase,
   deleteSong,
+  seedSong,
   seedSongWithNotes,
   cleanupCategoriesByLabel,
 } from './api.js';
