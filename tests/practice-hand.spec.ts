@@ -288,7 +288,7 @@ test.describe('Practice Hand - UI', () => {
   });
 
   test('practice hand resets to both when starting fresh from menu', async ({ page }) => {
-    await startGame(page);
+    await startGame(page, { keepSong: true });
     await toggleLearnMode(page);
     await page.locator('#hand-left').click();
     await expectPracticeHand(page, 'left');

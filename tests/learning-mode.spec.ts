@@ -393,7 +393,7 @@ test.describe('Learning Mode - UI', () => {
   });
 
   test('mode resets to PLAY when starting fresh from menu', async ({ page }) => {
-    await startGame(page);
+    await startGame(page, { keepSong: true });
     await toggleLearnMode(page);
     await expectMode(page, 'learn');
     await page.evaluate(() => document.getElementById('btn-menu')?.click());

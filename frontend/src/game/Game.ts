@@ -86,6 +86,8 @@ export class Game {
   get paused(): boolean { return this._paused; }
 
   onResults: ((scoring: Scoring, song: Song) => void) | null = null;
+  /** Fired when the user navigates back to the menu from gameplay. */
+  onBackToMenu: (() => void) | null = null;
   /** Fired (debounced externally) when the user changes the in-game Tracks
    *  panel state for the current song, so main.ts can persist it. */
   onTrackPreferencesChange: ((song: Song) => void) | null = null;
@@ -643,6 +645,7 @@ export class Game {
       cancelAnimationFrame(this.animationId);
       this.animationId = null;
     }
+    this.onBackToMenu?.();
   }
 
   private _applyScoringEnabled(): void {

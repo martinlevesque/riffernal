@@ -79,6 +79,11 @@ export class Menu {
     }
   }
 
+  refreshSongs(songs: Song[]): void {
+    this.songs = songs;
+    this._render();
+  }
+
   private _loadCollapsed(): Set<string> {
     try {
       const raw = localStorage.getItem(COLLAPSED_KEY);

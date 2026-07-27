@@ -1030,6 +1030,13 @@ async function init(): Promise<void> {
   }
   const menu = new Menu(songs);
   await menu.loadCategories();
+
+  game.onBackToMenu = () => {
+    loadSongs()
+      .then((songs) => menu.refreshSongs(songs))
+      .catch((e) => console.error('Failed to refresh songs:', e));
+  };
+
   const categorySelect = new CategorySelect();
 
   menu.onStart = async (song) => {
