@@ -139,6 +139,23 @@
   color: var(--text-secondary);
 }
 
+.loops-panel-add-btn {
+  font-family: var(--font-ui);
+  font-size: 0.72rem;
+  letter-spacing: 0.04em;
+  background: transparent;
+  border: 1px solid var(--accent-purple);
+  color: var(--accent-purple);
+  padding: 0.15rem 0.5rem;
+  border-radius: 3px;
+  cursor: pointer;
+  transition: all 0.15s;
+}
+
+.loops-panel-add-btn:hover {
+  background: rgba(170, 68, 255, 0.15);
+}
+
 .loops-list {
   list-style: none;
   margin: 0;
@@ -159,11 +176,12 @@
   font-family: var(--font-mono);
   font-size: 0.82rem;
   color: var(--text-primary);
+  cursor: pointer;
 }
 
-.loop-row--current {
-  border-color: var(--accent-purple);
-  background: rgba(50, 35, 80, 0.55);
+.loop-row--selected {
+  border-color: var(--accent-blue);
+  background: rgba(30, 60, 120, 0.25);
 }
 
 .loop-row--draft {

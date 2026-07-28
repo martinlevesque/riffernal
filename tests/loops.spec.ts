@@ -747,39 +747,40 @@ test.describe('Loops - UI', () => {
     await expect(page.locator('#btn-open-sheet')).toBeVisible();
   });
 
-  test('clicking define loop enters start phase, switches to learn mode and opens sheet', async ({ page }) => {
+  test('clicking define loop switches to learn mode and opens sheet', async ({ page }) => {
     await startGame(page);
     await page.locator('#btn-define-loop').click();
     await expect(page.locator('#mode-learn')).toHaveClass(/active/);
-    await expect(page.locator('#btn-define-loop')).toHaveClass(/active/);
-    await expectLoopStatus(page, 'Click start note');
     await expectSheetScreenActive(page);
   });
 
-  test('clicking define loop opens sheet view with start phase', async ({ page }) => {
+  test('Add loop button enters start phase prompting for start note', async ({ page }) => {
     await startGame(page);
     await page.locator('#btn-define-loop').click();
-    await expect(page.locator('#mode-learn')).toHaveClass(/active/);
-    await expect(page.locator('#btn-define-loop')).toHaveClass(/active/);
     await expectSheetScreenActive(page);
+    await page.locator('#btn-add-loop').click();
+    await expect(page.locator('#btn-define-loop')).toHaveClass(/active/);
     await expect(page.locator('#sheet-hint')).toHaveText('Click the start note');
     await expectLoopStatus(page, 'Click start note');
   });
 
-  test('closing and re-clicking define loop re-enters start phase', async ({ page }) => {
+  test('Add loop button re-enters start phase after closing and re-opening', async ({ page }) => {
     await startGame(page);
     await page.locator('#btn-define-loop').click();
+    await page.locator('#btn-add-loop').click();
     await expectLoopStatus(page, 'Click start note');
     await page.locator('#btn-close-sheet').click();
     await expectSheetScreenInactive(page);
     await page.locator('#btn-define-loop').click();
+    await page.locator('#btn-add-loop').click();
     await expectSheetScreenActive(page);
     await expectLoopStatus(page, 'Click start note');
   });
 
-  test('clear loop button resets status to "No loops" after sheet closed', async ({ page }) => {
+  test('clear loop button resets draft status to "No loops"', async ({ page }) => {
     await startGame(page);
     await page.locator('#btn-define-loop').click();
+    await page.locator('#btn-add-loop').click();
     await expect(page.locator('#loop-status')).not.toHaveText('No loops');
     await page.locator('#btn-close-sheet').click();
     await page.locator('#btn-clear-loop').click();

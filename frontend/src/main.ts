@@ -423,6 +423,7 @@ function setupSheetView(
   const clearLoopBtn = document.getElementById('btn-clear-loop')!;
   const loopsList = document.getElementById('loops-list')!;
   const loopsPanelCount = document.getElementById('loops-panel-count')!;
+  const addLoopBtn = document.getElementById('btn-add-loop')! as HTMLButtonElement;
 
   /** Format a loop's start/end times as used by panel rows and the inline
    *  status text. */
@@ -436,10 +437,6 @@ function setupSheetView(
     loopsList.innerHTML = '';
     const loops = game.loop.loops;
     const chain = game.loop.chain;
-    const idx = game.loop.currentIndex;
-    const currentId = (idx !== null && idx >= 0 && idx < chain.length)
-      ? chain[idx].id
-      : null;
 
     // Header count reflects enabled loops (chain length), not total saved.
     loopsPanelCount.textContent = chain.length > 0
@@ -457,7 +454,7 @@ function setupSheetView(
     for (const loop of loops) {
       const li = document.createElement('li');
       li.className = 'loop-row';
-      if (loop.id === currentId) li.classList.add('loop-row--current');
+      if (loop.id === selectedLoopId) li.classList.add('loop-row--selected');
 
       const time = document.createElement('span');
       time.className = 'loop-row-time';
@@ -494,12 +491,26 @@ function setupSheetView(
         try {
           await deleteLoop(loop.id);
           game.deleteSavedLoop(loop.id);
+          if (selectedLoopId === loop.id) selectedLoopId = null;
           renderLoopsPanel();
           updateLoopUI();
           if (sheetOpen) renderSheetPage();
         } catch (e) {
           console.error('Failed to delete loop:', e);
         }
+      });
+
+      li.addEventListener('click', (e) => {
+        if ((e.target as HTMLElement).closest('button')) return;
+        selectedLoopId = selectedLoopId === loop.id ? null : loop.id;
+        if (selectedLoopId !== null && sheetOpen) {
+          sheetCurrentPage = Math.min(
+            Math.floor(loop.startTime / pageDuration()),
+            sheetPageCount() - 1,
+          );
+        }
+        renderLoopsPanel();
+        if (sheetOpen) renderSheetPage();
       });
 
       li.appendChild(time);
@@ -541,6 +552,14 @@ function setupSheetView(
   function pageDuration(): number { return SHEET_BEATS_VISIBLE * (60 / game.songBpm); }
   let sheetCurrentPage = 0;
   let sheetOpen = false;
+  let selectedLoopId: number | null = null;
+
+  function getSelectedLoopBounds(): { startTime: number; endTime: number } | undefined {
+    if (selectedLoopId === null) return undefined;
+    const loop = game.loop.loops.find((l) => l.id === selectedLoopId);
+    if (!loop) return undefined;
+    return { startTime: loop.startTime, endTime: loop.endTime };
+  }
 
   function sheetPageCount(): number {
     return Math.max(1, Math.ceil(game.noteManager.getSongDuration() / pageDuration()));
@@ -552,6 +571,9 @@ function setupSheetView(
     ctx.clearRect(0, 0, sheetCanvas.width, sheetCanvas.height);
     const start = sheetCurrentPage * pageDuration();
     const end = Math.min(start + pageDuration(), game.noteManager.getSongDuration());
+
+    const selectedLoop = getSelectedLoopBounds();
+
     sheetRenderer.drawSheetMusic(
       game.noteManager.trebleNotes,
       game.noteManager.bassNotes,
@@ -560,6 +582,7 @@ function setupSheetView(
       game.loop.snapshot(),
       { start, end },
       game.songBpm,
+      selectedLoop,
     );
     sheetPageInfo.textContent = `${sheetCurrentPage + 1} / ${sheetPageCount()}`;
     sheetPrevBtn.toggleAttribute('disabled', sheetCurrentPage <= 0);
@@ -591,6 +614,8 @@ function setupSheetView(
       return;
     }
     sheetOpen = true;
+    const cur = game.loop.current;
+    selectedLoopId = cur ? cur.id : null;
     sheetScreen.classList.add('active');
     sheetRenderer.resize();
     sheetRenderer.sheetScale = Math.max(sheetRenderer.sheetScale, 1.5);
@@ -672,16 +697,21 @@ function setupSheetView(
 
   // Loop define / clear buttons
   defineLoopBtn.addEventListener('click', () => {
-    // beginLoopDefine() resets any in-progress draft and enters the
-    // start-boundary phase.
-    game.beginLoopDefine();
     if (!game.learningMode) setMode(true);
+    const noLoops = game.loop.loops.length === 0;
+    if (noLoops) game.beginLoopDefine();
     updateLoopUI();
-    renderLoopsPanel();
     if (game.state === GameState.Playing) {
       openSheetView();
       startSheetRAF();
     }
+  });
+
+  addLoopBtn.addEventListener('click', () => {
+    game.beginLoopDefine();
+    updateLoopUI();
+    renderLoopsPanel();
+    if (sheetOpen) renderSheetPage();
   });
 
   clearLoopBtn.addEventListener('click', () => {
@@ -774,8 +804,7 @@ function setupSheetView(
       return;
     }
     renderSheetPage();
-    // Keep the loops-panel current-loop highlight in sync as the chain
-    // advances. Refresh once per ~30 frames to avoid layout thrash.
+    // Refresh the loops panel as the chain advances during playback.
     if (lastPanelRenderLoopId !== game.loop.currentIndex) {
       lastPanelRenderLoopId = game.loop.currentIndex;
       renderLoopsPanel();

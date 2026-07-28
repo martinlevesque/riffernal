@@ -700,6 +700,7 @@ export class Renderer {
     },
     viewWindow?: { start: number; end: number },
     bpm = 120,
+    selectedLoop?: { startTime: number; endTime: number },
   ): void {
     if (!trebleNotes.length && !bassNotes.length || songDuration <= 0) return;
     const ctx = this.ctx;
@@ -738,7 +739,7 @@ export class Renderer {
     this._drawSheetNotes(trebleNotes, trebleTop, L);
     this._drawSheetNotes(bassNotes, bassTop, L);
     this._drawPlaybackCursor(L, currentTime, viewWindow);
-    this._drawLoopRegion(L, loop, trebleNotes, bassNotes);
+    this._drawLoopRegion(L, loop, trebleNotes, bassNotes, selectedLoop);
 
     ctx.strokeStyle = themeManager.canvas.sheetBorder;
     ctx.lineWidth = 0.5;
@@ -875,6 +876,7 @@ export class Renderer {
     } | undefined,
     trebleNotes: SongNote[],
     bassNotes: SongNote[],
+    selectedLoop?: { startTime: number; endTime: number },
   ): void {
     const c = themeManager.canvas;
     const { ctx, barX, barW, viewStart, viewEnd, sheetTop, sheetBottom } = L;
@@ -961,6 +963,49 @@ export class Renderer {
     } else if (draftDefining === LoopDefinitionState.Start && draftStart !== null) {
       drawMarker(draftStart, c.loopMarker, 'A');
     }
+
+    if (selectedLoop) {
+      this._drawSelectedLoopNotes(L, c.noteHighlight, trebleNotes, bassNotes, selectedLoop);
+    }
+  }
+
+  private _drawSelectedLoopNotes(
+    L: SheetLayout,
+    color: string,
+    trebleNotes: SongNote[],
+    bassNotes: SongNote[],
+    selectedLoop: { startTime: number; endTime: number },
+  ): void {
+    const { ctx, barX, barW, viewStart, viewEnd, staffLineSpacing } = L;
+
+    const notePosition = (n: SongNote): { x: number; y: number } | null => {
+      const pos = SHEET_NOTE_POSITIONS[n.key];
+      if (pos === undefined) return null;
+      const staffTop = n.hand === HandSide.Left ? this.sheetBassTop : this.sheetTrebleTop;
+      const x = barX + ((n.time - viewStart) / (viewEnd - viewStart)) * barW;
+      const y = staffTop + (7 - pos) * (staffLineSpacing / 2);
+      return { x, y };
+    };
+
+    const highlightNote = (n: SongNote): void => {
+      if (n.time < viewStart || n.time > viewEnd) return;
+      if (n.time < selectedLoop.startTime || n.time > selectedLoop.endTime) return;
+      const p = notePosition(n);
+      if (!p) return;
+      const r = (SHEET_NOTE_RADIUS + 5) * this.sheetScale;
+      ctx.save();
+      ctx.globalAlpha = 0.6;
+      ctx.beginPath();
+      ctx.arc(p.x, p.y, r, 0, Math.PI * 2);
+      ctx.strokeStyle = color;
+      ctx.lineWidth = 2 * this.sheetScale;
+      ctx.stroke();
+      ctx.restore();
+    };
+
+    for (const n of trebleNotes) highlightNote(n);
+
+    for (const n of bassNotes) highlightNote(n);
   }
 
   drawParticles(): void {
