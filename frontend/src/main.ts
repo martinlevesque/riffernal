@@ -141,13 +141,13 @@ async function init(): Promise<void> {
   setupHoverCursor(game, canvas, game.renderer);
 
   const sheetView = new SheetView(game, canvas, {
-    closeSongInfoPopup: () => songInfoPopup.close(),
+    closeSongInfoPopup: () => songInfoPopup.hide(),
     setMode: (learning) => controls.setMode(learning),
     updateLoopUI: () => controls.updateLoopUI(),
   });
 
   new ResultButtons(game, {
-    closeSongInfoPopup: () => songInfoPopup.close(),
+    closeSongInfoPopup: () => songInfoPopup.hide(),
     closeSheetView: () => sheetView.closeSheetView(),
     setMode: (learning) => controls.setMode(learning),
     applyPracticeHandButtons: () => controls.applyPracticeHandButtons(),

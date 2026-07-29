@@ -19,7 +19,7 @@ export class SongInfoPopup {
     this.songInfoBestScore = document.getElementById('song-info-best-score')!;
     this.btnCloseSongInfo = document.getElementById('btn-close-song-info')!;
 
-    this.btnCloseSongInfo.addEventListener('click', () => this.close());
+    this.btnCloseSongInfo.addEventListener('click', () => this.hide());
   }
 
   show(song: Song): void {
@@ -28,10 +28,10 @@ export class SongInfoPopup {
     this.songInfoBestScore.textContent =
       song.bestScore != null ? formatScore(song.bestScore) : 'No record yet';
     this.songInfoPopup.classList.remove('hidden');
-    this.songInfoTimer = setTimeout(() => this.close(), 4000);
+    this.songInfoTimer = setTimeout(() => this.hide(), 4000);
   }
 
-  close(): void {
+  hide(): void {
     if (this.songInfoTimer !== null) {
       clearTimeout(this.songInfoTimer);
       this.songInfoTimer = null;

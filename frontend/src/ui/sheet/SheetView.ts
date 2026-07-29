@@ -4,6 +4,7 @@ import type { SongNote } from '../../game/NoteManager.js';
 import { createLoop } from '../../api/LoopApi.js';
 import { setupHoverCursor } from '../play/HoverCursor.js';
 import { LoopsPanel } from './LoopsPanel.js';
+import { reportError } from '../../utils/helpers.js';
 
 const SHEET_STAFF_LINE_SPACING = 10;
 export const BASE_SHEET_HEIGHT = 5 + 4 * SHEET_STAFF_LINE_SPACING + 8 + 4 * SHEET_STAFF_LINE_SPACING + 5;
@@ -340,7 +341,7 @@ export class SheetView {
 
           if (this.sheetOpen) this.renderSheetPage();
         } catch (err) {
-          console.error('Failed to auto-save loop:', err);
+          reportError('Failed to auto-save loop', err);
         }
       }
     } else {

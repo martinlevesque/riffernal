@@ -5,6 +5,7 @@ import type { CategorySelect } from './CategorySelect.js';
 import type { Song } from '../../utils/MidiParser.js';
 import { parseMidi } from '../../utils/MidiParser.js';
 import { uploadSong, songFullToSong } from '../../api/SongApi.js';
+import { reportError } from '../../utils/helpers.js';
 
 export class MidiImportDialog {
   private importBtn: HTMLButtonElement;
@@ -37,64 +38,53 @@ export class MidiImportDialog {
             && (song.selectedTrackIndices?.length ?? 0) === 0;
 
           const proceed = (finalSong: Song, midiFile: File) => {
-            this.categorySelect.onConfirm = async (categoryId, title, artist) => {
-              this.categorySelect.onConfirm = null;
-              this.categorySelect.onCancel = null;
-
-              try {
-                const full = await uploadSong({
-                  midiFile,
-                  metadata: {
-                    title: title || finalSong.title,
-                    artist: artist || finalSong.artist,
-                    bpm: finalSong.bpm,
-                    difficulty: finalSong.difficulty,
-                    notes: finalSong.notes,
-                    tracks: finalSong.tracks ?? [],
-                    selectedTrackIndices: finalSong.selectedTrackIndices ?? [],
-                    trackHands: finalSong.trackHands ?? {},
-                    backgroundTracks: finalSong.backgroundTracks ?? [],
-                  },
-                  categoryId,
-                });
-                this.menu.addSong(songFullToSong(full));
-                this.menu.setMidiStatus(this.midiInput.connected, 'Import complete');
-              } catch (err: unknown) {
-                const message = err instanceof Error ? err.message : String(err);
-                alert(`Failed to save song: ${message}`);
-                console.error(err);
-              }
-            };
-            this.categorySelect.onCancel = () => {
-              this.categorySelect.onConfirm = null;
-              this.categorySelect.onCancel = null;
-              this.menu.setMidiStatus(this.midiInput.connected, 'Import cancelled');
-            };
-            this.categorySelect.show(song);
+            this.categorySelect.show({
+              onConfirm: async (categoryId, title, artist) => {
+                try {
+                  const full = await uploadSong({
+                    midiFile,
+                    metadata: {
+                      title: title || finalSong.title,
+                      artist: artist || finalSong.artist,
+                      bpm: finalSong.bpm,
+                      difficulty: finalSong.difficulty,
+                      notes: finalSong.notes,
+                      tracks: finalSong.tracks ?? [],
+                      selectedTrackIndices: finalSong.selectedTrackIndices ?? [],
+                      trackHands: finalSong.trackHands ?? {},
+                      backgroundTracks: finalSong.backgroundTracks ?? [],
+                    },
+                    categoryId,
+                  });
+                  this.menu.addSong(songFullToSong(full));
+                  this.menu.setMidiStatus(this.midiInput.connected, 'Import complete');
+                } catch (err: unknown) {
+                  reportError('Failed to save song', err, { alert: true });
+                }
+              },
+              onCancel: () => {
+                this.menu.setMidiStatus(this.midiInput.connected, 'Import cancelled');
+              },
+            }, song);
           };
 
           if (needsSelection) {
-            this.trackSelect.onConfirm = (selection) => {
-              song.selectedTrackIndices = selection.indices;
-              song.trackHands = selection.hands;
-              song.backgroundTracks = selection.backgroundTracks;
-              this.trackSelect.onConfirm = null;
-              this.trackSelect.onCancel = null;
-              proceed(song, file);
-            };
-            this.trackSelect.onCancel = () => {
-              this.menu.setMidiStatus(false, 'Import cancelled');
-              this.trackSelect.onConfirm = null;
-              this.trackSelect.onCancel = null;
-            };
-            this.trackSelect.show(song);
+            this.trackSelect.show(song, {
+              onConfirm: (selection) => {
+                song.selectedTrackIndices = selection.indices;
+                song.trackHands = selection.hands;
+                song.backgroundTracks = selection.backgroundTracks;
+                proceed(song, file);
+              },
+              onCancel: () => {
+                this.menu.setMidiStatus(false, 'Import cancelled');
+              },
+            });
           } else {
             proceed(song, file);
           }
         } catch (err: unknown) {
-          const message = err instanceof Error ? err.message : String(err);
-          alert(`Failed to import MIDI: ${message}`);
-          console.error(err);
+          reportError('Failed to import MIDI', err, { alert: true });
         }
 
         this.importInput.value = '';

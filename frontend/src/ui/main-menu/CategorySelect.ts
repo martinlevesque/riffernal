@@ -1,5 +1,11 @@
 import { fetchCategories, createCategory, type CategoryData } from "../../api/SongApi.js";
 import type { Song } from "../../utils/MidiParser.js";
+import { reportError } from "../../utils/helpers.js";
+
+export interface CategorySelectDeps {
+  onConfirm: (categoryId: number | null, title: string, artist: string) => void;
+  onCancel: () => void;
+}
 
 export class CategorySelect {
   private screen: HTMLElement;
@@ -12,8 +18,7 @@ export class CategorySelect {
   private artistInput: HTMLInputElement;
   private categories: CategoryData[] = [];
   private selectedCategoryId: number | null = null;
-  onConfirm: ((categoryId: number | null, title: string, artist: string) => void) | null = null;
-  onCancel: (() => void) | null = null;
+  private deps: CategorySelectDeps | null = null;
 
   constructor() {
     this.screen = document.getElementById("category-select-screen")!;
@@ -42,7 +47,8 @@ export class CategorySelect {
     });
   }
 
-  async show(song?: Song): Promise<void> {
+  async show(deps: CategorySelectDeps, song?: Song): Promise<void> {
+    this.deps = deps;
     this.selectedCategoryId = null;
     this.newCategoryInput.value = "";
     this.confirmBtn.disabled = true;
@@ -67,14 +73,16 @@ export class CategorySelect {
 
   private _cancel(): void {
     this.hide();
-    if (this.onCancel) this.onCancel();
+    const deps = this.deps;
+    this.deps = null;
+    deps?.onCancel();
   }
 
   private async _loadCategories(): Promise<void> {
     try {
       this.categories = await fetchCategories();
     } catch (err) {
-      console.error("Failed to load categories:", err);
+      reportError("Failed to load categories", err);
       this.categories = [];
     }
   }
@@ -113,15 +121,14 @@ export class CategorySelect {
       this._renderList();
       this.confirmBtn.disabled = false;
     } catch (err) {
-      console.error("Failed to create category:", err);
-      alert(err instanceof Error ? err.message : "Failed to create category");
+      reportError("Failed to create category", err, { alert: true });
     }
   }
 
   private _confirm(): void {
     this.hide();
-    if (this.onConfirm) {
-      this.onConfirm(this.selectedCategoryId, this.titleInput.value.trim(), this.artistInput.value.trim());
-    }
+    const deps = this.deps;
+    this.deps = null;
+    deps?.onConfirm(this.selectedCategoryId, this.titleInput.value.trim(), this.artistInput.value.trim());
   }
 }

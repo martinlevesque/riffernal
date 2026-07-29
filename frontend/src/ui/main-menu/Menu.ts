@@ -1,5 +1,5 @@
 import type { Song } from "../../utils/MidiParser.js";
-import { formatScore } from "../../utils/helpers.js";
+import { formatScore, formatRelativeTime, parseSqlTimestamp, reportError } from "../../utils/helpers.js";
 import {
   fetchCategories,
   type CategoryData,
@@ -45,7 +45,7 @@ export class Menu {
       this.categories = await fetchCategories();
       this._render();
     } catch (err) {
-      console.error("Failed to load categories:", err);
+      reportError("Failed to load categories", err);
     }
   }
 
@@ -54,7 +54,7 @@ export class Menu {
     try {
       this.categories = await fetchCategories();
     } catch (err) {
-      console.error("Failed to refresh categories:", err);
+      reportError("Failed to refresh categories", err);
     }
     this._render();
   }
@@ -170,7 +170,7 @@ export class Menu {
     let latest = 0;
     for (const s of songs) {
       if (s.lastPlayedAt) {
-        const ts = new Date(`${s.lastPlayedAt.replace(" ", "T")}Z`).getTime();
+        const ts = parseSqlTimestamp(s.lastPlayedAt).getTime();
 
         if (ts > latest) {
           latest = ts;
@@ -347,28 +347,7 @@ export class Menu {
   }
 
   private _formatLastPlayed(ts: string | null | undefined): string {
-    if (!ts) return "";
-
-    const date = new Date(`${ts.replace(" ", "T")}Z`);
-
-    if (Number.isNaN(date.getTime())) return "";
-
-    const diffMs = Date.now() - date.getTime();
-
-    const diffMin = Math.floor(diffMs / 60000);
-    if (diffMin < 1) return "Last played just now";
-    if (diffMin < 60) return `Last played ${diffMin}m ago`;
-
-    const diffHr = Math.floor(diffMin / 60);
-    if (diffHr < 24) return `Last played ${diffHr}h ago`;
-
-    const diffDay = Math.floor(diffHr / 24);
-    if (diffDay < 7) return `Last played ${diffDay}d ago`;
-
-    const diffWk = Math.floor(diffDay / 7);
-    if (diffWk < 5) return `Last played ${diffWk}w ago`;
-
-    return `Last played ${date.toLocaleDateString()}`;
+    return formatRelativeTime(ts, "Last played ");
   }
 
   show(): void {

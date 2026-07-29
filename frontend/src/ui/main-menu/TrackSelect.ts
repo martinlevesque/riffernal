@@ -7,6 +7,11 @@ export interface TrackSelection {
   backgroundTracks: number[];
 }
 
+export interface TrackSelectDeps {
+  onConfirm: (selection: TrackSelection) => void;
+  onCancel: () => void;
+}
+
 export class TrackSelect {
   private screen: HTMLElement;
   private titleEl: HTMLElement;
@@ -18,8 +23,7 @@ export class TrackSelect {
   private selected = new Set<number>();
   private hands: Record<number, HandSide> = {};
   private backgroundTracks = new Set<number>();
-  onConfirm: ((selection: TrackSelection) => void) | null = null;
-  onCancel: (() => void) | null = null;
+  private deps: TrackSelectDeps | null = null;
 
   constructor() {
     this.screen = document.getElementById('track-select-screen')!;
@@ -36,8 +40,9 @@ export class TrackSelect {
     });
   }
 
-  show(song: Song): void {
+  show(song: Song, deps: TrackSelectDeps): void {
     this.song = song;
+    this.deps = deps;
     this.selected.clear();
     this.hands = { ...(song.trackHands ?? {}) };
     this.backgroundTracks = new Set(song.backgroundTracks ?? []);
@@ -52,7 +57,9 @@ export class TrackSelect {
   hide(): void {
     this.screen.classList.remove('active');
     this.song = null;
-    if (this.onCancel) this.onCancel();
+    const deps = this.deps;
+    this.deps = null;
+    deps?.onCancel();
   }
 
   private _renderList(): void {
@@ -146,12 +153,12 @@ export class TrackSelect {
     if (!this.song || this.selected.size === 0) return;
     const indices = Array.from(this.selected);
     this.screen.classList.remove('active');
-    if (this.onConfirm) {
-      this.onConfirm({
-        indices,
-        hands: { ...this.hands },
-        backgroundTracks: Array.from(this.backgroundTracks),
-      });
-    }
+    const deps = this.deps;
+    this.deps = null;
+    deps?.onConfirm({
+      indices,
+      hands: { ...this.hands },
+      backgroundTracks: Array.from(this.backgroundTracks),
+    });
   }
 }
