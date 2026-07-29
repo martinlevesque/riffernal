@@ -41,7 +41,19 @@ export class SheetView {
     const onLoopsMutated = () => {
       this.deps.updateLoopUI();
 
-      if (this.sheetOpen) this.renderSheetPage();
+      if (this.sheetOpen) {
+        const selectedLoop = this.getSelectedLoopBounds();
+
+        if (selectedLoop) {
+          const pageDur = this.pageDuration();
+          this.sheetCurrentPage = Math.max(0, Math.min(
+            Math.floor(selectedLoop.startTime / pageDur),
+            this.sheetPageCount() - 1,
+          ));
+        }
+
+        this.renderSheetPage();
+      }
     };
 
     this.loopsPanel = new LoopsPanel(game, {
