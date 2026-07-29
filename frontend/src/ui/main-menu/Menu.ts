@@ -1,9 +1,9 @@
-import type { Song } from "../utils/MidiParser.js";
-import { formatScore } from "../utils/helpers.js";
+import type { Song } from "../../utils/MidiParser.js";
+import { formatScore } from "../../utils/helpers.js";
 import {
   fetchCategories,
   type CategoryData,
-} from "../api/SongApi.js";
+} from "../../api/SongApi.js";
 
 interface CategoryGroup {
   id: number | null;

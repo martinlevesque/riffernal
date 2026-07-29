@@ -1,5 +1,5 @@
-import type { Scoring } from '../game/scoring.js';
-import { formatScore } from '../utils/helpers.js';
+import type { Scoring } from '../../game/scoring.js';
+import { formatScore } from '../../utils/helpers.js';
 
 export class ScoreDisplay {
   private scoreEl: HTMLElement;

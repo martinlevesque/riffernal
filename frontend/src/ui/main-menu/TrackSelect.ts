@@ -1,5 +1,5 @@
-import { HandSide } from '../utils/notes.js';
-import type { Song } from '../utils/MidiParser.js';
+import { HandSide } from '../../utils/notes.js';
+import type { Song } from '../../utils/MidiParser.js';
 
 export interface TrackSelection {
   indices: number[];
