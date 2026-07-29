@@ -1,5 +1,5 @@
-import { fetchCategories, createCategory, type CategoryData } from "../api/SongApi.js";
-import type { Song } from "../utils/MidiParser.js";
+import { fetchCategories, createCategory, type CategoryData } from "../../api/SongApi.js";
+import type { Song } from "../../utils/MidiParser.js";
 
 export class CategorySelect {
   private screen: HTMLElement;

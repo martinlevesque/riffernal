@@ -21,7 +21,7 @@ import { violinPatch } from '../audio/patches/violinPatch.js';
 import { drumPatch } from '../audio/patches/drumPatch.js';
 import type { KeyboardInput } from '../input/KeyboardInput.js';
 import type { MidiInput } from '../input/MidiInput.js';
-import type { ScoreDisplay } from '../ui/ScoreDisplay.js';
+import type { ScoreDisplay } from '../ui/play/ScoreDisplay.js';
 import type { Song } from '../utils/MidiParser.js';
 import { LoopService } from './LoopService.js';
 import { ResultsScreen } from './rendering/ResultsScreen.js';
