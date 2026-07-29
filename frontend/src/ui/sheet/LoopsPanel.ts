@@ -1,5 +1,6 @@
 import { type Game, LoopDefinitionState } from '../../game/Game.js';
 import { updateLoopEnabled, deleteLoop } from '../../api/LoopApi.js';
+import { reportError } from '../../utils/helpers.js';
 
 export interface LoopsPanelCallbacks {
   setMode: (learning: boolean) => void;
@@ -70,7 +71,7 @@ export class LoopsPanel {
           this.render();
           this.callbacks.onMutated();
         } catch (e) {
-          console.error('Failed to update loop:', e);
+          reportError('Failed to update loop', e);
         }
       });
 
@@ -87,7 +88,7 @@ export class LoopsPanel {
           this.render();
           this.callbacks.onMutated();
         } catch (e) {
-          console.error('Failed to delete loop:', e);
+          reportError('Failed to delete loop', e);
         }
       });
 

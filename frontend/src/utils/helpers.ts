@@ -37,3 +37,30 @@ export function midiToNoteName(midi: number): string {
   const note = notes[midi % 12];
   return `${note}${octave}`;
 }
+
+export function reportError(context: string, err: unknown, opts?: { alert?: boolean }): void {
+  const message = err instanceof Error ? err.message : String(err);
+  console.error(`${context}:`, err);
+  if (opts?.alert) alert(`${context}: ${message}`);
+}
+
+export function parseSqlTimestamp(ts: string): Date {
+  return new Date(`${ts.replace(' ', 'T')}Z`);
+}
+
+export function formatRelativeTime(ts: string | null | undefined, prefix = ''): string {
+  if (!ts) return '';
+  const date = parseSqlTimestamp(ts);
+  if (Number.isNaN(date.getTime())) return '';
+
+  const diffMin = Math.floor((Date.now() - date.getTime()) / 60000);
+  if (diffMin < 1) return `${prefix}just now`;
+  if (diffMin < 60) return `${prefix}${diffMin}m ago`;
+  const diffHr = Math.floor(diffMin / 60);
+  if (diffHr < 24) return `${prefix}${diffHr}h ago`;
+  const diffDay = Math.floor(diffHr / 24);
+  if (diffDay < 7) return `${prefix}${diffDay}d ago`;
+  const diffWk = Math.floor(diffDay / 7);
+  if (diffWk < 5) return `${prefix}${diffWk}w ago`;
+  return `${prefix}${date.toLocaleDateString()}`;
+}

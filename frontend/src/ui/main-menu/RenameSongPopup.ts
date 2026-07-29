@@ -1,3 +1,5 @@
+import { reportError } from '../../utils/helpers.js';
+
 export interface RenameSongPopupCallbacks {
   onSave: (id: number, title: string, subtitle: string) => Promise<void>;
 }
@@ -65,7 +67,7 @@ export class RenameSongPopup {
     try {
       await this.callbacks.onSave(this.currentId, title, subtitle);
     } catch (err) {
-      console.error('Rename failed:', err);
+      reportError('Rename failed', err);
     }
 
     this.hide();
