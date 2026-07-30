@@ -1,10 +1,10 @@
 import { type Game, LoopDefinitionState } from '../../game/Game.js';
-import { updateLoopEnabled, deleteLoop } from '../../api/LoopApi.js';
+import { updateLoopEnabled, updateLoopEndTime, deleteLoop } from '../../api/LoopApi.js';
 import { reportError } from '../../utils/helpers.js';
 
 export interface LoopsPanelCallbacks {
   setMode: (learning: boolean) => void;
-  onMutated: () => void;
+  onMutated: (opts?: { scrollToEnd?: boolean }) => void;
 }
 
 function fmtBounds(start: number, end: number): string {
@@ -92,6 +92,8 @@ export class LoopsPanel {
         }
       });
 
+      const extendBtn = this.buildExtendBtn(loop);
+
       li.addEventListener('click', (e) => {
         if ((e.target as HTMLElement).closest('button')) return;
         this.selectedId = this.selectedId === loop.id ? null : loop.id;
@@ -101,6 +103,7 @@ export class LoopsPanel {
 
       li.appendChild(time);
       li.appendChild(toggle);
+      li.appendChild(extendBtn);
       li.appendChild(delBtn);
       this.loopsList.appendChild(li);
     }
@@ -129,6 +132,29 @@ export class LoopsPanel {
       li.appendChild(cancelBtn);
       this.loopsList.appendChild(li);
     }
+  }
+
+  private buildExtendBtn(loop: { id: number; endTime: number }): HTMLButtonElement {
+    const btn = document.createElement('button');
+    btn.className = 'loop-row-extend';
+    btn.textContent = '>';
+    btn.title = 'Extend loop to next note';
+    btn.addEventListener('click', async () => {
+      const nextTime = this.game.noteManager.findNextUnplayedTime(loop.endTime);
+
+      if (nextTime === null) return;
+
+      try {
+        await updateLoopEndTime(loop.id, nextTime);
+        this.game.setLoopEndTime(loop.id, nextTime);
+        this.render();
+        this.callbacks.onMutated({ scrollToEnd: true });
+      } catch (e) {
+        reportError('Failed to extend loop', e);
+      }
+    });
+
+    return btn;
   }
 
   select(id: number | null): void {

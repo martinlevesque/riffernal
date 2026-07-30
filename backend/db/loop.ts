@@ -49,6 +49,18 @@ export function updateLoopEnabled(id: number, enabled: boolean): LoopRow | undef
   return result;
 }
 
+/** Update a loop's end time. Returns the updated row, or undefined when
+ *  no loop with that id exists for the default user. */
+export function updateLoopEndTime(id: number, endTime: number): LoopRow | undefined {
+  const result = db
+    .query(
+      `UPDATE user_song_loops SET end_time = ? WHERE id = ? AND user_id = 1
+       RETURNING id, user_id, song_id, start_time, end_time, enabled, created_at`,
+    )
+    .get(endTime, id) as LoopRow | undefined;
+  return result;
+}
+
 /** Delete a loop owned by the default user. Returns true when a row was
  *  actually removed. */
 export function deleteLoop(id: number): boolean {

@@ -283,6 +283,11 @@ export class Game {
     }
   }
 
+  /** Extend a saved loop's end time (already persisted). */
+  setLoopEndTime(loopId: number, endTime: number): void {
+    this.loop.setEndTime(loopId, endTime);
+  }
+
   // -- Frame time & loop wrap -----------------------------------------------
 
   private _updateFrameTime(now: number, _delta: number): void {

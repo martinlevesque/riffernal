@@ -7,6 +7,7 @@ export {
   listLoops,
   createLoop,
   setLoopEnabled,
+  setLoopEndTime,
   removeLoop,
 } from "./loop.ts";
 export {
