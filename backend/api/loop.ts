@@ -55,12 +55,14 @@ export const loopRoutes = [
 
           let result: Loop | null = null;
           let applied = false;
+          let attempted = false;
 
           for (const [key, value] of Object.entries(body)) {
             const entry = up[key];
             if (!entry) continue;
             const [fn, guard] = entry;
             if (!guard(value)) continue;
+            attempted = true;
             try {
               const updated = fn(loopId, value as never);
               if (updated) { result = updated; applied = true; }
@@ -69,7 +71,8 @@ export const loopRoutes = [
             }
           }
 
-          if (!applied) return json({ error: "No valid fields to update" }, 400);
+          if (!attempted) return json({ error: "No valid fields to update" }, 400);
+          if (!applied) return json({ error: "Not found" }, 404);
           return json(result);
         })
         .catch(() => json({ error: "Invalid request" }, 400))) as Handler,
