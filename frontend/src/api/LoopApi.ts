@@ -38,6 +38,16 @@ export async function updateLoopEnabled(loopId: number, enabled: boolean): Promi
   return res.json() as Promise<Loop>;
 }
 
+export async function updateLoopEndTime(loopId: number, endTime: number): Promise<Loop> {
+  const res = await fetch(`/api/loops/${loopId}`, {
+    method: "PATCH",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ endTime }),
+  });
+  if (!res.ok) throw new Error(await parseError(res));
+  return res.json() as Promise<Loop>;
+}
+
 export async function deleteLoop(loopId: number): Promise<void> {
   const res = await fetch(`/api/loops/${loopId}`, { method: "DELETE" });
   if (!res.ok) throw new Error(await parseError(res));

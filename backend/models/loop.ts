@@ -2,6 +2,7 @@ import {
   findLoopsBySong,
   insertLoop,
   updateLoopEnabled as updateLoopEnabledRow,
+  updateLoopEndTime as updateLoopEndTimeRow,
   deleteLoop as deleteLoopRow,
   type LoopRow,
 } from "../db/loop.ts";
@@ -51,6 +52,17 @@ export function createLoop(
  *  loop with that id exists for the default user. */
 export function setLoopEnabled(id: number, enabled: boolean): Loop | null {
   const row = updateLoopEnabledRow(id, enabled);
+  return row ? rowToLoop(row) : null;
+}
+
+/** Update a loop's end time. Validates that the new end is greater than
+ *  the existing start_time and finite. Returns the updated DTO, or null
+ *  when the loop doesn't exist. */
+export function setLoopEndTime(id: number, endTime: number): Loop | null {
+  if (!Number.isFinite(endTime) || endTime < 0) {
+    throw new Error("Invalid end time");
+  }
+  const row = updateLoopEndTimeRow(id, endTime);
   return row ? rowToLoop(row) : null;
 }
 

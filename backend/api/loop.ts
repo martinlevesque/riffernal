@@ -2,7 +2,9 @@ import {
   listLoops,
   createLoop,
   setLoopEnabled,
+  setLoopEndTime,
   removeLoop,
+  type Loop,
 } from "../models/index.ts";
 import { json, parseJson, errMsg, paramId, type Handler } from "./router.ts";
 
@@ -40,15 +42,35 @@ export const loopRoutes = [
     method: "PATCH",
     path: "/api/loops/:id",
     handler: ((req: Request, { id }: Record<string, string>) =>
-      parseJson<{ enabled: boolean }>(req)
+      parseJson<Record<string, unknown>>(req)
         .then((body) => {
           const loopId = paramId(id);
           if (loopId instanceof Response) return loopId;
-          if (typeof body.enabled !== "boolean") {
-            return json({ error: "Invalid enabled flag" }, 400);
+
+          type Updater = (loopId: number, value: never) => Loop | null;
+          const up: Record<string, [Updater, (v: unknown) => boolean]> = {
+            enabled: [setLoopEnabled as Updater, (v): v is boolean => typeof v === "boolean"],
+            endTime: [setLoopEndTime as Updater, (v): v is number => typeof v === "number"],
+          };
+
+          let result: Loop | null = null;
+          let applied = false;
+
+          for (const [key, value] of Object.entries(body)) {
+            const entry = up[key];
+            if (!entry) continue;
+            const [fn, guard] = entry;
+            if (!guard(value)) continue;
+            try {
+              const updated = fn(loopId, value as never);
+              if (updated) { result = updated; applied = true; }
+            } catch (err) {
+              return json({ error: errMsg(err) }, 400);
+            }
           }
-          const updated = setLoopEnabled(loopId, body.enabled);
-          return updated ? json(updated) : json({ error: "Not found" }, 404);
+
+          if (!applied) return json({ error: "No valid fields to update" }, 400);
+          return json(result);
         })
         .catch(() => json({ error: "Invalid request" }, 400))) as Handler,
   },

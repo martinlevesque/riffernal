@@ -39,7 +39,7 @@ export class SheetView {
     this.canvas = canvas;
     this.deps = deps;
 
-    const onLoopsMutated = () => {
+    const onLoopsMutated = (opts?: { scrollToEnd?: boolean }) => {
       this.deps.updateLoopUI();
 
       if (this.sheetOpen) {
@@ -47,8 +47,9 @@ export class SheetView {
 
         if (selectedLoop) {
           const pageDur = this.pageDuration();
+          const targetTime = opts?.scrollToEnd ? selectedLoop.endTime : selectedLoop.startTime;
           this.sheetCurrentPage = Math.max(0, Math.min(
-            Math.floor(selectedLoop.startTime / pageDur),
+            Math.floor(targetTime / pageDur),
             this.sheetPageCount() - 1,
           ));
         }

@@ -121,6 +121,13 @@ export class LoopService {
     this.loops = this.loops.filter((l) => l.id !== id);
   }
 
+  /** Update a saved loop's end time. */
+  setEndTime(id: number, endTime: number): void {
+    const loop = this.loops.find((l) => l.id === id);
+    if (!loop) return;
+    loop.endTime = endTime;
+  }
+
   /** Reset all state (fresh game start). */
   clear(): void {
     this.loops = [];
