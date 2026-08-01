@@ -7,11 +7,12 @@ import {
   recordPlay,
   recordBestScore,
   saveTrackPreferences,
+  currentUser,
   type InsertSongInput,
   type SongUpdate,
   type TrackPreferences,
 } from "../models/index.ts";
-import { json, parseJson, errMsg, numOrNull, type Handler } from "./router.ts";
+import { json, parseJson, errMsg, handleErr, numOrNull, type Handler } from "./router.ts";
 
 /** Parse the multipart form for POST /api/songs into an InsertSongInput. */
 async function parseCreateSongForm(req: Request): Promise<InsertSongInput> {
@@ -29,6 +30,7 @@ async function parseCreateSongForm(req: Request): Promise<InsertSongInput> {
     selected_track_indices: (form.get("selected_track_indices") as string | null) ?? null,
     track_hands: (form.get("track_hands") as string | null) ?? null,
     background_tracks: (form.get("background_tracks") as string | null) ?? null,
+    imported_by_user_id: currentUser().id,
   };
 }
 
@@ -46,7 +48,7 @@ export const songRoutes = [
         const input = await parseCreateSongForm(req);
         return json(createSong(input), 201);
       } catch (err) {
-        return json({ error: errMsg(err) }, /UNIQUE|empty/i.test(errMsg(err)) ? 400 : 500);
+        return handleErr(err, /UNIQUE|empty/i.test(errMsg(err)) ? 400 : 500);
       }
     }) as Handler,
   },
@@ -62,8 +64,11 @@ export const songRoutes = [
     method: "DELETE",
     path: "/api/songs/:id",
     handler: ((_req: Request, { id }: Record<string, string>) => {
-      const removed = removeSong(Number(id));
-      return removed ? json({ ok: true }) : json({ error: "Not found" }, 404);
+      try {
+        return json(removeSong(Number(id)));
+      } catch (err) {
+        return handleErr(err);
+      }
     }) as Handler,
   },
   {
@@ -76,7 +81,7 @@ export const songRoutes = [
             const updated = updateSong(Number(id), body);
             return updated ? json(updated) : json({ error: "Not found" }, 404);
           } catch (err) {
-            return json({ error: errMsg(err) }, 400);
+            return handleErr(err, 400);
           }
         })
         .catch(() => json({ error: "Invalid request" }, 400))) as Handler,

@@ -63,6 +63,7 @@ db.exec(`
 `);
 
 addColumnIfMissing("user_songs", "last_score", "INTEGER");
+addColumnIfMissing("songs", "imported_by_user_id", "INTEGER REFERENCES users(id)");
 
 // Per-user-per-song track preferences: persist which background
 // tracks the user has muted and whether the main (live) track is muted, so

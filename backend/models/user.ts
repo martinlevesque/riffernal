@@ -1,5 +1,13 @@
 import { getUserRow, setGameSettingsJson, type UserRow } from "../db/user.ts";
 
+export interface CurrentUser {
+  id: number;
+}
+
+export function currentUser(): CurrentUser {
+  return { id: 1 };
+}
+
 export interface GameSettings {
   piano_show_used_keys_only?: boolean;
   octave_agnostic?: boolean;

@@ -10,6 +10,7 @@ export interface SongSummary {
   difficulty: string;
   categoryId: number | null;
   imported: boolean;
+  importedByUserId: number | null;
   createdAt: string;
   lastPlayedAt: string | null;
   bestScore: number | null;
@@ -169,6 +170,7 @@ export function summaryToSong(s: SongSummary): Song {
     difficulty: s.difficulty,
     notes: [],
     imported: s.imported,
+    importedByUserId: s.importedByUserId,
     categoryId: s.categoryId,
     lastPlayedAt: s.lastPlayedAt,
     bestScore: s.bestScore,
@@ -185,6 +187,7 @@ export function songFullToSong(full: SongFull): Song {
     difficulty: full.difficulty,
     notes: full.notes,
     imported: full.imported,
+    importedByUserId: full.importedByUserId,
     tracks: full.tracks,
     selectedTrackIndices: full.selectedTrackIndices,
     trackHands: full.trackHands,
