@@ -21,6 +21,7 @@ export class Menu {
   private selectedSong: Song | null = null;
   onStart: ((song: Song) => void) | null = null;
   onRename: ((song: Song) => void) | null = null;
+  onDelete: ((song: Song) => void) | null = null;
   private songListEl: HTMLElement;
   private startBtn: HTMLButtonElement;
   private menuScreen: HTMLElement;
@@ -37,6 +38,10 @@ export class Menu {
       if (this.selectedSong && this.onStart) {
         this.onStart(this.selectedSong);
       }
+    });
+
+    document.addEventListener("click", () => {
+      this._closeAllActionMenus();
     });
   }
 
@@ -67,6 +72,15 @@ export class Menu {
     this._render();
   }
 
+  removeSong(id: number): void {
+    this.songs = this.songs.filter((s) => s.id !== id);
+    if (this.selectedSong?.id === id) {
+      this.selectedSong = null;
+      this.startBtn.disabled = true;
+    }
+    this._render();
+  }
+
   updateSongStats(id: number, bestScore: number | null, lastScore?: number): void {
     const song = this.songs.find((s) => s.id === id);
 
@@ -82,6 +96,13 @@ export class Menu {
   refreshSongs(songs: Song[]): void {
     this.songs = songs;
     this._render();
+  }
+
+  private _closeAllActionMenus(): void {
+    const menus = this.songListEl.querySelectorAll(".song-actions-menu:not(.hidden)");
+    for (const menu of menus) {
+      menu.classList.add("hidden");
+    }
   }
 
   private _loadCollapsed(): Set<string> {
@@ -247,38 +268,55 @@ export class Menu {
   }
 
   private _renderSong(song: Song): HTMLElement {
-    const el = document.createElement("div");
-    el.className = `song-item${song.imported ? " imported" : ""}`;
+    const el = this._el("div", `song-item${song.imported ? " imported" : ""}`);
     el.dataset.songId = song.id !== undefined ? String(song.id) : "";
 
-    const title = document.createElement("div");
-    title.className = "song-title";
-    title.textContent = song.title;
+    this._renderSongMeta(song, el);
+    this._renderSongStats(song, el);
+    this._renderSongActions(song, el);
 
-    const artist = document.createElement("div");
-    artist.className = "song-artist";
-    artist.textContent = song.artist || "";
+    el.addEventListener("click", () => {
+      this.selectedSong = song;
+      this.songListEl.querySelectorAll(".song-item").forEach((s) => { s.classList.remove("selected"); });
+      el.classList.add("selected");
+      this.startBtn.disabled = false;
+    });
 
-    const difficulty = document.createElement("span");
-    difficulty.className = `song-difficulty difficulty-${song.difficulty}`;
-    difficulty.textContent = song.difficulty;
+    el.addEventListener("dblclick", () => {
+      if (this.onStart) this.onStart(song);
+    });
 
-    el.appendChild(title);
-    el.appendChild(artist);
-    el.appendChild(difficulty);
+    return el;
+  }
 
+  private _el(tag: string, className: string, text?: string): HTMLElement {
+    const el = document.createElement(tag);
+    el.className = className;
+    if (text !== undefined) el.textContent = text;
+    return el;
+  }
+
+  private _actionOption(text: string, className: string, onClick: () => void): HTMLButtonElement {
+    const btn = this._el("button", className, text) as HTMLButtonElement;
+    btn.addEventListener("click", (e) => { e.stopPropagation(); onClick(); });
+    btn.addEventListener("dblclick", (e) => { e.stopPropagation(); });
+    return btn;
+  }
+
+  private _renderSongMeta(song: Song, el: HTMLElement): void {
+    el.appendChild(this._el("div", "song-title", song.title));
+    el.appendChild(this._el("div", "song-artist", song.artist || ""));
+    el.appendChild(this._el("span", `song-difficulty difficulty-${song.difficulty}`, song.difficulty));
+  }
+
+  private _renderSongStats(song: Song, el: HTMLElement): void {
     const lastPlayed = this._formatLastPlayed(song.lastPlayedAt);
 
     if (lastPlayed) {
-      const lastPlayedEl = document.createElement("div");
-      lastPlayedEl.className = "song-last-played";
-      lastPlayedEl.textContent = lastPlayed;
-      el.appendChild(lastPlayedEl);
+      el.appendChild(this._el("div", "song-last-played", lastPlayed));
     }
 
     if (song.bestScore != null || song.lastScore != null) {
-      const scoreEl = document.createElement("div");
-      scoreEl.className = "song-scores";
       const parts: string[] = [];
 
       if (song.lastScore != null) {
@@ -289,39 +327,40 @@ export class Menu {
         parts.push(`Best: ${formatScore(song.bestScore)}`);
       }
 
-      scoreEl.textContent = parts.join(" | ");
-      el.appendChild(scoreEl);
+      el.appendChild(this._el("div", "song-scores", parts.join(" | ")));
     }
+  }
 
-    const editBtn = document.createElement("button");
-    editBtn.className = "song-edit-btn";
-    editBtn.textContent = "\u270E";
-    editBtn.title = "Rename song";
-    editBtn.addEventListener("click", (e) => {
+  private _renderSongActions(song: Song, el: HTMLElement): void {
+    const actionsMenu = this._el("div", "song-actions-menu hidden");
+
+    const actionsBtn = this._el("button", "song-actions-btn", "\u2026") as HTMLButtonElement;
+    actionsBtn.title = "Song actions";
+    actionsBtn.addEventListener("click", (e) => {
       e.stopPropagation();
-      if (this.onRename) this.onRename(song);
-    });
-    editBtn.addEventListener("dblclick", (e) => {
-      e.stopPropagation();
-    });
-    el.appendChild(editBtn);
-
-    el.addEventListener("click", () => {
-      this.selectedSong = song;
-      this.songListEl.querySelectorAll(".song-item").forEach((s) => {
-        s.classList.remove("selected");
-      });
-      el.classList.add("selected");
-      this.startBtn.disabled = false;
-    });
-
-    el.addEventListener("dblclick", () => {
-      if (this.onStart) {
-        this.onStart(song);
+      e.preventDefault();
+      const wasHidden = actionsMenu.classList.contains("hidden");
+      this._closeAllActionMenus();
+      if (wasHidden) {
+        actionsMenu.classList.remove("hidden");
       }
     });
+    actionsBtn.addEventListener("dblclick", (e) => { e.stopPropagation(); });
 
-    return el;
+    actionsMenu.appendChild(this._actionOption("Edit", "song-action-option", () => {
+      actionsMenu.classList.add("hidden");
+      if (this.onRename) this.onRename(song);
+    }));
+
+    if (song.importedByUserId != null) {
+      actionsMenu.appendChild(this._actionOption("Delete", "song-action-option danger", () => {
+        actionsMenu.classList.add("hidden");
+        if (this.onDelete) this.onDelete(song);
+      }));
+    }
+
+    el.appendChild(actionsBtn);
+    el.appendChild(actionsMenu);
   }
 
   private _autoSelect(song: Song): void {

@@ -20,6 +20,7 @@ import {
   saveTrackPreferences as savePrefs,
   type TrackPreferences,
 } from "./trackPreferences.ts";
+import { currentUser } from "./user.ts";
 
 export type { InsertSongInput } from "../db/song.ts";
 export type { TrackPreferences } from "./trackPreferences.ts";
@@ -45,6 +46,7 @@ export interface SongSummary {
   difficulty: string;
   categoryId: number | null;
   imported: boolean;
+  importedByUserId: number | null;
   createdAt: string;
   lastPlayedAt: string | null;
   bestScore: number | null;
@@ -74,7 +76,8 @@ function rowToSummary(
     bpm: row.bpm,
     difficulty: row.difficulty,
     categoryId: row.category_id,
-    imported: row.imported === 1,
+    imported: row.imported_by_user_id !== null,
+    importedByUserId: row.imported_by_user_id,
     createdAt: row.created_at,
     lastPlayedAt: row.last_played_at,
     bestScore,
@@ -157,11 +160,21 @@ export function updateSong(id: number, changes: SongUpdate): SongFull | null {
   return rowToFull(updated, stats.bestScore, stats.lastScore);
 }
 
-/** Delete a song. Returns true when deleted, false when not found. */
-export function removeSong(id: number): boolean {
-  if (!getSongById(id)) return false;
+/** Delete a song. Returns a truthy result when deleted, or throws when
+ *  not found or when the song is owned by another user. */
+export function removeSong(id: number): { ok: boolean } {
+  const row = getSongById(id);
+
+  if (!row) {
+    throw new Error("Not found");
+  }
+
+  if (row.imported_by_user_id == null || row.imported_by_user_id !== currentUser().id) {
+    throw new Error("Forbidden");
+  }
+
   deleteSong(id);
-  return true;
+  return { ok: true };
 }
 
 /** Touch last_played_at for a song. Returns true when touched, false when

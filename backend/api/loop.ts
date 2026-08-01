@@ -6,7 +6,7 @@ import {
   removeLoop,
   type Loop,
 } from "../models/index.ts";
-import { json, parseJson, errMsg, paramId, type Handler } from "./router.ts";
+import { json, parseJson, handleErr, paramId, type Handler } from "./router.ts";
 
 export const loopRoutes = [
   {
@@ -33,7 +33,7 @@ export const loopRoutes = [
             const created = createLoop(songId, body.startTime, body.endTime, body.enabled !== false);
             return json(created, 201);
           } catch (err) {
-            return json({ error: errMsg(err) }, 400);
+            return handleErr(err, 400);
           }
         })
         .catch(() => json({ error: "Invalid request" }, 400))) as Handler,
@@ -67,7 +67,7 @@ export const loopRoutes = [
               const updated = fn(loopId, value as never);
               if (updated) { result = updated; applied = true; }
             } catch (err) {
-              return json({ error: errMsg(err) }, 400);
+              return handleErr(err, 400);
             }
           }
 

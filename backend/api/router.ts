@@ -39,6 +39,21 @@ export function errMsg(err: unknown): string {
   return err instanceof Error ? err.message : "Invalid request";
 }
 
+/** Error messages mapped to their HTTP status codes. Only generic
+ *  HTTP-level errors belong here — model validation errors receive their
+ *  status via the `fallback` parameter of `handleErr`. */
+const ERROR_STATUS: Record<string, number> = {
+  "Not found": 404,
+  Forbidden: 403,
+};
+
+/** Map a caught error to a JSON Response. Uses `ERROR_STATUS` for known
+ *  error messages, falling back to `fallback` (default 500). */
+export function handleErr(err: unknown, fallback = 500): Response {
+  const msg = errMsg(err);
+  return json({ error: msg }, ERROR_STATUS[msg] ?? fallback);
+}
+
 export function numOrNull(val: FormDataEntryValue | null): number | null {
   if (!val || String(val) === "") {
     return null;

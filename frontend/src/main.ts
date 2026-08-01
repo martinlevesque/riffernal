@@ -19,7 +19,7 @@ import { PracticeHand } from './utils/notes.js';
 import type { Song } from './utils/MidiParser.js';
 import {
   fetchSongs, fetchSong, songFullToSong, summaryToSong, markSongPlayed,
-  recordBestScore, updateSongTitle,
+  recordBestScore, updateSongTitle, deleteSong,
 } from './api/SongApi.js';
 import { fetchLoops } from './api/LoopApi.js';
 import { themeManager } from './themes/ThemeManager.js';
@@ -134,6 +134,19 @@ async function init(): Promise<void> {
   menu.onRename = (song) => {
     if (song.id === undefined) return;
     renamePopup.show({ id: song.id, title: song.title, subtitle: song.artist || '' });
+  };
+
+  menu.onDelete = (song) => {
+    if (song.id === undefined) return;
+    const id = song.id;
+    if (confirm(`Delete "${song.title}"? This cannot be undone.`)) {
+      deleteSong(id).then(() => {
+        menu.removeSong(id);
+      }).catch((err) => {
+        console.error("Failed to delete song:", err);
+        alert("Failed to delete song.");
+      });
+    }
   };
 
   new MidiImportDialog(menu, midiInput, trackSelect, categorySelect);

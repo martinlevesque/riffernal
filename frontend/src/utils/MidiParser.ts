@@ -25,6 +25,7 @@ export interface Song {
   difficulty: string;
   notes: Note[];
   imported?: boolean;
+  importedByUserId?: number | null;
   tracks?: TrackInfo[];
   selectedTrackIndices?: number[];
   trackHands?: Record<number, HandSide>;
