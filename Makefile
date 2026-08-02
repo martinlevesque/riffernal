@@ -10,7 +10,7 @@ build:
 run:
 	docker run -d \
 		-p $(PORT):$(PORT) \
-		-v ironkeys-data:/app/data \
+		-v "$(CURDIR)/data:/app/data" \
 		--name $(CONTAINER_NAME) \
 		$(IMAGE_NAME)
 
@@ -20,8 +20,8 @@ deploy: build run
 deploy-https: build
 	docker run -d \
 		-p $(PORT):$(PORT) \
-		-v ironkeys-data:/app/data \
-		-v ironkeys-certs:/app/certs \
+		-v "$(CURDIR)/data:/app/data" \
+		-v "$(CURDIR)/certs:/app/certs" \
 		--name $(CONTAINER_NAME) \
 		$(IMAGE_NAME) \
 		bun run start
