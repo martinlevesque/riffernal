@@ -119,26 +119,26 @@ interface TrackNoteOnEntry {
 }
 
 class MidiReader {
-  private data: Uint8Array;
+  private _data: Uint8Array;
   pos = 0;
 
   constructor(buffer: ArrayBuffer) {
-    this.data = new Uint8Array(buffer);
+    this._data = new Uint8Array(buffer);
   }
 
   readByte(): number {
-    return this.data[this.pos++];
+    return this._data[this.pos++];
   }
 
   readUint16BE(): number {
-    return (this.data[this.pos++] << 8) | this.data[this.pos++];
+    return (this._data[this.pos++] << 8) | this._data[this.pos++];
   }
 
   readUint32BE(): number {
-    return (this.data[this.pos++] << 24) |
-           (this.data[this.pos++] << 16) |
-           (this.data[this.pos++] << 8) |
-           this.data[this.pos++];
+    return (this._data[this.pos++] << 24) |
+           (this._data[this.pos++] << 16) |
+           (this._data[this.pos++] << 8) |
+           this._data[this.pos++];
   }
 
   readVarLen(): number {
@@ -157,7 +157,7 @@ class MidiReader {
   }
 
   eof(): boolean {
-    return this.pos >= this.data.length;
+    return this.pos >= this._data.length;
   }
 }
 

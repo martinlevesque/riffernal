@@ -3,46 +3,46 @@ import type { Song } from '../../utils/MidiParser.js';
 import { saveSongTrackPreferences } from '../../api/SongApi.js';
 
 export class BackgroundPanel {
-  private toggleBgBtn: HTMLButtonElement;
-  private bgPanel: HTMLElement;
-  private bgTrackList: HTMLElement;
-  private bgPanelOpen = false;
-  private preferencesTimer: ReturnType<typeof setTimeout> | null = null;
-  private game: Game;
+  private _toggleBgBtn: HTMLButtonElement;
+  private _bgPanel: HTMLElement;
+  private _bgTrackList: HTMLElement;
+  private _bgPanelOpen = false;
+  private _preferencesTimer: ReturnType<typeof setTimeout> | null = null;
+  private _game: Game;
 
   constructor(game: Game) {
-    this.game = game;
-    this.toggleBgBtn = document.getElementById('btn-toggle-bg')! as HTMLButtonElement;
-    this.bgPanel = document.getElementById('bg-panel')!;
-    this.bgTrackList = document.getElementById('bg-track-list')!;
+    this._game = game;
+    this._toggleBgBtn = document.getElementById('btn-toggle-bg')! as HTMLButtonElement;
+    this._bgPanel = document.getElementById('bg-panel')!;
+    this._bgTrackList = document.getElementById('bg-track-list')!;
 
-    this.game.onTrackPreferencesChange = (song) => this.schedulePreferencesSave(song);
+    this._game.onTrackPreferencesChange = (song) => this._schedulePreferencesSave(song);
 
-    this.toggleBgBtn.addEventListener('click', () => {
-      this.bgPanelOpen = !this.bgPanelOpen;
+    this._toggleBgBtn.addEventListener('click', () => {
+      this._bgPanelOpen = !this._bgPanelOpen;
 
-      if (this.bgPanelOpen) {
+      if (this._bgPanelOpen) {
         this.render();
-        this.bgPanel.classList.remove('hidden');
+        this._bgPanel.classList.remove('hidden');
       } else {
-        this.bgPanel.classList.add('hidden');
+        this._bgPanel.classList.add('hidden');
       }
     });
 
     document.addEventListener('click', (e) => {
-      if (this.bgPanelOpen && !this.bgPanel.contains(e.target as Node) && e.target !== this.toggleBgBtn) {
-        this.bgPanelOpen = false;
-        this.bgPanel.classList.add('hidden');
+      if (this._bgPanelOpen && !this._bgPanel.contains(e.target as Node) && e.target !== this._toggleBgBtn) {
+        this._bgPanelOpen = false;
+        this._bgPanel.classList.add('hidden');
       }
     });
   }
 
   render(): void {
-    this.bgTrackList.innerHTML = '';
-    const song = this.game.song;
+    this._bgTrackList.innerHTML = '';
+    const song = this._game.song;
 
     if (!song) {
-      this.bgPanel.classList.add('hidden');
+      this._bgPanel.classList.add('hidden');
 
       return;
     }
@@ -51,25 +51,25 @@ export class BackgroundPanel {
     mainLi.className = 'bg-track-item';
     const mainLabel = document.createElement('span');
     mainLabel.className = 'bg-track-label';
-    mainLabel.textContent = `${this.mainTrackName(song)} (main)`;
+    mainLabel.textContent = `${this._mainTrackName(song)} (main)`;
     const mainToggle = document.createElement('button');
     mainToggle.className = 'bg-track-toggle';
-    const mainOn = !this.game.mainTrackMuted;
+    const mainOn = !this._game.mainTrackMuted;
     mainToggle.textContent = mainOn ? '\u{1F50A}' : '\u{1F507}';
     mainToggle.title = mainOn ? 'Mute main track' : 'Unmute main track';
     mainToggle.addEventListener('click', () => {
-      const nowMuted = !this.game.mainTrackMuted;
-      this.game.setMainTrackMuted(nowMuted);
+      const nowMuted = !this._game.mainTrackMuted;
+      this._game.setMainTrackMuted(nowMuted);
       const on = !nowMuted;
       mainToggle.textContent = on ? '\u{1F50A}' : '\u{1F507}';
       mainToggle.title = on ? 'Mute main track' : 'Unmute main track';
     });
     mainLi.appendChild(mainLabel);
     mainLi.appendChild(mainToggle);
-    this.bgTrackList.appendChild(mainLi);
+    this._bgTrackList.appendChild(mainLi);
 
     if (!song.tracks || song.tracks.length === 0) {
-      this.bgPanel.classList.remove('hidden');
+      this._bgPanel.classList.remove('hidden');
 
       return;
     }
@@ -78,7 +78,7 @@ export class BackgroundPanel {
     const bgTracks = song.tracks.filter((t) => !selectedSet.has(t.index));
 
     if (bgTracks.length === 0) {
-      this.bgPanel.classList.remove('hidden');
+      this._bgPanel.classList.remove('hidden');
 
       return;
     }
@@ -93,25 +93,25 @@ export class BackgroundPanel {
 
       const toggle = document.createElement('button');
       toggle.className = 'bg-track-toggle';
-      const isOn = this.game.noteManager.backgroundTracks.has(track.index);
+      const isOn = this._game.noteManager.backgroundTracks.has(track.index);
       toggle.textContent = isOn ? '\u{1F50A}' : '\u{1F507}';
       toggle.title = isOn ? 'Mute background' : 'Unmute background';
       toggle.addEventListener('click', () => {
-        const nowOn = !this.game.noteManager.backgroundTracks.has(track.index);
-        this.game.setBackgroundTrack(track.index, nowOn);
+        const nowOn = !this._game.noteManager.backgroundTracks.has(track.index);
+        this._game.setBackgroundTrack(track.index, nowOn);
         toggle.textContent = nowOn ? '\u{1F50A}' : '\u{1F507}';
         toggle.title = nowOn ? 'Mute background' : 'Unmute background';
       });
 
       li.appendChild(label);
       li.appendChild(toggle);
-      this.bgTrackList.appendChild(li);
+      this._bgTrackList.appendChild(li);
     }
 
-    this.bgPanel.classList.remove('hidden');
+    this._bgPanel.classList.remove('hidden');
   }
 
-  private mainTrackName(song: Song): string {
+  private _mainTrackName(song: Song): string {
     const tracks = song.tracks ?? [];
     const firstSelected = song.selectedTrackIndices?.[0];
     const picked = firstSelected !== undefined
@@ -121,14 +121,14 @@ export class BackgroundPanel {
     return picked?.name ?? tracks[0]?.name ?? 'Main (piano)';
   }
 
-  private schedulePreferencesSave(song: Song): void {
+  private _schedulePreferencesSave(song: Song): void {
     const songId = song.id;
 
     if (songId === undefined) return;
 
-    if (this.preferencesTimer !== null) clearTimeout(this.preferencesTimer);
-    this.preferencesTimer = setTimeout(() => {
-      this.preferencesTimer = null;
+    if (this._preferencesTimer !== null) clearTimeout(this._preferencesTimer);
+    this._preferencesTimer = setTimeout(() => {
+      this._preferencesTimer = null;
       const preferences = song.trackPreferences;
 
       if (!preferences) return;

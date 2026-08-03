@@ -46,7 +46,7 @@ export const KEYBOARD_MAP: Record<string, string> = {
 export class KeyboardInput {
   onNoteOn: NoteOnCallback | null = null;
   onNoteOff: NoteOffCallback | null = null;
-  private pressedKeys = new Set<string>();
+  private _pressedKeys = new Set<string>();
   enabled = true;
   private _handleKeyDown: (e: KeyboardEvent) => void;
   private _handleKeyUp: (e: KeyboardEvent) => void;
@@ -64,7 +64,7 @@ export class KeyboardInput {
   stop(): void {
     window.removeEventListener('keydown', this._handleKeyDown);
     window.removeEventListener('keyup', this._handleKeyUp);
-    this.pressedKeys.clear();
+    this._pressedKeys.clear();
   }
 
   private _onKeyDown(e: KeyboardEvent): void {
@@ -75,8 +75,8 @@ export class KeyboardInput {
     if (!note) return;
 
     e.preventDefault();
-    if (this.pressedKeys.has(e.code)) return;
-    this.pressedKeys.add(e.code);
+    if (this._pressedKeys.has(e.code)) return;
+    this._pressedKeys.add(e.code);
 
     if (this.onNoteOn) this.onNoteOn(note, e.code, DEFAULT_KEYBOARD_VELOCITY);
   }
@@ -88,7 +88,7 @@ export class KeyboardInput {
     if (!note) return;
 
     e.preventDefault();
-    this.pressedKeys.delete(e.code);
+    this._pressedKeys.delete(e.code);
 
     if (this.onNoteOff) this.onNoteOff(note, e.code);
   }

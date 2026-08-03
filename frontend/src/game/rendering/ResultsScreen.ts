@@ -5,38 +5,38 @@ import { formatScore } from '../../utils/helpers.js';
 import type { Scoring } from '../scoring.js';
 
 export class ResultsScreen {
-  private el: HTMLElement;
-  private gradeEl: HTMLElement;
-  private statsEl: HTMLElement;
-  private playBtn: HTMLElement;
-  private newBestEl: HTMLElement;
+  private _screen: HTMLElement;
+  private _grade: HTMLElement;
+  private _stats: HTMLElement;
+  private _playButton: HTMLElement;
+  private _bestBanner: HTMLElement;
 
   constructor() {
-    this.el = document.getElementById('results-screen')!;
-    this.gradeEl = document.getElementById('result-grade')!;
-    this.statsEl = document.getElementById('result-stats')!;
-    this.playBtn = document.getElementById('btn-play')!;
+    this._screen = document.getElementById('results-screen')!;
+    this._grade = document.getElementById('result-grade')!;
+    this._stats = document.getElementById('result-stats')!;
+    this._playButton = document.getElementById('btn-play')!;
 
-    this.newBestEl = document.createElement('div');
-    this.newBestEl.className = 'new-best-banner';
-    this.newBestEl.textContent = 'BEST SCORE!';
-    this.newBestEl.style.display = 'none';
-    this.gradeEl.insertAdjacentElement('afterend', this.newBestEl);
+    this._bestBanner = document.createElement('div');
+    this._bestBanner.className = 'new-best-banner';
+    this._bestBanner.textContent = 'BEST SCORE!';
+    this._bestBanner.style.display = 'none';
+    this._grade.insertAdjacentElement('afterend', this._bestBanner);
   }
 
   show(scoring: Scoring, usedLearningMode: boolean, isNewBest = false): void {
-    this.el.classList.add('active');
-    this.playBtn.style.display = usedLearningMode ? '' : 'none';
-    this.newBestEl.style.display = isNewBest ? '' : 'none';
+    this._screen.classList.add('active');
+    this._playButton.style.display = usedLearningMode ? '' : 'none';
+    this._bestBanner.style.display = isNewBest ? '' : 'none';
 
     if (usedLearningMode) {
-      this.gradeEl.textContent = 'PRACTICE';
-      this.gradeEl.className = 'grade-practice';
+      this._grade.textContent = 'PRACTICE';
+      this._grade.className = 'grade-practice';
       this._renderPracticeStats(scoring);
     } else {
       const gradeInfo = scoring.getGrade();
-      this.gradeEl.textContent = gradeInfo.grade;
-      this.gradeEl.className = gradeInfo.class;
+      this._grade.textContent = gradeInfo.grade;
+      this._grade.className = gradeInfo.class;
       this._renderPlayStats(scoring);
     }
   }
@@ -45,7 +45,7 @@ export class ResultsScreen {
     const n = scoring.totalResolvedNotes;
     const accuracy = scoring.getAccuracy();
 
-    this.statsEl.innerHTML = `
+    this._stats.innerHTML = `
       <div class="stats-practice-highlight">
         Score: <span class="stat-value stat-xlarge">${formatScore(scoring.score)}</span>
       </div>
@@ -71,7 +71,7 @@ export class ResultsScreen {
   }
 
   private _renderPlayStats(scoring: Scoring): void {
-    this.statsEl.innerHTML = `
+    this._stats.innerHTML = `
       Score: <span class="stat-value">${formatScore(scoring.score)}</span><br>
       Perfect: <span class="stat-value">${scoring.perfects}</span><br>
       Great: <span class="stat-value">${scoring.greats}</span><br>
@@ -85,7 +85,7 @@ export class ResultsScreen {
   }
 
   hide(): void {
-    this.el.classList.remove('active');
-    this.newBestEl.style.display = 'none';
+    this._screen.classList.remove('active');
+    this._bestBanner.style.display = 'none';
   }
 }

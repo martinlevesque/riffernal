@@ -8,118 +8,118 @@ export interface CategorySelectDeps {
 }
 
 export class CategorySelect {
-  private screen: HTMLElement;
-  private listEl: HTMLElement;
-  private newCategoryInput: HTMLInputElement;
-  private createBtn: HTMLButtonElement;
-  private confirmBtn: HTMLButtonElement;
-  private skipBtn: HTMLButtonElement;
-  private titleInput: HTMLInputElement;
-  private artistInput: HTMLInputElement;
-  private categories: CategoryData[] = [];
-  private selectedCategoryId: number | null = null;
-  private deps: CategorySelectDeps | null = null;
+  private _screen: HTMLElement;
+  private _listEl: HTMLElement;
+  private _newCategoryInput: HTMLInputElement;
+  private _createBtn: HTMLButtonElement;
+  private _confirmBtn: HTMLButtonElement;
+  private _skipBtn: HTMLButtonElement;
+  private _titleInput: HTMLInputElement;
+  private _artistInput: HTMLInputElement;
+  private _categories: CategoryData[] = [];
+  private _selectedCategoryId: number | null = null;
+  private _deps: CategorySelectDeps | null = null;
 
   constructor() {
-    this.screen = document.getElementById("category-select-screen")!;
-    this.listEl = document.getElementById("category-list")!;
-    this.newCategoryInput = document.getElementById("new-category-name") as HTMLInputElement;
-    this.createBtn = document.getElementById("btn-create-category") as HTMLButtonElement;
-    this.confirmBtn = document.getElementById("category-select-confirm") as HTMLButtonElement;
-    this.skipBtn = document.getElementById("category-select-skip") as HTMLButtonElement;
-    this.titleInput = document.getElementById("import-song-title") as HTMLInputElement;
-    this.artistInput = document.getElementById("import-song-artist") as HTMLInputElement;
+    this._screen = document.getElementById("category-select-screen")!;
+    this._listEl = document.getElementById("category-list")!;
+    this._newCategoryInput = document.getElementById("new-category-name") as HTMLInputElement;
+    this._createBtn = document.getElementById("btn-create-category") as HTMLButtonElement;
+    this._confirmBtn = document.getElementById("category-select-confirm") as HTMLButtonElement;
+    this._skipBtn = document.getElementById("category-select-skip") as HTMLButtonElement;
+    this._titleInput = document.getElementById("import-song-title") as HTMLInputElement;
+    this._artistInput = document.getElementById("import-song-artist") as HTMLInputElement;
 
-    this.createBtn.addEventListener("click", () => this._createNew());
-    this.newCategoryInput.addEventListener("keydown", (e) => {
+    this._createBtn.addEventListener("click", () => this._createNew());
+    this._newCategoryInput.addEventListener("keydown", (e) => {
       if (e.key === "Enter") {
         e.preventDefault();
         this._createNew();
       }
     });
-    this.confirmBtn.addEventListener("click", () => this._confirm());
-    this.skipBtn.addEventListener("click", () => {
-      this.selectedCategoryId = null;
+    this._confirmBtn.addEventListener("click", () => this._confirm());
+    this._skipBtn.addEventListener("click", () => {
+      this._selectedCategoryId = null;
       this._confirm();
     });
-    this.screen.addEventListener("click", (e) => {
-      if (e.target === this.screen) this._cancel();
+    this._screen.addEventListener("click", (e) => {
+      if (e.target === this._screen) this._cancel();
     });
   }
 
   async show(deps: CategorySelectDeps, song?: Song): Promise<void> {
-    this.deps = deps;
-    this.selectedCategoryId = null;
-    this.newCategoryInput.value = "";
-    this.confirmBtn.disabled = true;
+    this._deps = deps;
+    this._selectedCategoryId = null;
+    this._newCategoryInput.value = "";
+    this._confirmBtn.disabled = true;
 
     if (song) {
-      this.titleInput.value = song.title;
-      this.artistInput.value = song.artist || "";
+      this._titleInput.value = song.title;
+      this._artistInput.value = song.artist || "";
     } else {
-      this.titleInput.value = "";
-      this.artistInput.value = "";
+      this._titleInput.value = "";
+      this._artistInput.value = "";
     }
 
     await this._loadCategories();
     this._renderList();
-    this.screen.classList.add("active");
-    this.titleInput.focus();
+    this._screen.classList.add("active");
+    this._titleInput.focus();
   }
 
   hide(): void {
-    this.screen.classList.remove("active");
+    this._screen.classList.remove("active");
   }
 
   private _cancel(): void {
     this.hide();
-    const deps = this.deps;
-    this.deps = null;
+    const deps = this._deps;
+    this._deps = null;
     deps?.onCancel();
   }
 
   private async _loadCategories(): Promise<void> {
     try {
-      this.categories = await fetchCategories();
+      this._categories = await fetchCategories();
     } catch (err) {
       reportError("Failed to load categories", err);
-      this.categories = [];
+      this._categories = [];
     }
   }
 
   private _renderList(): void {
-    this.listEl.innerHTML = "";
+    this._listEl.innerHTML = "";
     document.getElementById("category-select-count")!.textContent =
-      this.categories.length === 0 ? "No categories yet" : `${this.categories.length} categor${this.categories.length === 1 ? "y" : "ies"}`;
+      this._categories.length === 0 ? "No categories yet" : `${this._categories.length} categor${this._categories.length === 1 ? "y" : "ies"}`;
 
-    for (const cat of this.categories) {
+    for (const cat of this._categories) {
       const li = document.createElement("li");
       li.className = "category-item";
-      if (cat.id === this.selectedCategoryId) li.classList.add("selected");
+      if (cat.id === this._selectedCategoryId) li.classList.add("selected");
       li.textContent = cat.name;
       li.addEventListener("click", () => {
-        this.selectedCategoryId = cat.id;
-        this.listEl.querySelectorAll(".category-item").forEach((el) => { el.classList.remove("selected"); });
+        this._selectedCategoryId = cat.id;
+        this._listEl.querySelectorAll(".category-item").forEach((el) => { el.classList.remove("selected"); });
         li.classList.add("selected");
-        this.confirmBtn.disabled = false;
+        this._confirmBtn.disabled = false;
       });
-      this.listEl.appendChild(li);
+      this._listEl.appendChild(li);
     }
   }
 
   private async _createNew(): Promise<void> {
-    const name = this.newCategoryInput.value.trim();
+    const name = this._newCategoryInput.value.trim();
     if (!name) return;
     try {
       const created = await createCategory(name);
-      if (!this.categories.some((c) => c.id === created.id)) {
-        this.categories.push(created);
-        this.categories.sort((a, b) => a.name.localeCompare(b.name, undefined, { sensitivity: "base" }));
+      if (!this._categories.some((c) => c.id === created.id)) {
+        this._categories.push(created);
+        this._categories.sort((a, b) => a.name.localeCompare(b.name, undefined, { sensitivity: "base" }));
       }
-      this.selectedCategoryId = created.id;
-      this.newCategoryInput.value = "";
+      this._selectedCategoryId = created.id;
+      this._newCategoryInput.value = "";
       this._renderList();
-      this.confirmBtn.disabled = false;
+      this._confirmBtn.disabled = false;
     } catch (err) {
       reportError("Failed to create category", err, { alert: true });
     }
@@ -127,8 +127,8 @@ export class CategorySelect {
 
   private _confirm(): void {
     this.hide();
-    const deps = this.deps;
-    this.deps = null;
-    deps?.onConfirm(this.selectedCategoryId, this.titleInput.value.trim(), this.artistInput.value.trim());
+    const deps = this._deps;
+    this._deps = null;
+    deps?.onConfirm(this._selectedCategoryId, this._titleInput.value.trim(), this._artistInput.value.trim());
   }
 }

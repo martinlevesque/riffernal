@@ -3,45 +3,45 @@ import type { Song } from '../../utils/MidiParser.js';
 import { formatTime, formatScore } from '../../utils/helpers.js';
 
 export class SongInfoPopup {
-  private songInfoPopup: HTMLElement;
-  private songInfoDuration: HTMLElement;
-  private songInfoBestScore: HTMLElement;
-  private btnCloseSongInfo: HTMLElement;
-  private songInfoTimer: ReturnType<typeof setTimeout> | null = null;
-  private game: Game;
-  private updatePauseBtn: () => void;
+  private _songInfoPopup: HTMLElement;
+  private _songInfoDuration: HTMLElement;
+  private _songInfoBestScore: HTMLElement;
+  private _btnCloseSongInfo: HTMLElement;
+  private _songInfoTimer: ReturnType<typeof setTimeout> | null = null;
+  private _game: Game;
+  private _updatePauseBtn: () => void;
 
   constructor(game: Game, updatePauseBtn: () => void) {
-    this.game = game;
-    this.updatePauseBtn = updatePauseBtn;
-    this.songInfoPopup = document.getElementById('song-info-popup')!;
-    this.songInfoDuration = document.getElementById('song-info-duration')!;
-    this.songInfoBestScore = document.getElementById('song-info-best-score')!;
-    this.btnCloseSongInfo = document.getElementById('btn-close-song-info')!;
+    this._game = game;
+    this._updatePauseBtn = updatePauseBtn;
+    this._songInfoPopup = document.getElementById('song-info-popup')!;
+    this._songInfoDuration = document.getElementById('song-info-duration')!;
+    this._songInfoBestScore = document.getElementById('song-info-best-score')!;
+    this._btnCloseSongInfo = document.getElementById('btn-close-song-info')!;
 
-    this.btnCloseSongInfo.addEventListener('click', () => this.hide());
+    this._btnCloseSongInfo.addEventListener('click', () => this.hide());
   }
 
   show(song: Song): void {
-    const duration = this.game.noteManager.getSongDuration();
-    this.songInfoDuration.textContent = formatTime(duration);
-    this.songInfoBestScore.textContent =
+    const duration = this._game.noteManager.getSongDuration();
+    this._songInfoDuration.textContent = formatTime(duration);
+    this._songInfoBestScore.textContent =
       song.bestScore != null ? formatScore(song.bestScore) : 'No record yet';
-    this.songInfoPopup.classList.remove('hidden');
-    this.songInfoTimer = setTimeout(() => this.hide(), 4000);
+    this._songInfoPopup.classList.remove('hidden');
+    this._songInfoTimer = setTimeout(() => this.hide(), 4000);
   }
 
   hide(): void {
-    if (this.songInfoTimer !== null) {
-      clearTimeout(this.songInfoTimer);
-      this.songInfoTimer = null;
+    if (this._songInfoTimer !== null) {
+      clearTimeout(this._songInfoTimer);
+      this._songInfoTimer = null;
     }
 
-    this.songInfoPopup.classList.add('hidden');
+    this._songInfoPopup.classList.add('hidden');
 
-    if (this.game.state === GameState.Playing && this.game.paused) {
-      this.game.togglePause();
-      this.updatePauseBtn();
+    if (this._game.state === GameState.Playing && this._game.paused) {
+      this._game.togglePause();
+      this._updatePauseBtn();
     }
   }
 }

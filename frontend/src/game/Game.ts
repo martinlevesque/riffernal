@@ -51,28 +51,19 @@ const RESULTS_DELAY_SECONDS = 1;
 const LOOP_TRANSITION_SECONDS = COUNTDOWN_SECONDS;
 
 export class Game {
+  // -- public properties --------------------------------------------------
+
   canvas: HTMLCanvasElement;
   renderer: Renderer;
   noteManager: NoteManager;
-  private synth: Synth;
-  private keyboardInput: KeyboardInput;
-  private midiInput: MidiInput;
   state: GameState = GameState.Menu;
-  private currentSong: Song | null = null;
-  get song(): Song | null { return this.currentSong; }
   currentTime = 0;
-  private refGameTime = 0;
-  private refRealTime = 0;
-  private animationId: number | null = null;
-  private pressedLanes = new Map<number, number>();
   scrollOffset = 0;
   speedMultiplier = 1.0;
   scoreDisplay: ScoreDisplay | null = null;
   learningMode = false;
   loopPlay = false;
   practiceHand: PracticeHand = PracticeHand.Both;
-  private _usedLearningMode = false;
-  get usedLearningMode(): boolean { return this._usedLearningMode; }
   songBpm = 120;
   showUsedKeys = false;
   octaveAgnostic = false;
@@ -81,24 +72,37 @@ export class Game {
    *  scored/visual note still plays so a plugged-in MIDI keyboard remains
    *  the audible source. Persisted per user-song. */
   mainTrackMuted = false;
-
-  private _paused = false;
-  get paused(): boolean { return this._paused; }
-
   onResults: ((scoring: Scoring, song: Song) => void) | null = null;
   /** Fired when the user navigates back to the menu from gameplay. */
   onBackToMenu: (() => void) | null = null;
   /** Fired (debounced externally) when the user changes the in-game Tracks
    *  panel state for the current song, so main.ts can persist it. */
   onTrackPreferencesChange: ((song: Song) => void) | null = null;
-
   readonly loop = new LoopService();
-  private resultsScreen = new ResultsScreen();
 
-  private playScreen: HTMLElement;
-  private menuScreen: HTMLElement;
-  private resizeHandle: HTMLElement;
-  private timeDisplayEl: HTMLElement;
+  // -- public accessors ---------------------------------------------------
+
+  get song(): Song | null { return this._currentSong; }
+  get usedLearningMode(): boolean { return this._usedLearningMode; }
+  get paused(): boolean { return this._paused; }
+
+  // -- private properties -------------------------------------------------
+
+  private _synth: Synth;
+  private _keyboardInput: KeyboardInput;
+  private _midiInput: MidiInput;
+  private _currentSong: Song | null = null;
+  private _refGameTime = 0;
+  private _refRealTime = 0;
+  private _animationId: number | null = null;
+  private _pressedLanes = new Map<number, number>();
+  private _usedLearningMode = false;
+  private _paused = false;
+  private _resultsScreen = new ResultsScreen();
+  private _playScreen: HTMLElement;
+  private _menuScreen: HTMLElement;
+  private _resizeHandle: HTMLElement;
+  private _timeDisplayEl: HTMLElement;
   private _onResize: () => void;
   private _resizeRaf = false;
   private _boundLoop: () => void;
@@ -111,14 +115,14 @@ export class Game {
     this.canvas = canvas;
     this.renderer = new Renderer(canvas);
     this.noteManager = new NoteManager();
-    this.synth = synth;
-    this.keyboardInput = keyboardInput;
-    this.midiInput = midiInput;
+    this._synth = synth;
+    this._keyboardInput = keyboardInput;
+    this._midiInput = midiInput;
 
-    this.playScreen = document.getElementById('play-screen')!;
-    this.menuScreen = document.getElementById('menu-screen')!;
-    this.resizeHandle = document.getElementById('sheet-resize-handle')!;
-    this.timeDisplayEl = document.getElementById('time-display')!;
+    this._playScreen = document.getElementById('play-screen')!;
+    this._menuScreen = document.getElementById('menu-screen')!;
+    this._resizeHandle = document.getElementById('sheet-resize-handle')!;
+    this._timeDisplayEl = document.getElementById('time-display')!;
 
     this._onResize = () => {
       if (!this._resizeRaf) {
@@ -146,7 +150,7 @@ export class Game {
 
       this.renderer.clear();
       this.renderer.beginFrame(performance.now());
-      this.renderer.drawHighway(this.scrollOffset, this.pressedLanes, this.usedNoteRange);
+      this.renderer.drawHighway(this.scrollOffset, this._pressedLanes, this.usedNoteRange);
 
       if (this.state === GameState.Playing) {
         this._renderPlayingFrame();
@@ -154,15 +158,15 @@ export class Game {
 
       if (this.renderer.sheetBottom !== this._lastSheetBottom) {
         this._lastSheetBottom = this.renderer.sheetBottom;
-        this.resizeHandle.style.top = `${this.renderer.sheetBottom}px`;
+        this._resizeHandle.style.top = `${this.renderer.sheetBottom}px`;
       }
 
       this.renderer.drawParticles();
-      this.renderer.drawPiano(this.pressedLanes, this.usedNoteRange);
-      this.renderer.drawHitZone(this.pressedLanes, this.usedNoteRange);
+      this.renderer.drawPiano(this._pressedLanes, this.usedNoteRange);
+      this.renderer.drawHitZone(this._pressedLanes, this.usedNoteRange);
 
       if (this.state !== GameState.Menu) {
-        this.animationId = requestAnimationFrame(this._boundLoop);
+        this._animationId = requestAnimationFrame(this._boundLoop);
       }
     };
   }
@@ -291,7 +295,7 @@ export class Game {
   // -- Frame time & loop wrap -----------------------------------------------
 
   private _updateFrameTime(now: number, _delta: number): void {
-    const rawTime = this.refGameTime + (now - this.refRealTime) * this.speedMultiplier;
+    const rawTime = this._refGameTime + (now - this._refRealTime) * this.speedMultiplier;
 
     let frameTime = rawTime;
     if (this.learningMode && !this.loopPlay && this.state === GameState.Playing) {
@@ -303,8 +307,8 @@ export class Game {
         // while the player takes their time. Otherwise, on release the game
         // time would snap forward by the full wait duration, causing the
         // next notes to fail instantly and failing notes to scroll too fast.
-        this.refGameTime = frameTime;
-        this.refRealTime = now;
+        this._refGameTime = frameTime;
+        this._refRealTime = now;
       }
     }
     this.currentTime = frameTime;
@@ -344,8 +348,8 @@ export class Game {
    *  shared clamp/reset logic, then backs up the time anchors by `buffer`. */
   private _seekWithBuffer(time: number, buffer: number): void {
     this.seekTo(time);
-    this.refGameTime = this.currentTime - buffer;
-    this.currentTime = this.refGameTime;
+    this._refGameTime = this.currentTime - buffer;
+    this.currentTime = this._refGameTime;
   }
 
   // -- Playing frame rendering ----------------------------------------------
@@ -374,7 +378,7 @@ export class Game {
 
     this.scoreDisplay?.update(this.noteManager.scoring);
     if (this._frameCount % 6 === 0) {
-      this.timeDisplayEl.textContent = `${formatTime(this.currentTime)} / ${formatTime(this.noteManager.getSongDuration())}`;
+      this._timeDisplayEl.textContent = `${formatTime(this.currentTime)} / ${formatTime(this.noteManager.getSongDuration())}`;
     }
     this._checkCompletion();
   }
@@ -394,27 +398,27 @@ export class Game {
   // -- Song lifecycle -------------------------------------------------------
 
   start(song: Song): void {
-    if (this.animationId !== null) {
-      cancelAnimationFrame(this.animationId);
-      this.animationId = null;
+    if (this._animationId !== null) {
+      cancelAnimationFrame(this._animationId);
+      this._animationId = null;
     }
 
-    this.currentSong = song;
+    this._currentSong = song;
     this.noteManager.loadSong(song);
     this.songBpm = song.bpm;
-    this.refGameTime = -COUNTDOWN_SECONDS;
-    this.refRealTime = performance.now() / 1000;
+    this._refGameTime = -COUNTDOWN_SECONDS;
+    this._refRealTime = performance.now() / 1000;
     this.state = GameState.Playing;
-    this.pressedLanes.clear();
+    this._pressedLanes.clear();
     this._completionTime = null;
     this._paused = false;
     this._usedLearningMode = false;
     this.renderer.clearGrind();
     this._computeUsedNoteRange(song);
 
-    this.menuScreen.classList.remove('active');
-    this.resultsScreen.hide();
-    this.playScreen.classList.add('active');
+    this._menuScreen.classList.remove('active');
+    this._resultsScreen.hide();
+    this._playScreen.classList.add('active');
 
     // Reset chain/draft state but keep saved loops (loaded by main.ts
     // via loadLoops before start()). clearLoop() would wipe them.
@@ -453,20 +457,20 @@ export class Game {
 
   setShowUsedKeys(enabled: boolean): void {
     this.showUsedKeys = enabled;
-    if (this.currentSong) {
-      this._computeUsedNoteRange(this.currentSong);
+    if (this._currentSong) {
+      this._computeUsedNoteRange(this._currentSong);
     }
   }
 
   private _setupInputHandlers(): void {
-    this.keyboardInput.onNoteOn = (note, keyCode, velocity) => this._handleNoteOn(note, keyCode, velocity);
-    this.keyboardInput.onNoteOff = (note, keyCode) => this._handleNoteOff(note, keyCode);
-    this.midiInput.onNoteOn = (note, id, velocity) => this._handleNoteOn(note, id, velocity);
-    this.midiInput.onNoteOff = (note, id) => this._handleNoteOff(note, id);
+    this._keyboardInput.onNoteOn = (note, keyCode, velocity) => this._handleNoteOn(note, keyCode, velocity);
+    this._keyboardInput.onNoteOff = (note, keyCode) => this._handleNoteOff(note, keyCode);
+    this._midiInput.onNoteOn = (note, id, velocity) => this._handleNoteOn(note, id, velocity);
+    this._midiInput.onNoteOff = (note, id) => this._handleNoteOff(note, id);
 
-    this.keyboardInput.start();
-    this.synth.init();
-    this.synth.resume();
+    this._keyboardInput.start();
+    this._synth.init();
+    this._synth.resume();
   }
 
   private _setupNoteCallbacks(): void {
@@ -509,13 +513,13 @@ export class Game {
     const lane = NOTE_TO_LANE.get(noteName);
     if (lane === undefined) return;
 
-    this.pressedLanes.set(lane, velocity);
+    this._pressedLanes.set(lane, velocity);
     const activeNote = this.noteManager.findActiveNoteForLane(this.currentTime, lane);
     if (!this.mainTrackMuted) {
       const patch = activeNote
         ? this._patchForNote(activeNote.program, activeNote.channel)
-        : this.synth.getPatch();
-      this.synth.noteOn(noteName, patch, undefined, activeNote?.rawMidi);
+        : this._synth.getPatch();
+      this._synth.noteOn(noteName, patch, undefined, activeNote?.rawMidi);
     }
 
     if (this.state === GameState.Playing) {
@@ -572,8 +576,8 @@ export class Game {
     const lane = NOTE_TO_LANE.get(noteName);
     if (lane === undefined) return;
 
-    this.pressedLanes.delete(lane);
-    this.synth.noteOff(noteName);
+    this._pressedLanes.delete(lane);
+    this._synth.noteOff(noteName);
     this.renderer.endGrindBeam(lane);
 
     if (this.state === GameState.Playing) {
@@ -591,30 +595,30 @@ export class Game {
 
     return (
       !this._usedLearningMode &&
-      this.currentSong != null &&
+      this._currentSong != null &&
       hasMeaningfulScore(score) &&
-      (this.currentSong.bestScore == null || score > this.currentSong.bestScore)
+      (this._currentSong.bestScore == null || score > this._currentSong.bestScore)
     );
   }
 
   private _showResults(): void {
     this.state = GameState.Results;
-    this.playScreen.classList.remove('active');
+    this._playScreen.classList.remove('active');
 
-    this.resultsScreen.show(this.noteManager.scoring, this._usedLearningMode, this.isNewBest());
+    this._resultsScreen.show(this.noteManager.scoring, this._usedLearningMode, this.isNewBest());
 
-    if (this.currentSong) {
-      this.onResults?.(this.noteManager.scoring, this.currentSong);
+    if (this._currentSong) {
+      this.onResults?.(this.noteManager.scoring, this._currentSong);
     }
 
-    this.keyboardInput.stop();
-    this.midiInput.onNoteOn = null;
-    this.midiInput.onNoteOff = null;
-    this.synth.releaseAll();
+    this._keyboardInput.stop();
+    this._midiInput.onNoteOn = null;
+    this._midiInput.onNoteOff = null;
+    this._synth.releaseAll();
   }
 
   retry(): void {
-    if (!this.currentSong) return;
+    if (!this._currentSong) return;
     // Preserve saved loops across a restart. start() disengages the chain
     // (but keeps saved loops). When in LEARN mode and ≥1 loop is enabled,
     // restart always goes back to the FIRST enabled loop (index 0) with
@@ -625,7 +629,7 @@ export class Game {
     // before retry(), so learningMode reflects the intended post-retry
     // mode by the time we reach here.
     const savedLoops = this.loop.loops;
-    this.start(this.currentSong);
+    this.start(this._currentSong);
     this.loop.setLoops(savedLoops);
     if (this.learningMode && this.loop.chain.length > 0) {
       this.loop.engage();
@@ -637,18 +641,18 @@ export class Game {
 
   backToMenu(): void {
     this.state = GameState.Menu;
-    this.resultsScreen.hide();
-    this.playScreen.classList.remove('active');
-    this.menuScreen.classList.add('active');
-    this.keyboardInput.stop();
-    this.synth.releaseAll();
-    this.keyboardInput.onNoteOn = null;
-    this.keyboardInput.onNoteOff = null;
-    this.midiInput.onNoteOn = null;
-    this.midiInput.onNoteOff = null;
-    if (this.animationId !== null) {
-      cancelAnimationFrame(this.animationId);
-      this.animationId = null;
+    this._resultsScreen.hide();
+    this._playScreen.classList.remove('active');
+    this._menuScreen.classList.add('active');
+    this._keyboardInput.stop();
+    this._synth.releaseAll();
+    this._keyboardInput.onNoteOn = null;
+    this._keyboardInput.onNoteOff = null;
+    this._midiInput.onNoteOn = null;
+    this._midiInput.onNoteOff = null;
+    if (this._animationId !== null) {
+      cancelAnimationFrame(this._animationId);
+      this._animationId = null;
     }
     this.onBackToMenu?.();
   }
@@ -669,7 +673,7 @@ export class Game {
     // GM bowed strings: 40-44 (Violin, Viola, Cello, Contrabass, Tremolo Strings)
     // GM string ensembles: 48-51 (String Ensemble, Synth Strings)
     if ((program >= 40 && program <= 44) || (program >= 48 && program <= 51)) return violinPatch;
-    return this.synth.getPatch();
+    return this._synth.getPatch();
   }
 
   private _playNoteOnce(note: SongNote): void {
@@ -681,8 +685,8 @@ export class Game {
     const realDuration = note.duration * 1000 / this.speedMultiplier;
     const id = `auto_${note.track}_${note.time}_${note.key}`;
     const patch = this._patchForNote(note.program, note.channel);
-    this.synth.noteOn(note.key, patch, id, note.rawMidi);
-    setTimeout(() => this.synth.noteOff(id), realDuration);
+    this._synth.noteOn(note.key, patch, id, note.rawMidi);
+    setTimeout(() => this._synth.noteOff(id), realDuration);
   }
 
   // -- Playback controls ----------------------------------------------------
@@ -690,22 +694,22 @@ export class Game {
   togglePause(): void {
     if (this._paused) {
       this._paused = false;
-      this.refGameTime = this.currentTime;
-      this.refRealTime = performance.now() / 1000;
+      this._refGameTime = this.currentTime;
+      this._refRealTime = performance.now() / 1000;
       this._lastFrameTime = 0;
       this._boundLoop();
     } else {
       this._paused = true;
-      if (this.animationId !== null) {
-        cancelAnimationFrame(this.animationId);
-        this.animationId = null;
+      if (this._animationId !== null) {
+        cancelAnimationFrame(this._animationId);
+        this._animationId = null;
       }
     }
   }
 
   setSpeed(multiplier: number): void {
-    this.refGameTime = this.currentTime;
-    this.refRealTime = performance.now() / 1000;
+    this._refGameTime = this.currentTime;
+    this._refRealTime = performance.now() / 1000;
     this.speedMultiplier = Math.max(0.1, Math.min(2.0, multiplier));
   }
 
@@ -714,12 +718,12 @@ export class Game {
   seekTo(time: number): void {
     const duration = this.noteManager.getSongDuration();
     const clamped = Math.max(0, Math.min(time, Math.max(0, duration - 0.01)));
-    this.refGameTime = clamped;
-    this.refRealTime = performance.now() / 1000;
+    this._refGameTime = clamped;
+    this._refRealTime = performance.now() / 1000;
     this.currentTime = clamped;
     this.scrollOffset = 0;
     this._completionTime = null;
-    this.pressedLanes.clear();
+    this._pressedLanes.clear();
     this.renderer.clearGrind();
     this.noteManager.resetFromTime(clamped);
   }
@@ -736,8 +740,8 @@ export class Game {
     this.noteManager.learningMode = enabled;
     if (enabled) this._usedLearningMode = true;
     this.noteManager.resetLearningState();
-    this.refGameTime = this.currentTime;
-    this.refRealTime = performance.now() / 1000;
+    this._refGameTime = this.currentTime;
+    this._refRealTime = performance.now() / 1000;
   }
 
   setPracticeHand(hand: PracticeHand): void {
@@ -748,19 +752,19 @@ export class Game {
 
   setBackgroundTrack(trackIndex: number, enabled: boolean): void {
     this.noteManager.setBackgroundTrack(trackIndex, enabled);
-    if (this.currentSong) {
+    if (this._currentSong) {
       if (enabled) {
-        if (!this.currentSong.backgroundTracks) this.currentSong.backgroundTracks = [];
-        if (!this.currentSong.backgroundTracks.includes(trackIndex)) {
-          this.currentSong.backgroundTracks.push(trackIndex);
+        if (!this._currentSong.backgroundTracks) this._currentSong.backgroundTracks = [];
+        if (!this._currentSong.backgroundTracks.includes(trackIndex)) {
+          this._currentSong.backgroundTracks.push(trackIndex);
         }
       } else {
-        if (this.currentSong.backgroundTracks) {
-          this.currentSong.backgroundTracks = this.currentSong.backgroundTracks.filter((i) => i !== trackIndex);
+        if (this._currentSong.backgroundTracks) {
+          this._currentSong.backgroundTracks = this._currentSong.backgroundTracks.filter((i) => i !== trackIndex);
         }
       }
       this._syncTrackPreferences();
-      this.onTrackPreferencesChange?.(this.currentSong);
+      this.onTrackPreferencesChange?.(this._currentSong);
     }
   }
 
@@ -769,9 +773,9 @@ export class Game {
    *  so a plugged-in MIDI keyboard remains audible. */
   setMainTrackMuted(muted: boolean): void {
     this.mainTrackMuted = muted;
-    if (this.currentSong) {
+    if (this._currentSong) {
       this._syncTrackPreferences();
-      this.onTrackPreferencesChange?.(this.currentSong);
+      this.onTrackPreferencesChange?.(this._currentSong);
     }
   }
 
@@ -779,9 +783,9 @@ export class Game {
    *  following `retry()` (which reuses `currentSong`) preserves the user's
    *  choices, and main.ts can persist the whole struct at once. */
   private _syncTrackPreferences(): void {
-    if (!this.currentSong) return;
-    this.currentSong.trackPreferences = {
-      backgroundTracks: [...(this.currentSong.backgroundTracks ?? [])],
+    if (!this._currentSong) return;
+    this._currentSong.trackPreferences = {
+      backgroundTracks: [...(this._currentSong.backgroundTracks ?? [])],
       mainTrackMuted: this.mainTrackMuted,
     };
   }

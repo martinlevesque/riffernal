@@ -76,10 +76,10 @@ export class GameControls {
     });
 
     // User settings
-    this.initUserSettings();
+    this._initUserSettings();
   }
 
-  private async initUserSettings(): Promise<void> {
+  private async _initUserSettings(): Promise<void> {
     const showUsedKeysCheckbox = document.getElementById('show-used-keys') as HTMLInputElement;
     const octaveAgnosticCheckbox = document.getElementById('octave-agnostic') as HTMLInputElement;
 
