@@ -6,7 +6,7 @@ export class MidiInput {
   onNoteOn: NoteOnCallback | null = null;
   onNoteOff: NoteOffCallback | null = null;
   onConnectionChange: ConnectionChangeCallback | null = null;
-  private midiAccess: MIDIAccess | null = null;
+  private _midiAccess: MIDIAccess | null = null;
   enabled = true;
   connected = false;
   private _onMidiMessage: (event: MIDIMessageEvent) => void;
@@ -23,10 +23,10 @@ export class MidiInput {
     }
 
     try {
-      this.midiAccess = await navigator.requestMIDIAccess();
+      this._midiAccess = await navigator.requestMIDIAccess();
       console.log('[MIDI] Access granted.');
       this._logDevices();
-      this.midiAccess.onstatechange = (e) => {
+      this._midiAccess.onstatechange = (e) => {
         console.log('[MIDI] statechange:', e?.port?.name, e?.port?.state, e?.port?.connection);
         this._onStateChange();
       };
@@ -40,17 +40,17 @@ export class MidiInput {
   }
 
   private _logDevices(): void {
-    if (!this.midiAccess) return;
-    const inputs = Array.from(this.midiAccess.inputs.values()).map(i => `${i.name} (${i.manufacturer ?? '?'})`);
-    const outputs = Array.from(this.midiAccess.outputs.values()).map(o => `${o.name} (${o.manufacturer ?? '?'})`);
+    if (!this._midiAccess) return;
+    const inputs = Array.from(this._midiAccess.inputs.values()).map(i => `${i.name} (${i.manufacturer ?? '?'})`);
+    const outputs = Array.from(this._midiAccess.outputs.values()).map(o => `${o.name} (${o.manufacturer ?? '?'})`);
     console.log('[MIDI] inputs:', inputs);
     console.log('[MIDI] outputs:', outputs);
   }
 
   stop(): void {
     this._heldNotes.clear();
-    if (this.midiAccess) {
-      for (const input of this.midiAccess.inputs.values()) {
+    if (this._midiAccess) {
+      for (const input of this._midiAccess.inputs.values()) {
         input.onmidimessage = null;
       }
     }
@@ -58,13 +58,13 @@ export class MidiInput {
   }
 
   private _connectInputs(): void {
-    if (!this.midiAccess) return;
+    if (!this._midiAccess) return;
 
     this._heldNotes.clear();
     this._logDevices();
 
     let found = false;
-    for (const input of this.midiAccess.inputs.values()) {
+    for (const input of this._midiAccess.inputs.values()) {
       console.log('[MIDI] Connecting input:', input.name, input.manufacturer);
       input.onmidimessage = this._onMidiMessage;
       found = true;
@@ -72,7 +72,7 @@ export class MidiInput {
 
     this.connected = found;
     if (found) {
-      const names = Array.from(this.midiAccess.inputs.values()).map(i => i.name);
+      const names = Array.from(this._midiAccess.inputs.values()).map(i => i.name);
       this._updateStatus(true, `Connected: ${names.join(', ')}`);
     } else {
       this._updateStatus(false, 'No MIDI device found');

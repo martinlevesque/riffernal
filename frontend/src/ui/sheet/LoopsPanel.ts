@@ -14,32 +14,32 @@ function fmtBounds(start: number, end: number): string {
 export class LoopsPanel {
   selectedId: number | null = null;
 
-  private game: Game;
-  private callbacks: LoopsPanelCallbacks;
-  private loopsList: HTMLElement;
-  private loopsPanelCount: HTMLElement;
+  private _game: Game;
+  private _callbacks: LoopsPanelCallbacks;
+  private _loopsList: HTMLElement;
+  private _loopsPanelCount: HTMLElement;
 
   constructor(game: Game, callbacks: LoopsPanelCallbacks) {
-    this.game = game;
-    this.callbacks = callbacks;
-    this.loopsList = document.getElementById('loops-list')!;
-    this.loopsPanelCount = document.getElementById('loops-panel-count')!;
+    this._game = game;
+    this._callbacks = callbacks;
+    this._loopsList = document.getElementById('loops-list')!;
+    this._loopsPanelCount = document.getElementById('loops-panel-count')!;
   }
 
   render(): void {
-    this.loopsList.innerHTML = '';
-    const loops = this.game.loop.loops;
-    const chain = this.game.loop.chain;
+    this._loopsList.innerHTML = '';
+    const loops = this._game.loop.loops;
+    const chain = this._game.loop.chain;
 
-    this.loopsPanelCount.textContent = chain.length > 0
+    this._loopsPanelCount.textContent = chain.length > 0
       ? `${chain.length} enabled`
       : '';
 
-    if (loops.length === 0 && !this.game.loop.hasDraft) {
+    if (loops.length === 0 && !this._game.loop.hasDraft) {
       const empty = document.createElement('li');
       empty.className = 'loops-list-empty';
       empty.textContent = 'No loops saved — click LOOP to define one';
-      this.loopsList.appendChild(empty);
+      this._loopsList.appendChild(empty);
 
       return;
     }
@@ -65,11 +65,11 @@ export class LoopsPanel {
 
         try {
           await updateLoopEnabled(loop.id, next);
-          this.game.setLoopEnabled(loop.id, next);
+          this._game.setLoopEnabled(loop.id, next);
 
-          if (next && this.game.loopActive && !this.game.learningMode) this.callbacks.setMode(true);
+          if (next && this._game.loopActive && !this._game.learningMode) this._callbacks.setMode(true);
           this.render();
-          this.callbacks.onMutated();
+          this._callbacks.onMutated();
         } catch (e) {
           reportError('Failed to update loop', e);
         }
@@ -82,34 +82,34 @@ export class LoopsPanel {
       delBtn.addEventListener('click', async () => {
         try {
           await deleteLoop(loop.id);
-          this.game.deleteSavedLoop(loop.id);
+          this._game.deleteSavedLoop(loop.id);
 
           if (this.selectedId === loop.id) this.selectedId = null;
           this.render();
-          this.callbacks.onMutated();
+          this._callbacks.onMutated();
         } catch (e) {
           reportError('Failed to delete loop', e);
         }
       });
 
-      const extendBtn = this.buildExtendBtn(loop);
+      const extendBtn = this._buildExtendBtn(loop);
 
       li.addEventListener('click', (e) => {
         if ((e.target as HTMLElement).closest('button')) return;
         this.selectedId = this.selectedId === loop.id ? null : loop.id;
         this.render();
-        this.callbacks.onMutated();
+        this._callbacks.onMutated();
       });
 
       li.appendChild(time);
       li.appendChild(toggle);
       li.appendChild(extendBtn);
       li.appendChild(delBtn);
-      this.loopsList.appendChild(li);
+      this._loopsList.appendChild(li);
     }
 
-    if (this.game.loopDefinitionState !== LoopDefinitionState.Off) {
-      const ds = this.game.loop.draftStart;
+    if (this._game.loopDefinitionState !== LoopDefinitionState.Off) {
+      const ds = this._game.loop.draftStart;
       const li = document.createElement('li');
       li.className = 'loop-row loop-row--draft';
 
@@ -123,32 +123,32 @@ export class LoopsPanel {
       cancelBtn.className = 'loop-row-cancel';
       cancelBtn.textContent = 'Cancel';
       cancelBtn.addEventListener('click', () => {
-        this.game.cancelLoopDraft();
+        this._game.cancelLoopDraft();
         this.render();
-        this.callbacks.onMutated();
+        this._callbacks.onMutated();
       });
 
       li.appendChild(time);
       li.appendChild(cancelBtn);
-      this.loopsList.appendChild(li);
+      this._loopsList.appendChild(li);
     }
   }
 
-  private buildExtendBtn(loop: { id: number; endTime: number }): HTMLButtonElement {
+  private _buildExtendBtn(loop: { id: number; endTime: number }): HTMLButtonElement {
     const btn = document.createElement('button');
     btn.className = 'loop-row-extend';
     btn.textContent = '>';
     btn.title = 'Extend loop to next note';
     btn.addEventListener('click', async () => {
-      const nextTime = this.game.noteManager.findNextUnplayedTime(loop.endTime);
+      const nextTime = this._game.noteManager.findNextUnplayedTime(loop.endTime);
 
       if (nextTime === null) return;
 
       try {
         await updateLoopEndTime(loop.id, nextTime);
-        this.game.setLoopEndTime(loop.id, nextTime);
+        this._game.setLoopEndTime(loop.id, nextTime);
         this.render();
-        this.callbacks.onMutated({ scrollToEnd: true });
+        this._callbacks.onMutated({ scrollToEnd: true });
       } catch (e) {
         reportError('Failed to extend loop', e);
       }

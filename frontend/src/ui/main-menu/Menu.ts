@@ -16,27 +16,27 @@ const UNCATEGORIZED_ID: number | null = null;
 const COLLAPSED_KEY = "ironkeys:collapsed-categories";
 
 export class Menu {
-  private songs: Song[] = [];
-  private categories: CategoryData[] = [];
-  private selectedSong: Song | null = null;
+  private _songs: Song[] = [];
+  private _categories: CategoryData[] = [];
+  private _selectedSong: Song | null = null;
   onStart: ((song: Song) => void) | null = null;
   onRename: ((song: Song) => void) | null = null;
   onDelete: ((song: Song) => void) | null = null;
-  private songListEl: HTMLElement;
-  private startBtn: HTMLButtonElement;
-  private menuScreen: HTMLElement;
-  private midiStatusEl: HTMLElement;
+  private _songListEl: HTMLElement;
+  private _startBtn: HTMLButtonElement;
+  private _menuScreen: HTMLElement;
+  private _midiStatusEl: HTMLElement;
 
   constructor(songs: Song[]) {
-    this.songs = songs;
-    this.songListEl = document.getElementById("song-list")!;
-    this.startBtn = document.getElementById("btn-start") as HTMLButtonElement;
-    this.menuScreen = document.getElementById("menu-screen")!;
-    this.midiStatusEl = document.getElementById("midi-status")!;
+    this._songs = songs;
+    this._songListEl = document.getElementById("song-list")!;
+    this._startBtn = document.getElementById("btn-start") as HTMLButtonElement;
+    this._menuScreen = document.getElementById("menu-screen")!;
+    this._midiStatusEl = document.getElementById("midi-status")!;
     this._render();
-    this.startBtn.addEventListener("click", () => {
-      if (this.selectedSong && this.onStart) {
-        this.onStart(this.selectedSong);
+    this._startBtn.addEventListener("click", () => {
+      if (this._selectedSong && this.onStart) {
+        this.onStart(this._selectedSong);
       }
     });
 
@@ -47,7 +47,7 @@ export class Menu {
 
   async loadCategories(): Promise<void> {
     try {
-      this.categories = await fetchCategories();
+      this._categories = await fetchCategories();
       this._render();
     } catch (err) {
       reportError("Failed to load categories", err);
@@ -55,9 +55,9 @@ export class Menu {
   }
 
   async addSong(song: Song): Promise<void> {
-    this.songs.push(song);
+    this._songs.push(song);
     try {
-      this.categories = await fetchCategories();
+      this._categories = await fetchCategories();
     } catch (err) {
       reportError("Failed to refresh categories", err);
     }
@@ -65,24 +65,24 @@ export class Menu {
   }
 
   updateSong(updated: Song): void {
-    const idx = this.songs.findIndex((s) => s.id === updated.id);
+    const idx = this._songs.findIndex((s) => s.id === updated.id);
     if (idx !== -1) {
-      this.songs[idx] = { ...this.songs[idx], title: updated.title, artist: updated.artist };
+      this._songs[idx] = { ...this._songs[idx], title: updated.title, artist: updated.artist };
     }
     this._render();
   }
 
   removeSong(id: number): void {
-    this.songs = this.songs.filter((s) => s.id !== id);
-    if (this.selectedSong?.id === id) {
-      this.selectedSong = null;
-      this.startBtn.disabled = true;
+    this._songs = this._songs.filter((s) => s.id !== id);
+    if (this._selectedSong?.id === id) {
+      this._selectedSong = null;
+      this._startBtn.disabled = true;
     }
     this._render();
   }
 
   updateSongStats(id: number, bestScore: number | null, lastScore?: number): void {
-    const song = this.songs.find((s) => s.id === id);
+    const song = this._songs.find((s) => s.id === id);
 
     if (song) {
       song.bestScore = bestScore;
@@ -94,12 +94,12 @@ export class Menu {
   }
 
   refreshSongs(songs: Song[]): void {
-    this.songs = songs;
+    this._songs = songs;
     this._render();
   }
 
   private _closeAllActionMenus(): void {
-    const menus = this.songListEl.querySelectorAll(".song-actions-menu:not(.hidden)");
+    const menus = this._songListEl.querySelectorAll(".song-actions-menu:not(.hidden)");
     for (const menu of menus) {
       menu.classList.add("hidden");
     }
@@ -133,7 +133,7 @@ export class Menu {
     const groups: CategoryGroup[] = [];
     const indexByKey = new Map<string, number>();
 
-    for (const cat of this.categories) {
+    for (const cat of this._categories) {
       const key = `cat:${cat.id}`;
       indexByKey.set(key, groups.length);
       groups.push({
@@ -153,7 +153,7 @@ export class Menu {
       collapsed: collapsed.has(uncKey),
     });
 
-    for (const song of this.songs) {
+    for (const song of this._songs) {
       const catId = song.categoryId ?? null;
       let group = groups.find((g) => g.id === catId);
 
@@ -202,35 +202,35 @@ export class Menu {
   }
 
   private _render(): void {
-    this.songListEl.innerHTML = "";
+    this._songListEl.innerHTML = "";
 
-    if (this.songs.length === 0) {
+    if (this._songs.length === 0) {
       const empty = document.createElement("p");
       empty.className = "empty-song-list";
       empty.textContent = "No songs yet. Import a MIDI to get started.";
-      this.songListEl.appendChild(empty);
-      this.startBtn.disabled = true;
-      this.selectedSong = null;
+      this._songListEl.appendChild(empty);
+      this._startBtn.disabled = true;
+      this._selectedSong = null;
       return;
     }
 
     const groups = this._groupSongs();
 
     for (const group of groups) {
-      this.songListEl.appendChild(this._renderGroup(group));
+      this._songListEl.appendChild(this._renderGroup(group));
     }
 
-    if (this.selectedSong && !this.songs.includes(this.selectedSong)) {
-      this.selectedSong = null;
-      this.startBtn.disabled = true;
+    if (this._selectedSong && !this._songs.includes(this._selectedSong)) {
+      this._selectedSong = null;
+      this._startBtn.disabled = true;
     }
-    if (!this.selectedSong) {
-      const first = this.songs[0];
+    if (!this._selectedSong) {
+      const first = this._songs[0];
       if (first) this._autoSelect(first);
-      else this.startBtn.disabled = true;
+      else this._startBtn.disabled = true;
     } else {
       this._reapplySelection();
-      this.startBtn.disabled = false;
+      this._startBtn.disabled = false;
     }
   }
 
@@ -276,10 +276,10 @@ export class Menu {
     this._renderSongActions(song, el);
 
     el.addEventListener("click", () => {
-      this.selectedSong = song;
-      this.songListEl.querySelectorAll(".song-item").forEach((s) => { s.classList.remove("selected"); });
+      this._selectedSong = song;
+      this._songListEl.querySelectorAll(".song-item").forEach((s) => { s.classList.remove("selected"); });
       el.classList.add("selected");
-      this.startBtn.disabled = false;
+      this._startBtn.disabled = false;
     });
 
     el.addEventListener("dblclick", () => {
@@ -364,21 +364,21 @@ export class Menu {
   }
 
   private _autoSelect(song: Song): void {
-    this.selectedSong = song;
-    const firstItem = this.songListEl.querySelector(
+    this._selectedSong = song;
+    const firstItem = this._songListEl.querySelector(
       ".song-item",
     ) as HTMLElement | null;
     firstItem?.classList.add("selected");
-    this.startBtn.disabled = false;
+    this._startBtn.disabled = false;
   }
 
   private _reapplySelection(): void {
-    const items = this.songListEl.querySelectorAll(".song-item");
+    const items = this._songListEl.querySelectorAll(".song-item");
 
     for (const item of items) {
       const el = item as HTMLElement;
 
-      if (el.dataset.songId === String(this.selectedSong?.id ?? "")) {
+      if (el.dataset.songId === String(this._selectedSong?.id ?? "")) {
         el.classList.add("selected");
         return;
       }
@@ -390,15 +390,15 @@ export class Menu {
   }
 
   show(): void {
-    this.menuScreen.classList.add("active");
+    this._menuScreen.classList.add("active");
   }
 
   hide(): void {
-    this.menuScreen.classList.remove("active");
+    this._menuScreen.classList.remove("active");
   }
 
   setMidiStatus(connected: boolean, message: string): void {
-    this.midiStatusEl.textContent = message;
-    this.midiStatusEl.className = `midi-status${connected ? " connected" : ""}`;
+    this._midiStatusEl.textContent = message;
+    this._midiStatusEl.className = `midi-status${connected ? " connected" : ""}`;
   }
 }
