@@ -5,7 +5,8 @@ import {
   speedUp,
   waitForResults,
   expectPlayScreenActive,
-  clickBackToMenu,
+  clickBackToHome,
+  clickFreeplay,
   toggleLearnMode,
   togglePlayMode,
   seedSongWithNotes,
@@ -46,7 +47,8 @@ test.describe('Best Score', () => {
     await speedUp(page);
     await waitForResults(page);
 
-    await clickBackToMenu(page);
+    await clickBackToHome(page);
+    await clickFreeplay(page);
 
     // recordBestScore is async — wait for the menu to re-render with the score.
     // The speed-up helper doesn't play any notes, so the score is 0; a
@@ -71,7 +73,8 @@ test.describe('Best Score', () => {
     await speedUp(page);
     await waitForResults(page);
 
-    await clickBackToMenu(page);
+    await clickBackToHome(page);
+    await clickFreeplay(page);
 
     // Best score should NOT appear — no recordBestScore call was made
     await expect(page.locator('.song-scores')).toHaveCount(0, { timeout: 5000 });
@@ -83,7 +86,8 @@ test('best score in song list updates after a better run', async ({ page }) => {
     await expectPlayScreenActive(page);
     await speedUp(page);
     await waitForResults(page);
-    await clickBackToMenu(page);
+    await clickBackToHome(page);
+    await clickFreeplay(page);
 
     // Wait for the score line to appear after async API call.
     // The speed-up helper doesn't play notes, so the score is 0; the
@@ -96,7 +100,8 @@ test('best score in song list updates after a better run', async ({ page }) => {
     await expectPlayScreenActive(page);
     await speedUp(page);
     await waitForResults(page);
-    await clickBackToMenu(page);
+    await clickBackToHome(page);
+    await clickFreeplay(page);
 
     // Score line should still be present (still 0, so still no "Best:")
     await expect(page.locator('.song-scores').first()).toBeVisible({ timeout: 10000 });

@@ -11,7 +11,7 @@
   line-height: 1;
   background: rgba(20, 20, 20, 0.85);
   backdrop-filter: blur(6px);
-  border: 1px solid #555;
+  border: 1px solid var(--border-strong);
   color: var(--text-secondary);
   padding: 0.15rem 0.45rem;
   border-radius: 4px;
@@ -67,7 +67,7 @@
   font-family: var(--font-ui);
   font-size: 0.9rem;
   background: transparent;
-  border: 1px solid #555;
+  border: 1px solid var(--border-strong);
   color: var(--text-secondary);
   padding: 0.25rem 0.7rem;
   border-radius: 3px;
@@ -201,7 +201,7 @@
   font-family: var(--font-ui);
   font-size: 0.8rem;
   background: transparent;
-  border: 1px solid #555;
+  border: 1px solid var(--border-strong);
   color: var(--text-secondary);
   padding: 0.15rem 0.45rem;
   border-radius: 3px;

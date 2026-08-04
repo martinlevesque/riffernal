@@ -1,5 +1,5 @@
 import { test, expect, type Page, type APIRequestContext } from '@playwright/test';
-import { wipeDatabase } from './helpers/index.js';
+import { wipeDatabase, goToSongList } from './helpers/index.js';
 
 async function importMidiFile(page: Page, name: string, buffer: Buffer): Promise<void> {
   await page.waitForFunction(() => (document.getElementById('midi-status') as HTMLElement).textContent.length > 0);
@@ -80,13 +80,13 @@ test.describe('MIDI Import', () => {
   });
 
   test('import button is visible on menu screen', async ({ page }) => {
-    await page.goto('/');
+    await goToSongList(page);
     await expect(page.locator('#btn-import-midi')).toBeVisible();
     await expect(page.locator('#btn-import-midi')).toContainText('Import MIDI');
   });
 
   test('importing a valid MIDI file adds a song to the list', async ({ page }) => {
-    await page.goto('/');
+    await goToSongList(page);
 
     await importMidiFile(page, 'test-song.mid', buildMidiBuffer());
 
@@ -97,7 +97,7 @@ test.describe('MIDI Import', () => {
   });
 
   test('importing multiple MIDI files adds all to the list', async ({ page }) => {
-    await page.goto('/');
+    await goToSongList(page);
 
     for (let i = 0; i < 2; i++) {
       await importMidiFile(page, `song-${i}.mid`, buildMidiBuffer());
@@ -111,7 +111,7 @@ test.describe('MIDI Import', () => {
   });
 
   test('imported song can be selected and played', async ({ page }) => {
-    await page.goto('/');
+    await goToSongList(page);
 
     await importMidiFile(page, 'playable.mid', buildMidiBuffer());
 
@@ -127,7 +127,7 @@ test.describe('MIDI Import', () => {
   });
 
   test('shows error alert for invalid file', async ({ page }) => {
-    await page.goto('/');
+    await goToSongList(page);
 
     page.on('dialog', async dialog => {
       await dialog.dismiss();
@@ -139,7 +139,7 @@ test.describe('MIDI Import', () => {
   });
 
   test('shows error alert for MIDI with no playable notes', async ({ page }) => {
-    await page.goto('/');
+    await goToSongList(page);
 
     page.on('dialog', async dialog => {
       await dialog.dismiss();
@@ -171,7 +171,7 @@ test.describe('MIDI Import', () => {
   });
 
   test('out-of-range notes are transposed into playable range', async ({ page }) => {
-    await page.goto('/');
+    await goToSongList(page);
 
     const noteOnOff = [
       0x78, 0x90, 0x0C, 0x64,

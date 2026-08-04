@@ -40,40 +40,45 @@ export class GameControls {
 
     // Settings popup
     const settingsPopup = document.getElementById('settings-popup')!;
-    document.getElementById('btn-settings')!.addEventListener('click', () => settingsPopup.classList.remove('hidden'));
+    const btnSettings = document.getElementById('btn-settings');
+    if (btnSettings) {
+      btnSettings.addEventListener('click', () => settingsPopup.classList.remove('hidden'));
+    }
     document.getElementById('btn-close-settings')!.addEventListener('click', () => settingsPopup.classList.add('hidden'));
     settingsPopup.addEventListener('click', (e) => { if (e.target === settingsPopup) settingsPopup.classList.add('hidden'); });
 
     // Theme dropdown
-    const btnTheme = document.getElementById('btn-theme')!;
-    const themeDropdown = document.getElementById('theme-dropdown')!;
+    const btnTheme = document.getElementById('btn-theme');
+    const themeDropdown = document.getElementById('theme-dropdown');
 
-    const renderThemeDropdown = () => {
-      themeDropdown.innerHTML = '';
+    if (btnTheme && themeDropdown) {
+      const renderThemeDropdown = () => {
+        themeDropdown.innerHTML = '';
 
-      for (const theme of themeManager.availableThemes) {
-        const option = document.createElement('button');
-        option.className = `theme-option${theme.id === themeManager.current.id ? ' active' : ''}`;
-        option.textContent = theme.name;
-        option.addEventListener('click', () => {
-          themeManager.apply(theme);
-          renderThemeDropdown();
-          themeDropdown.classList.add('hidden');
-        });
-        themeDropdown.appendChild(option);
-      }
-    };
+        for (const theme of themeManager.availableThemes) {
+          const option = document.createElement('button');
+          option.className = `theme-option${theme.id === themeManager.current.id ? ' active' : ''}`;
+          option.textContent = theme.name;
+          option.addEventListener('click', () => {
+            themeManager.apply(theme);
+            renderThemeDropdown();
+            themeDropdown.classList.add('hidden');
+          });
+          themeDropdown.appendChild(option);
+        }
+      };
 
-    renderThemeDropdown();
+      renderThemeDropdown();
 
-    btnTheme.addEventListener('click', (e) => {
-      e.stopPropagation();
-      themeDropdown.classList.toggle('hidden');
-    });
+      btnTheme.addEventListener('click', (e) => {
+        e.stopPropagation();
+        themeDropdown.classList.toggle('hidden');
+      });
 
-    document.addEventListener('click', () => {
-      themeDropdown.classList.add('hidden');
-    });
+      document.addEventListener('click', () => {
+        themeDropdown.classList.add('hidden');
+      });
+    }
 
     // User settings
     this._initUserSettings();

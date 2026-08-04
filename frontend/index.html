@@ -12,16 +12,31 @@
 
     <div id="ui-overlay">
       <div id="sheet-resize-handle"></div>
-      <div id="menu-screen" class="screen active">
-        <div class="menu-content">
-          <h1 class="title">IRON<span class="accent">KEYS</span></h1>
-          <div class="menu-toolbar">
+      <div id="home-screen" class="screen active">
+        <canvas id="home-canvas"></canvas>
+        <div class="home-theme-corner">
+          <span class="theme-anchor">
+            <button id="btn-theme-home" class="btn-icon" title="Switch theme">&#9681;</button>
+            <div id="theme-dropdown-home" class="theme-dropdown hidden"></div>
+          </span>
+        </div>
+        <div class="home-overlay">
+          <h1 class="home-title">IRON<span class="accent">KEYS</span></h1>
+          <div class="home-modes">
+            <button class="home-mode-card focused" data-mode="freeplay">FREEPLAY</button>
+            <button class="home-mode-card" data-mode="campaign" disabled>CAMPAIGN</button>
+            <button class="home-mode-card" data-mode="settings">SETTINGS</button>
+          </div>
+          <p class="home-mode-hint">Use arrow keys to navigate &middot; Enter to select</p>
+        </div>
+        <div id="midi-status-home" class="midi-status home-midi"></div>
+      </div>
+
+      <div id="freeplay-screen" class="screen">
+        <div class="freeplay-content">
+          <button class="brand-corner">IRON<span class="accent">KEYS</span></button>
+          <div class="freeplay-toolbar">
             <button id="btn-import-midi" class="btn-link">+ Import MIDI</button>
-            <span class="theme-anchor">
-              <button id="btn-theme" class="btn-icon" title="Switch theme">&#9681;</button>
-              <div id="theme-dropdown" class="theme-dropdown hidden"></div>
-            </span>
-            <button id="btn-settings" class="btn-icon" title="Settings">&#9881;</button>
           </div>
           <input type="file" id="midi-import-input" accept=".mid,.midi" class="visually-hidden">
           <div id="song-list"></div>

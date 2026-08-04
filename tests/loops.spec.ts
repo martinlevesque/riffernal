@@ -1,6 +1,7 @@
 import { test, expect } from '@playwright/test';
 import {
   startGame,
+  goToSongList,
   makeSong,
   evaluateWithNoteManager,
   expectLoopStatus,
@@ -854,7 +855,7 @@ test.describe('Loops - end-to-end restart', () => {
       headers: { 'Content-Type': 'application/json' },
     });
 
-    await page.goto('/');
+    await goToSongList(page);
     await page.locator('.song-item').first().waitFor({ timeout: 5000 });
     await page.locator('.song-item').first().dblclick();
     await page.locator('#play-screen').waitFor({ state: 'attached', timeout: 5000 });
@@ -885,7 +886,7 @@ test.describe('Loops - end-to-end restart', () => {
       headers: { 'Content-Type': 'application/json' },
     });
 
-    await page.goto('/');
+    await goToSongList(page);
     await page.locator('.song-item').first().waitFor({ timeout: 5000 });
     await page.locator('.song-item').first().dblclick();
     await page.locator('#play-screen').waitFor({ state: 'attached', timeout: 5000 });
@@ -949,7 +950,7 @@ test.describe('Loops - end-to-end toggle + restart', () => {
       headers: { 'Content-Type': 'application/json' },
     });
 
-    await page.goto('/');
+    await goToSongList(page);
     await page.locator('.song-item').first().waitFor({ timeout: 5000 });
     await page.locator('.song-item').first().dblclick();
     await page.locator('#play-screen').waitFor({ state: 'attached', timeout: 5000 });

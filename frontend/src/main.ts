@@ -2,18 +2,19 @@ import { Game } from './game/Game.js';
 import { Synth } from './audio/Synth.js';
 import { KeyboardInput } from './input/KeyboardInput.js';
 import { MidiInput } from './input/MidiInput.js';
-import { Menu } from './ui/main-menu/Menu.js';
+import { Menu } from './ui/freeplay/Menu.js';
 import { ScoreDisplay } from './ui/play/ScoreDisplay.js';
-import { TrackSelect } from './ui/main-menu/TrackSelect.js';
-import { CategorySelect } from './ui/main-menu/CategorySelect.js';
+import { TrackSelect } from './ui/freeplay/TrackSelect.js';
+import { CategorySelect } from './ui/freeplay/CategorySelect.js';
 import { BackgroundPanel } from './ui/play/BackgroundPanel.js';
 import { SpeedControls } from './ui/play/SpeedControls.js';
-import { RenameSongPopup } from './ui/main-menu/RenameSongPopup.js';
-import { SongInfoPopup } from './ui/main-menu/SongInfoPopup.js';
-import { MidiImportDialog } from './ui/main-menu/MidiImportDialog.js';
+import { RenameSongPopup } from './ui/freeplay/RenameSongPopup.js';
+import { SongInfoPopup } from './ui/freeplay/SongInfoPopup.js';
+import { MidiImportDialog } from './ui/freeplay/MidiImportDialog.js';
 import { SheetView } from './ui/sheet/SheetView.js';
 import { ResultButtons } from './ui/play/ResultButtons.js';
 import { GameControls } from './ui/play/GameControls.js';
+import { HomeScreen } from './ui/home/HomeScreen.js';
 import { setupHoverCursor } from './ui/play/HoverCursor.js';
 import { PracticeHand } from './utils/notes.js';
 import type { Song } from './utils/MidiParser.js';
@@ -36,6 +37,9 @@ async function loadSongs(): Promise<Song[]> {
 
 async function init(): Promise<void> {
   themeManager.init();
+
+  const homeScreen = new HomeScreen();
+  homeScreen.show();
 
   const canvas = document.getElementById('gameCanvas') as HTMLCanvasElement;
   const synth = new Synth();
@@ -119,7 +123,11 @@ async function init(): Promise<void> {
 
   await midiInput.start();
   menu.setMidiStatus(midiInput.connected, midiInput.connected ? 'MIDI device connected' : 'No MIDI device - use keyboard');
-  midiInput.onConnectionChange = (connected, message) => menu.setMidiStatus(connected, message);
+  homeScreen.updateMidiStatus(midiInput.connected, midiInput.connected ? 'MIDI device connected' : 'No MIDI device - use keyboard');
+  midiInput.onConnectionChange = (connected, message) => {
+    menu.setMidiStatus(connected, message);
+    homeScreen.updateMidiStatus(connected, message);
+  };
 
   // --- Component instantiation ----------------------------------------------
   new BackgroundPanel(game);
