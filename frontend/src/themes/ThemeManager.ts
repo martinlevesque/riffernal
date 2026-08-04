@@ -21,6 +21,9 @@ const CSS_VAR_MAP: Record<keyof ThemeCss, string> = {
   accentYellow: '--accent-yellow',
   borderSubtle: '--border-subtle',
   borderMedium: '--border-medium',
+  borderStrong: '--border-strong',
+  borderDivider: '--border-divider',
+  textOnAccent: '--text-on-accent',
 };
 
 class ThemeManager {

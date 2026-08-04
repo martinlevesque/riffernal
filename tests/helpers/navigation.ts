@@ -8,12 +8,20 @@ export interface StartGameOptions {
   songTitle?: string;
 }
 
+export async function goToSongList(page: Page): Promise<void> {
+  await page.goto('/');
+  await page.locator('#home-screen').waitFor({ timeout: 5000 });
+  await page.locator('[data-mode="freeplay"]').click();
+}
+
 export async function startGame(page: Page, options: StartGameOptions = {}): Promise<void> {
   const { keepSong = false, songTitle = 'E2E Seed' } = options;
   const request = page.context().request;
   await wipeDatabase(request);
   const { id } = await seedSong(request, songTitle);
   await page.goto('/');
+  await page.locator('#home-screen').waitFor({ timeout: 5000 });
+  await page.locator('[data-mode="freeplay"]').click();
   await page.locator('.song-item').first().waitFor({ timeout: 5000 });
   await page.locator('.song-item').first().dblclick();
   await page.locator('#play-screen').waitFor({ state: 'attached', timeout: 5000 });

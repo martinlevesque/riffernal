@@ -18,6 +18,9 @@ export const ironTheme: Theme = {
     accentYellow: '#ffdd22',
     borderSubtle: '#222',
     borderMedium: '#333',
+    borderStrong: '#555',
+    borderDivider: '#444',
+    textOnAccent: '#fff',
   },
   canvas: {
     bg: '#0a0a0a',

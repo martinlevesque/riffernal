@@ -13,6 +13,9 @@ export interface ThemeCss {
   accentYellow: string;
   borderSubtle: string;
   borderMedium: string;
+  borderStrong: string;
+  borderDivider: string;
+  textOnAccent: string;
 }
 
 export interface ThemeCanvas {

@@ -1,5 +1,5 @@
 import { test } from '@playwright/test';
-import { startGame, expectPlayScreenActive, clickRestart, expectMenuScreenActive } from './helpers/index.js';
+import { startGame, expectPlayScreenActive, clickRestart, clickBackToHome, expectHomeScreenActive } from './helpers/index.js';
 
 test.describe('Navigation', () => {
   test('retry restarts the game and shows play screen', async ({ page }) => {
@@ -9,15 +9,12 @@ test.describe('Navigation', () => {
     await expectPlayScreenActive(page);
   });
 
-  test('back to menu shows menu screen', async ({ page }) => {
+  test('back to menu shows home screen', async ({ page }) => {
     await startGame(page);
     await expectPlayScreenActive(page);
 
-    await page.evaluate(() => {
-      const btn = document.getElementById('btn-menu');
-      if (btn) btn.click();
-    });
+    await clickBackToHome(page);
 
-    await expectMenuScreenActive(page);
+    await expectHomeScreenActive(page);
   });
 });

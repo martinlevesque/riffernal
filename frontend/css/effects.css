@@ -2,7 +2,8 @@
    GRAIN OVERLAY
    ============================================ */
 
-.has-grain #menu-screen::after,
+.has-grain #home-screen::after,
+.has-grain #freeplay-screen::after,
 .has-grain #results-screen::after,
 .has-grain .popup::after {
   content: '';

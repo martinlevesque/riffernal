@@ -24,14 +24,14 @@ export class Menu {
   onDelete: ((song: Song) => void) | null = null;
   private _songListEl: HTMLElement;
   private _startBtn: HTMLButtonElement;
-  private _menuScreen: HTMLElement;
+  private _freeplayScreen: HTMLElement;
   private _midiStatusEl: HTMLElement;
 
   constructor(songs: Song[]) {
     this._songs = songs;
     this._songListEl = document.getElementById("song-list")!;
     this._startBtn = document.getElementById("btn-start") as HTMLButtonElement;
-    this._menuScreen = document.getElementById("menu-screen")!;
+    this._freeplayScreen = document.getElementById("freeplay-screen")!;
     this._midiStatusEl = document.getElementById("midi-status")!;
     this._render();
     this._startBtn.addEventListener("click", () => {
@@ -39,6 +39,14 @@ export class Menu {
         this.onStart(this._selectedSong);
       }
     });
+
+    const brandCorner = this._freeplayScreen.querySelector('.brand-corner') as HTMLElement;
+    if (brandCorner) {
+      brandCorner.addEventListener('click', () => {
+        this._freeplayScreen.classList.remove('active');
+        document.getElementById('home-screen')!.classList.add('active');
+      });
+    }
 
     document.addEventListener("click", () => {
       this._closeAllActionMenus();
@@ -390,11 +398,11 @@ export class Menu {
   }
 
   show(): void {
-    this._menuScreen.classList.add("active");
+    this._freeplayScreen.classList.add("active");
   }
 
   hide(): void {
-    this._menuScreen.classList.remove("active");
+    this._freeplayScreen.classList.remove("active");
   }
 
   setMidiStatus(connected: boolean, message: string): void {

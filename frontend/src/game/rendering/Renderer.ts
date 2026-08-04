@@ -137,6 +137,20 @@ const GRIND_BEAM_RAMP_MS = 260;
 const LANE_GLOW_HEIGHT = 220;
 const GRIND_BEAM_SCROLL_PX_PER_SEC = 400;
 const MAX_GRIND_FLASHES = 12;
+const GRIND_HIGHLIGHT_COLOR = '#ffffff';
+
+const FLAME_COLORS = [
+  { stop: 0, color: 'rgba(255, 210, 70, 0.9)' },
+  { stop: 0.25, color: 'rgba(255, 140, 30, 0.55)' },
+  { stop: 0.6, color: 'rgba(255, 70, 0, 0.2)' },
+  { stop: 1, color: 'rgba(200, 30, 0, 0)' },
+] as const;
+
+const FLAME_CORE_COLORS = [
+  { stop: 0, color: 'rgba(255, 245, 200, 0.85)' },
+  { stop: 0.5, color: 'rgba(255, 200, 100, 0.3)' },
+  { stop: 1, color: 'rgba(255, 180, 60, 0)' },
+] as const;
 
 interface NoteLayout {
   drawX: number;
@@ -440,18 +454,17 @@ export class Renderer {
     const r = width * 2.0 * pulse;
 
     const grad = ctx.createRadialGradient(cx, baseY, 0, cx, baseY, r);
-    grad.addColorStop(0, 'rgba(255, 210, 70, 0.9)');
-    grad.addColorStop(0.25, 'rgba(255, 140, 30, 0.55)');
-    grad.addColorStop(0.6, 'rgba(255, 70, 0, 0.2)');
-    grad.addColorStop(1, 'rgba(200, 30, 0, 0)');
+    for (const { stop, color } of FLAME_COLORS) {
+      grad.addColorStop(stop, color);
+    }
     ctx.fillStyle = grad;
     ctx.fillRect(cx - r, baseY - r, r * 2, r * 2);
 
     const r2 = width * 0.7;
     const grad2 = ctx.createRadialGradient(cx, baseY, 0, cx, baseY, r2);
-    grad2.addColorStop(0, 'rgba(255, 245, 200, 0.85)');
-    grad2.addColorStop(0.5, 'rgba(255, 200, 100, 0.3)');
-    grad2.addColorStop(1, 'rgba(255, 180, 60, 0)');
+    for (const { stop, color } of FLAME_CORE_COLORS) {
+      grad2.addColorStop(stop, color);
+    }
     ctx.fillStyle = grad2;
     ctx.fillRect(cx - r2, baseY - r2, r2 * 2, r2 * 2);
   }
@@ -534,7 +547,7 @@ export class Renderer {
     const halfW = laneW * 0.5;
     ctx.save();
     ctx.globalAlpha = intensity;
-    ctx.strokeStyle = '#ffffff';
+    ctx.strokeStyle = GRIND_HIGHLIGHT_COLOR;
     ctx.lineWidth = Math.max(2, laneW * 0.10);
     ctx.lineCap = 'round';
     ctx.lineJoin = 'round';
@@ -591,7 +604,7 @@ export class Renderer {
     const halfW = laneW * 0.5;
     ctx.save();
     ctx.globalAlpha = alpha;
-    ctx.strokeStyle = '#ffffff';
+    ctx.strokeStyle = GRIND_HIGHLIGHT_COLOR;
     ctx.lineWidth = Math.max(2, laneW * 0.10);
     ctx.lineCap = 'round';
     ctx.lineJoin = 'round';
@@ -626,7 +639,7 @@ export class Renderer {
       const sx = cx + Math.cos(a) * r;
       const sy = hitZoneY - Math.abs(Math.sin(a)) * streakH * 0.3;
       ctx.globalAlpha = alpha * 0.9;
-      ctx.fillStyle = i % 2 === 0 ? '#ffffff' : this._rgba(rgb, 1);
+      ctx.fillStyle = i % 2 === 0 ? GRIND_HIGHLIGHT_COLOR : this._rgba(rgb, 1);
       ctx.beginPath();
       ctx.arc(sx, sy, 1.6, 0, Math.PI * 2);
       ctx.fill();

@@ -1,8 +1,9 @@
 @import 'base.css';
 @import 'components.css';
-@import 'menu.css';
+@import 'freeplay.css';
 @import 'gameplay.css';
 @import 'sheet.css';
 @import 'results.css';
 @import 'modals.css';
+@import 'home.css';
 @import 'effects.css';

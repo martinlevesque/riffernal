@@ -22,6 +22,7 @@ export {
 export {
   type StartGameOptions,
   startGame,
+  goToSongList,
 } from './navigation.js';
 
 export {
@@ -41,8 +42,10 @@ export {
 } from './page/game.js';
 
 export {
+  expectHomeScreenActive,
   expectMenuScreenActive,
-  clickBackToMenu,
+  clickFreeplay,
+  clickBackToHome,
 } from './page/home.js';
 
 export {

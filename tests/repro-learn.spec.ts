@@ -1,5 +1,5 @@
 import { test, expect } from '@playwright/test';
-import { seedSongWithNotes, expectPlayScreenActive } from './helpers/index.js';
+import { seedSongWithNotes, expectPlayScreenActive, goToSongList } from './helpers/index.js';
 
 // Repro for user report: "in learn mode, when I press, nothing happens"
 test('learn mode: pressing correct key while frozen scores and unfreezes', async ({ page, context }) => {
@@ -13,7 +13,7 @@ test('learn mode: pressing correct key while frozen scores and unfreezes', async
   ];
   await seedSongWithNotes(request, 'LearnReproReal', notes);
 
-  await page.goto('/');
+  await goToSongList(page);
   await page.locator('.song-item').first().waitFor({ timeout: 5000 });
   await page.locator('.song-item').first().dblclick();
   await page.locator('#play-screen').waitFor({ state: 'attached', timeout: 5000 });

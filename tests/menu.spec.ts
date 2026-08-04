@@ -1,5 +1,5 @@
 import { test, expect, type APIRequestContext } from '@playwright/test';
-import { wipeDatabase, deleteSong, seedSongWithNotes } from './helpers/index.js';
+import { wipeDatabase, deleteSong, seedSongWithNotes, goToSongList } from './helpers/index.js';
 
 test.describe('Menu Screen', () => {
   test.beforeEach(async ({ request }: { request: APIRequestContext }) => {
@@ -10,18 +10,18 @@ test.describe('Menu Screen', () => {
 
   test('displays title', async ({ page }) => {
     await page.goto('/');
-    await expect(page.locator('.title')).toContainText('IRONKEYS');
+    await expect(page.locator('.home-title')).toContainText('IRONKEYS');
   });
 
   test('shows empty state when no songs exist', async ({ page }) => {
-    await page.goto('/');
+    await goToSongList(page);
     await expect(page.locator('.empty-song-list')).toBeVisible({ timeout: 5000 });
   });
 
   test('shows song list with imported song', async ({ request, page }) => {
     const id = await seedSongWithNotes(request, 'E2E Menu Song', [{ time: 0.5, key: 'C4', duration: 1 }]);
     try {
-      await page.goto('/');
+      await goToSongList(page);
       await expect(page.locator('.song-item').first()).toBeVisible({ timeout: 5000 });
       await expect(page.locator('.song-item').first()).toContainText('E2E Menu Song');
     } finally {
@@ -30,21 +30,20 @@ test.describe('Menu Screen', () => {
   });
 
   test('shows controls hint', async ({ page }) => {
-    await page.goto('/');
+    await goToSongList(page);
     await expect(page.locator('.controls-hint')).toBeVisible();
     await expect(page.locator('.controls-hint')).toContainText('white keys');
   });
 
   test('start button is visible', async ({ page }) => {
-    await page.goto('/');
+    await goToSongList(page);
     await expect(page.locator('#btn-start')).toBeVisible();
     await expect(page.locator('#btn-start')).toContainText('PLAY');
   });
 
-  test('show used keys toggle is visible on menu screen', async ({ page }) => {
+  test('show used keys toggle is visible on settings popup', async ({ page }) => {
     await page.goto('/');
-    await expect(page.locator('#btn-settings')).toBeVisible();
-    await page.locator('#btn-settings').click();
+    await page.locator('[data-mode="settings"]').click();
     await expect(page.locator('#settings-popup')).toBeVisible();
     await expect(page.locator('#show-used-keys')).toBeVisible();
     await expect(page.locator('.setting-toggle').first()).toContainText('Show only keys used in song');
@@ -52,7 +51,7 @@ test.describe('Menu Screen', () => {
 
   test('show used keys toggle can be toggled', async ({ page }) => {
     await page.goto('/');
-    await page.locator('#btn-settings').click();
+    await page.locator('[data-mode="settings"]').click();
     const checkbox = page.locator('#show-used-keys');
     await expect(checkbox).not.toBeChecked();
     await checkbox.check();

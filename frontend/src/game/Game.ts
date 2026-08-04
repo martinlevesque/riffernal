@@ -100,7 +100,8 @@ export class Game {
   private _paused = false;
   private _resultsScreen = new ResultsScreen();
   private _playScreen: HTMLElement;
-  private _menuScreen: HTMLElement;
+  private _freeplayScreen: HTMLElement;
+  private _homeScreen: HTMLElement;
   private _resizeHandle: HTMLElement;
   private _timeDisplayEl: HTMLElement;
   private _onResize: () => void;
@@ -120,7 +121,8 @@ export class Game {
     this._midiInput = midiInput;
 
     this._playScreen = document.getElementById('play-screen')!;
-    this._menuScreen = document.getElementById('menu-screen')!;
+    this._freeplayScreen = document.getElementById('freeplay-screen')!;
+    this._homeScreen = document.getElementById('home-screen')!;
     this._resizeHandle = document.getElementById('sheet-resize-handle')!;
     this._timeDisplayEl = document.getElementById('time-display')!;
 
@@ -416,7 +418,8 @@ export class Game {
     this.renderer.clearGrind();
     this._computeUsedNoteRange(song);
 
-    this._menuScreen.classList.remove('active');
+    this._freeplayScreen.classList.remove('active');
+    this._homeScreen.classList.remove('active');
     this._resultsScreen.hide();
     this._playScreen.classList.add('active');
 
@@ -643,7 +646,7 @@ export class Game {
     this.state = GameState.Menu;
     this._resultsScreen.hide();
     this._playScreen.classList.remove('active');
-    this._menuScreen.classList.add('active');
+    this._homeScreen.classList.add('active');
     this._keyboardInput.stop();
     this._synth.releaseAll();
     this._keyboardInput.onNoteOn = null;

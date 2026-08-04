@@ -18,6 +18,9 @@ export const midnightTheme: Theme = {
     accentYellow: '#00ffcc',
     borderSubtle: '#1a2030',
     borderMedium: '#243040',
+    borderStrong: '#3a5068',
+    borderDivider: '#2a4060',
+    textOnAccent: '#fff',
   },
   canvas: {
     bg: '#06080f',
