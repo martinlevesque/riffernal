@@ -646,7 +646,6 @@ export class Game {
     this.state = GameState.Menu;
     this._resultsScreen.hide();
     this._playScreen.classList.remove('active');
-    this._homeScreen.classList.add('active');
     this._keyboardInput.stop();
     this._synth.releaseAll();
     this._keyboardInput.onNoteOn = null;

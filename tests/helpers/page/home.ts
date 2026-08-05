@@ -20,8 +20,8 @@ export async function clickFreeplay(page: Page): Promise<void> {
   await expectMenuScreenActive(page);
 }
 
-/** Click the back-to-menu button and wait for the home screen. */
+/** Click the game's MENU button without asserting a screen transition.
+ *  The destination depends on the currentMode (e.g. freeplay → freeplay screen). */
 export async function clickBackToHome(page: Page): Promise<void> {
   await page.locator('#btn-menu').click();
-  await expectHomeScreenActive(page);
 }

@@ -9,8 +9,7 @@ import {
   togglePlayMode,
   clickRestart,
   expectPlayScreenActive,
-  expectHomeScreenActive,
-  clickFreeplay,
+  expectMenuScreenActive,
 } from './helpers/index.js';
 
 // -- NoteManager unit tests --------------------------------------------------
@@ -398,8 +397,7 @@ test.describe('Learning Mode - UI', () => {
     await toggleLearnMode(page);
     await expectMode(page, 'learn');
     await page.evaluate(() => document.getElementById('btn-menu')?.click());
-    await expectHomeScreenActive(page);
-    await clickFreeplay(page);
+    await expectMenuScreenActive(page);
     await page.locator('.song-item').first().click();
     await page.locator('#btn-start').click();
     await expectPlayScreenActive(page);

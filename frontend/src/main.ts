@@ -25,6 +25,9 @@ import {
 import { fetchLoops } from './api/LoopApi.js';
 import { themeManager } from './themes/ThemeManager.js';
 
+export type AppMode = 'home' | 'freeplay' | 'settings';
+let currentMode: AppMode = 'home';
+
 async function loadSongs(): Promise<Song[]> {
   try {
     const summaries = await fetchSongs();
@@ -38,7 +41,9 @@ async function loadSongs(): Promise<Song[]> {
 async function init(): Promise<void> {
   themeManager.init();
 
-  const homeScreen = new HomeScreen();
+  const homeScreen = new HomeScreen({
+    onNavigate: (mode: AppMode) => { currentMode = mode; },
+  });
   homeScreen.show();
 
   const canvas = document.getElementById('gameCanvas') as HTMLCanvasElement;
@@ -62,6 +67,17 @@ async function init(): Promise<void> {
   await menu.loadCategories();
 
   game.onBackToMenu = () => {
+    const freeplayScreen = document.getElementById('freeplay-screen')!;
+    const homeScreenEl = document.getElementById('home-screen')!;
+
+    if (currentMode === 'freeplay') {
+      homeScreenEl.classList.remove('active');
+      freeplayScreen.classList.add('active');
+    } else {
+      freeplayScreen.classList.remove('active');
+      homeScreenEl.classList.add('active');
+    }
+
     loadSongs()
       .then((songs) => menu.refreshSongs(songs))
       .catch((e) => console.error('Failed to refresh songs:', e));
