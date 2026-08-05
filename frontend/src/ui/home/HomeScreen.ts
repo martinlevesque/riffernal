@@ -1,5 +1,6 @@
 import { themeManager } from '../../themes/ThemeManager.js';
 import type { ThemeCss } from '../../themes/types.js';
+import type { AppMode } from '../../main.js';
 
 interface Ember {
   x: number;
@@ -30,6 +31,10 @@ const EMBER_COLORS: readonly string[] = ['#ff4400', '#ff6622'];
 const EMBER_CORE_COLOR = '#ffaa00';
 const SPARK_CORE_COLOR = '#ffffff';
 
+export interface HomeScreenOptions {
+  onNavigate?: (mode: AppMode) => void;
+}
+
 export class HomeScreen {
   private _canvas: HTMLCanvasElement;
   private _ctx: CanvasRenderingContext2D;
@@ -42,8 +47,10 @@ export class HomeScreen {
   private _focusedIndex = 0;
   private _cards: HTMLElement[] = [];
   private _midiStatusEl: HTMLElement;
+  private _opts: HomeScreenOptions;
 
-  constructor() {
+  constructor(opts: HomeScreenOptions = {}) {
+    this._opts = opts;
     this._screen = document.getElementById('home-screen')!;
     this._canvas = document.getElementById('home-canvas') as HTMLCanvasElement;
     this._ctx = this._canvas.getContext('2d')!;
@@ -84,12 +91,14 @@ export class HomeScreen {
     this._cards = [freeplayBtn, campaignBtn, settingsBtn];
 
     freeplayBtn.addEventListener('click', () => {
+      this._opts.onNavigate?.('freeplay');
       this._screen.classList.remove('active');
       document.getElementById('freeplay-screen')!.classList.add('active');
       this._stopAnimation();
     });
 
     settingsBtn.addEventListener('click', () => {
+      this._opts.onNavigate?.('settings');
       document.getElementById('settings-popup')!.classList.remove('hidden');
     });
 
@@ -337,13 +346,18 @@ export class HomeScreen {
     const settingsPopup = document.getElementById('settings-popup');
     if (!settingsPopup) return;
 
+    const close = () => {
+      settingsPopup.classList.add('hidden');
+      this._opts.onNavigate?.('home');
+    };
+
     const btnClose = document.getElementById('btn-close-settings');
     if (btnClose) {
-      btnClose.addEventListener('click', () => settingsPopup.classList.add('hidden'));
+      btnClose.addEventListener('click', () => close());
     }
 
     settingsPopup.addEventListener('click', (e) => {
-      if (e.target === settingsPopup) settingsPopup.classList.add('hidden');
+      if (e.target === settingsPopup) close();
     });
   }
 

@@ -1,5 +1,5 @@
 import { test } from '@playwright/test';
-import { startGame, expectPlayScreenActive, clickRestart, clickBackToHome, expectHomeScreenActive } from './helpers/index.js';
+import { startGame, expectPlayScreenActive, clickRestart, clickBackToHome, expectMenuScreenActive } from './helpers/index.js';
 
 test.describe('Navigation', () => {
   test('retry restarts the game and shows play screen', async ({ page }) => {
@@ -9,12 +9,12 @@ test.describe('Navigation', () => {
     await expectPlayScreenActive(page);
   });
 
-  test('back to menu shows home screen', async ({ page }) => {
+  test('back to menu shows freeplay screen when started from freeplay', async ({ page }) => {
     await startGame(page);
     await expectPlayScreenActive(page);
 
     await clickBackToHome(page);
 
-    await expectHomeScreenActive(page);
+    await expectMenuScreenActive(page);
   });
 });
