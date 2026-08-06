@@ -1,12 +1,12 @@
-# ironkeys
+# Riffernal
 
 Keyboard Hero - Metal Edition. Play piano along to metal songs.
 
 ## Setup
 
 ```bash
-git clone https://github.com/martinlevesque/ironkeys.git
-cd ironkeys
+git clone https://github.com/martinlevesque/riffernal.git
+cd riffernal
 bun install
 ```
 

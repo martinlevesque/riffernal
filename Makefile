@@ -1,7 +1,7 @@
 .PHONY: build run deploy deploy-https stop clean logs
 
-IMAGE_NAME := ironkeys
-CONTAINER_NAME := ironkeys
+IMAGE_NAME := riffernal
+CONTAINER_NAME := riffernal
 PORT := 9876
 
 build:

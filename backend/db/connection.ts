@@ -7,7 +7,7 @@ const DATA_DIR = join(ROOT, "data");
 
 mkdirSync(DATA_DIR, { recursive: true });
 
-export const DB_PATH = join(DATA_DIR, "ironkeys.db");
+export const DB_PATH = join(DATA_DIR, "riffernal.db");
 
 const isNew = !existsSync(DB_PATH);
 export const db = new Database(DB_PATH);

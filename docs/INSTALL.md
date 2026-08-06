@@ -8,8 +8,8 @@
 ## Standard setup
 
 ```bash
-git clone https://github.com/martinlevesque/ironkeys.git
-cd ironkeys
+git clone https://github.com/martinlevesque/riffernal.git
+cd riffernal
 bun install
 bun run dev
 ```
@@ -28,12 +28,12 @@ bun run typecheck  # TypeScript type-check
 ## Firefox / HTTPS with a custom hostname
 
 Firefox requires HTTPS for Web MIDI access on non-localhost hostnames. To use
-a custom local hostname like `ironkeys.local` over HTTPS:
+a custom local hostname like `riffernal.local` over HTTPS:
 
 ### 1. Add the hostname to /etc/hosts
 
 ```bash
-echo '127.0.0.1 ironkeys.local' | sudo tee -a /etc/hosts
+echo '127.0.0.1 riffernal.local' | sudo tee -a /etc/hosts
 ```
 
 ### 2. Regenerate the self-signed certificate
@@ -51,7 +51,7 @@ openssl req -x509 -newkey rsa:2048 \
   -out certs/cert.pem \
   -days 365 -nodes \
   -subj "/CN=localhost" \
-  -addext "subjectAltName=DNS:localhost,DNS:ironkeys.local,IP:127.0.0.1"
+  -addext "subjectAltName=DNS:localhost,DNS:riffernal.local,IP:127.0.0.1"
 ```
 
 ### 3. Start the dev server
@@ -62,6 +62,6 @@ bun run dev
 
 ### 4. Open in Firefox
 
-Navigate to https://ironkeys.local:3000. Your browser will show a self-signed
+Navigate to https://riffernal.local:3000. Your browser will show a self-signed
 certificate warning — click through it to proceed. Web MIDI should now be
 available.

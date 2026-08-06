@@ -2,7 +2,7 @@ import type { Theme, ThemeCss } from './types.js';
 import { ironTheme } from './iron.js';
 import { midnightTheme } from './midnight.js';
 
-const STORAGE_KEY = 'ironkeys:theme';
+const STORAGE_KEY = 'riffernal:theme';
 
 const ALL_THEMES: Theme[] = [ironTheme, midnightTheme];
 

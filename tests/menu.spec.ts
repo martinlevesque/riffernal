@@ -10,7 +10,7 @@ test.describe('Menu Screen', () => {
 
   test('displays title', async ({ page }) => {
     await page.goto('/');
-    await expect(page.locator('.home-title')).toContainText('IRONKEYS');
+    await expect(page.locator('.home-title')).toContainText('RIFFERNAL');
   });
 
   test('shows empty state when no songs exist', async ({ page }) => {
