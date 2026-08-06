@@ -13,7 +13,7 @@ interface CategoryGroup {
 }
 
 const UNCATEGORIZED_ID: number | null = null;
-const COLLAPSED_KEY = "ironkeys:collapsed-categories";
+const COLLAPSED_KEY = "riffernal:collapsed-categories";
 
 export class Menu {
   private _songs: Song[] = [];

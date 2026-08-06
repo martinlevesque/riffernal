@@ -1,10 +1,10 @@
 {
-  "name": "ironkeys",
+  "name": "riffernal",
   "version": "0.1.0",
   "author": "",
   "repository": {
     "type": "git",
-    "url": "git+https://github.com/martinlevesque/ironkeys.git"
+    "url": "git+https://github.com/martinlevesque/riffernal.git"
   },
   "devDependencies": {
     "@biomejs/biome": "^2.5.3",
@@ -13,10 +13,10 @@
     "typescript": "^6.0.3"
   },
   "bugs": {
-    "url": "https://github.com/martinlevesque/ironkeys/issues"
+    "url": "https://github.com/martinlevesque/riffernal/issues"
   },
   "description": "Keyboard Hero - Metal Edition. Play piano along to metal songs.",
-  "homepage": "https://github.com/martinlevesque/ironkeys#readme",
+  "homepage": "https://github.com/martinlevesque/riffernal#readme",
   "keywords": [
     "piano",
     "midi",
