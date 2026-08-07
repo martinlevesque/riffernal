@@ -7,6 +7,23 @@ export async function expectHomeScreenActive(page: Page): Promise<void> {
   await expect(page.locator('#home-screen')).toHaveClass(/active/, { timeout: 5000 });
 }
 
+/** Assert the MIDI status text on the home screen. */
+export async function expectHomeMidiStatus(page: Page, text: string): Promise<void> {
+  const status = page.locator('#midi-status-home');
+  await expect(status).toBeVisible();
+  await expect(status).toContainText(text);
+}
+
+/** Assert that the home MIDI status shows connected (green). */
+export async function expectHomeMidiConnected(page: Page): Promise<void> {
+  await expect(page.locator('#midi-status-home')).toHaveClass(/connected/);
+}
+
+/** Assert that the home MIDI status shows disconnected. */
+export async function expectHomeMidiDisconnected(page: Page): Promise<void> {
+  await expect(page.locator('#midi-status-home')).not.toHaveClass(/connected/);
+}
+
 /** Assert that the menu (song list) screen is active. */
 export async function expectMenuScreenActive(page: Page): Promise<void> {
   await expect(page.locator('#freeplay-screen')).toHaveClass(/active/, { timeout: 5000 });

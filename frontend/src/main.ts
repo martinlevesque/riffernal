@@ -139,10 +139,10 @@ async function init(): Promise<void> {
 
   await midiInput.start();
   menu.setMidiStatus(midiInput.connected, midiInput.connected ? 'MIDI device connected' : 'No MIDI device - use keyboard');
-  homeScreen.updateMidiStatus(midiInput.connected, midiInput.connected ? 'MIDI device connected' : 'No MIDI device - use keyboard');
+  homeScreen.updateMidiStatus(midiInput.connected, midiInput.connected ? 'MIDI device connected' : 'Computer keyboard (no MIDI keyboard detected)');
   midiInput.onConnectionChange = (connected, message) => {
     menu.setMidiStatus(connected, message);
-    homeScreen.updateMidiStatus(connected, message);
+    homeScreen.updateMidiStatus(connected, connected ? message : 'Computer keyboard (no MIDI keyboard detected)');
   };
 
   // --- Component instantiation ----------------------------------------------

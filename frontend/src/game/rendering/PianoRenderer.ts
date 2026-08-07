@@ -6,6 +6,7 @@ import type { VisibleRange } from '../../utils/notes.js';
 import { HIT_ZONE_Y_RATIO } from '../NoteManager.js';
 import { themeManager } from '../../themes/ThemeManager.js';
 import { velocityIntensity } from '../../utils/helpers.js';
+import { NOTE_TO_KEY_LABEL } from '../../input/KeyboardInput.js';
 
 const PIANO_REGION_OFFSET = 30;
 const BLACK_KEY_HEIGHT_RATIO = 0.56;
@@ -29,6 +30,7 @@ export class PianoRenderer {
   private _cache: HTMLCanvasElement | null = null;
   private _cachedState = '';
   private _cachedWidth = -1;
+  showComputerKeys = false;
 
   drawHitZone(ctx: CanvasRenderingContext2D, width: number, height: number, pressedLanes: Map<number, number>, visibleRange?: VisibleRange | null): void {
     const hitZoneY = height * HIT_ZONE_Y_RATIO;
@@ -65,8 +67,8 @@ export class PianoRenderer {
   private _ensureCache(width: number, height: number, pressedLanes: Map<number, number>, visibleRange?: VisibleRange | null): void {
     const rangeKey = visibleRange ? `${visibleRange.minNoteIdx}:${visibleRange.maxNoteIdx}` : '';
     const stateKey = pressedLanes.size > 0
-      ? `${rangeKey}|${[...pressedLanes.entries()].sort((a, b) => a[0] - b[0]).map(([l, v]) => `${l}:${v}`).join(',')}`
-      : rangeKey;
+      ? `${rangeKey}|${this.showComputerKeys ? 'ck' : ''}|${[...pressedLanes.entries()].sort((a, b) => a[0] - b[0]).map(([l, v]) => `${l}:${v}`).join(',')}`
+      : `${rangeKey}|${this.showComputerKeys ? 'ck' : ''}`;
     if (stateKey === this._cachedState && width === this._cachedWidth && this._cache) return;
     this._cachedState = stateKey;
     this._cachedWidth = width;
@@ -174,6 +176,8 @@ export class PianoRenderer {
       ctx.textBaseline = 'middle';
       ctx.fillText(shortName, layout.x + whiteKeyWidth / 2, labelY);
       ctx.textBaseline = 'alphabetic';
+
+      this._drawComputerKeyLabel(ctx, noteName, layout.x + whiteKeyWidth / 2, pianoTop - offsetY + pianoH * 0.65, `${Math.max(12, whiteKeyWidth * 0.35)}px`);
     }
   }
 
@@ -222,6 +226,29 @@ export class PianoRenderer {
       ctx.font = `bold ${Math.max(10, blackKeyWidth * 0.5)}px ${themeManager.fonts.mono}`;
       ctx.textAlign = 'center';
       ctx.fillText(blkShort, layout.x + blackKeyWidth / 2, blkLabelY);
+
+      this._drawComputerKeyLabel(ctx, noteName, layout.x + blackKeyWidth / 2, blkLabelY - blackKeyWidth * 0.9, `${Math.max(10, blackKeyWidth * 0.45)}px`);
     }
+  }
+
+  private _drawComputerKeyLabel(
+    ctx: CanvasRenderingContext2D,
+    noteName: string,
+    x: number,
+    y: number,
+    fontSize: string,
+  ): void {
+    if (!this.showComputerKeys) return;
+
+    const keyLabel = NOTE_TO_KEY_LABEL.get(noteName);
+    if (!keyLabel) return;
+
+    const c = themeManager.canvas;
+    ctx.fillStyle = c.keyLabel;
+    ctx.font = `${fontSize} ${themeManager.fonts.mono}`;
+    ctx.textAlign = 'center';
+    ctx.textBaseline = 'middle';
+    ctx.fillText(keyLabel, x, y);
+    ctx.textBaseline = 'alphabetic';
   }
 }
