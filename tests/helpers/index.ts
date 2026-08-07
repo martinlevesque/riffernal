@@ -44,6 +44,9 @@ export {
 
 export {
   expectHomeScreenActive,
+  expectHomeMidiStatus,
+  expectHomeMidiConnected,
+  expectHomeMidiDisconnected,
   expectMenuScreenActive,
   clickFreeplay,
   clickBackToHome,

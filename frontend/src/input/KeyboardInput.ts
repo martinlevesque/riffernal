@@ -43,6 +43,29 @@ export const KEYBOARD_MAP: Record<string, string> = {
   'Digit7': 'B5',
 };
 
+const CODE_LABEL_OVERRIDES: Record<string, string> = {
+  Comma: ',',
+  Period: '.',
+  Slash: '/',
+  Quote: "'",
+  Semicolon: ';',
+  Minus: '-',
+  Equal: '=',
+};
+
+export function keyCodeToLabel(code: string): string {
+  const override = CODE_LABEL_OVERRIDES[code];
+  if (override) return override;
+  if (code.startsWith('Key')) return code.slice(3);
+  if (code.startsWith('Digit')) return code.slice(5);
+  return code;
+}
+
+export const NOTE_TO_KEY_LABEL: Map<string, string> = new Map();
+for (const [code, note] of Object.entries(KEYBOARD_MAP)) {
+  NOTE_TO_KEY_LABEL.set(note, keyCodeToLabel(code));
+}
+
 export class KeyboardInput {
   onNoteOn: NoteOnCallback | null = null;
   onNoteOff: NoteOffCallback | null = null;

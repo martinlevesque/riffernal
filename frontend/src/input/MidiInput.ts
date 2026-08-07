@@ -1,6 +1,8 @@
 import { midiToNoteName } from '../utils/helpers.js';
 import { NOTE_TO_LANE } from '../utils/notes.js';
+import { InputDeviceState } from './InputDeviceState.js';
 import type { NoteOnCallback, NoteOffCallback, ConnectionChangeCallback } from './types.js';
+import { InputDeviceType } from './types.js';
 
 export class MidiInput {
   onNoteOn: NoteOnCallback | null = null;
@@ -9,6 +11,7 @@ export class MidiInput {
   private _midiAccess: MIDIAccess | null = null;
   enabled = true;
   connected = false;
+  readonly device = new InputDeviceState(InputDeviceType.ComputerKeyboard);
   private _onMidiMessage: (event: MIDIMessageEvent) => void;
   private _heldNotes = new Set<number>();
 
@@ -57,24 +60,38 @@ export class MidiInput {
     this.connected = false;
   }
 
+  private static _isVirtualPort(input: MIDIInput): boolean {
+    const name = (input.name ?? '').toLowerCase();
+    return name.includes('through') || name.includes('loopback') || name.includes('virtual');
+  }
+
   private _connectInputs(): void {
     if (!this._midiAccess) return;
 
     this._heldNotes.clear();
     this._logDevices();
 
-    let found = false;
+    const activeInputs: MIDIInput[] = [];
     for (const input of this._midiAccess.inputs.values()) {
-      console.log('[MIDI] Connecting input:', input.name, input.manufacturer);
-      input.onmidimessage = this._onMidiMessage;
-      found = true;
+      if (input.state !== 'connected' || input.connection === 'pending') continue;
+      if (MidiInput._isVirtualPort(input)) {
+        console.log('[MIDI] Skipping virtual port:', input.name);
+        continue;
+      }
+      activeInputs.push(input);
     }
 
-    this.connected = found;
-    if (found) {
-      const names = Array.from(this._midiAccess.inputs.values()).map(i => i.name);
+    if (activeInputs.length > 0) {
+      for (const input of activeInputs) {
+        console.log('[MIDI] Connecting input:', input.name, input.manufacturer);
+        input.onmidimessage = this._onMidiMessage;
+      }
+
+      this.connected = true;
+      const names = activeInputs.map(i => i.name);
       this._updateStatus(true, `Connected: ${names.join(', ')}`);
     } else {
+      this.connected = false;
       this._updateStatus(false, 'No MIDI device found');
     }
   }
@@ -114,6 +131,8 @@ export class MidiInput {
   }
 
   private _updateStatus(connected: boolean, message: string): void {
+    this.device.setType(connected ? InputDeviceType.Midi : InputDeviceType.ComputerKeyboard, message);
+
     if (this.onConnectionChange) {
       this.onConnectionChange(connected, message);
     }
