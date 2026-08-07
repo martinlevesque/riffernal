@@ -414,7 +414,7 @@ export class Game {
     this._pressedLanes.clear();
     this._completionTime = null;
     this._paused = false;
-    this._usedLearningMode = false;
+    this._usedLearningMode = this.learningMode;
     this.renderer.clearGrind();
     this._computeUsedNoteRange(song);
 

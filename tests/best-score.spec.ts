@@ -5,8 +5,10 @@ import {
   speedUp,
   waitForResults,
   expectPlayScreenActive,
-  clickBackToHome,
   expectMenuScreenActive,
+  expectMode,
+  clickBackToHome,
+  closeSongInfoPopup,
   toggleLearnMode,
   togglePlayMode,
   seedSongWithNotes,
@@ -77,6 +79,31 @@ test.describe('Best Score', () => {
     await expectMenuScreenActive(page);
 
     // Best score should NOT appear — no recordBestScore call was made
+    await expect(page.locator('.song-scores')).toHaveCount(0, { timeout: 5000 });
+  });
+
+  test('best score is NOT recorded when learn mode was auto-enabled by saved loops at startup', async ({ page }) => {
+    await startGame(page, {
+      keepSong: true,
+      songTitle: 'LoopAutoLearnScore',
+      notes: [{ time: 5.0, key: 'C4', duration: 0.4 }],
+      loops: [{ startTime: 5.0, endTime: 8.0, enabled: true }],
+    });
+    await closeSongInfoPopup(page);
+
+    // Learn mode auto-enabled at startup via the saved loop; switch to PLAY so
+    // the loop deactivates and the song can complete — but the run still
+    // "used" learn mode, so best score must NOT be recorded.
+    await togglePlayMode(page);
+    await expectMode(page, 'play');
+
+    await speedUp(page);
+    await waitForResults(page);
+
+    await clickBackToHome(page);
+    await expectMenuScreenActive(page);
+
+    // No recordBestScore call should have been made.
     await expect(page.locator('.song-scores')).toHaveCount(0, { timeout: 5000 });
   });
 

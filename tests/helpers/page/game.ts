@@ -42,6 +42,11 @@ export async function clickPlay(page: Page): Promise<void> {
   await page.locator('#btn-play').click();
 }
 
+/** Dismiss the pre-game song-info popup. */
+export async function closeSongInfoPopup(page: Page): Promise<void> {
+  await page.locator('#btn-close-song-info').click();
+}
+
 // -- mode --------------------------------------------------------------------
 
 /** Toggle learn mode on. */
