@@ -1,11 +1,16 @@
 import type { Page } from '@playwright/test';
-import { wipeDatabase, seedSong } from './api.js';
+import { wipeDatabase, seedSong, seedSongWithNotes } from './api.js';
 
 export interface StartGameOptions {
   /** Keep the seeded song in the DB (default: false). */
   keepSong?: boolean;
   /** Song title used when keepSong is true. */
   songTitle?: string;
+  /** Custom note list. When provided, seeds via seedSongWithNotes instead of
+   *  the default seedSong helper. */
+  notes?: Array<{ time: number; key: string; duration: number }>;
+  /** Saved loops to create for the seeded song (after the song is created). */
+  loops?: Array<{ startTime: number; endTime: number; enabled: boolean }>;
 }
 
 export async function goToSongList(page: Page): Promise<void> {
@@ -15,10 +20,22 @@ export async function goToSongList(page: Page): Promise<void> {
 }
 
 export async function startGame(page: Page, options: StartGameOptions = {}): Promise<void> {
-  const { keepSong = false, songTitle = 'E2E Seed' } = options;
+  const { keepSong = false, songTitle = 'E2E Seed', notes, loops } = options;
   const request = page.context().request;
   await wipeDatabase(request);
-  const { id } = await seedSong(request, songTitle);
+  const id = notes
+    ? await seedSongWithNotes(request, songTitle, notes)
+    : (await seedSong(request, songTitle)).id;
+
+  if (loops && loops.length > 0) {
+    for (const loop of loops) {
+      await request.post(`/api/songs/${id}/loops`, {
+        data: loop,
+        headers: { 'Content-Type': 'application/json' },
+      });
+    }
+  }
+
   await page.goto('/');
   await page.locator('#home-screen').waitFor({ timeout: 5000 });
   await page.locator('[data-mode="freeplay"]').click();

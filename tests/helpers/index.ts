@@ -32,6 +32,7 @@ export {
   clickRetry,
   clickRestart,
   clickPlay,
+  closeSongInfoPopup,
   toggleLearnMode,
   togglePlayMode,
   expectMode,
