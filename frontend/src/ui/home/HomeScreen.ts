@@ -33,6 +33,7 @@ const SPARK_CORE_COLOR = '#ffffff';
 
 export interface HomeScreenOptions {
   onNavigate?: (mode: AppMode) => void;
+  onLogout?: () => void;
 }
 
 export class HomeScreen {
@@ -359,6 +360,13 @@ export class HomeScreen {
     settingsPopup.addEventListener('click', (e) => {
       if (e.target === settingsPopup) close();
     });
+
+    const btnLogout = document.getElementById('btn-logout-home');
+    if (btnLogout) {
+      btnLogout.addEventListener('click', () => {
+        this._opts.onLogout?.();
+      });
+    }
   }
 
   private _setupThemeDropdown(): void {

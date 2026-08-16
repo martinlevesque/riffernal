@@ -8,6 +8,7 @@
 export interface ScoreStats {
   bestScore: number | null;
   lastScore: number | null;
+  lastPlayedAt: string | null;
 }
 
 /** A best score is only meaningful when strictly positive. A row with

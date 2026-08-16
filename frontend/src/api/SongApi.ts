@@ -1,6 +1,6 @@
 import type { Note, TrackInfo, Song } from "../utils/MidiParser.js";
 import type { HandSide } from "../utils/notes.js";
-import { parseError } from "./helpers.js";
+import { parseError, apiFetch } from "./helpers.js";
 
 export interface SongSummary {
   id: number;
@@ -51,25 +51,25 @@ export interface SongMetadata {
 }
 
 export async function fetchSongs(): Promise<SongSummary[]> {
-  const res = await fetch("/api/songs");
+  const res = await apiFetch("/api/songs");
   if (!res.ok) throw new Error(await parseError(res));
   return res.json() as Promise<SongSummary[]>;
 }
 
 export async function fetchSong(id: number): Promise<SongFull> {
-  const res = await fetch(`/api/songs/${id}`);
+  const res = await apiFetch(`/api/songs/${id}`);
   if (!res.ok) throw new Error(await parseError(res));
   return res.json() as Promise<SongFull>;
 }
 
 export async function fetchCategories(): Promise<CategoryData[]> {
-  const res = await fetch("/api/categories");
+  const res = await apiFetch("/api/categories");
   if (!res.ok) throw new Error(await parseError(res));
   return res.json() as Promise<CategoryData[]>;
 }
 
 export async function createCategory(name: string): Promise<CategoryData> {
-  const res = await fetch("/api/categories", {
+  const res = await apiFetch("/api/categories", {
     method: "POST",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify({ name }),
@@ -98,13 +98,13 @@ export async function uploadSong(input: UploadSongInput): Promise<SongFull> {
   form.set("category_id", input.categoryId === null ? "" : String(input.categoryId));
   if (input.midiFile) form.set("midi", input.midiFile);
 
-  const res = await fetch("/api/songs", { method: "POST", body: form });
+  const res = await apiFetch("/api/songs", { method: "POST", body: form });
   if (!res.ok) throw new Error(await parseError(res));
   return res.json() as Promise<SongFull>;
 }
 
 export async function updateSongCategory(id: number, categoryId: number | null): Promise<void> {
-  const res = await fetch(`/api/songs/${id}`, {
+  const res = await apiFetch(`/api/songs/${id}`, {
     method: "PUT",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify({ categoryId }),
@@ -113,7 +113,7 @@ export async function updateSongCategory(id: number, categoryId: number | null):
 }
 
 export async function updateSongTitle(id: number, title: string, artist: string): Promise<SongFull> {
-  const res = await fetch(`/api/songs/${id}`, {
+  const res = await apiFetch(`/api/songs/${id}`, {
     method: "PUT",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify({ title, artist }),
@@ -123,12 +123,12 @@ export async function updateSongTitle(id: number, title: string, artist: string)
 }
 
 export async function deleteSong(id: number): Promise<void> {
-  const res = await fetch(`/api/songs/${id}`, { method: "DELETE" });
+  const res = await apiFetch(`/api/songs/${id}`, { method: "DELETE" });
   if (!res.ok) throw new Error(await parseError(res));
 }
 
 export async function markSongPlayed(id: number): Promise<void> {
-  const res = await fetch(`/api/songs/${id}/play`, { method: "PUT" });
+  const res = await apiFetch(`/api/songs/${id}/play`, { method: "PUT" });
   if (!res.ok) throw new Error(await parseError(res));
 }
 
@@ -136,7 +136,7 @@ export async function recordBestScore(
   id: number,
   score: number,
 ): Promise<{ isNew: boolean; bestScore: number | null; lastScore: number }> {
-  const res = await fetch(`/api/songs/${id}/best-score`, {
+  const res = await apiFetch(`/api/songs/${id}/best-score`, {
     method: "PUT",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify({ score }),
@@ -152,7 +152,7 @@ export async function saveSongTrackPreferences(
   id: number,
   prefs: TrackPreferences,
 ): Promise<TrackPreferences> {
-  const res = await fetch(`/api/songs/${id}/track-preferences`, {
+  const res = await apiFetch(`/api/songs/${id}/track-preferences`, {
     method: "PUT",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify(prefs),

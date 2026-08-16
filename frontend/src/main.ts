@@ -24,9 +24,13 @@ import {
 } from './api/SongApi.js';
 import { fetchLoops } from './api/LoopApi.js';
 import { themeManager } from './themes/ThemeManager.js';
+import { AuthScreen } from './ui/auth/AuthScreen.js';
+import { getStoredUser, logout } from './api/AuthApi.js';
 
 export type AppMode = 'home' | 'freeplay' | 'settings';
 let currentMode: AppMode = 'home';
+let _homeScreen: HomeScreen | null = null;
+let _appInitialized = false;
 
 async function loadSongs(): Promise<Song[]> {
   try {
@@ -38,13 +42,61 @@ async function loadSongs(): Promise<Song[]> {
   }
 }
 
+function showApp(): void {
+  document.getElementById('auth-screen')!.classList.remove('active');
+  document.getElementById('home-screen')!.classList.add('active');
+}
+
+/** Shared logout handler: clears auth, hides the home screen, and shows
+ *  the auth screen for re-login. A successful re-login reloads the page so
+ *  the app reboots with the new user's data (the in-memory Menu held the
+ *  previous user's scores/loops). */
+async function handleLogout(): Promise<void> {
+  await logout();
+  _homeScreen?.hide();
+  const authScreen = new AuthScreen({
+    onAuth: () => {
+      authScreen.hide();
+      window.location.reload();
+    },
+  });
+  authScreen.show();
+}
+
 async function init(): Promise<void> {
   themeManager.init();
 
-  const homeScreen = new HomeScreen({
-    onNavigate: (mode: AppMode) => { currentMode = mode; },
+  const authScreen = new AuthScreen({
+    onAuth: () => {
+      authScreen.hide();
+      showApp();
+      initApp();
+    },
   });
-  homeScreen.show();
+
+  if (getStoredUser()) {
+    showApp();
+    initApp();
+  } else {
+    authScreen.show();
+  }
+}
+
+/** Initialize the app (HomeScreen, Game, Synth, etc.). Idempotent —
+ *  subsequent calls just re-show the existing HomeScreen without
+ *  duplicating event listeners or resource-heavy objects. */
+async function initApp(): Promise<void> {
+  if (_appInitialized) {
+    _homeScreen?.show();
+    return;
+  }
+  _appInitialized = true;
+
+  _homeScreen = new HomeScreen({
+    onNavigate: (mode: AppMode) => { currentMode = mode; },
+    onLogout: handleLogout,
+  });
+  _homeScreen.show();
 
   const canvas = document.getElementById('gameCanvas') as HTMLCanvasElement;
   const synth = new Synth();
@@ -57,14 +109,15 @@ async function init(): Promise<void> {
 
   const controls = new GameControls(game);
 
+  const menu = new Menu([]);
+  await menu.loadCategories();
+
   const songs = await loadSongs();
+  menu.refreshSongs(songs);
 
   if (songs.length === 0) {
     (document.getElementById('btn-start') as HTMLButtonElement).disabled = true;
   }
-
-  const menu = new Menu(songs);
-  await menu.loadCategories();
 
   game.onBackToMenu = () => {
     const freeplayScreen = document.getElementById('freeplay-screen')!;
@@ -139,10 +192,10 @@ async function init(): Promise<void> {
 
   await midiInput.start();
   menu.setMidiStatus(midiInput.connected, midiInput.connected ? 'MIDI device connected' : 'No MIDI device - use keyboard');
-  homeScreen.updateMidiStatus(midiInput.connected, midiInput.connected ? 'MIDI device connected' : 'Computer keyboard (no MIDI keyboard detected)');
+  _homeScreen!.updateMidiStatus(midiInput.connected, midiInput.connected ? 'MIDI device connected' : 'Computer keyboard (no MIDI keyboard detected)');
   midiInput.onConnectionChange = (connected, message) => {
     menu.setMidiStatus(connected, message);
-    homeScreen.updateMidiStatus(connected, connected ? message : 'Computer keyboard (no MIDI keyboard detected)');
+    _homeScreen?.updateMidiStatus(connected, connected ? message : 'Computer keyboard (no MIDI keyboard detected)');
   };
 
   // --- Component instantiation ----------------------------------------------

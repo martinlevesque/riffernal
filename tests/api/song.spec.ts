@@ -1,5 +1,5 @@
 import { test, expect, type APIRequestContext } from "@playwright/test";
-import { wipeDatabase, cleanupSongs, cleanupCategoriesByLabel } from "../helpers/index.js";
+import { wipeDatabase, cleanupSongs, cleanupCategoriesByLabel, authHeaders, authJsonHeaders } from "../helpers/index.js";
 
 const MIDI_HEADER = [0x4d, 0x54, 0x68, 0x64, 0x00, 0x00, 0x00, 0x06, 0x00, 0x00, 0x00, 0x01, 0x01, 0xe0];
 
@@ -27,9 +27,10 @@ async function createCategory(
   request: APIRequestContext,
   name: string,
 ): Promise<{ id: number; name: string }> {
+  const headers = await authJsonHeaders(request);
   const res = await request.post("/api/categories", {
     data: { name },
-    headers: { "Content-Type": "application/json" },
+    headers,
   });
   expect(res.ok()).toBeTruthy();
   const body = await res.json();
@@ -42,7 +43,8 @@ test.beforeAll(async ({ request }: { request: APIRequestContext }) => {
 
 test.describe("API: songs CRUD", () => {
   test("GET /api/songs returns an array", async ({ request }) => {
-    const res = await request.get("/api/songs");
+    const headers = await authHeaders(request);
+    const res = await request.get("/api/songs", { headers });
     expect(res.ok()).toBeTruthy();
     expect(Array.isArray(await res.json())).toBeTruthy();
   });
@@ -65,7 +67,8 @@ test.describe("API: songs CRUD", () => {
       midi,
     };
 
-    const res = await request.post("/api/songs", { multipart: form });
+    const headers = await authHeaders(request);
+    const res = await request.post("/api/songs", { multipart: form, headers });
     expect(res.status()).toBe(201);
     const body = await res.json();
     expect(body.title).toBe("E2E-Upload");
@@ -92,11 +95,12 @@ test.describe("API: songs CRUD", () => {
       category_id: "",
       midi,
     };
-    const createRes = await request.post("/api/songs", { multipart: form });
+    const headers = await authHeaders(request);
+    const createRes = await request.post("/api/songs", { multipart: form, headers });
     expect(createRes.status()).toBe(201);
     const created = await createRes.json();
 
-    const getRes = await request.get(`/api/songs/${created.id}`);
+    const getRes = await request.get(`/api/songs/${created.id}`, { headers });
     expect(getRes.ok()).toBeTruthy();
     const fetched = await getRes.json();
     expect(fetched.id).toBe(created.id);
@@ -106,8 +110,8 @@ test.describe("API: songs CRUD", () => {
   });
 
   test("GET /api/songs/:id returns 404 for missing", async ({ request }) => {
-    // Use a very large id unlikely to collide with existing rows.
-    const res = await request.get("/api/songs/98887766");
+    const headers = await authHeaders(request);
+    const res = await request.get("/api/songs/98887766", { headers });
     expect(res.status()).toBe(404);
   });
 
@@ -127,12 +131,13 @@ test.describe("API: songs CRUD", () => {
       category_id: "",
       midi,
     };
-    const created = await (await request.post("/api/songs", { multipart: form })).json();
+    const headers = await authHeaders(request);
+    const created = await (await request.post("/api/songs", { multipart: form, headers })).json();
 
-    const delRes = await request.delete(`/api/songs/${created.id}`);
+    const delRes = await request.delete(`/api/songs/${created.id}`, { headers });
     expect(delRes.ok()).toBeTruthy();
 
-    const afterRes = await request.get(`/api/songs/${created.id}`);
+    const afterRes = await request.get(`/api/songs/${created.id}`, { headers });
     expect(afterRes.status()).toBe(404);
   });
 
@@ -155,16 +160,18 @@ test.describe("API: songs CRUD", () => {
       category_id: String(cat.id),
       midi,
     };
-    const created = await (await request.post("/api/songs", { multipart: form })).json();
+    const headers = await authHeaders(request);
+    const created = await (await request.post("/api/songs", { multipart: form, headers })).json();
     expect(created.categoryId).toBe(cat.id);
 
+    const jsonHeaders = await authJsonHeaders(request);
     const updateRes = await request.put(`/api/songs/${created.id}`, {
       data: { categoryId: null },
-      headers: { "Content-Type": "application/json" },
+      headers: jsonHeaders,
     });
     expect(updateRes.ok()).toBeTruthy();
 
-    const after = await (await request.get(`/api/songs/${created.id}`)).json();
+    const after = await (await request.get(`/api/songs/${created.id}`, { headers })).json();
     expect(after.categoryId).toBeNull();
 
     await cleanupSongs(request, /^E2E-Cat$/);
@@ -187,20 +194,22 @@ test.describe("API: songs CRUD", () => {
       category_id: "",
       midi,
     };
-    const created = await (await request.post("/api/songs", { multipart: form })).json();
+    const headers = await authHeaders(request);
+    const created = await (await request.post("/api/songs", { multipart: form, headers })).json();
     expect(created.title).toBe("E2E-Rename");
     expect(created.artist).toBe("Old Artist");
 
+    const jsonHeaders = await authJsonHeaders(request);
     const updateRes = await request.put(`/api/songs/${created.id}`, {
       data: { title: "E2E-Rename-New", artist: "New Artist" },
-      headers: { "Content-Type": "application/json" },
+      headers: jsonHeaders,
     });
     expect(updateRes.ok()).toBeTruthy();
     const updated = await updateRes.json();
     expect(updated.title).toBe("E2E-Rename-New");
     expect(updated.artist).toBe("New Artist");
 
-    const getRes = await request.get(`/api/songs/${created.id}`);
+    const getRes = await request.get(`/api/songs/${created.id}`, { headers });
     const fetched = await getRes.json();
     expect(fetched.title).toBe("E2E-Rename-New");
     expect(fetched.artist).toBe("New Artist");
@@ -224,13 +233,14 @@ test.describe("API: songs CRUD", () => {
       category_id: "",
       midi,
     };
-    const created = await (await request.post("/api/songs", { multipart: form })).json();
+    const headers = await authHeaders(request);
+    const created = await (await request.post("/api/songs", { multipart: form, headers })).json();
     expect(created.lastPlayedAt).toBeNull();
 
-    const playRes = await request.put(`/api/songs/${created.id}/play`);
+    const playRes = await request.put(`/api/songs/${created.id}/play`, { headers });
     expect(playRes.ok()).toBeTruthy();
 
-    const after = await (await request.get(`/api/songs/${created.id}`)).json();
+    const after = await (await request.get(`/api/songs/${created.id}`, { headers })).json();
     expect(after.lastPlayedAt).not.toBeNull();
 
     await cleanupSongs(request, /^E2E-Played$/);
@@ -252,47 +262,45 @@ test.describe("API: songs CRUD", () => {
       category_id: "",
       midi,
     };
-    const created = await (await request.post("/api/songs", { multipart: form })).json();
+    const headers = await authHeaders(request);
+    const created = await (await request.post("/api/songs", { multipart: form, headers })).json();
 
-    // Brand new song has no stored prefs.
-    const beforeRes = await request.get(`/api/songs/${created.id}`);
+    const beforeRes = await request.get(`/api/songs/${created.id}`, { headers });
     expect(beforeRes.ok()).toBeTruthy();
     const before = await beforeRes.json();
     expect(before.trackPreferences).toBeNull();
 
-    // Save prefs: mute background track 2, mute main track.
+    const jsonHeaders = await authJsonHeaders(request);
     const saveRes = await request.put(`/api/songs/${created.id}/track-preferences`, {
       data: { backgroundTracks: [3], mainTrackMuted: true },
-      headers: { "Content-Type": "application/json" },
+      headers: jsonHeaders,
     });
     expect(saveRes.ok()).toBeTruthy();
     const saved = await saveRes.json();
     expect(saved.backgroundTracks).toEqual([3]);
     expect(saved.mainTrackMuted).toBe(true);
 
-    // GET now returns the saved prefs.
-    const afterRes = await request.get(`/api/songs/${created.id}`);
+    const afterRes = await request.get(`/api/songs/${created.id}`, { headers });
     expect(afterRes.ok()).toBeTruthy();
     const after = await afterRes.json();
     expect(after.trackPreferences).toEqual({ backgroundTracks: [3], mainTrackMuted: true });
 
-    // Re-save to overwrite (e.g. user unmutes the main track next game).
     const resaveRes = await request.put(`/api/songs/${created.id}/track-preferences`, {
       data: { backgroundTracks: [2, 3], mainTrackMuted: false },
-      headers: { "Content-Type": "application/json" },
+      headers: jsonHeaders,
     });
     expect(resaveRes.ok()).toBeTruthy();
-    const reRes = await (await request.get(`/api/songs/${created.id}`)).json();
+    const reRes = await (await request.get(`/api/songs/${created.id}`, { headers })).json();
     expect(reRes.trackPreferences).toEqual({ backgroundTracks: [2, 3], mainTrackMuted: false });
 
     await cleanupSongs(request, /^E2E-TrackPrefs$/);
   });
 
   test("PUT /api/songs/:id/track-preferences returns 404 for missing song", async ({ request }) => {
-    // Use a very large id unlikely to collide with existing rows.
+    const jsonHeaders = await authJsonHeaders(request);
     const res = await request.put(`/api/songs/98887766/track-preferences`, {
       data: { backgroundTracks: [], mainTrackMuted: false },
-      headers: { "Content-Type": "application/json" },
+      headers: jsonHeaders,
     });
     expect(res.status()).toBe(404);
   });

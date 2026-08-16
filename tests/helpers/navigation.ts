@@ -1,5 +1,5 @@
 import type { Page } from '@playwright/test';
-import { wipeDatabase, seedSong, seedSongWithNotes } from './api.js';
+import { wipeDatabase, seedSong, seedSongWithNotes, authHeaders, authJsonHeaders } from './api.js';
 
 export interface StartGameOptions {
   /** Keep the seeded song in the DB (default: false). */
@@ -28,10 +28,11 @@ export async function startGame(page: Page, options: StartGameOptions = {}): Pro
     : (await seedSong(request, songTitle)).id;
 
   if (loops && loops.length > 0) {
+    const headers = await authJsonHeaders(request);
     for (const loop of loops) {
       await request.post(`/api/songs/${id}/loops`, {
         data: loop,
-        headers: { 'Content-Type': 'application/json' },
+        headers,
       });
     }
   }
@@ -43,7 +44,7 @@ export async function startGame(page: Page, options: StartGameOptions = {}): Pro
   await page.locator('.song-item').first().dblclick();
   await page.locator('#play-screen').waitFor({ state: 'attached', timeout: 5000 });
   if (!keepSong) {
-    // Clean up the seeded song after the page navigates away from the menu.
-    page.context().request.delete(`/api/songs/${id}`).catch(() => {});
+    const headers = await authHeaders(page.context().request);
+    page.context().request.delete(`/api/songs/${id}`, { headers }).catch(() => {});
   }
 }

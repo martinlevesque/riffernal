@@ -1,4 +1,7 @@
 import { defineConfig } from '@playwright/test';
+import { join } from 'node:path';
+
+const STORAGE_PATH = join(__dirname, 'tests', '.auth', 'user.json');
 
 export default defineConfig({
   testDir: './tests',
@@ -7,6 +10,7 @@ export default defineConfig({
   retries: process.env.CI ? 2 : 0,
   workers: 1,
   reporter: 'html',
+  globalSetup: './tests/global-setup.mts',
   use: {
     baseURL: 'http://localhost:3000',
     ignoreHTTPSErrors: true,
@@ -25,7 +29,7 @@ export default defineConfig({
       name: 'e2e',
       testDir: './tests',
       testIgnore: ['**/api/**'],
-      use: { browserName: 'chromium' },
+      use: { browserName: 'chromium', storageState: STORAGE_PATH },
     },
     {
       name: 'api',

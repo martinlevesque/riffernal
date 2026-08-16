@@ -38,7 +38,9 @@ export async function clickFreeplay(page: Page): Promise<void> {
 }
 
 /** Click the game's MENU button without asserting a screen transition.
- *  The destination depends on the currentMode (e.g. freeplay → freeplay screen). */
+ *  The destination depends on the currentMode (e.g. freeplay → freeplay screen).
+ *  Uses page.evaluate because #btn-menu lives inside #results-screen which
+ *  may not be visible (display:none) when clicked from gameplay state. */
 export async function clickBackToHome(page: Page): Promise<void> {
-  await page.locator('#btn-menu').click();
+  await page.evaluate(() => document.getElementById('btn-menu')?.click());
 }

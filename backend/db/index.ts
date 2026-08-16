@@ -4,12 +4,12 @@ export {
   type SongRow,
   type InsertSongInput,
   getAllSongs,
+  getAllSongsForUser,
   getSongById,
   insertSong,
   updateSongCategory,
   updateSongTitle,
   deleteSong,
-  touchLastPlayed,
 } from "./song.ts";
 export {
   type UserSongRow,
@@ -18,6 +18,17 @@ export {
   findTrackPreferencesJson,
   upsertBestScoreRaw,
   upsertTrackPreferencesJson,
+  touchUserSongPlayed,
   findAllScoreStats,
 } from "./userSong.ts";
-export { type UserRow, getUserRow, setGameSettingsJson } from "./user.ts";
+export {
+  type UserRow,
+  getUserRow,
+  getUserByUsername,
+  createUser,
+  setGameSettingsJson,
+  userNeedsSetup,
+  createSession,
+  findSession,
+  deleteSession,
+} from "./user.ts";

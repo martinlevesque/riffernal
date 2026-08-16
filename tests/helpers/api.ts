@@ -1,5 +1,51 @@
 import { expect, type APIRequestContext } from '@playwright/test';
 
+let testAuthToken: string | null = null;
+
+/** Ensure a test user exists and return the auth token. Memoized — the
+ *  user is created once per test run (register on first call, login on
+ *  subsequent runs) so callers don't pay the round-trip every time. */
+async function ensureTestUser(request: APIRequestContext): Promise<string> {
+  if (testAuthToken) return testAuthToken;
+
+  // Try to register a test user
+  const registerRes = await request.post('/api/auth/register', {
+    data: { username: 'e2e_test_user', tagline: 'Test', password: 'test1234' },
+    headers: { 'Content-Type': 'application/json' },
+  });
+
+  if (registerRes.ok()) {
+    const data = await registerRes.json() as { token: string };
+    testAuthToken = data.token;
+    return testAuthToken;
+  }
+
+  // User might already exist, try login
+  const loginRes = await request.post('/api/auth/login', {
+    data: { username: 'e2e_test_user', password: 'test1234' },
+    headers: { 'Content-Type': 'application/json' },
+  });
+
+  if (loginRes.ok()) {
+    const data = await loginRes.json() as { token: string };
+    testAuthToken = data.token;
+    return testAuthToken;
+  }
+
+  throw new Error('Failed to authenticate test user');
+}
+
+/** Get auth headers (Authorization Bearer) for API requests. */
+export async function authHeaders(request: APIRequestContext): Promise<Record<string, string>> {
+  const token = await ensureTestUser(request);
+  return { Authorization: `Bearer ${token}` };
+}
+
+/** Get auth headers with JSON content type — for POST/PUT/PATCH bodies. */
+export async function authJsonHeaders(request: APIRequestContext): Promise<Record<string, string>> {
+  return { ...(await authHeaders(request)), 'Content-Type': 'application/json' };
+}
+
 export const SEED_MIDI = Buffer.from([
   0x4d, 0x54, 0x68, 0x64, 0x00, 0x00, 0x00, 0x06,
   0x00, 0x00, 0x00, 0x01, 0x01, 0xe0,
@@ -20,6 +66,7 @@ function buildSeedNotes(): Array<{ time: number; key: string; duration: number }
 }
 
 async function seedSong(request: APIRequestContext, title = 'E2E Seed'): Promise<{ id: number }> {
+  const headers = await authHeaders(request);
   const res = await request.post('/api/songs', {
     multipart: {
       title,
@@ -34,6 +81,7 @@ async function seedSong(request: APIRequestContext, title = 'E2E Seed'): Promise
       category_id: '',
       midi: { name: 'seed.mid', mimeType: 'audio/midi', buffer: SEED_MIDI },
     },
+    headers,
   });
   expect(res.ok()).toBeTruthy();
   return { id: (await res.json()).id };
@@ -41,40 +89,44 @@ async function seedSong(request: APIRequestContext, title = 'E2E Seed'): Promise
 
 /** Delete all songs whose title matches the given regex via the API. */
 export async function cleanupSongs(request: APIRequestContext, pattern: RegExp): Promise<void> {
-  const res = await request.get('/api/songs');
+  const headers = await authHeaders(request);
+  const res = await request.get('/api/songs', { headers });
   if (!res.ok()) return;
   const songs = (await res.json()) as Array<{ id: number; title: string }>;
   for (const song of songs) {
     if (pattern.test(song.title)) {
-      await request.delete(`/api/songs/${song.id}`);
+      await request.delete(`/api/songs/${song.id}`, { headers });
     }
   }
 }
 
 /** Delete all categories via the API. Songs in those categories become uncategorized. */
 export async function cleanupAllCategories(request: APIRequestContext): Promise<void> {
-  const res = await request.get('/api/categories');
+  const headers = await authHeaders(request);
+  const res = await request.get('/api/categories', { headers });
   if (!res.ok()) return;
   const cats = (await res.json()) as Array<{ id: number }>;
   for (const cat of cats) {
-    await request.delete(`/api/categories/${cat.id}`);
+    await request.delete(`/api/categories/${cat.id}`, { headers });
   }
 }
 
 /** Wipe ALL songs and categories — use in beforeEach for test isolation. */
 export async function wipeDatabase(request: APIRequestContext): Promise<void> {
-  const res = await request.get('/api/songs');
+  const headers = await authHeaders(request);
+  const res = await request.get('/api/songs', { headers });
   if (!res.ok()) return;
   const songs = (await res.json()) as Array<{ id: number }>;
   for (const song of songs) {
-    await request.delete(`/api/songs/${song.id}`);
+    await request.delete(`/api/songs/${song.id}`, { headers });
   }
   await cleanupAllCategories(request);
 }
 
 /** Delete a song by id via the API. */
 export async function deleteSong(request: APIRequestContext, id: number): Promise<void> {
-  await request.delete(`/api/songs/${id}`);
+  const headers = await authHeaders(request);
+  await request.delete(`/api/songs/${id}`, { headers });
 }
 
 /** Seed a song with optional custom notes. Returns the created song id. */
@@ -83,6 +135,7 @@ export async function seedSongWithNotes(
   title: string,
   notes: Array<{ time: number; key: string; duration: number }>,
 ): Promise<number> {
+  const headers = await authHeaders(request);
   const res = await request.post('/api/songs', {
     multipart: {
       title,
@@ -97,6 +150,7 @@ export async function seedSongWithNotes(
       category_id: '',
       midi: { name: 'seed.mid', mimeType: 'audio/midi', buffer: SEED_MIDI },
     },
+    headers,
   });
   expect(res.ok()).toBeTruthy();
   return (await res.json()).id;
@@ -107,19 +161,20 @@ export async function cleanupCategoriesByLabel(
   request: APIRequestContext,
   label: RegExp,
 ): Promise<void> {
-  const res = await request.get('/api/categories');
+  const headers = await authHeaders(request);
+  const res = await request.get('/api/categories', { headers });
   if (!res.ok()) return;
   const cats = (await res.json()) as Array<{ id: number; name: string }>;
   for (const cat of cats) {
     if (label.test(cat.name)) {
-      const songsRes = await request.get('/api/songs');
+      const songsRes = await request.get('/api/songs', { headers });
       const songs = (await songsRes.json()) as Array<{ id: number; categoryId: number | null }>;
       for (const song of songs) {
         if (song.categoryId === cat.id) {
-          await request.delete(`/api/songs/${song.id}`);
+          await request.delete(`/api/songs/${song.id}`, { headers });
         }
       }
-      await request.delete(`/api/categories/${cat.id}`);
+      await request.delete(`/api/categories/${cat.id}`, { headers });
     }
   }
 }

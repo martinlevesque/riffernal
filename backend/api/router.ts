@@ -1,3 +1,5 @@
+import { DomainError } from "../models/validation.ts";
+
 export function json(data: unknown, status = 200): Response {
   return new Response(JSON.stringify(data), {
     status,
@@ -39,17 +41,22 @@ export function errMsg(err: unknown): string {
   return err instanceof Error ? err.message : "Invalid request";
 }
 
-/** Error messages mapped to their HTTP status codes. Only generic
- *  HTTP-level errors belong here — model validation errors receive their
- *  status via the `fallback` parameter of `handleErr`. */
+/** Generic HTTP-level error messages mapped to their status codes. Domain
+ *  errors that need a specific status use a `DomainError` subclass (e.g.
+ *  `ValidationError` → 400, `UnauthorizedError` → 401) instead of adding
+ *  domain-specific strings here. */
 const ERROR_STATUS: Record<string, number> = {
   "Not found": 404,
   Forbidden: 403,
 };
 
-/** Map a caught error to a JSON Response. Uses `ERROR_STATUS` for known
- *  error messages, falling back to `fallback` (default 500). */
+/** Map a caught error to a JSON Response. `DomainError` instances use their
+ *  own `status`; messages in `ERROR_STATUS` map to their generic HTTP
+ *  status; anything else falls back to `fallback` (default 500). */
 export function handleErr(err: unknown, fallback = 500): Response {
+  if (err instanceof DomainError) {
+    return json({ error: err.message }, err.status);
+  }
   const msg = errMsg(err);
   return json({ error: msg }, ERROR_STATUS[msg] ?? fallback);
 }

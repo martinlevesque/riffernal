@@ -10,19 +10,19 @@ export interface LoopRow {
   created_at: string;
 }
 
-/** All loops for the default user (id=1) and a song, in time order. */
-export function findLoopsBySong(songId: number): LoopRow[] {
+export function findLoopsBySong(userId: number, songId: number): LoopRow[] {
   return db
     .query(
       `SELECT id, user_id, song_id, start_time, end_time, enabled, created_at
-       FROM user_song_loops WHERE user_id = 1 AND song_id = ?
+       FROM user_song_loops WHERE user_id = ? AND song_id = ?
        ORDER BY start_time ASC`,
     )
-    .all(songId) as LoopRow[];
+    .all(userId, songId) as LoopRow[];
 }
 
-/** Insert a new loop for the default user (id=1) and return the stored row. */
+/** Insert a new loop for a user and return the stored row. */
 export function insertLoop(
+  userId: number,
   songId: number,
   startTime: number,
   endTime: number,
@@ -31,41 +31,40 @@ export function insertLoop(
   return db
     .query(
       `INSERT INTO user_song_loops (user_id, song_id, start_time, end_time, enabled)
-       VALUES (1, ?, ?, ?, ?)
+       VALUES (?, ?, ?, ?, ?)
        RETURNING id, user_id, song_id, start_time, end_time, enabled, created_at`,
     )
-    .get(songId, startTime, endTime, enabled ? 1 : 0) as LoopRow;
+    .get(userId, songId, startTime, endTime, enabled ? 1 : 0) as LoopRow;
 }
 
 /** Flip a loop's enabled flag. Returns the updated row, or undefined when
- *  no loop with that id exists for the default user. */
-export function updateLoopEnabled(id: number, enabled: boolean): LoopRow | undefined {
+ *  no loop with that id exists for the user. */
+export function updateLoopEnabled(userId: number, id: number, enabled: boolean): LoopRow | undefined {
   const result = db
     .query(
-      `UPDATE user_song_loops SET enabled = ? WHERE id = ? AND user_id = 1
+      `UPDATE user_song_loops SET enabled = ? WHERE id = ? AND user_id = ?
        RETURNING id, user_id, song_id, start_time, end_time, enabled, created_at`,
     )
-    .get(enabled ? 1 : 0, id) as LoopRow | undefined;
+    .get(enabled ? 1 : 0, id, userId) as LoopRow | undefined;
   return result;
 }
 
 /** Update a loop's end time. Returns the updated row, or undefined when
- *  no loop with that id exists for the default user. */
-export function updateLoopEndTime(id: number, endTime: number): LoopRow | undefined {
+ *  no loop with that id exists for the user. */
+export function updateLoopEndTime(userId: number, id: number, endTime: number): LoopRow | undefined {
   const result = db
     .query(
-      `UPDATE user_song_loops SET end_time = ? WHERE id = ? AND user_id = 1
+      `UPDATE user_song_loops SET end_time = ? WHERE id = ? AND user_id = ?
        RETURNING id, user_id, song_id, start_time, end_time, enabled, created_at`,
     )
-    .get(endTime, id) as LoopRow | undefined;
+    .get(endTime, id, userId) as LoopRow | undefined;
   return result;
 }
 
-/** Delete a loop owned by the default user. Returns true when a row was
- *  actually removed. */
-export function deleteLoop(id: number): boolean {
+/** Delete a loop owned by the user. Returns true when a row was removed. */
+export function deleteLoop(userId: number, id: number): boolean {
   const result = db
-    .query("DELETE FROM user_song_loops WHERE id = ? AND user_id = 1")
-    .run(id);
+    .query("DELETE FROM user_song_loops WHERE id = ? AND user_id = ?")
+    .run(id, userId);
   return result.changes > 0;
 }

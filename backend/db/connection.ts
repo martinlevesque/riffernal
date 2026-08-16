@@ -36,8 +36,7 @@ if (isNew) {
       track_hands TEXT,
       background_tracks TEXT,
       imported INTEGER NOT NULL DEFAULT 1,
-      created_at TEXT NOT NULL DEFAULT (datetime('now')),
-      last_played_at TEXT
+      created_at TEXT NOT NULL DEFAULT (datetime('now'))
     );
 
     CREATE INDEX idx_songs_category ON songs(category_id);
@@ -46,11 +45,21 @@ if (isNew) {
 
 db.exec(`
   CREATE TABLE IF NOT EXISTS users (
-    id INTEGER PRIMARY KEY CHECK (id = 1),
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    username TEXT UNIQUE NOT NULL DEFAULT '',
+    tagline TEXT NOT NULL DEFAULT '',
+    password_hash TEXT NOT NULL DEFAULT '',
     game_settings TEXT NOT NULL DEFAULT '{}'
   );
 `);
-db.exec(`INSERT OR IGNORE INTO users (id, game_settings) VALUES (1, '{}');`);
+
+db.exec(`
+  CREATE TABLE IF NOT EXISTS sessions (
+    token TEXT PRIMARY KEY,
+    user_id INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+    created_at TEXT NOT NULL DEFAULT (datetime('now'))
+  );
+`);
 
 db.exec(`
   CREATE TABLE IF NOT EXISTS user_songs (
@@ -70,6 +79,11 @@ addColumnIfMissing("songs", "imported_by_user_id", "INTEGER REFERENCES users(id)
 // the muted state survives into the next game played. Stored as JSON on
 // the `track_preferences` column.
 addColumnIfMissing("user_songs", "track_preferences", "TEXT");
+
+// Per-user last-played timestamp. Lives on user_songs (not songs) so each
+// user has their own "recently played" ordering without clobbering other
+// users. The legacy global songs.last_played_at column is dropped.
+addColumnIfMissing("user_songs", "last_played_at", "TEXT");
 
 // Per-user-per-song saved loops. Each row is one loop region (start/end in
 // seconds) with an `enabled` flag controlling whether it participates in

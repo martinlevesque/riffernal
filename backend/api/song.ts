@@ -7,15 +7,14 @@ import {
   recordPlay,
   recordBestScore,
   saveTrackPreferences,
-  currentUser,
   type InsertSongInput,
   type SongUpdate,
-  type TrackPreferences,
 } from "../models/index.ts";
 import { json, parseJson, errMsg, handleErr, numOrNull, type Handler } from "./router.ts";
+import { requireAuth } from "./middleware.ts";
 
 /** Parse the multipart form for POST /api/songs into an InsertSongInput. */
-async function parseCreateSongForm(req: Request): Promise<InsertSongInput> {
+async function parseCreateSongForm(req: Request, userId: number): Promise<InsertSongInput> {
   const form = await req.formData();
   const midiFile = form.get("midi") as File | null;
   return {
@@ -30,7 +29,7 @@ async function parseCreateSongForm(req: Request): Promise<InsertSongInput> {
     selected_track_indices: (form.get("selected_track_indices") as string | null) ?? null,
     track_hands: (form.get("track_hands") as string | null) ?? null,
     background_tracks: (form.get("background_tracks") as string | null) ?? null,
-    imported_by_user_id: currentUser().id,
+    imported_by_user_id: userId,
   };
 }
 
@@ -38,14 +37,20 @@ export const songRoutes = [
   {
     method: "GET",
     path: "/api/songs",
-    handler: (() => json(listSongs())) as Handler,
+    handler: ((req: Request) => {
+      const auth = requireAuth(req);
+      if (auth instanceof Response) return auth;
+      return json(listSongs(auth.id));
+    }) as Handler,
   },
   {
     method: "POST",
     path: "/api/songs",
     handler: (async (req: Request) => {
+      const auth = requireAuth(req);
+      if (auth instanceof Response) return auth;
       try {
-        const input = await parseCreateSongForm(req);
+        const input = await parseCreateSongForm(req, auth.id);
         return json(createSong(input), 201);
       } catch (err) {
         return handleErr(err, /UNIQUE|empty/i.test(errMsg(err)) ? 400 : 500);
@@ -55,17 +60,21 @@ export const songRoutes = [
   {
     method: "GET",
     path: "/api/songs/:id",
-    handler: ((_req: Request, { id }: Record<string, string>) => {
-      const song = getSong(Number(id));
+    handler: ((req: Request, { id }: Record<string, string>) => {
+      const auth = requireAuth(req);
+      if (auth instanceof Response) return auth;
+      const song = getSong(Number(id), auth.id);
       return song ? json(song) : json({ error: "Not found" }, 404);
     }) as Handler,
   },
   {
     method: "DELETE",
     path: "/api/songs/:id",
-    handler: ((_req: Request, { id }: Record<string, string>) => {
+    handler: ((req: Request, { id }: Record<string, string>) => {
+      const auth = requireAuth(req);
+      if (auth instanceof Response) return auth;
       try {
-        return json(removeSong(Number(id)));
+        return json(removeSong(Number(id), auth.id));
       } catch (err) {
         return handleErr(err);
       }
@@ -74,63 +83,46 @@ export const songRoutes = [
   {
     method: "PUT",
     path: "/api/songs/:id",
-    handler: ((req: Request, { id }: Record<string, string>) =>
-      parseJson<SongUpdate>(req)
-        .then((body) => {
-          try {
-            const updated = updateSong(Number(id), body);
-            return updated ? json(updated) : json({ error: "Not found" }, 404);
-          } catch (err) {
-            return handleErr(err, 400);
-          }
-        })
-        .catch(() => json({ error: "Invalid request" }, 400))) as Handler,
+    handler: (async (req: Request, { id }: Record<string, string>) => {
+      const auth = requireAuth(req);
+      if (auth instanceof Response) return auth;
+      const body = await parseJson<SongUpdate>(req);
+      const updated = updateSong(Number(id), auth.id, body);
+      return updated ? json(updated) : json({ error: "Not found" }, 404);
+    }) as Handler,
   },
   {
     method: "PUT",
     path: "/api/songs/:id/play",
-    handler: ((_req: Request, { id }: Record<string, string>) => {
-      const touched = recordPlay(Number(id));
+    handler: ((req: Request, { id }: Record<string, string>) => {
+      const auth = requireAuth(req);
+      if (auth instanceof Response) return auth;
+      const touched = recordPlay(Number(id), auth.id);
       return touched ? json({ ok: true }) : json({ error: "Not found" }, 404);
     }) as Handler,
   },
   {
     method: "PUT",
     path: "/api/songs/:id/best-score",
-    handler: ((req: Request, { id }: Record<string, string>) =>
-      parseJson<{ score: number }>(req)
-        .then(({ score }) => {
-          if (typeof score !== "number" || !isFinite(score) || score < 0) {
-            return json({ error: "Invalid score" }, 400);
-          }
-
-          const result = recordBestScore(Number(id), score);
-          return result
-            ? json({ isNew: result.isNew, bestScore: result.bestScore, lastScore: result.lastScore })
-            : json({ error: "Not found" }, 404);
-        })
-        .catch(() => json({ error: "Invalid request" }, 400))) as Handler,
+    handler: (async (req: Request, { id }: Record<string, string>) => {
+      const auth = requireAuth(req);
+      if (auth instanceof Response) return auth;
+      const { score } = await parseJson<{ score: number }>(req);
+      const result = recordBestScore(Number(id), auth.id, score);
+      return result
+        ? json({ isNew: result.isNew, bestScore: result.bestScore, lastScore: result.lastScore })
+        : json({ error: "Not found" }, 404);
+    }) as Handler,
   },
   {
     method: "PUT",
     path: "/api/songs/:id/track-preferences",
-    handler: ((req: Request, { id }: Record<string, string>) =>
-      parseJson<{ backgroundTracks?: number[]; mainTrackMuted?: boolean }>(req)
-        .then((body) => {
-          if (!Array.isArray(body.backgroundTracks) || body.backgroundTracks.some((n) => typeof n !== "number")) {
-            return json({ error: "Invalid backgroundTracks" }, 400);
-          }
-          if (typeof body.mainTrackMuted !== "boolean") {
-            return json({ error: "Invalid mainTrackMuted" }, 400);
-          }
-
-          const prefs: TrackPreferences = {
-            backgroundTracks: body.backgroundTracks,
-            mainTrackMuted: body.mainTrackMuted,
-          };
-          const saved = saveTrackPreferences(Number(id), prefs);
-          return saved ? json(saved) : json({ error: "Not found" }, 404);
-        })
-        .catch(() => json({ error: "Invalid request" }, 400))) as Handler,
+    handler: (async (req: Request, { id }: Record<string, string>) => {
+      const auth = requireAuth(req);
+      if (auth instanceof Response) return auth;
+      const body = await parseJson<{ backgroundTracks?: number[]; mainTrackMuted?: boolean }>(req);
+      const saved = saveTrackPreferences(Number(id), auth.id, body);
+      return saved ? json(saved) : json({ error: "Not found" }, 404);
+    }) as Handler,
   },
 ];

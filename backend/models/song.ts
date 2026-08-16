@@ -1,11 +1,10 @@
 import {
-  getAllSongs,
+  getAllSongsForUser,
   getSongById,
   insertSong,
   updateSongCategory,
   updateSongTitle,
   deleteSong,
-  touchLastPlayed,
   type SongRow,
   type InsertSongInput,
 } from "../db/song.ts";
@@ -13,6 +12,7 @@ import {
   findScoreStats,
   upsertBestScoreRaw,
   findAllScoreStats,
+  touchUserSongPlayed,
 } from "../db/userSong.ts";
 import { isBestScoreValid, type ScoreStats } from "./scoreStats.ts";
 import {
@@ -20,20 +20,26 @@ import {
   saveTrackPreferences as savePrefs,
   type TrackPreferences,
 } from "./trackPreferences.ts";
-import { currentUser } from "./user.ts";
+import { ValidationError } from "./validation.ts";
 
 export type { InsertSongInput } from "../db/song.ts";
 export type { TrackPreferences } from "./trackPreferences.ts";
 
-/** Adapt a raw best_score/last_score row into a ScoreStats DTO, applying the
- *  domain rule that a best_score of 0 means "no record yet". */
+/** Stats used when a song has no user_songs row yet (never played / scored). */
+const EMPTY_STATS: ScoreStats = { bestScore: null, lastScore: null, lastPlayedAt: null };
+
+/** Adapt a raw best_score/last_score/last_played_at row into a ScoreStats
+ *  DTO, applying the domain rule that a best_score of 0 means "no record
+ *  yet". Returns EMPTY_STATS when the row is missing. */
 function toScoreStats(
-  raw: { best_score: number; last_score: number | null } | undefined,
+  raw: { best_score: number; last_score: number | null; last_played_at: string | null } | undefined,
 ): ScoreStats {
-  const best = raw?.best_score ?? null;
+  if (!raw) return EMPTY_STATS;
+  const best = raw.best_score;
   return {
     bestScore: isBestScoreValid(best) ? best : null,
-    lastScore: raw?.last_score ?? null,
+    lastScore: raw.last_score ?? null,
+    lastPlayedAt: raw.last_played_at ?? null,
   };
 }
 
@@ -64,11 +70,7 @@ export interface SongFull extends SongSummary {
   trackPreferences: TrackPreferences | null;
 }
 
-function rowToSummary(
-  row: SongRow,
-  bestScore: number | null = null,
-  lastScore: number | null = null,
-): SongSummary {
+function rowToSummary(row: SongRow, stats: ScoreStats = EMPTY_STATS): SongSummary {
   return {
     id: row.id,
     title: row.title,
@@ -79,20 +81,19 @@ function rowToSummary(
     imported: row.imported_by_user_id !== null,
     importedByUserId: row.imported_by_user_id,
     createdAt: row.created_at,
-    lastPlayedAt: row.last_played_at,
-    bestScore,
-    lastScore,
+    lastPlayedAt: stats.lastPlayedAt,
+    bestScore: stats.bestScore,
+    lastScore: stats.lastScore,
   };
 }
 
 function rowToFull(
   row: SongRow,
-  bestScore: number | null = null,
-  lastScore: number | null = null,
+  stats: ScoreStats = EMPTY_STATS,
   trackPreferences: TrackPreferences | null = null,
 ): SongFull {
   return {
-    ...rowToSummary(row, bestScore, lastScore),
+    ...rowToSummary(row, stats),
     notes: JSON.parse(row.notes ?? "[]"),
     tracks: row.tracks ? JSON.parse(row.tracks) : [],
     selectedTrackIndices: row.selected_track_indices ? JSON.parse(row.selected_track_indices) : [],
@@ -102,33 +103,42 @@ function rowToFull(
   };
 }
 
-/** List all songs as summaries, joined with per-song score stats. */
-export function listSongs(): SongSummary[] {
-  const rawStats = findAllScoreStats();
+/** List all songs as summaries, joined with the user's per-song score
+ *  stats. Ordered by the user's last-played time (most recent first,
+ *  never-played last), then by song creation. */
+export function listSongs(userId: number): SongSummary[] {
+  const rawStats = findAllScoreStats(userId);
   const statsBySongId = new Map<number, ScoreStats>();
   for (const row of rawStats) {
     statsBySongId.set(row.song_id, toScoreStats(row));
   }
-  return getAllSongs().map((row) => {
-    const stats = statsBySongId.get(row.id);
-    return rowToSummary(row, stats?.bestScore ?? null, stats?.lastScore ?? null);
+  const songs = getAllSongsForUser(userId).map((row) => {
+    const stats = statsBySongId.get(row.id) ?? EMPTY_STATS;
+    return rowToSummary(row, stats);
+  });
+  return songs.sort((a, b) => {
+    if (a.lastPlayedAt && b.lastPlayedAt) return a.lastPlayedAt < b.lastPlayedAt ? 1 : -1;
+    if (a.lastPlayedAt) return -1;
+    if (b.lastPlayedAt) return 1;
+    return 0;
   });
 }
 
-/** Get one song as a full DTO, or null when not found. Includes score
- *  stats and parsed track prefs. */
-export function getSong(id: number): SongFull | null {
+/** Get one song as a full DTO, or null when not found or not owned by
+ *  the requesting user. Includes the user's score stats and parsed
+ *  track prefs. */
+export function getSong(id: number, userId: number): SongFull | null {
   const row = getSongById(id);
-  if (!row) return null;
-  const stats = toScoreStats(findScoreStats(row.id));
-  const prefs = getTrackPreferences(row.id);
-  return rowToFull(row, stats.bestScore, stats.lastScore, prefs);
+  if (!row || row.imported_by_user_id !== userId) return null;
+  const stats = toScoreStats(findScoreStats(userId, row.id));
+  const prefs = getTrackPreferences(userId, row.id);
+  return rowToFull(row, stats, prefs);
 }
 
 /** Create a song from form-like input, returning the full DTO. */
 export function createSong(input: InsertSongInput): SongFull {
   const row = insertSong(input);
-  return rowToFull(row, null);
+  return rowToFull(row);
 }
 
 /** Changes accepted by `updateSong`. */
@@ -138,16 +148,23 @@ export interface SongUpdate {
   artist?: string;
 }
 
+/** Validate that a title is non-empty (after trim). Throws on invalid
+ *  input. */
+function validateTitle(title: string): void {
+  if (!title.trim()) {
+    throw new ValidationError("Title cannot be empty");
+  }
+}
+
 /** Update a song's category and/or title/artist. Returns the updated full
- *  DTO, or null when the song doesn't exist. Throws when an empty title is
- *  provided. The controller maps those to 404 / 400 respectively. */
-export function updateSong(id: number, changes: SongUpdate): SongFull | null {
+ *  DTO with the user's score stats, or null when the song doesn't exist.
+ *  Throws when an empty title is provided. The controller maps those to
+ *  404 / 400 respectively. */
+export function updateSong(id: number, userId: number, changes: SongUpdate): SongFull | null {
   if (!getSongById(id)) return null;
 
   if (changes.title !== undefined) {
-    if (!changes.title.trim()) {
-      throw new Error("Title cannot be empty");
-    }
+    validateTitle(changes.title);
     updateSongTitle(id, changes.title, changes.artist ?? "");
   }
 
@@ -156,20 +173,20 @@ export function updateSong(id: number, changes: SongUpdate): SongFull | null {
   }
 
   const updated = getSongById(id)!;
-  const stats = toScoreStats(findScoreStats(id));
-  return rowToFull(updated, stats.bestScore, stats.lastScore);
+  const stats = toScoreStats(findScoreStats(userId, id));
+  return rowToFull(updated, stats);
 }
 
 /** Delete a song. Returns a truthy result when deleted, or throws when
  *  not found or when the song is owned by another user. */
-export function removeSong(id: number): { ok: boolean } {
+export function removeSong(id: number, userId: number): { ok: boolean } {
   const row = getSongById(id);
 
   if (!row) {
     throw new Error("Not found");
   }
 
-  if (row.imported_by_user_id == null || row.imported_by_user_id !== currentUser().id) {
+  if (row.imported_by_user_id == null || row.imported_by_user_id !== userId) {
     throw new Error("Forbidden");
   }
 
@@ -177,11 +194,11 @@ export function removeSong(id: number): { ok: boolean } {
   return { ok: true };
 }
 
-/** Touch last_played_at for a song. Returns true when touched, false when
- *  not found. */
-export function recordPlay(id: number): boolean {
+/** Touch the user's per-song last_played_at. Returns true when touched,
+ *  false when the song doesn't exist. */
+export function recordPlay(id: number, userId: number): boolean {
   if (!getSongById(id)) return false;
-  touchLastPlayed(id);
+  touchUserSongPlayed(userId, id);
   return true;
 }
 
@@ -194,22 +211,32 @@ export interface RecordBestScoreResult {
   isNew: boolean;
 }
 
-/** Record a best score for a song. `score` must be a finite, non-negative
- *  number (validated by the controller). Returns null when the song doesn't
- *  exist. */
-export function recordBestScore(songId: number, score: number): RecordBestScoreResult | null {
+/** Validate that `score` is a finite, non-negative number. Throws on
+ *  invalid input. */
+function validateScore(score: unknown): asserts score is number {
+  if (typeof score !== "number" || !isFinite(score) || score < 0) {
+    throw new ValidationError("Invalid score");
+  }
+}
+
+/** Record a best score for a song. Validates `score` first (throws on
+ *  invalid input). Returns null when the song doesn't exist. */
+export function recordBestScore(songId: number, userId: number, score: unknown): RecordBestScoreResult | null {
+  validateScore(score);
   if (!getSongById(songId)) return null;
-  const raw = upsertBestScoreRaw(songId, score);
+  const raw = upsertBestScoreRaw(userId, songId, score);
   const bestScore = isBestScoreValid(raw.best_score) ? raw.best_score : null;
   return { bestScore, lastScore: raw.last_score, isNew: bestScore != null && raw.best_score === score };
 }
 
-/** Persist the user's track prefs for a song. Returns the prefs back, or
- *  null when the song doesn't exist. */
+/** Persist the user's track prefs for a song. Validates `input` first
+ *  (throws on invalid backgroundTracks / mainTrackMuted). Returns the prefs
+ *  back, or null when the song doesn't exist. */
 export function saveTrackPreferences(
   songId: number,
-  prefs: TrackPreferences,
+  userId: number,
+  input: { backgroundTracks?: unknown; mainTrackMuted?: unknown },
 ): TrackPreferences | null {
   if (!getSongById(songId)) return null;
-  return savePrefs(songId, prefs);
+  return savePrefs(userId, songId, input);
 }
