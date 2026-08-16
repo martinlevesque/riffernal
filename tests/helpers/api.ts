@@ -63,15 +63,73 @@ async function ensureTestUser(request: APIRequestContext): Promise<string> {
   throw new Error('Failed to authenticate test user');
 }
 
+/** Build Authorization Bearer headers for an explicit token. Lower-level
+ *  building block for `authHeaders`/`authJsonHeaders`; use those when you
+ *  just need the default test-user session. */
+export function bearer(token: string): Record<string, string> {
+  return { Authorization: `Bearer ${token}` };
+}
+
 /** Get auth headers (Authorization Bearer) for API requests. */
 export async function authHeaders(request: APIRequestContext): Promise<Record<string, string>> {
   const token = await ensureTestUser(request);
-  return { Authorization: `Bearer ${token}` };
+  return bearer(token);
 }
 
 /** Get auth headers with JSON content type — for POST/PUT/PATCH bodies. */
 export async function authJsonHeaders(request: APIRequestContext): Promise<Record<string, string>> {
   return { ...(await authHeaders(request)), 'Content-Type': 'application/json' };
+}
+
+const DEFAULT_PASSWORD = 'test1234';
+const DEFAULT_TAGLINE = 'Test';
+
+/** Generate a unique username with the given prefix. Useful for creating
+ *  throwaway users in auth tests without colliding with the shared
+ *  `e2e_test_user`. */
+export function uniqueUsername(prefix = 'session_user'): string {
+  return `${prefix}_${Math.random().toString(36).slice(2, 10)}`;
+}
+
+interface AuthResponse {
+  token: string;
+}
+
+/** Register a new user and return the session token. Defaults mirror the
+ *  shared test-user credentials; override for custom scenarios. */
+export async function register(
+  request: APIRequestContext,
+  username: string,
+  password = DEFAULT_PASSWORD,
+  tagline = DEFAULT_TAGLINE,
+): Promise<string> {
+  const res = await request.post('/api/auth/register', {
+    data: { username, tagline, password },
+    headers: { 'Content-Type': 'application/json' },
+  });
+
+  expect(res.ok()).toBeTruthy();
+  return ((await res.json()) as AuthResponse).token;
+}
+
+/** Log in an existing user and return the session token. */
+export async function login(
+  request: APIRequestContext,
+  username: string,
+  password = DEFAULT_PASSWORD,
+): Promise<string> {
+  const res = await request.post('/api/auth/login', {
+    data: { username, password },
+    headers: { 'Content-Type': 'application/json' },
+  });
+
+  expect(res.ok()).toBeTruthy();
+  return ((await res.json()) as AuthResponse).token;
+}
+
+/** Log out a session by token. */
+export async function logout(request: APIRequestContext, token: string): Promise<void> {
+  await request.post('/api/auth/logout', { headers: bearer(token) });
 }
 
 export const SEED_MIDI = Buffer.from([

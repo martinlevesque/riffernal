@@ -13,6 +13,11 @@ export {
   cleanupCategoriesByLabel,
   authHeaders,
   authJsonHeaders,
+  bearer,
+  uniqueUsername,
+  register,
+  login,
+  logout,
 } from './api.js';
 
 export {
