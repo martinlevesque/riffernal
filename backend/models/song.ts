@@ -20,6 +20,7 @@ import {
   saveTrackPreferences as savePrefs,
   type TrackPreferences,
 } from "./trackPreferences.ts";
+import { ValidationError } from "./validation.ts";
 
 export type { InsertSongInput } from "../db/song.ts";
 export type { TrackPreferences } from "./trackPreferences.ts";
@@ -137,6 +138,14 @@ export interface SongUpdate {
   artist?: string;
 }
 
+/** Validate that a title is non-empty (after trim). Throws on invalid
+ *  input. */
+function validateTitle(title: string): void {
+  if (!title.trim()) {
+    throw new ValidationError("Title cannot be empty");
+  }
+}
+
 /** Update a song's category and/or title/artist. Returns the updated full
  *  DTO, or null when the song doesn't exist. Throws when an empty title is
  *  provided. The controller maps those to 404 / 400 respectively. */
@@ -144,9 +153,7 @@ export function updateSong(id: number, changes: SongUpdate): SongFull | null {
   if (!getSongById(id)) return null;
 
   if (changes.title !== undefined) {
-    if (!changes.title.trim()) {
-      throw new Error("Title cannot be empty");
-    }
+    validateTitle(changes.title);
     updateSongTitle(id, changes.title, changes.artist ?? "");
   }
 
@@ -192,23 +199,32 @@ export interface RecordBestScoreResult {
   isNew: boolean;
 }
 
-/** Record a best score for a song. `score` must be a finite, non-negative
- *  number (validated by the controller). Returns null when the song doesn't
- *  exist. */
-export function recordBestScore(songId: number, userId: number, score: number): RecordBestScoreResult | null {
+/** Validate that `score` is a finite, non-negative number. Throws on
+ *  invalid input. */
+function validateScore(score: unknown): asserts score is number {
+  if (typeof score !== "number" || !isFinite(score) || score < 0) {
+    throw new ValidationError("Invalid score");
+  }
+}
+
+/** Record a best score for a song. Validates `score` first (throws on
+ *  invalid input). Returns null when the song doesn't exist. */
+export function recordBestScore(songId: number, userId: number, score: unknown): RecordBestScoreResult | null {
+  validateScore(score);
   if (!getSongById(songId)) return null;
   const raw = upsertBestScoreRaw(userId, songId, score);
   const bestScore = isBestScoreValid(raw.best_score) ? raw.best_score : null;
   return { bestScore, lastScore: raw.last_score, isNew: bestScore != null && raw.best_score === score };
 }
 
-/** Persist the user's track prefs for a song. Returns the prefs back, or
- *  null when the song doesn't exist. */
+/** Persist the user's track prefs for a song. Validates `input` first
+ *  (throws on invalid backgroundTracks / mainTrackMuted). Returns the prefs
+ *  back, or null when the song doesn't exist. */
 export function saveTrackPreferences(
   songId: number,
   userId: number,
-  prefs: TrackPreferences,
+  input: { backgroundTracks?: unknown; mainTrackMuted?: unknown },
 ): TrackPreferences | null {
   if (!getSongById(songId)) return null;
-  return savePrefs(userId, songId, prefs);
+  return savePrefs(userId, songId, input);
 }

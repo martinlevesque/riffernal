@@ -6,6 +6,7 @@ import {
   deleteLoop as deleteLoopRow,
   type LoopRow,
 } from "../db/loop.ts";
+import { ValidationError } from "./validation.ts";
 
 /** Domain DTO for one saved loop. `enabled` controls whether the loop
  *  participates in chained playback. */
@@ -32,37 +33,58 @@ export function listLoops(userId: number, songId: number): Loop[] {
   return findLoopsBySong(userId, songId).map(rowToLoop);
 }
 
-/** Persist a new loop. Validates that `startTime < endTime` and both are
- *  non-negative finite numbers; throws on invalid input. */
+/** Validate that both boundaries are finite, non-negative numbers with
+ *  `startTime < endTime`. Throws on invalid input. */
+function validateLoopBoundaries(startTime: unknown, endTime: unknown): void {
+  if (typeof startTime !== "number" || typeof endTime !== "number"
+    || !Number.isFinite(startTime) || !Number.isFinite(endTime)
+    || startTime < 0 || endTime < 0 || startTime >= endTime) {
+    throw new ValidationError("Invalid loop boundaries");
+  }
+}
+
+/** Persist a new loop. Validates boundaries; throws on invalid input. */
 export function createLoop(
   userId: number,
   songId: number,
-  startTime: number,
-  endTime: number,
+  startTime: unknown,
+  endTime: unknown,
   enabled: boolean,
 ): Loop {
-  if (!Number.isFinite(startTime) || !Number.isFinite(endTime)
-    || startTime < 0 || endTime < 0 || startTime >= endTime) {
-    throw new Error("Invalid loop boundaries");
-  }
-  const row = insertLoop(userId, songId, startTime, endTime, enabled);
+  validateLoopBoundaries(startTime, endTime);
+  const row = insertLoop(userId, songId, startTime as number, endTime as number, enabled);
   return rowToLoop(row);
 }
 
+/** Validate that `enabled` is a boolean. Throws on invalid input. */
+function validateEnabled(enabled: unknown): asserts enabled is boolean {
+  if (typeof enabled !== "boolean") {
+    throw new ValidationError("Invalid enabled flag");
+  }
+}
+
 /** Toggle a loop's enabled flag. Returns the updated DTO, or null when no
- *  loop with that id exists for the user. */
-export function setLoopEnabled(userId: number, id: number, enabled: boolean): Loop | null {
+ *  loop with that id exists for the user. Throws when `enabled` is not a
+ *  boolean. */
+export function setLoopEnabled(userId: number, id: number, enabled: unknown): Loop | null {
+  validateEnabled(enabled);
   const row = updateLoopEnabledRow(userId, id, enabled);
   return row ? rowToLoop(row) : null;
 }
 
-/** Update a loop's end time. Validates that the new end is greater than
- *  the existing start_time and finite. Returns the updated DTO, or null
- *  when the loop doesn't exist. */
-export function setLoopEndTime(userId: number, id: number, endTime: number): Loop | null {
-  if (!Number.isFinite(endTime) || endTime < 0) {
-    throw new Error("Invalid end time");
+/** Validate that `endTime` is a finite, non-negative number. Throws on
+ *  invalid input. */
+function validateEndTime(endTime: unknown): asserts endTime is number {
+  if (typeof endTime !== "number" || !Number.isFinite(endTime) || endTime < 0) {
+    throw new ValidationError("Invalid end time");
   }
+}
+
+/** Update a loop's end time. Validates that the new end is finite and
+ *  non-negative. Returns the updated DTO, or null when the loop doesn't
+ *  exist. */
+export function setLoopEndTime(userId: number, id: number, endTime: unknown): Loop | null {
+  validateEndTime(endTime);
   const row = updateLoopEndTimeRow(userId, id, endTime);
   return row ? rowToLoop(row) : null;
 }

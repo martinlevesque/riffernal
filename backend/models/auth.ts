@@ -7,6 +7,7 @@ import {
   findSession,
   deleteSession,
 } from "../db/user.ts";
+import { ValidationError, UnauthorizedError, ConflictError } from "./validation.ts";
 
 export interface AuthUser {
   id: number;
@@ -25,11 +26,35 @@ export function verifyPassword(password: string, hash: string): Promise<boolean>
 export function generateToken(): string {
   const bytes = new Uint8Array(32);
   crypto.getRandomValues(bytes);
+
   return Array.from(bytes, (b) => b.toString(16).padStart(2, "0")).join("");
 }
 
 export function needsSetup(): boolean {
   return userNeedsSetup();
+}
+
+/** Validate the username format (length, allowed characters), returning the
+ *  trimmed value. Throws a `ValidationError` on invalid input. */
+function validateUsername(username: string): string {
+  const trimmed = username.trim();
+
+  if (trimmed.length < 2 || trimmed.length > 32) {
+    throw new ValidationError("Username must be 2-32 characters");
+  }
+
+  if (!/^[a-zA-Z0-9_-]+$/.test(trimmed)) {
+    throw new ValidationError("Username can only contain letters, numbers, _ or -");
+  }
+
+  return trimmed;
+}
+
+/** Validate password length. Throws a `ValidationError` on invalid input. */
+function validatePassword(password: string): void {
+  if (password.length < 4) {
+    throw new ValidationError("Password must be at least 4 characters");
+  }
 }
 
 export async function setupAdmin(
@@ -38,11 +63,13 @@ export async function setupAdmin(
   password: string,
 ): Promise<{ user: AuthUser; token: string }> {
   if (!userNeedsSetup()) {
-    throw new Error("Already set up");
+    throw new ConflictError("Already set up");
   }
 
+  const trimmed = validateUsername(username);
+  validatePassword(password);
+
   const hash = await hashPassword(password);
-  const trimmed = username.trim();
   const user = createUser(trimmed, tagline.trim(), hash);
   const token = generateToken();
   createSession(token, user.id);
@@ -54,18 +81,11 @@ export async function register(
   tagline: string,
   password: string,
 ): Promise<{ user: AuthUser; token: string }> {
-  const trimmed = username.trim();
-  if (trimmed.length < 2 || trimmed.length > 32) {
-    throw new Error("Username must be 2-32 characters");
-  }
-  if (!/^[a-zA-Z0-9_-]+$/.test(trimmed)) {
-    throw new Error("Username can only contain letters, numbers, _ or -");
-  }
-  if (password.length < 4) {
-    throw new Error("Password must be at least 4 characters");
-  }
+  const trimmed = validateUsername(username);
+  validatePassword(password);
+
   if (getUserByUsername(trimmed)) {
-    throw new Error("Username already taken");
+    throw new ConflictError("Username already taken");
   }
 
   const hash = await hashPassword(password);
@@ -81,11 +101,11 @@ export async function login(
 ): Promise<{ user: AuthUser; token: string }> {
   const row = getUserByUsername(username.trim());
   if (!row) {
-    throw new Error("Invalid username or password");
+    throw new UnauthorizedError("Invalid username or password");
   }
   const ok = await verifyPassword(password, row.password_hash);
   if (!ok) {
-    throw new Error("Invalid username or password");
+    throw new UnauthorizedError("Invalid username or password");
   }
   const token = generateToken();
   createSession(token, row.id);

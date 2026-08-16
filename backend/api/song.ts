@@ -9,7 +9,6 @@ import {
   saveTrackPreferences,
   type InsertSongInput,
   type SongUpdate,
-  type TrackPreferences,
 } from "../models/index.ts";
 import { json, parseJson, errMsg, handleErr, numOrNull, type Handler } from "./router.ts";
 import { requireAuth } from "./middleware.ts";
@@ -84,19 +83,12 @@ export const songRoutes = [
   {
     method: "PUT",
     path: "/api/songs/:id",
-    handler: ((req: Request, { id }: Record<string, string>) => {
+    handler: (async (req: Request, { id }: Record<string, string>) => {
       const auth = requireAuth(req);
       if (auth instanceof Response) return auth;
-      return parseJson<SongUpdate>(req)
-        .then((body) => {
-          try {
-            const updated = updateSong(Number(id), body);
-            return updated ? json(updated) : json({ error: "Not found" }, 404);
-          } catch (err) {
-            return handleErr(err, 400);
-          }
-        })
-        .catch(() => json({ error: "Invalid request" }, 400));
+      const body = await parseJson<SongUpdate>(req);
+      const updated = updateSong(Number(id), body);
+      return updated ? json(updated) : json({ error: "Not found" }, 404);
     }) as Handler,
   },
   {
@@ -112,46 +104,25 @@ export const songRoutes = [
   {
     method: "PUT",
     path: "/api/songs/:id/best-score",
-    handler: ((req: Request, { id }: Record<string, string>) => {
+    handler: (async (req: Request, { id }: Record<string, string>) => {
       const auth = requireAuth(req);
       if (auth instanceof Response) return auth;
-      return parseJson<{ score: number }>(req)
-        .then(({ score }) => {
-          if (typeof score !== "number" || !isFinite(score) || score < 0) {
-            return json({ error: "Invalid score" }, 400);
-          }
-
-          const result = recordBestScore(Number(id), auth.id, score);
-          return result
-            ? json({ isNew: result.isNew, bestScore: result.bestScore, lastScore: result.lastScore })
-            : json({ error: "Not found" }, 404);
-        })
-        .catch(() => json({ error: "Invalid request" }, 400));
+      const { score } = await parseJson<{ score: number }>(req);
+      const result = recordBestScore(Number(id), auth.id, score);
+      return result
+        ? json({ isNew: result.isNew, bestScore: result.bestScore, lastScore: result.lastScore })
+        : json({ error: "Not found" }, 404);
     }) as Handler,
   },
   {
     method: "PUT",
     path: "/api/songs/:id/track-preferences",
-    handler: ((req: Request, { id }: Record<string, string>) => {
+    handler: (async (req: Request, { id }: Record<string, string>) => {
       const auth = requireAuth(req);
       if (auth instanceof Response) return auth;
-      return parseJson<{ backgroundTracks?: number[]; mainTrackMuted?: boolean }>(req)
-        .then((body) => {
-          if (!Array.isArray(body.backgroundTracks) || body.backgroundTracks.some((n) => typeof n !== "number")) {
-            return json({ error: "Invalid backgroundTracks" }, 400);
-          }
-          if (typeof body.mainTrackMuted !== "boolean") {
-            return json({ error: "Invalid mainTrackMuted" }, 400);
-          }
-
-          const prefs: TrackPreferences = {
-            backgroundTracks: body.backgroundTracks,
-            mainTrackMuted: body.mainTrackMuted,
-          };
-          const saved = saveTrackPreferences(Number(id), auth.id, prefs);
-          return saved ? json(saved) : json({ error: "Not found" }, 404);
-        })
-        .catch(() => json({ error: "Invalid request" }, 400));
+      const body = await parseJson<{ backgroundTracks?: number[]; mainTrackMuted?: boolean }>(req);
+      const saved = saveTrackPreferences(Number(id), auth.id, body);
+      return saved ? json(saved) : json({ error: "Not found" }, 404);
     }) as Handler,
   },
 ];
