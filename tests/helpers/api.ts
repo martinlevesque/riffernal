@@ -1,12 +1,40 @@
 import { expect, type APIRequestContext } from '@playwright/test';
+import { readFileSync, existsSync } from 'node:fs';
+import { join } from 'node:path';
+
+const STORAGE_PATH = join(process.cwd(), 'tests', '.auth', 'user.json');
 
 let testAuthToken: string | null = null;
 
-/** Ensure a test user exists and return the auth token. Memoized — the
- *  user is created once per test run (register on first call, login on
- *  subsequent runs) so callers don't pay the round-trip every time. */
+function readStoredToken(): string | null {
+  if (!existsSync(STORAGE_PATH)) return null;
+
+  try {
+    const state = JSON.parse(readFileSync(STORAGE_PATH, 'utf8')) as {
+      origins?: Array<{ localStorage?: Array<{ name: string; value: string }> }>;
+    };
+    const entries = state.origins?.[0]?.localStorage ?? [];
+    const entry = entries.find((e) => e.name === 'riffernal_token');
+    return entry?.value ?? null;
+  } catch {
+    return null;
+  }
+}
+
+/** Ensure a test user exists and return the auth token. Memoized — reuses
+ *  the token written by global-setup when available so the browser (which
+ *  loads the same token via storageState) and API helpers share a single
+ *  session. Falls back to register/login only when that file is absent.
+ *  Logging in anew would invalidate the browser's token under the
+ *  one-session-per-user model. */
 async function ensureTestUser(request: APIRequestContext): Promise<string> {
   if (testAuthToken) return testAuthToken;
+
+  const stored = readStoredToken();
+  if (stored) {
+    testAuthToken = stored;
+    return testAuthToken;
+  }
 
   // Try to register a test user
   const registerRes = await request.post('/api/auth/register', {
