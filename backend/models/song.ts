@@ -20,7 +20,6 @@ import {
   saveTrackPreferences as savePrefs,
   type TrackPreferences,
 } from "./trackPreferences.ts";
-import { currentUser } from "./user.ts";
 
 export type { InsertSongInput } from "../db/song.ts";
 export type { TrackPreferences } from "./trackPreferences.ts";
@@ -102,9 +101,9 @@ function rowToFull(
   };
 }
 
-/** List all songs as summaries, joined with per-song score stats. */
-export function listSongs(): SongSummary[] {
-  const rawStats = findAllScoreStats();
+/** List all songs as summaries, joined with per-song score stats for the user. */
+export function listSongs(userId: number): SongSummary[] {
+  const rawStats = findAllScoreStats(userId);
   const statsBySongId = new Map<number, ScoreStats>();
   for (const row of rawStats) {
     statsBySongId.set(row.song_id, toScoreStats(row));
@@ -116,12 +115,12 @@ export function listSongs(): SongSummary[] {
 }
 
 /** Get one song as a full DTO, or null when not found. Includes score
- *  stats and parsed track prefs. */
-export function getSong(id: number): SongFull | null {
+ *  stats and parsed track prefs for the user. */
+export function getSong(id: number, userId: number): SongFull | null {
   const row = getSongById(id);
   if (!row) return null;
-  const stats = toScoreStats(findScoreStats(row.id));
-  const prefs = getTrackPreferences(row.id);
+  const stats = toScoreStats(findScoreStats(userId, row.id));
+  const prefs = getTrackPreferences(userId, row.id);
   return rowToFull(row, stats.bestScore, stats.lastScore, prefs);
 }
 
@@ -156,20 +155,19 @@ export function updateSong(id: number, changes: SongUpdate): SongFull | null {
   }
 
   const updated = getSongById(id)!;
-  const stats = toScoreStats(findScoreStats(id));
-  return rowToFull(updated, stats.bestScore, stats.lastScore);
+  return rowToFull(updated);
 }
 
 /** Delete a song. Returns a truthy result when deleted, or throws when
  *  not found or when the song is owned by another user. */
-export function removeSong(id: number): { ok: boolean } {
+export function removeSong(id: number, userId: number): { ok: boolean } {
   const row = getSongById(id);
 
   if (!row) {
     throw new Error("Not found");
   }
 
-  if (row.imported_by_user_id == null || row.imported_by_user_id !== currentUser().id) {
+  if (row.imported_by_user_id == null || row.imported_by_user_id !== userId) {
     throw new Error("Forbidden");
   }
 
@@ -197,9 +195,9 @@ export interface RecordBestScoreResult {
 /** Record a best score for a song. `score` must be a finite, non-negative
  *  number (validated by the controller). Returns null when the song doesn't
  *  exist. */
-export function recordBestScore(songId: number, score: number): RecordBestScoreResult | null {
+export function recordBestScore(songId: number, userId: number, score: number): RecordBestScoreResult | null {
   if (!getSongById(songId)) return null;
-  const raw = upsertBestScoreRaw(songId, score);
+  const raw = upsertBestScoreRaw(userId, songId, score);
   const bestScore = isBestScoreValid(raw.best_score) ? raw.best_score : null;
   return { bestScore, lastScore: raw.last_score, isNew: bestScore != null && raw.best_score === score };
 }
@@ -208,8 +206,9 @@ export function recordBestScore(songId: number, score: number): RecordBestScoreR
  *  null when the song doesn't exist. */
 export function saveTrackPreferences(
   songId: number,
+  userId: number,
   prefs: TrackPreferences,
 ): TrackPreferences | null {
   if (!getSongById(songId)) return null;
-  return savePrefs(songId, prefs);
+  return savePrefs(userId, songId, prefs);
 }

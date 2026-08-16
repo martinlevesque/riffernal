@@ -12,6 +12,7 @@ import {
   toggleLearnMode,
   togglePlayMode,
   seedSongWithNotes,
+  authHeaders,
 } from './helpers/index.js';
 
 test.describe('Best Score', () => {
@@ -146,15 +147,17 @@ test('best score in song list updates after a better run', async ({ page }) => {
       { time: 2.0, key: 'C4', duration: 0.4 },
     ]);
 
+    const headers = await authHeaders(request);
     const recRes = await request.put(`/api/songs/${id}/best-score`, {
       data: { score: 0 },
+      headers,
     });
     expect(recRes.ok()).toBeTruthy();
     const recBody = (await recRes.json()) as { bestScore: number | null; isNew: boolean };
     expect(recBody.bestScore).toBeNull();
     expect(recBody.isNew).toBe(false);
 
-    const res = await request.get('/api/songs');
+    const res = await request.get('/api/songs', { headers });
     expect(res.ok()).toBeTruthy();
     const songs = (await res.json()) as Array<{ id: number; bestScore: number | null }>;
     const song = songs.find((s) => s.id === id);

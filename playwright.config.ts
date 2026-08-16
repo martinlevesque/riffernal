@@ -1,4 +1,7 @@
 import { defineConfig } from '@playwright/test';
+import { join } from 'node:path';
+
+const STORAGE_PATH = join(__dirname, 'tests', '.auth', 'user.json');
 
 export default defineConfig({
   testDir: './tests',
@@ -7,10 +10,12 @@ export default defineConfig({
   retries: process.env.CI ? 2 : 0,
   workers: 1,
   reporter: 'html',
+  globalSetup: './tests/global-setup.mts',
   use: {
     baseURL: 'http://localhost:3000',
     ignoreHTTPSErrors: true,
     trace: 'on-first-retry',
+    storageState: STORAGE_PATH,
   },
   webServer: {
     command: process.env.CI

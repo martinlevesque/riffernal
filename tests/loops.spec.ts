@@ -12,6 +12,7 @@ import {
   expectMode,
   wipeDatabase,
   seedSongWithNotes,
+  authHeaders,
 } from './helpers/index.js';
 import { LoopDefinitionState } from '../frontend/src/game/Loop.js';
 
@@ -846,13 +847,14 @@ test.describe('Loops - end-to-end restart', () => {
       { time: 12.0, key: 'A3', duration: 0.25 },
     ];
     const songId = await seedSongWithNotes(request, 'RestartTwoLoops', notes);
+    const headers = await authHeaders(request);
     await request.post(`/api/songs/${songId}/loops`, {
       data: { startTime: 3.0, endTime: 7.0, enabled: true },
-      headers: { 'Content-Type': 'application/json' },
+      headers: { ...headers, 'Content-Type': 'application/json' },
     });
     await request.post(`/api/songs/${songId}/loops`, {
       data: { startTime: 8.0, endTime: 12.0, enabled: true },
-      headers: { 'Content-Type': 'application/json' },
+      headers: { ...headers, 'Content-Type': 'application/json' },
     });
 
     await goToSongList(page);
@@ -881,9 +883,10 @@ test.describe('Loops - end-to-end restart', () => {
       { time: 12.0, key: 'A3', duration: 0.25 },
     ];
     const songId = await seedSongWithNotes(request, 'RestartOneLoop', notes);
+    const headers = await authHeaders(request);
     await request.post(`/api/songs/${songId}/loops`, {
       data: { startTime: 5.0, endTime: 8.0, enabled: true },
-      headers: { 'Content-Type': 'application/json' },
+      headers: { ...headers, 'Content-Type': 'application/json' },
     });
 
     await goToSongList(page);
@@ -941,13 +944,14 @@ test.describe('Loops - end-to-end toggle + restart', () => {
       { time: 12.0, key: 'A3', duration: 0.25 },
     ];
     const songId = await seedSongWithNotes(request, 'ToggleRestart', notes);
+    const headers = await authHeaders(request);
     await request.post(`/api/songs/${songId}/loops`, {
       data: { startTime: 3.0, endTime: 7.0, enabled: false },
-      headers: { 'Content-Type': 'application/json' },
+      headers: { ...headers, 'Content-Type': 'application/json' },
     });
     await request.post(`/api/songs/${songId}/loops`, {
       data: { startTime: 8.0, endTime: 12.0, enabled: false },
-      headers: { 'Content-Type': 'application/json' },
+      headers: { ...headers, 'Content-Type': 'application/json' },
     });
 
     await goToSongList(page);

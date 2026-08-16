@@ -3,8 +3,10 @@ import { categoryRoutes } from "./category.ts";
 import { songRoutes } from "./song.ts";
 import { userRoutes } from "./user.ts";
 import { loopRoutes } from "./loop.ts";
+import { authRoutes } from "./auth.ts";
 
 const routes: Route[] = defineRoutes([
+  ...authRoutes,
   ...categoryRoutes,
   ...songRoutes,
   ...userRoutes,

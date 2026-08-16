@@ -1,4 +1,4 @@
-import { parseError } from "./helpers.js";
+import { parseError, apiFetch } from "./helpers.js";
 
 export interface Loop {
   id: number;
@@ -8,7 +8,7 @@ export interface Loop {
 }
 
 export async function fetchLoops(songId: number): Promise<Loop[]> {
-  const res = await fetch(`/api/songs/${songId}/loops`);
+  const res = await apiFetch(`/api/songs/${songId}/loops`);
   if (!res.ok) throw new Error(await parseError(res));
   return res.json() as Promise<Loop[]>;
 }
@@ -19,7 +19,7 @@ export async function createLoop(
   endTime: number,
   enabled = true,
 ): Promise<Loop> {
-  const res = await fetch(`/api/songs/${songId}/loops`, {
+  const res = await apiFetch(`/api/songs/${songId}/loops`, {
     method: "POST",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify({ startTime, endTime, enabled }),
@@ -29,7 +29,7 @@ export async function createLoop(
 }
 
 export async function updateLoopEnabled(loopId: number, enabled: boolean): Promise<Loop> {
-  const res = await fetch(`/api/loops/${loopId}`, {
+  const res = await apiFetch(`/api/loops/${loopId}`, {
     method: "PATCH",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify({ enabled }),
@@ -39,7 +39,7 @@ export async function updateLoopEnabled(loopId: number, enabled: boolean): Promi
 }
 
 export async function updateLoopEndTime(loopId: number, endTime: number): Promise<Loop> {
-  const res = await fetch(`/api/loops/${loopId}`, {
+  const res = await apiFetch(`/api/loops/${loopId}`, {
     method: "PATCH",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify({ endTime }),
@@ -49,6 +49,6 @@ export async function updateLoopEndTime(loopId: number, endTime: number): Promis
 }
 
 export async function deleteLoop(loopId: number): Promise<void> {
-  const res = await fetch(`/api/loops/${loopId}`, { method: "DELETE" });
+  const res = await apiFetch(`/api/loops/${loopId}`, { method: "DELETE" });
   if (!res.ok) throw new Error(await parseError(res));
 }

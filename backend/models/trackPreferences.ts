@@ -11,11 +11,10 @@ export interface TrackPreferences {
 
 const EMPTY_PREFS: TrackPreferences = { backgroundTracks: [], mainTrackMuted: false };
 
-/** Read the saved track preferences for the default user (id=1) and a song.
- *  Returns null when no row exists or no prefs are stored yet. Corrupt JSON
- *  degrades to null (the caller can treat that as "use the song default"). */
-export function getTrackPreferences(songId: number): TrackPreferences | null {
-  const raw = findTrackPreferencesJson(songId);
+/** Read the saved track preferences for a user and song. Returns null when
+ *  no row exists or no prefs are stored yet. Corrupt JSON degrades to null. */
+export function getTrackPreferences(userId: number, songId: number): TrackPreferences | null {
+  const raw = findTrackPreferencesJson(userId, songId);
   if (!raw) return null;
   try {
     const parsed = JSON.parse(raw) as Partial<TrackPreferences>;
@@ -31,7 +30,7 @@ export function getTrackPreferences(songId: number): TrackPreferences | null {
 /** Persist the user's track preferences for a song. Creates the user_songs
  *  row if missing (best_score defaults to 0). Returns the prefs back to the
  *  caller for convenience — they're guaranteed to match what was stored. */
-export function saveTrackPreferences(songId: number, prefs: TrackPreferences): TrackPreferences {
-  upsertTrackPreferencesJson(songId, JSON.stringify(prefs));
+export function saveTrackPreferences(userId: number, songId: number, prefs: TrackPreferences): TrackPreferences {
+  upsertTrackPreferencesJson(userId, songId, JSON.stringify(prefs));
   return { ...EMPTY_PREFS, ...prefs };
 }

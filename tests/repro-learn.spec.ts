@@ -1,11 +1,14 @@
 import { test, expect } from '@playwright/test';
-import { seedSongWithNotes, expectPlayScreenActive, goToSongList } from './helpers/index.js';
+import { seedSongWithNotes, expectPlayScreenActive, goToSongList, wipeDatabase, authHeaders } from './helpers/index.js';
 
 // Repro for user report: "in learn mode, when I press, nothing happens"
 test('learn mode: pressing correct key while frozen scores and unfreezes', async ({ page, context }) => {
   const request = context.request;
-  const songs = (await (await request.get('/api/songs')).json()) as Array<{ id: number }>;
-  for (const s of songs) await request.delete(`/api/songs/${s.id}`);
+  await wipeDatabase(request);
+  const headers = await authHeaders(request);
+  const songsRes = await request.get('/api/songs', { headers });
+  const songs = (await songsRes.json()) as Array<{ id: number }>;
+  for (const s of songs) await request.delete(`/api/songs/${s.id}`, { headers });
 
   const notes = [
     { time: 1.5, key: 'C4', duration: 0.4 },

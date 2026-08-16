@@ -11,6 +11,7 @@ export {
   seedSong,
   seedSongWithNotes,
   cleanupCategoriesByLabel,
+  authHeaders,
 } from './api.js';
 
 export {

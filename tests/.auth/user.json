@@ -1,0 +1,22 @@
+{
+  "cookies": [],
+  "origins": [
+    {
+      "origin": "http://localhost:3000",
+      "localStorage": [
+        {
+          "name": "riffernal_token",
+          "value": "791b5389bfa69bef4f71e9a88e9376641067ef2dba744da445d88986b5ddb8f6"
+        },
+        {
+          "name": "riffernal:theme",
+          "value": "iron"
+        },
+        {
+          "name": "riffernal_user",
+          "value": "{\"id\":1,\"username\":\"e2e_test_user\",\"tagline\":\"Test\"}"
+        }
+      ]
+    }
+  ]
+}

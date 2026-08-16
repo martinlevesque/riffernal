@@ -20,4 +20,14 @@ export {
   upsertTrackPreferencesJson,
   findAllScoreStats,
 } from "./userSong.ts";
-export { type UserRow, getUserRow, setGameSettingsJson } from "./user.ts";
+export {
+  type UserRow,
+  getUserRow,
+  getUserByUsername,
+  createUser,
+  setGameSettingsJson,
+  userNeedsSetup,
+  createSession,
+  findSession,
+  deleteSession,
+} from "./user.ts";

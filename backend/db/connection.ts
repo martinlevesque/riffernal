@@ -46,11 +46,21 @@ if (isNew) {
 
 db.exec(`
   CREATE TABLE IF NOT EXISTS users (
-    id INTEGER PRIMARY KEY CHECK (id = 1),
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    username TEXT UNIQUE NOT NULL DEFAULT '',
+    tagline TEXT NOT NULL DEFAULT '',
+    password_hash TEXT NOT NULL DEFAULT '',
     game_settings TEXT NOT NULL DEFAULT '{}'
   );
 `);
-db.exec(`INSERT OR IGNORE INTO users (id, game_settings) VALUES (1, '{}');`);
+
+db.exec(`
+  CREATE TABLE IF NOT EXISTS sessions (
+    token TEXT PRIMARY KEY,
+    user_id INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+    created_at TEXT NOT NULL DEFAULT (datetime('now'))
+  );
+`);
 
 db.exec(`
   CREATE TABLE IF NOT EXISTS user_songs (

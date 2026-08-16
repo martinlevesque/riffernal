@@ -27,14 +27,15 @@ function rowToLoop(row: LoopRow): Loop {
   };
 }
 
-/** All saved loops for a song (default user, id=1), in time order. */
-export function listLoops(songId: number): Loop[] {
-  return findLoopsBySong(songId).map(rowToLoop);
+/** All saved loops for a user and song, in time order. */
+export function listLoops(userId: number, songId: number): Loop[] {
+  return findLoopsBySong(userId, songId).map(rowToLoop);
 }
 
 /** Persist a new loop. Validates that `startTime < endTime` and both are
  *  non-negative finite numbers; throws on invalid input. */
 export function createLoop(
+  userId: number,
   songId: number,
   startTime: number,
   endTime: number,
@@ -44,29 +45,29 @@ export function createLoop(
     || startTime < 0 || endTime < 0 || startTime >= endTime) {
     throw new Error("Invalid loop boundaries");
   }
-  const row = insertLoop(songId, startTime, endTime, enabled);
+  const row = insertLoop(userId, songId, startTime, endTime, enabled);
   return rowToLoop(row);
 }
 
 /** Toggle a loop's enabled flag. Returns the updated DTO, or null when no
- *  loop with that id exists for the default user. */
-export function setLoopEnabled(id: number, enabled: boolean): Loop | null {
-  const row = updateLoopEnabledRow(id, enabled);
+ *  loop with that id exists for the user. */
+export function setLoopEnabled(userId: number, id: number, enabled: boolean): Loop | null {
+  const row = updateLoopEnabledRow(userId, id, enabled);
   return row ? rowToLoop(row) : null;
 }
 
 /** Update a loop's end time. Validates that the new end is greater than
  *  the existing start_time and finite. Returns the updated DTO, or null
  *  when the loop doesn't exist. */
-export function setLoopEndTime(id: number, endTime: number): Loop | null {
+export function setLoopEndTime(userId: number, id: number, endTime: number): Loop | null {
   if (!Number.isFinite(endTime) || endTime < 0) {
     throw new Error("Invalid end time");
   }
-  const row = updateLoopEndTimeRow(id, endTime);
+  const row = updateLoopEndTimeRow(userId, id, endTime);
   return row ? rowToLoop(row) : null;
 }
 
 /** Remove a loop. Returns true when a row was deleted. */
-export function removeLoop(id: number): boolean {
-  return deleteLoopRow(id);
+export function removeLoop(userId: number, id: number): boolean {
+  return deleteLoopRow(userId, id);
 }
