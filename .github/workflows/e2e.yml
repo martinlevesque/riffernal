@@ -24,13 +24,10 @@ jobs:
         uses: actions/cache@v4
         with:
           path: ~/.cache/ms-playwright
-          key: ${{ runner.os }}-playwright-${{ hashFiles('package.json') }}
+          key: ${{ runner.os }}-playwright-${{ hashFiles('bun.lock', 'package.json') }}
 
-      - name: Install Playwright system deps
-        run: bun x playwright install-deps chromium
-
-      - name: Install Playwright browsers
-        run: bun x playwright install chromium
+      - name: Install Playwright browsers & system deps
+        run: bun x playwright install --with-deps chromium
 
       - name: Run E2E tests
         run: bun run test -- --project=e2e

@@ -16,7 +16,6 @@ export interface SongRow {
   imported: number;
   imported_by_user_id: number | null;
   created_at: string;
-  last_played_at: string | null;
 }
 
 export interface InsertSongInput {
@@ -36,8 +35,15 @@ export interface InsertSongInput {
 
 export function getAllSongs(): SongRow[] {
   return db
-    .query("SELECT * FROM songs ORDER BY last_played_at DESC NULLS LAST, created_at DESC")
+    .query("SELECT * FROM songs ORDER BY created_at DESC")
     .all() as SongRow[];
+}
+
+/** Get songs owned by a specific user (imported_by_user_id = userId). */
+export function getAllSongsForUser(userId: number): SongRow[] {
+  return db
+    .query("SELECT * FROM songs WHERE imported_by_user_id = ? ORDER BY created_at DESC")
+    .all(userId) as SongRow[];
 }
 
 export function getSongById(id: number): SongRow | undefined {
@@ -80,8 +86,4 @@ export function updateSongTitle(id: number, title: string, artist: string): void
 
 export function deleteSong(id: number): void {
   db.run("DELETE FROM songs WHERE id = ?", [id]);
-}
-
-export function touchLastPlayed(id: number): void {
-  db.run("UPDATE songs SET last_played_at = datetime('now') WHERE id = ?", [id]);
 }

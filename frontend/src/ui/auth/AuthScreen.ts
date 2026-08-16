@@ -5,6 +5,25 @@ export interface AuthScreenOptions {
 }
 
 type Mode = "loading" | "setup" | "login" | "register";
+type AuthMode = Exclude<Mode, "loading">;
+
+const MODE_LABEL: Record<AuthMode, string> = {
+  setup: "SETUP",
+  login: "LOGIN",
+  register: "REGISTER",
+};
+
+const SUBMIT_LABEL: Record<AuthMode, string> = {
+  setup: "CREATE ACCOUNT",
+  login: "LOGIN",
+  register: "REGISTER",
+};
+
+const PASSWORD_AUTOCOMPLETE: Record<AuthMode, string> = {
+  setup: "new-password",
+  login: "current-password",
+  register: "new-password",
+};
 
 export class AuthScreen {
   private _screen: HTMLElement;
@@ -15,7 +34,6 @@ export class AuthScreen {
   constructor(opts: AuthScreenOptions) {
     this._opts = opts;
     this._screen = document.getElementById("auth-screen")!;
-    this._render();
   }
 
   async show(): Promise<void> {
@@ -39,28 +57,20 @@ export class AuthScreen {
       return;
     }
 
-    const titles: Record<Exclude<Mode, "loading">, string> = {
-      setup: "SETUP",
-      login: "LOGIN",
-      register: "REGISTER",
-    };
-
-    const brandText = this._mode === "setup"
-      ? `<div class="auth-brand"><span class="accent">RIFF</span>ERNAL</div>`
-      : "";
-
-    const subtitle = this._mode === "setup"
-      ? `<p style="color:var(--text-secondary);font-size:0.8rem;text-align:center;margin-bottom:1.5rem;letter-spacing:0.05em;">Create your admin account to get started</p>`
-      : "";
-
-    const taglineField = this._mode === "setup" || this._mode === "register"
+    const mode = this._mode as AuthMode;
+    const hasTagline = mode === "setup" || mode === "register";
+    const taglineField = hasTagline
       ? `<label class="auth-field">
            <span class="auth-field-label">Tagline <span class="optional">(optional)</span></span>
            <input type="text" class="auth-input" id="auth-tagline" placeholder="Your motto..." maxlength="128">
          </label>`
       : "";
 
-    const toggleHtml = this._mode === "setup" ? "" : this._mode === "login"
+    const subtitle = mode === "setup"
+      ? `<p class="auth-subtitle">Create your admin account to get started</p>`
+      : "";
+
+    const toggleHtml = mode === "setup" ? "" : mode === "login"
       ? `<div class="auth-toggle">
            <button id="auth-toggle-btn">No account? <span class="accent">Register</span></button>
          </div>`
@@ -70,9 +80,8 @@ export class AuthScreen {
 
     this._screen.innerHTML = `
       <div class="auth-card">
-        ${brandText}
-        <h2>${titles[this._mode as Exclude<Mode, "loading">]}</h2>
-        <div class="auth-card-title"><span class="accent">RIFF</span>ERNAL</div>
+        <div class="auth-brand"><span class="accent">RIFF</span>ERNAL</div>
+        <h2>${MODE_LABEL[mode]}</h2>
         ${subtitle}
         <form class="auth-form" id="auth-form">
           <label class="auth-field">
@@ -82,13 +91,11 @@ export class AuthScreen {
           ${taglineField}
           <label class="auth-field">
             <span class="auth-field-label">Password</span>
-            <input type="password" class="auth-input" id="auth-password" placeholder="Password..." minlength="4" autocomplete="${this._mode === 'setup' ? 'new-password' : 'current-password'}" required>
+            <input type="password" class="auth-input" id="auth-password" placeholder="Password..." minlength="4" autocomplete="${PASSWORD_AUTOCOMPLETE[mode]}" required>
           </label>
           <div class="auth-error" id="auth-error"></div>
           <div class="auth-actions">
-            <button type="submit" class="btn btn-primary" id="auth-submit">
-              ${this._mode === "setup" ? "CREATE ACCOUNT" : this._mode === "login" ? "LOGIN" : "REGISTER"}
-            </button>
+            <button type="submit" class="btn btn-primary" id="auth-submit">${SUBMIT_LABEL[mode]}</button>
           </div>
         </form>
         ${toggleHtml}
@@ -154,7 +161,7 @@ export class AuthScreen {
     } catch (err) {
       this._setError(err instanceof Error ? err.message : "An error occurred");
       submitBtn.disabled = false;
-      submitBtn.textContent = this._mode === "setup" ? "CREATE ACCOUNT" : this._mode === "login" ? "LOGIN" : "REGISTER";
+      submitBtn.textContent = SUBMIT_LABEL[this._mode as AuthMode];
     }
   }
 }

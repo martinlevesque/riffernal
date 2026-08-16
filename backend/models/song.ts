@@ -1,11 +1,10 @@
 import {
-  getAllSongs,
+  getAllSongsForUser,
   getSongById,
   insertSong,
   updateSongCategory,
   updateSongTitle,
   deleteSong,
-  touchLastPlayed,
   type SongRow,
   type InsertSongInput,
 } from "../db/song.ts";
@@ -13,6 +12,7 @@ import {
   findScoreStats,
   upsertBestScoreRaw,
   findAllScoreStats,
+  touchUserSongPlayed,
 } from "../db/userSong.ts";
 import { isBestScoreValid, type ScoreStats } from "./scoreStats.ts";
 import {
@@ -25,15 +25,21 @@ import { ValidationError } from "./validation.ts";
 export type { InsertSongInput } from "../db/song.ts";
 export type { TrackPreferences } from "./trackPreferences.ts";
 
-/** Adapt a raw best_score/last_score row into a ScoreStats DTO, applying the
- *  domain rule that a best_score of 0 means "no record yet". */
+/** Stats used when a song has no user_songs row yet (never played / scored). */
+const EMPTY_STATS: ScoreStats = { bestScore: null, lastScore: null, lastPlayedAt: null };
+
+/** Adapt a raw best_score/last_score/last_played_at row into a ScoreStats
+ *  DTO, applying the domain rule that a best_score of 0 means "no record
+ *  yet". Returns EMPTY_STATS when the row is missing. */
 function toScoreStats(
-  raw: { best_score: number; last_score: number | null } | undefined,
+  raw: { best_score: number; last_score: number | null; last_played_at: string | null } | undefined,
 ): ScoreStats {
-  const best = raw?.best_score ?? null;
+  if (!raw) return EMPTY_STATS;
+  const best = raw.best_score;
   return {
     bestScore: isBestScoreValid(best) ? best : null,
-    lastScore: raw?.last_score ?? null,
+    lastScore: raw.last_score ?? null,
+    lastPlayedAt: raw.last_played_at ?? null,
   };
 }
 
@@ -64,11 +70,7 @@ export interface SongFull extends SongSummary {
   trackPreferences: TrackPreferences | null;
 }
 
-function rowToSummary(
-  row: SongRow,
-  bestScore: number | null = null,
-  lastScore: number | null = null,
-): SongSummary {
+function rowToSummary(row: SongRow, stats: ScoreStats = EMPTY_STATS): SongSummary {
   return {
     id: row.id,
     title: row.title,
@@ -79,20 +81,19 @@ function rowToSummary(
     imported: row.imported_by_user_id !== null,
     importedByUserId: row.imported_by_user_id,
     createdAt: row.created_at,
-    lastPlayedAt: row.last_played_at,
-    bestScore,
-    lastScore,
+    lastPlayedAt: stats.lastPlayedAt,
+    bestScore: stats.bestScore,
+    lastScore: stats.lastScore,
   };
 }
 
 function rowToFull(
   row: SongRow,
-  bestScore: number | null = null,
-  lastScore: number | null = null,
+  stats: ScoreStats = EMPTY_STATS,
   trackPreferences: TrackPreferences | null = null,
 ): SongFull {
   return {
-    ...rowToSummary(row, bestScore, lastScore),
+    ...rowToSummary(row, stats),
     notes: JSON.parse(row.notes ?? "[]"),
     tracks: row.tracks ? JSON.parse(row.tracks) : [],
     selectedTrackIndices: row.selected_track_indices ? JSON.parse(row.selected_track_indices) : [],
@@ -102,33 +103,42 @@ function rowToFull(
   };
 }
 
-/** List all songs as summaries, joined with per-song score stats for the user. */
+/** List all songs as summaries, joined with the user's per-song score
+ *  stats. Ordered by the user's last-played time (most recent first,
+ *  never-played last), then by song creation. */
 export function listSongs(userId: number): SongSummary[] {
   const rawStats = findAllScoreStats(userId);
   const statsBySongId = new Map<number, ScoreStats>();
   for (const row of rawStats) {
     statsBySongId.set(row.song_id, toScoreStats(row));
   }
-  return getAllSongs().map((row) => {
-    const stats = statsBySongId.get(row.id);
-    return rowToSummary(row, stats?.bestScore ?? null, stats?.lastScore ?? null);
+  const songs = getAllSongsForUser(userId).map((row) => {
+    const stats = statsBySongId.get(row.id) ?? EMPTY_STATS;
+    return rowToSummary(row, stats);
+  });
+  return songs.sort((a, b) => {
+    if (a.lastPlayedAt && b.lastPlayedAt) return a.lastPlayedAt < b.lastPlayedAt ? 1 : -1;
+    if (a.lastPlayedAt) return -1;
+    if (b.lastPlayedAt) return 1;
+    return 0;
   });
 }
 
-/** Get one song as a full DTO, or null when not found. Includes score
- *  stats and parsed track prefs for the user. */
+/** Get one song as a full DTO, or null when not found or not owned by
+ *  the requesting user. Includes the user's score stats and parsed
+ *  track prefs. */
 export function getSong(id: number, userId: number): SongFull | null {
   const row = getSongById(id);
-  if (!row) return null;
+  if (!row || row.imported_by_user_id !== userId) return null;
   const stats = toScoreStats(findScoreStats(userId, row.id));
   const prefs = getTrackPreferences(userId, row.id);
-  return rowToFull(row, stats.bestScore, stats.lastScore, prefs);
+  return rowToFull(row, stats, prefs);
 }
 
 /** Create a song from form-like input, returning the full DTO. */
 export function createSong(input: InsertSongInput): SongFull {
   const row = insertSong(input);
-  return rowToFull(row, null);
+  return rowToFull(row);
 }
 
 /** Changes accepted by `updateSong`. */
@@ -147,9 +157,10 @@ function validateTitle(title: string): void {
 }
 
 /** Update a song's category and/or title/artist. Returns the updated full
- *  DTO, or null when the song doesn't exist. Throws when an empty title is
- *  provided. The controller maps those to 404 / 400 respectively. */
-export function updateSong(id: number, changes: SongUpdate): SongFull | null {
+ *  DTO with the user's score stats, or null when the song doesn't exist.
+ *  Throws when an empty title is provided. The controller maps those to
+ *  404 / 400 respectively. */
+export function updateSong(id: number, userId: number, changes: SongUpdate): SongFull | null {
   if (!getSongById(id)) return null;
 
   if (changes.title !== undefined) {
@@ -162,7 +173,8 @@ export function updateSong(id: number, changes: SongUpdate): SongFull | null {
   }
 
   const updated = getSongById(id)!;
-  return rowToFull(updated);
+  const stats = toScoreStats(findScoreStats(userId, id));
+  return rowToFull(updated, stats);
 }
 
 /** Delete a song. Returns a truthy result when deleted, or throws when
@@ -182,11 +194,11 @@ export function removeSong(id: number, userId: number): { ok: boolean } {
   return { ok: true };
 }
 
-/** Touch last_played_at for a song. Returns true when touched, false when
- *  not found. */
-export function recordPlay(id: number): boolean {
+/** Touch the user's per-song last_played_at. Returns true when touched,
+ *  false when the song doesn't exist. */
+export function recordPlay(id: number, userId: number): boolean {
   if (!getSongById(id)) return false;
-  touchLastPlayed(id);
+  touchUserSongPlayed(userId, id);
   return true;
 }
 

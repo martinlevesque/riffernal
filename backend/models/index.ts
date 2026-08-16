@@ -1,8 +1,5 @@
-export { type ScoreStats, isBestScoreValid } from "./scoreStats.ts";
-export { ValidationError, UnauthorizedError, ConflictError } from "./validation.ts";
 export { type Category, listCategories, createCategory } from "./category.ts";
 export { type GameSettings, getGameSettings, updateGameSettings } from "./user.ts";
-export { type TrackPreferences, validateTrackPreferences } from "./trackPreferences.ts";
 export {
   type Loop,
   listLoops,
@@ -26,15 +23,3 @@ export {
   recordBestScore,
   saveTrackPreferences,
 } from "./song.ts";
-export {
-  type AuthUser,
-  needsSetup,
-  setupAdmin,
-  register,
-  login,
-  logout,
-  validateSession,
-  hashPassword,
-  verifyPassword,
-  generateToken,
-} from "./auth.ts";

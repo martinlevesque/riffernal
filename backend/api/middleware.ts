@@ -1,10 +1,6 @@
 import { validateSession, type AuthUser } from "../models/auth.ts";
 import { json } from "./router.ts";
 
-export interface AuthedRequest extends Request {
-  authUser: AuthUser;
-}
-
 /** Extract Bearer token from Authorization header. */
 function extractToken(req: Request): string | null {
   const auth = req.headers.get("Authorization");

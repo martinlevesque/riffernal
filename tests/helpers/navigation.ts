@@ -1,5 +1,5 @@
-import type { Page, APIRequestContext } from '@playwright/test';
-import { wipeDatabase, seedSong, seedSongWithNotes, authHeaders, ensureTestUser } from './api.js';
+import type { Page } from '@playwright/test';
+import { wipeDatabase, seedSong, seedSongWithNotes, authHeaders, authJsonHeaders } from './api.js';
 
 export interface StartGameOptions {
   /** Keep the seeded song in the DB (default: false). */
@@ -13,19 +13,7 @@ export interface StartGameOptions {
   loops?: Array<{ startTime: number; endTime: number; enabled: boolean }>;
 }
 
-/** Inject the test user's auth token into the page's localStorage so the
- *  SPA skips the auth screen and goes straight to the home screen. */
-async function injectAuthToken(page: Page, request: APIRequestContext): Promise<void> {
-  const token = await ensureTestUser(request);
-  await page.addInitScript(({ token }) => {
-    localStorage.setItem('riffernal_token', token);
-    localStorage.setItem('riffernal_user', JSON.stringify({ id: 1, username: 'e2e_test_user', tagline: 'Test' }));
-  }, { token });
-}
-
 export async function goToSongList(page: Page): Promise<void> {
-  const request = page.context().request;
-  await injectAuthToken(page, request);
   await page.goto('/');
   await page.locator('#home-screen').waitFor({ timeout: 5000 });
   await page.locator('[data-mode="freeplay"]').click();
@@ -40,16 +28,15 @@ export async function startGame(page: Page, options: StartGameOptions = {}): Pro
     : (await seedSong(request, songTitle)).id;
 
   if (loops && loops.length > 0) {
-    const headers = await authHeaders(request);
+    const headers = await authJsonHeaders(request);
     for (const loop of loops) {
       await request.post(`/api/songs/${id}/loops`, {
         data: loop,
-        headers: { ...headers, 'Content-Type': 'application/json' },
+        headers,
       });
     }
   }
 
-  await injectAuthToken(page, request);
   await page.goto('/');
   await page.locator('#home-screen').waitFor({ timeout: 5000 });
   await page.locator('[data-mode="freeplay"]').click();
@@ -57,7 +44,7 @@ export async function startGame(page: Page, options: StartGameOptions = {}): Pro
   await page.locator('.song-item').first().dblclick();
   await page.locator('#play-screen').waitFor({ state: 'attached', timeout: 5000 });
   if (!keepSong) {
-    const headers = await authHeaders(request);
+    const headers = await authHeaders(page.context().request);
     page.context().request.delete(`/api/songs/${id}`, { headers }).catch(() => {});
   }
 }

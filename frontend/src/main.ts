@@ -25,11 +25,10 @@ import {
 import { fetchLoops } from './api/LoopApi.js';
 import { themeManager } from './themes/ThemeManager.js';
 import { AuthScreen } from './ui/auth/AuthScreen.js';
-import { getStoredUser, logout, type AuthUser } from './api/AuthApi.js';
+import { getStoredUser, logout } from './api/AuthApi.js';
 
 export type AppMode = 'home' | 'freeplay' | 'settings';
 let currentMode: AppMode = 'home';
-let _currentUser: AuthUser | null = null;
 let _homeScreen: HomeScreen | null = null;
 let _appInitialized = false;
 
@@ -49,17 +48,16 @@ function showApp(): void {
 }
 
 /** Shared logout handler: clears auth, hides the home screen, and shows
- *  the auth screen for re-login. */
+ *  the auth screen for re-login. A successful re-login reloads the page so
+ *  the app reboots with the new user's data (the in-memory Menu held the
+ *  previous user's scores/loops). */
 async function handleLogout(): Promise<void> {
   await logout();
-  _currentUser = null;
   _homeScreen?.hide();
   const authScreen = new AuthScreen({
-    onAuth: (user: AuthUser) => {
-      _currentUser = user;
+    onAuth: () => {
       authScreen.hide();
-      showApp();
-      initApp();
+      window.location.reload();
     },
   });
   authScreen.show();
@@ -69,17 +67,14 @@ async function init(): Promise<void> {
   themeManager.init();
 
   const authScreen = new AuthScreen({
-    onAuth: (user: AuthUser) => {
-      _currentUser = user;
+    onAuth: () => {
       authScreen.hide();
       showApp();
       initApp();
     },
   });
 
-  const storedUser = getStoredUser();
-  if (storedUser) {
-    _currentUser = storedUser;
+  if (getStoredUser()) {
     showApp();
     initApp();
   } else {
@@ -88,9 +83,8 @@ async function init(): Promise<void> {
 }
 
 /** Initialize the app (HomeScreen, Game, Synth, etc.). Idempotent —
- *  subsequent calls (e.g. after re-login) just re-show the existing
- *  HomeScreen without duplicating event listeners or resource-heavy
- *  objects. */
+ *  subsequent calls just re-show the existing HomeScreen without
+ *  duplicating event listeners or resource-heavy objects. */
 async function initApp(): Promise<void> {
   if (_appInitialized) {
     _homeScreen?.show();

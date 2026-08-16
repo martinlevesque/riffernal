@@ -12,6 +12,7 @@ export {
   seedSongWithNotes,
   cleanupCategoriesByLabel,
   authHeaders,
+  authJsonHeaders,
 } from './api.js';
 
 export {

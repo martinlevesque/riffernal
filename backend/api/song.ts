@@ -87,7 +87,7 @@ export const songRoutes = [
       const auth = requireAuth(req);
       if (auth instanceof Response) return auth;
       const body = await parseJson<SongUpdate>(req);
-      const updated = updateSong(Number(id), body);
+      const updated = updateSong(Number(id), auth.id, body);
       return updated ? json(updated) : json({ error: "Not found" }, 404);
     }) as Handler,
   },
@@ -97,7 +97,7 @@ export const songRoutes = [
     handler: ((req: Request, { id }: Record<string, string>) => {
       const auth = requireAuth(req);
       if (auth instanceof Response) return auth;
-      const touched = recordPlay(Number(id));
+      const touched = recordPlay(Number(id), auth.id);
       return touched ? json({ ok: true }) : json({ error: "Not found" }, 404);
     }) as Handler,
   },

@@ -2,8 +2,10 @@ import { expect, type APIRequestContext } from '@playwright/test';
 
 let testAuthToken: string | null = null;
 
-/** Ensure a test user exists and return the auth token. */
-export async function ensureTestUser(request: APIRequestContext): Promise<string> {
+/** Ensure a test user exists and return the auth token. Memoized — the
+ *  user is created once per test run (register on first call, login on
+ *  subsequent runs) so callers don't pay the round-trip every time. */
+async function ensureTestUser(request: APIRequestContext): Promise<string> {
   if (testAuthToken) return testAuthToken;
 
   // Try to register a test user
@@ -33,10 +35,15 @@ export async function ensureTestUser(request: APIRequestContext): Promise<string
   throw new Error('Failed to authenticate test user');
 }
 
-/** Get auth headers for API requests. */
+/** Get auth headers (Authorization Bearer) for API requests. */
 export async function authHeaders(request: APIRequestContext): Promise<Record<string, string>> {
   const token = await ensureTestUser(request);
   return { Authorization: `Bearer ${token}` };
+}
+
+/** Get auth headers with JSON content type — for POST/PUT/PATCH bodies. */
+export async function authJsonHeaders(request: APIRequestContext): Promise<Record<string, string>> {
+  return { ...(await authHeaders(request)), 'Content-Type': 'application/json' };
 }
 
 export const SEED_MIDI = Buffer.from([

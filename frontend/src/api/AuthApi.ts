@@ -32,11 +32,6 @@ export function clearAuth(): void {
   localStorage.removeItem(USER_KEY);
 }
 
-export function authHeaders(): Record<string, string> {
-  const token = getAuthToken();
-  return token ? { Authorization: `Bearer ${token}` } : {};
-}
-
 export async function checkSetup(): Promise<{ needed: boolean }> {
   const res = await fetch("/api/auth/setup");
   if (!res.ok) throw new Error(await parseError(res));

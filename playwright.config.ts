@@ -15,7 +15,6 @@ export default defineConfig({
     baseURL: 'http://localhost:3000',
     ignoreHTTPSErrors: true,
     trace: 'on-first-retry',
-    storageState: STORAGE_PATH,
   },
   webServer: {
     command: process.env.CI
@@ -30,7 +29,7 @@ export default defineConfig({
       name: 'e2e',
       testDir: './tests',
       testIgnore: ['**/api/**'],
-      use: { browserName: 'chromium' },
+      use: { browserName: 'chromium', storageState: STORAGE_PATH },
     },
     {
       name: 'api',
