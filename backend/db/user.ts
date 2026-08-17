@@ -35,7 +35,12 @@ export function userNeedsSetup(): boolean {
   return !row || row.cnt === 0;
 }
 
+export function deleteSessionsForUser(userId: number): void {
+  db.run("DELETE FROM sessions WHERE user_id = ?", [userId]);
+}
+
 export function createSession(token: string, userId: number): void {
+  deleteSessionsForUser(userId);
   db.run("INSERT INTO sessions (token, user_id) VALUES (?, ?)", [token, userId]);
 }
 
