@@ -37,10 +37,6 @@
 }
 
 .home-midi {
-  position: absolute;
-  bottom: 1.5rem;
-  left: 50%;
-  transform: translateX(-50%);
   z-index: 2;
   opacity: 0.6;
 }
