@@ -1,3 +1,5 @@
+// Persistence layer (SQL only). When adding or changing a query here,
+// check connection.ts for a matching index and add one if missing.
 export { DB_PATH, db } from "./connection.ts";
 export { type CategoryRow, findAllCategories, findCategoryByName, insertCategoryRow } from "./category.ts";
 export {

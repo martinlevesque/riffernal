@@ -103,6 +103,9 @@ db.exec(`
 // Indexes covering the query patterns used across db/. Declared with
 // `IF NOT EXISTS` so they are created on existing databases too, not only on
 // fresh ones. Run after all migrations/column-adds so referenced columns exist.
+//
+// Whenever a query in db/ adds a new WHERE / ORDER BY / JOIN predicate on a
+// non-indexed column, add a matching CREATE INDEX here (IF NOT EXISTS).
 db.exec(`
   CREATE INDEX IF NOT EXISTS idx_songs_category ON songs(category_id);
   CREATE INDEX IF NOT EXISTS idx_songs_created_at ON songs(created_at);
