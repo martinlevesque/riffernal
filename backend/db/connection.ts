@@ -38,8 +38,6 @@ if (isNew) {
       imported INTEGER NOT NULL DEFAULT 1,
       created_at TEXT NOT NULL DEFAULT (datetime('now'))
     );
-
-    CREATE INDEX idx_songs_category ON songs(category_id);
   `);
 }
 
@@ -100,6 +98,16 @@ db.exec(`
     created_at TEXT NOT NULL DEFAULT (datetime('now'))
   );
   CREATE INDEX IF NOT EXISTS idx_user_song_loops ON user_song_loops(user_id, song_id);
+`);
+
+// Indexes covering the query patterns used across db/. Declared with
+// `IF NOT EXISTS` so they are created on existing databases too, not only on
+// fresh ones. Run after all migrations/column-adds so referenced columns exist.
+db.exec(`
+  CREATE INDEX IF NOT EXISTS idx_songs_category ON songs(category_id);
+  CREATE INDEX IF NOT EXISTS idx_songs_created_at ON songs(created_at);
+  CREATE INDEX IF NOT EXISTS idx_songs_imported_by_user ON songs(imported_by_user_id, created_at);
+  CREATE INDEX IF NOT EXISTS idx_sessions_user_id ON sessions(user_id);
 `);
 
 /** Add a column to a table only when it isn't already present. SQLite has no
