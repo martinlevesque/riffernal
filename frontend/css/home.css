@@ -26,16 +26,6 @@
   pointer-events: none;
 }
 
-/* -- corner controls ----------------------------------------------------- */
-
-.home-theme-corner {
-  position: absolute;
-  top: 1.5rem;
-  right: 1.5rem;
-  z-index: 2;
-  pointer-events: auto;
-}
-
 .home-midi {
   z-index: 2;
   opacity: 0.6;

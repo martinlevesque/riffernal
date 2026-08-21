@@ -64,7 +64,7 @@ export class HomeScreen {
     this._wireKeyboardNav();
 
     this._setupSettingsPopup();
-    this._setupThemeDropdown();
+    this._setupThemeSelector();
   }
 
   show(): void {
@@ -88,8 +88,9 @@ export class HomeScreen {
     const freeplayBtn = this._screen.querySelector('[data-mode="freeplay"]') as HTMLElement;
     const campaignBtn = this._screen.querySelector('[data-mode="campaign"]') as HTMLElement;
     const settingsBtn = this._screen.querySelector('[data-mode="settings"]') as HTMLElement;
+    const logoutBtn = this._screen.querySelector('[data-mode="logout"]') as HTMLElement;
 
-    this._cards = [freeplayBtn, campaignBtn, settingsBtn];
+    this._cards = [freeplayBtn, campaignBtn, settingsBtn, logoutBtn];
 
     freeplayBtn.addEventListener('click', () => {
       this._opts.onNavigate?.('freeplay');
@@ -101,6 +102,10 @@ export class HomeScreen {
     settingsBtn.addEventListener('click', () => {
       this._opts.onNavigate?.('settings');
       document.getElementById('settings-popup')!.classList.remove('hidden');
+    });
+
+    logoutBtn.addEventListener('click', () => {
+      this._opts.onLogout?.();
     });
 
     for (let i = 0; i < this._cards.length; i++) {
@@ -360,46 +365,28 @@ export class HomeScreen {
     settingsPopup.addEventListener('click', (e) => {
       if (e.target === settingsPopup) close();
     });
-
-    const btnLogout = document.getElementById('btn-logout-home');
-    if (btnLogout) {
-      btnLogout.addEventListener('click', () => {
-        this._opts.onLogout?.();
-      });
-    }
   }
 
-  private _setupThemeDropdown(): void {
-    const btnTheme = this._screen.querySelector('#btn-theme-home');
-    const themeDropdown = this._screen.querySelector('#theme-dropdown-home');
-
-    if (!btnTheme || !themeDropdown) return;
+  private _setupThemeSelector(): void {
+    const themeList = document.getElementById('settings-theme-list');
+    if (!themeList) return;
 
     const render = () => {
-      themeDropdown.innerHTML = '';
+      themeList.innerHTML = '';
 
       for (const theme of themeManager.availableThemes) {
         const option = document.createElement('button');
+        option.type = 'button';
         option.className = `theme-option${theme.id === themeManager.current.id ? ' active' : ''}`;
         option.textContent = theme.name;
         option.addEventListener('click', () => {
           themeManager.apply(theme);
           render();
-          themeDropdown.classList.add('hidden');
         });
-        themeDropdown.appendChild(option);
+        themeList.appendChild(option);
       }
     };
 
     render();
-
-    btnTheme.addEventListener('click', (e: Event) => {
-      e.stopPropagation();
-      themeDropdown.classList.toggle('hidden');
-    });
-
-    document.addEventListener('click', () => {
-      themeDropdown.classList.add('hidden');
-    });
   }
 }

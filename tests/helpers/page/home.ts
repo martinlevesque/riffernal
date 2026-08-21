@@ -1,4 +1,4 @@
-import { expect, type Page } from '@playwright/test';
+import { expect, type Page, type Locator } from '@playwright/test';
 
 // -- screen state ------------------------------------------------------------
 
@@ -43,4 +43,37 @@ export async function clickFreeplay(page: Page): Promise<void> {
  *  may not be visible (display:none) when clicked from gameplay state. */
 export async function clickBackToHome(page: Page): Promise<void> {
   await page.evaluate(() => document.getElementById('btn-menu')?.click());
+}
+
+// -- auth / settings ----------------------------------------------------------
+
+/** Assert that the home screen is inactive (e.g. after logging out). */
+export async function expectHomeScreenInactive(page: Page): Promise<void> {
+  await expect(page.locator('#home-screen')).not.toHaveClass(/active/);
+}
+
+/** Assert that the auth screen is active. */
+export async function expectAuthScreenActive(page: Page, timeout = 5000): Promise<void> {
+  await expect(page.locator('#auth-screen')).toHaveClass(/active/, { timeout });
+}
+
+/** Click the LOGOUT card on the home screen. */
+export async function clickLogout(page: Page): Promise<void> {
+  await page.locator('[data-mode="logout"]').click();
+}
+
+/** Open the settings popup via the home screen SETTINGS card. */
+export async function openSettings(page: Page): Promise<void> {
+  await page.locator('[data-mode="settings"]').click();
+  await expect(page.locator('#settings-popup')).toBeVisible();
+}
+
+/** Locator for all theme option buttons in the settings popup. */
+export function themeOptions(page: Page): Locator {
+  return page.locator('#settings-theme-list .theme-option');
+}
+
+/** Locator for a single (0-indexed) theme option button. */
+export function themeOption(page: Page, index: number): Locator {
+  return themeOptions(page).nth(index);
 }
