@@ -17,19 +17,13 @@
 
       <div id="home-screen" class="screen">
         <canvas id="home-canvas"></canvas>
-        <div class="home-theme-corner">
-          <span class="theme-anchor">
-            <button id="btn-logout-home" class="btn-icon" title="Logout">&#x2192;</button>
-            <button id="btn-theme-home" class="btn-icon" title="Switch theme">&#9681;</button>
-            <div id="theme-dropdown-home" class="theme-dropdown hidden"></div>
-          </span>
-        </div>
         <div class="home-overlay">
           <h1 class="home-title"><span class="accent">RIFF</span>ERNAL</h1>
           <div class="home-modes">
             <button class="home-mode-card focused" data-mode="freeplay">FREEPLAY</button>
             <button class="home-mode-card" data-mode="campaign" disabled>CAMPAIGN</button>
             <button class="home-mode-card" data-mode="settings">SETTINGS</button>
+            <button class="home-mode-card" data-mode="logout">LOGOUT</button>
           </div>
           <p class="home-mode-hint">Use arrow keys to navigate &middot; Enter to select</p>
           <div id="midi-status-home" class="midi-status home-midi"></div>
@@ -179,6 +173,10 @@
               <input type="checkbox" id="octave-agnostic">
               <span>Match notes in any octave</span>
             </label>
+            <div class="setting-theme">
+              <span class="setting-theme-label">Theme</span>
+              <div id="settings-theme-list" class="setting-theme-options"></div>
+            </div>
           </div>
           <div class="popup-actions">
             <button id="btn-close-settings" class="btn btn-primary">CLOSE</button>

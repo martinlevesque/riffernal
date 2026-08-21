@@ -141,6 +141,34 @@ input[type="text"]:focus {
   cursor: pointer;
 }
 
+.setting-theme {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  margin-top: 1rem;
+}
+
+.setting-theme-label {
+  color: var(--text-secondary);
+  font-size: 0.9rem;
+  letter-spacing: 0.05em;
+  user-select: none;
+}
+
+.setting-theme-options {
+  display: flex;
+  gap: 0.4rem;
+  flex-wrap: wrap;
+}
+
+.setting-theme-options .theme-option {
+  width: auto;
+  padding: 0.35rem 0.8rem;
+  border: 1px solid var(--border-medium);
+  border-radius: 4px;
+  font-size: 0.8rem;
+}
+
 /* ============================================
    MIDI STATUS
    ============================================ */

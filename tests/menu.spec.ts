@@ -1,5 +1,5 @@
 import { test, expect, type APIRequestContext } from '@playwright/test';
-import { wipeDatabase, deleteSong, seedSongWithNotes, goToSongList } from './helpers/index.js';
+import { wipeDatabase, deleteSong, seedSongWithNotes, goToSongList, uniqueUsername } from './helpers/index.js';
 
 test.describe('Menu Screen', () => {
   test.beforeEach(async ({ request }: { request: APIRequestContext }) => {
@@ -58,5 +58,47 @@ test.describe('Menu Screen', () => {
     await expect(checkbox).toBeChecked();
     await checkbox.uncheck();
     await expect(checkbox).not.toBeChecked();
+  });
+
+  test('logout card logs out and shows auth screen', async ({ request, page }) => {
+    // Use a throwaway user so the shared e2e session is never invalidated.
+    const username = uniqueUsername('logout_user');
+    const regRes = await request.post('/api/auth/register', {
+      data: { username, tagline: 'Test', password: 'test1234' },
+      headers: { 'Content-Type': 'application/json' },
+    });
+    const { user, token } = (await regRes.json()) as {
+      user: { id: number; username: string; tagline: string };
+      token: string;
+    };
+
+    // Boot the app as the throwaway user by seeding its credentials into localStorage.
+    await page.goto('/');
+    await page.evaluate(([t, u]) => {
+      localStorage.setItem('riffernal_token', t);
+      localStorage.setItem('riffernal_user', u);
+    }, [token, JSON.stringify(user)]);
+    await page.reload();
+    await expect(page.locator('#home-screen')).toHaveClass(/active/);
+
+    await page.locator('[data-mode="logout"]').click();
+
+    await expect(page.locator('#auth-screen')).toHaveClass(/active/, { timeout: 5000 });
+    await expect(page.locator('#home-screen')).not.toHaveClass(/active/);
+  });
+
+  test('theme selector in settings popup switches active theme', async ({ page }) => {
+    await page.goto('/');
+    await page.locator('[data-mode="settings"]').click();
+    await expect(page.locator('#settings-popup')).toBeVisible();
+
+    const options = page.locator('#settings-theme-list .theme-option');
+    await expect(options).toHaveCount(2);
+    await expect(options.nth(0)).toHaveClass(/active/);
+
+    await options.nth(1).click();
+
+    await expect(options.nth(1)).toHaveClass(/active/);
+    await expect(options.nth(0)).not.toHaveClass(/active/);
   });
 });
