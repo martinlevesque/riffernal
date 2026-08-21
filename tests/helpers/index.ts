@@ -16,8 +16,10 @@ export {
   bearer,
   uniqueUsername,
   register,
+  registerUser,
   login,
   logout,
+  type AuthSession,
 } from './api.js';
 
 export {
@@ -51,6 +53,12 @@ export {
 
 export {
   expectHomeScreenActive,
+  expectHomeScreenInactive,
+  expectAuthScreenActive,
+  clickLogout,
+  openSettings,
+  themeOptions,
+  themeOption,
   expectHomeMidiStatus,
   expectHomeMidiConnected,
   expectHomeMidiDisconnected,

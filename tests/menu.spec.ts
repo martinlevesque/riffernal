@@ -1,5 +1,19 @@
 import { test, expect, type APIRequestContext } from '@playwright/test';
-import { wipeDatabase, deleteSong, seedSongWithNotes, goToSongList, uniqueUsername } from './helpers/index.js';
+import {
+  wipeDatabase,
+  deleteSong,
+  seedSongWithNotes,
+  goToSongList,
+  uniqueUsername,
+  registerUser,
+  expectHomeScreenActive,
+  expectHomeScreenInactive,
+  expectAuthScreenActive,
+  clickLogout,
+  openSettings,
+  themeOptions,
+  themeOption,
+} from './helpers/index.js';
 
 test.describe('Menu Screen', () => {
   test.beforeEach(async ({ request }: { request: APIRequestContext }) => {
@@ -43,15 +57,14 @@ test.describe('Menu Screen', () => {
 
   test('show used keys toggle is visible on settings popup', async ({ page }) => {
     await page.goto('/');
-    await page.locator('[data-mode="settings"]').click();
-    await expect(page.locator('#settings-popup')).toBeVisible();
+    await openSettings(page);
     await expect(page.locator('#show-used-keys')).toBeVisible();
     await expect(page.locator('.setting-toggle').first()).toContainText('Show only keys used in song');
   });
 
   test('show used keys toggle can be toggled', async ({ page }) => {
     await page.goto('/');
-    await page.locator('[data-mode="settings"]').click();
+    await openSettings(page);
     const checkbox = page.locator('#show-used-keys');
     await expect(checkbox).not.toBeChecked();
     await checkbox.check();
@@ -63,14 +76,7 @@ test.describe('Menu Screen', () => {
   test('logout card logs out and shows auth screen', async ({ request, page }) => {
     // Use a throwaway user so the shared e2e session is never invalidated.
     const username = uniqueUsername('logout_user');
-    const regRes = await request.post('/api/auth/register', {
-      data: { username, tagline: 'Test', password: 'test1234' },
-      headers: { 'Content-Type': 'application/json' },
-    });
-    const { user, token } = (await regRes.json()) as {
-      user: { id: number; username: string; tagline: string };
-      token: string;
-    };
+    const { user, token } = await registerUser(request, username);
 
     // Boot the app as the throwaway user by seeding its credentials into localStorage.
     await page.goto('/');
@@ -79,26 +85,25 @@ test.describe('Menu Screen', () => {
       localStorage.setItem('riffernal_user', u);
     }, [token, JSON.stringify(user)]);
     await page.reload();
-    await expect(page.locator('#home-screen')).toHaveClass(/active/);
+    await expectHomeScreenActive(page);
 
-    await page.locator('[data-mode="logout"]').click();
+    await clickLogout(page);
 
-    await expect(page.locator('#auth-screen')).toHaveClass(/active/, { timeout: 5000 });
-    await expect(page.locator('#home-screen')).not.toHaveClass(/active/);
+    await expectAuthScreenActive(page);
+    await expectHomeScreenInactive(page);
   });
 
   test('theme selector in settings popup switches active theme', async ({ page }) => {
     await page.goto('/');
-    await page.locator('[data-mode="settings"]').click();
-    await expect(page.locator('#settings-popup')).toBeVisible();
+    await openSettings(page);
 
-    const options = page.locator('#settings-theme-list .theme-option');
+    const options = themeOptions(page);
     await expect(options).toHaveCount(2);
-    await expect(options.nth(0)).toHaveClass(/active/);
+    await expect(themeOption(page, 0)).toHaveClass(/active/);
 
-    await options.nth(1).click();
+    await themeOption(page, 1).click();
 
-    await expect(options.nth(1)).toHaveClass(/active/);
-    await expect(options.nth(0)).not.toHaveClass(/active/);
+    await expect(themeOption(page, 1)).toHaveClass(/active/);
+    await expect(themeOption(page, 0)).not.toHaveClass(/active/);
   });
 });

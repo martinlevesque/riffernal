@@ -95,6 +95,30 @@ interface AuthResponse {
   token: string;
 }
 
+export interface AuthSession {
+  user: { id: number; username: string; tagline: string };
+  token: string;
+}
+
+/** Register a new user and return the full session (user profile + token).
+ *  Use this rather than `register` when the user object is needed too, e.g.
+ *  to impersonate a throwaway user in the browser without invalidating the
+ *  shared e2e session. */
+export async function registerUser(
+  request: APIRequestContext,
+  username: string,
+  password = DEFAULT_PASSWORD,
+  tagline = DEFAULT_TAGLINE,
+): Promise<AuthSession> {
+  const res = await request.post('/api/auth/register', {
+    data: { username, tagline, password },
+    headers: { 'Content-Type': 'application/json' },
+  });
+
+  expect(res.ok()).toBeTruthy();
+  return (await res.json()) as AuthSession;
+}
+
 /** Register a new user and return the session token. Defaults mirror the
  *  shared test-user credentials; override for custom scenarios. */
 export async function register(
@@ -103,13 +127,8 @@ export async function register(
   password = DEFAULT_PASSWORD,
   tagline = DEFAULT_TAGLINE,
 ): Promise<string> {
-  const res = await request.post('/api/auth/register', {
-    data: { username, tagline, password },
-    headers: { 'Content-Type': 'application/json' },
-  });
-
-  expect(res.ok()).toBeTruthy();
-  return ((await res.json()) as AuthResponse).token;
+  const { token } = await registerUser(request, username, password, tagline);
+  return token;
 }
 
 /** Log in an existing user and return the session token. */
