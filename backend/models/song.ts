@@ -25,7 +25,7 @@ import {
   saveTrackPreferences as savePrefs,
   type TrackPreferences,
 } from "./trackPreferences.ts";
-import { ValidationError } from "./validation.ts";
+import { ValidationError, ForbiddenError } from "./validation.ts";
 
 export type { InsertSongInput } from "../db/song.ts";
 export type { TrackPreferences } from "./trackPreferences.ts";
@@ -208,7 +208,7 @@ export function removeSong(id: number, userId: number): { ok: boolean } {
   }
 
   if (row.imported_by_user_id == null || row.imported_by_user_id !== userId) {
-    throw new Error("Forbidden");
+    throw new ForbiddenError("Forbidden");
   }
 
   deleteSong(id);
@@ -297,14 +297,14 @@ export function listPublicCommunitySongs(
 
 /** Publish or unpublish a song to the community. Only the owner can do
  *  this. Returns the updated full DTO, or null when not found. Throws
- *  "Forbidden" when the requesting user is not the owner. */
+ *  ForbiddenError when the requesting user is not the owner. */
 export function setSongPublicCommunity(id: number, userId: number, value: boolean): SongFull | null {
   const row = getSongById(id);
 
   if (!row) return null;
 
   if (row.imported_by_user_id == null || row.imported_by_user_id !== userId) {
-    throw new Error("Forbidden");
+    throw new ForbiddenError("Forbidden");
   }
 
   updateSongPublicCommunity(id, value ? 1 : 0);
@@ -326,12 +326,15 @@ export function toggleCommunityBookmark(songId: number, userId: number, value: b
 }
 
 /** Get a public community song as a full DTO for a non-owner to play.
- *  Returns null when the song doesn't exist or isn't public. Includes
- *  the requesting user's score stats and parsed track prefs. */
+ *  Returns null when the song doesn't exist. Throws ForbiddenError when the
+ *  song exists but isn't public. Includes the requesting user's score stats
+ *  and parsed track prefs. */
 export function getCommunitySong(id: number, userId: number): SongFull | null {
   const row = getSongById(id);
 
-  if (!row || row.public_community !== 1) return null;
+  if (!row) return null;
+
+  if (row.public_community !== 1) throw new ForbiddenError("Song is not public");
 
   const stats = toScoreStats(findScoreStats(userId, row.id));
   const prefs = getTrackPreferences(userId, row.id);

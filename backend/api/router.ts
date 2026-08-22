@@ -52,7 +52,6 @@ export function errMsg(err: unknown): string {
  *  domain-specific strings here. */
 const ERROR_STATUS: Record<string, number> = {
   "Not found": 404,
-  Forbidden: 403,
 };
 
 /** Map a caught error to a JSON Response. `DomainError` instances use their

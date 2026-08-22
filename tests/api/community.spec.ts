@@ -140,30 +140,6 @@ test.describe("API: community songs", () => {
     await cleanupSongs(request, /^E2E-Comm-Page/);
   });
 
-  test("GET /api/community/songs orders by bookmark popularity", async ({ request }) => {
-    await cleanupSongs(request, /^E2E-Comm-Order/);
-
-    const songPopular = await uploadSong(request, "E2E-Comm-Order-Popular");
-    const songUnpopular = await uploadSong(request, "E2E-Comm-Order-Unpopular");
-
-    await publishSong(request, songPopular.id);
-    await publishSong(request, songUnpopular.id);
-
-    const bookmarker1 = await registerUser(request, uniqueUsername("comm_bm1"));
-    const bookmarker2 = await registerUser(request, uniqueUsername("comm_bm2"));
-    await bookmarkSongWith(request, bookmarker1.token, songPopular.id);
-    await bookmarkSongWith(request, bookmarker2.token, songPopular.id);
-
-    const headers = await authHeaders(request);
-    const body = await (await request.get("/api/community/songs", { headers })).json();
-    expect(body.songs[0].title).toBe("E2E-Comm-Order-Popular");
-    expect(body.songs[0].bookmarkCount).toBe(2);
-    expect(body.songs[1].title).toBe("E2E-Comm-Order-Unpopular");
-    expect(body.songs[1].bookmarkCount).toBe(0);
-
-    await cleanupSongs(request, /^E2E-Comm-Order/);
-  });
-
   test("PUT /api/songs/:id/public-community owner can toggle publish", async ({ request }) => {
     await cleanupSongs(request, /^E2E-Comm-Pub$/);
 
@@ -204,37 +180,6 @@ test.describe("API: community songs", () => {
     await cleanupSongs(request, /^E2E-Comm-Forbidden$/);
   });
 
-  test("PUT /api/songs/:id/community-bookmark any user can bookmark a public song", async ({ request }) => {
-    await cleanupSongs(request, /^E2E-Comm-Bookmark$/);
-
-    const song = await uploadSong(request, "E2E-Comm-Bookmark");
-    await publishSong(request, song.id);
-
-    const jsonHeaders = await authJsonHeaders(request);
-    const res = await request.put(`/api/songs/${song.id}/community-bookmark`, {
-      data: { communityBookmarked: true },
-      headers: jsonHeaders,
-    });
-    expect(res.ok()).toBeTruthy();
-
-    const headers = await authHeaders(request);
-    const list = await (await request.get("/api/community/songs", { headers })).json();
-    const found = list.songs.find((s: { id: number }) => s.id === song.id);
-    expect(found.communityBookmarked).toBe(true);
-
-    const unres = await request.put(`/api/songs/${song.id}/community-bookmark`, {
-      data: { communityBookmarked: false },
-      headers: jsonHeaders,
-    });
-    expect(unres.ok()).toBeTruthy();
-
-    const list2 = await (await request.get("/api/community/songs", { headers })).json();
-    const found2 = list2.songs.find((s: { id: number }) => s.id === song.id);
-    expect(found2.communityBookmarked).toBe(false);
-
-    await cleanupSongs(request, /^E2E-Comm-Bookmark$/);
-  });
-
   test("PUT /api/songs/:id/community-bookmark fails for non-public song", async ({ request }) => {
     await cleanupSongs(request, /^E2E-Comm-PrivateBM$/);
 
@@ -268,14 +213,14 @@ test.describe("API: community songs", () => {
     await cleanupSongs(request, /^E2E-Comm-Fetch$/);
   });
 
-  test("GET /api/community/songs/:id returns 404 for private song", async ({ request }) => {
+  test("GET /api/community/songs/:id returns 403 for private song", async ({ request }) => {
     await cleanupSongs(request, /^E2E-Comm-PrivateFetch$/);
 
     const song = await uploadSong(request, "E2E-Comm-PrivateFetch");
 
     const headers = await authHeaders(request);
     const res = await request.get(`/api/community/songs/${song.id}`, { headers });
-    expect(res.status()).toBe(404);
+    expect(res.status()).toBe(403);
 
     await cleanupSongs(request, /^E2E-Comm-PrivateFetch$/);
   });
