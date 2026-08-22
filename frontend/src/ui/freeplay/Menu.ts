@@ -2,6 +2,7 @@ import type { Song } from "../../utils/MidiParser.js";
 import { formatScore, formatRelativeTime, parseSqlTimestamp, reportError } from "../../utils/helpers.js";
 import {
   fetchCategories,
+  fetchCommunitySongs,
   type CategoryData,
 } from "../../api/SongApi.js";
 
@@ -14,14 +15,22 @@ interface CategoryGroup {
 
 const UNCATEGORIZED_ID: number | null = null;
 const COLLAPSED_KEY = "riffernal:collapsed-categories";
+const COMMUNITY_PAGE_SIZE = 10;
 
 export class Menu {
   private _songs: Song[] = [];
   private _categories: CategoryData[] = [];
   private _selectedSong: Song | null = null;
+  private _communitySongs: Song[] = [];
+  private _communityTotal = 0;
+  private _communityOffset = 0;
+  private _communityLoading = false;
   onStart: ((song: Song) => void) | null = null;
+  onCommunityStart: ((song: Song) => void) | null = null;
   onRename: ((song: Song) => void) | null = null;
   onDelete: ((song: Song) => void) | null = null;
+  onPublishCommunity: ((song: Song) => void) | null = null;
+  onBookmark: ((song: Song) => void) | null = null;
   private _songListEl: HTMLElement;
   private _startBtn: HTMLButtonElement;
   private _freeplayScreen: HTMLElement;
@@ -75,7 +84,12 @@ export class Menu {
   updateSong(updated: Song): void {
     const idx = this._songs.findIndex((s) => s.id === updated.id);
     if (idx !== -1) {
-      this._songs[idx] = { ...this._songs[idx], title: updated.title, artist: updated.artist };
+      this._songs[idx] = {
+        ...this._songs[idx],
+        title: updated.title,
+        artist: updated.artist,
+        publicCommunity: updated.publicCommunity,
+      };
     }
     this._render();
   }
@@ -104,6 +118,57 @@ export class Menu {
   refreshSongs(songs: Song[]): void {
     this._songs = songs;
     this._render();
+  }
+
+  async loadCommunitySongs(): Promise<void> {
+    this._communitySongs = [];
+    this._communityOffset = 0;
+    this._communityTotal = 0;
+    await this._loadMoreCommunity();
+  }
+
+  private async _loadMoreCommunity(): Promise<void> {
+    if (this._communityLoading) return;
+    this._communityLoading = true;
+
+    try {
+      const result = await fetchCommunitySongs(COMMUNITY_PAGE_SIZE, this._communityOffset);
+      this._communitySongs = [...this._communitySongs, ...result.songs.map((s) => {
+        return {
+          id: s.id,
+          title: s.title,
+          artist: s.artist || "",
+          bpm: s.bpm,
+          difficulty: s.difficulty,
+          notes: [],
+          imported: s.imported,
+          importedByUserId: s.importedByUserId,
+          categoryId: s.categoryId,
+          lastPlayedAt: s.lastPlayedAt,
+          bestScore: s.bestScore,
+          lastScore: s.lastScore,
+          publicCommunity: s.publicCommunity,
+          communityBookmarked: s.communityBookmarked,
+          bookmarkCount: s.bookmarkCount,
+        } as Song;
+      })];
+      this._communityOffset = this._communitySongs.length;
+      this._communityTotal = result.total;
+      this._render();
+    } catch (err) {
+      reportError("Failed to load community songs", err);
+    } finally {
+      this._communityLoading = false;
+    }
+  }
+
+  updateBookmarkState(id: number, bookmarked: boolean): void {
+    const song = this._communitySongs.find((s) => s.id === id);
+
+    if (song) {
+      song.communityBookmarked = bookmarked;
+      this._render();
+    }
   }
 
   private _closeAllActionMenus(): void {
@@ -212,7 +277,7 @@ export class Menu {
   private _render(): void {
     this._songListEl.innerHTML = "";
 
-    if (this._songs.length === 0) {
+    if (this._songs.length === 0 && this._communitySongs.length === 0) {
       const empty = document.createElement("p");
       empty.className = "empty-song-list";
       empty.textContent = "No songs yet. Import a MIDI to get started.";
@@ -228,12 +293,19 @@ export class Menu {
       this._songListEl.appendChild(this._renderGroup(group));
     }
 
-    if (this._selectedSong && !this._songs.includes(this._selectedSong)) {
+    if (this._communitySongs.length > 0) {
+      this._songListEl.appendChild(this._renderCommunitySection());
+    }
+
+    const allSongs = [...this._songs, ...this._communitySongs];
+
+    if (this._selectedSong && !allSongs.includes(this._selectedSong)) {
       this._selectedSong = null;
       this._startBtn.disabled = true;
     }
+
     if (!this._selectedSong) {
-      const first = this._songs[0];
+      const first = this._songs[0] ?? this._communitySongs[0];
       if (first) this._autoSelect(first);
       else this._startBtn.disabled = true;
     } else {
@@ -273,6 +345,91 @@ export class Menu {
     section.appendChild(header);
     section.appendChild(songsWrap);
     return section;
+  }
+
+  private _renderCommunitySection(): HTMLElement {
+    const communityKey = "community";
+    const collapsedSet = this._loadCollapsed();
+    const isCollapsed = collapsedSet.has(communityKey);
+
+    const section = document.createElement("div");
+    section.className = `category-section community-section${isCollapsed ? " collapsed" : ""}`;
+    section.dataset.categoryKey = communityKey;
+
+    const header = document.createElement("div");
+    header.className = "category-header community-header";
+    header.innerHTML = `<span>Community</span><span><span class="category-count">${this._communityTotal}</span><span class="category-collapse-icon"></span></span>`;
+
+    header.addEventListener("click", () => {
+      const set = this._loadCollapsed();
+      const collapsed = section.classList.toggle("collapsed");
+
+      if (collapsed) {
+        set.add(communityKey);
+      } else {
+        set.delete(communityKey);
+      }
+
+      this._saveCollapsed(set);
+    });
+
+    const songsWrap = document.createElement("div");
+    songsWrap.className = "category-songs";
+    for (const song of this._communitySongs) {
+      songsWrap.appendChild(this._renderCommunitySong(song));
+    }
+
+    section.appendChild(header);
+    section.appendChild(songsWrap);
+
+    if (this._communitySongs.length < this._communityTotal) {
+      const loadMoreBtn = this._el("button", "btn-link community-load-more",
+        `Load more (${this._communityTotal - this._communitySongs.length} remaining)`) as HTMLButtonElement;
+      loadMoreBtn.addEventListener("click", (e) => {
+        e.stopPropagation();
+        this._loadMoreCommunity();
+      });
+      section.appendChild(loadMoreBtn);
+    }
+
+    return section;
+  }
+
+  private _renderCommunitySong(song: Song): HTMLElement {
+    const el = this._el("div", "song-item community-song");
+    el.dataset.songId = song.id !== undefined ? String(song.id) : "";
+
+    this._renderSongMeta(song, el);
+    this._renderSongStats(song, el);
+    this._renderBookmarkButton(song, el);
+
+    el.addEventListener("click", () => {
+      this._selectedSong = song;
+      this._songListEl.querySelectorAll(".song-item").forEach((s) => { s.classList.remove("selected"); });
+      el.classList.add("selected");
+      this._startBtn.disabled = false;
+    });
+
+    el.addEventListener("dblclick", () => {
+      if (this.onCommunityStart) this.onCommunityStart(song);
+    });
+
+    return el;
+  }
+
+  private _renderBookmarkButton(song: Song, el: HTMLElement): void {
+    const bookmarked = song.communityBookmarked === true;
+    const btn = this._el("button",
+      `bookmark-btn${bookmarked ? " bookmarked" : ""}`,
+      bookmarked ? "\u2605" : "\u2606") as HTMLButtonElement;
+    btn.title = bookmarked ? "Remove bookmark" : "Bookmark this song";
+    btn.addEventListener("click", (e) => {
+      e.stopPropagation();
+      e.preventDefault();
+      if (this.onBookmark) this.onBookmark(song);
+    });
+    btn.addEventListener("dblclick", (e) => { e.stopPropagation(); });
+    el.appendChild(btn);
   }
 
   private _renderSong(song: Song): HTMLElement {
@@ -337,6 +494,11 @@ export class Menu {
 
       el.appendChild(this._el("div", "song-scores", parts.join(" | ")));
     }
+
+    if (song.bookmarkCount != null && song.bookmarkCount > 0) {
+      el.appendChild(this._el("div", "song-bookmark-count",
+        `${song.bookmarkCount} bookmark${song.bookmarkCount === 1 ? "" : "s"}`));
+    }
   }
 
   private _renderSongActions(song: Song, el: HTMLElement): void {
@@ -361,6 +523,16 @@ export class Menu {
     }));
 
     if (song.importedByUserId != null) {
+      const isPublic = song.publicCommunity === true;
+      actionsMenu.appendChild(this._actionOption(
+        isPublic ? "Unpublish from community" : "Publish to community",
+        "song-action-option",
+        () => {
+          actionsMenu.classList.add("hidden");
+          if (this.onPublishCommunity) this.onPublishCommunity(song);
+        },
+      ));
+
       actionsMenu.appendChild(this._actionOption("Delete", "song-action-option danger", () => {
         actionsMenu.classList.add("hidden");
         if (this.onDelete) this.onDelete(song);

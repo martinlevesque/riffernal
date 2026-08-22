@@ -5,14 +5,20 @@ import {
   updateSongCategory,
   updateSongTitle,
   deleteSong,
+  countPublicCommunitySongs,
+  getPublicCommunitySongs,
+  updateSongPublicCommunity,
   type SongRow,
   type InsertSongInput,
+  type PublicCommunitySongRow,
 } from "../db/song.ts";
 import {
   findScoreStats,
   upsertBestScoreRaw,
   findAllScoreStats,
   touchUserSongPlayed,
+  setCommunityBookmark,
+  findCommunityBookmarks,
 } from "../db/userSong.ts";
 import { isBestScoreValid, type ScoreStats } from "./scoreStats.ts";
 import {
@@ -57,6 +63,9 @@ export interface SongSummary {
   lastPlayedAt: string | null;
   bestScore: number | null;
   lastScore: number | null;
+  publicCommunity: boolean;
+  communityBookmarked: boolean;
+  bookmarkCount?: number;
 }
 
 /** Full view of a song, as returned by GET /api/songs/:id. Extends the
@@ -70,8 +79,13 @@ export interface SongFull extends SongSummary {
   trackPreferences: TrackPreferences | null;
 }
 
-function rowToSummary(row: SongRow, stats: ScoreStats = EMPTY_STATS): SongSummary {
-  return {
+function rowToSummary(
+  row: SongRow,
+  stats: ScoreStats = EMPTY_STATS,
+  communityBookmarked = false,
+  bookmarkCount?: number,
+): SongSummary {
+  const summary: SongSummary = {
     id: row.id,
     title: row.title,
     artist: row.artist,
@@ -84,7 +98,15 @@ function rowToSummary(row: SongRow, stats: ScoreStats = EMPTY_STATS): SongSummar
     lastPlayedAt: stats.lastPlayedAt,
     bestScore: stats.bestScore,
     lastScore: stats.lastScore,
+    publicCommunity: row.public_community === 1,
+    communityBookmarked,
   };
+
+  if (bookmarkCount !== undefined) {
+    summary.bookmarkCount = bookmarkCount;
+  }
+
+  return summary;
 }
 
 function rowToFull(
@@ -239,4 +261,80 @@ export function saveTrackPreferences(
 ): TrackPreferences | null {
   if (!getSongById(songId)) return null;
   return savePrefs(userId, songId, input);
+}
+
+/** Paginated result of listing public community songs. */
+export interface CommunitySongListResult {
+  songs: SongSummary[];
+  total: number;
+}
+
+/** List public community songs as summaries, ordered by bookmark popularity
+ *  (most bookmarked first), then by creation date. Each song includes the
+ *  requesting user's score stats and community bookmark status. Paginated
+ *  via limit/offset. */
+export function listPublicCommunitySongs(
+  userId: number,
+  limit: number,
+  offset: number,
+): CommunitySongListResult {
+  const rawStats = findAllScoreStats(userId);
+  const statsBySongId = new Map<number, ScoreStats>();
+  for (const row of rawStats) {
+    statsBySongId.set(row.song_id, toScoreStats(row));
+  }
+
+  const rows = getPublicCommunitySongs(limit, offset);
+  const songIds = rows.map((r) => r.id);
+  const bookmarkedIds = findCommunityBookmarks(userId, songIds);
+
+  const songs = rows.map((row: PublicCommunitySongRow) => {
+    const stats = statsBySongId.get(row.id) ?? EMPTY_STATS;
+    return rowToSummary(row, stats, bookmarkedIds.has(row.id), row.bookmark_count);
+  });
+
+  return { songs, total: countPublicCommunitySongs() };
+}
+
+/** Publish or unpublish a song to the community. Only the owner can do
+ *  this. Returns the updated full DTO, or null when not found. Throws
+ *  "Forbidden" when the requesting user is not the owner. */
+export function setSongPublicCommunity(id: number, userId: number, value: boolean): SongFull | null {
+  const row = getSongById(id);
+
+  if (!row) return null;
+
+  if (row.imported_by_user_id == null || row.imported_by_user_id !== userId) {
+    throw new Error("Forbidden");
+  }
+
+  updateSongPublicCommunity(id, value ? 1 : 0);
+  const updated = getSongById(id)!;
+  const stats = toScoreStats(findScoreStats(userId, id));
+  return rowToFull(updated, stats);
+}
+
+/** Bookmark or unbookmark a public community song for the requesting user.
+ *  Returns true when updated, false when the song doesn't exist or isn't
+ *  public. */
+export function toggleCommunityBookmark(songId: number, userId: number, value: boolean): boolean {
+  const row = getSongById(songId);
+
+  if (!row || row.public_community !== 1) return false;
+
+  setCommunityBookmark(userId, songId, value ? 1 : 0);
+  return true;
+}
+
+/** Get a public community song as a full DTO for a non-owner to play.
+ *  Returns null when the song doesn't exist or isn't public. Includes
+ *  the requesting user's score stats and parsed track prefs. */
+export function getCommunitySong(id: number, userId: number): SongFull | null {
+  const row = getSongById(id);
+
+  if (!row || row.public_community !== 1) return null;
+
+  const stats = toScoreStats(findScoreStats(userId, row.id));
+  const prefs = getTrackPreferences(userId, row.id);
+  return rowToFull(row, stats, prefs);
 }

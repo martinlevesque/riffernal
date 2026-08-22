@@ -38,6 +38,9 @@ export interface Song {
   lastPlayedAt?: string | null;
   bestScore?: number | null;
   lastScore?: number | null;
+  publicCommunity?: boolean;
+  communityBookmarked?: boolean;
+  bookmarkCount?: number;
 }
 
 export function normalizeSong(song: Song): Song {

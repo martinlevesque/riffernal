@@ -7,6 +7,11 @@ export function json(data: unknown, status = 200): Response {
   });
 }
 
+/** Shorthand for the common 404 response. */
+export function notFound(): Response {
+  return json({ error: "Not found" }, 404);
+}
+
 export async function parseJson<T = unknown>(req: Request): Promise<T> {
   return (await req.json()) as T;
 }

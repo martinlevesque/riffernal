@@ -83,6 +83,15 @@ addColumnIfMissing("user_songs", "track_preferences", "TEXT");
 // users. The legacy global songs.last_played_at column is dropped.
 addColumnIfMissing("user_songs", "last_played_at", "TEXT");
 
+// Public community songs: when true the song is visible in the community
+// browse listing to all authenticated users, not just its owner.
+addColumnIfMissing("songs", "public_community", "INTEGER NOT NULL DEFAULT 0");
+
+// Per-user community bookmark: when true the user has bookmarked a public
+// community song. Lives on user_songs so each user tracks their own
+// bookmarks independently.
+addColumnIfMissing("user_songs", "community_bookmarked", "INTEGER NOT NULL DEFAULT 0");
+
 // Per-user-per-song saved loops. Each row is one loop region (start/end in
 // seconds) with an `enabled` flag controlling whether it participates in
 // chained playback. Ordered for chaining by `start_time` (derived, no
@@ -110,6 +119,7 @@ db.exec(`
   CREATE INDEX IF NOT EXISTS idx_songs_category ON songs(category_id);
   CREATE INDEX IF NOT EXISTS idx_songs_created_at ON songs(created_at);
   CREATE INDEX IF NOT EXISTS idx_songs_imported_by_user ON songs(imported_by_user_id, created_at);
+  CREATE INDEX IF NOT EXISTS idx_songs_public_community ON songs(public_community);
   CREATE INDEX IF NOT EXISTS idx_sessions_user_id ON sessions(user_id);
 `);
 

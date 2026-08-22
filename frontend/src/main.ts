@@ -21,6 +21,7 @@ import type { Song } from './utils/MidiParser.js';
 import {
   fetchSongs, fetchSong, songFullToSong, summaryToSong, markSongPlayed,
   recordBestScore, updateSongTitle, deleteSong,
+  fetchCommunitySong, setSongPublicCommunity, toggleCommunityBookmark,
 } from './api/SongApi.js';
 import { fetchLoops } from './api/LoopApi.js';
 import { themeManager } from './themes/ThemeManager.js';
@@ -118,6 +119,8 @@ async function initApp(): Promise<void> {
   if (songs.length === 0) {
     (document.getElementById('btn-start') as HTMLButtonElement).disabled = true;
   }
+
+  menu.loadCommunitySongs().catch((e) => console.error('Failed to load community songs:', e));
 
   game.onBackToMenu = () => {
     const freeplayScreen = document.getElementById('freeplay-screen')!;
@@ -224,6 +227,72 @@ async function initApp(): Promise<void> {
         alert("Failed to delete song.");
       });
     }
+  };
+
+  menu.onPublishCommunity = (song) => {
+    if (song.id === undefined) return;
+    const id = song.id;
+    const newValue = !(song.publicCommunity === true);
+    setSongPublicCommunity(id, newValue).then((updated) => {
+      menu.updateSong(songFullToSong(updated));
+    }).catch((err) => {
+      console.error("Failed to update community visibility:", err);
+      alert("Failed to update community visibility.");
+    });
+  };
+
+  menu.onCommunityStart = async (song) => {
+    controls.setMode(false);
+    controls.setPracticeHand(PracticeHand.Both);
+    let fullSong = song;
+
+    if (song.id !== undefined && song.notes.length === 0) {
+      try {
+        fullSong = songFullToSong(await fetchCommunitySong(song.id));
+      } catch (e) {
+        console.warn("Failed to fetch community song:", e);
+      }
+    }
+
+    if (fullSong.trackPreferences) {
+      fullSong.backgroundTracks = fullSong.trackPreferences.backgroundTracks;
+      game.mainTrackMuted = fullSong.trackPreferences.mainTrackMuted;
+    } else if (game.mainTrackMuted) {
+      game.mainTrackMuted = false;
+    }
+
+    let hasEnabledLoops = false;
+
+    if (fullSong.id !== undefined) {
+      try {
+        const loops = await fetchLoops(fullSong.id);
+        game.loadLoops(loops);
+        hasEnabledLoops = loops.some((l) => l.enabled);
+      } catch (e) {
+        console.warn("Failed to fetch loops:", e);
+      }
+    }
+
+    if (hasEnabledLoops) controls.setMode(true);
+    game.start(fullSong);
+    game.engageChain();
+    game.pause();
+    controls.updatePauseBtn();
+    controls.updateLoopUI();
+    songInfoPopup.show(fullSong);
+
+    if (song.id !== undefined) markSongPlayed(song.id).catch((e) => console.warn("Failed to mark song played:", e));
+  };
+
+  menu.onBookmark = (song) => {
+    if (song.id === undefined) return;
+    const id = song.id;
+    const newValue = !(song.communityBookmarked === true);
+    toggleCommunityBookmark(id, newValue).then(() => {
+      menu.updateBookmarkState(id, newValue);
+    }).catch((err) => {
+      console.error("Failed to toggle bookmark:", err);
+    });
   };
 
   new MidiImportDialog(menu, midiInput, trackSelect, categorySelect);
