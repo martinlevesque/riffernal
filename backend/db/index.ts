@@ -26,9 +26,8 @@ export {
   upsertTrackPreferencesJson,
   touchUserSongPlayed,
   findAllScoreStats,
-  setCommunityBookmark,
-  findCommunityBookmarks,
 } from "./userSong.ts";
+export { setCommunityBookmark, findCommunityBookmarks } from "./community.ts";
 export {
   type UserRow,
   getUserRow,

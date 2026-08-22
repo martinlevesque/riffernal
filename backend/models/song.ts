@@ -17,9 +17,8 @@ import {
   upsertBestScoreRaw,
   findAllScoreStats,
   touchUserSongPlayed,
-  setCommunityBookmark,
-  findCommunityBookmarks,
 } from "../db/userSong.ts";
+import { setCommunityBookmark, findCommunityBookmarks } from "../db/community.ts";
 import { isBestScoreValid, type ScoreStats } from "./scoreStats.ts";
 import {
   getTrackPreferences,

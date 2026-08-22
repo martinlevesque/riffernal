@@ -35,6 +35,7 @@
     "test": "bun x playwright test",
     "test:ui": "bun x playwright test --ui",
     "test:report": "bun x playwright show-report",
+    "test:unit": "bun test tests/api/helpers",
     "typecheck": "bun x tsc --noEmit",
     "lint": "biome lint .",
     "lint:fix": "biome lint --write .",
