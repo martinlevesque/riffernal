@@ -7,6 +7,7 @@ import {
   deleteSong,
   countPublicCommunitySongs,
   getPublicCommunitySongs,
+  getBookmarkedSongs,
   updateSongPublicCommunity,
   type SongRow,
   type InsertSongInput,
@@ -18,7 +19,8 @@ import {
   findAllScoreStats,
   touchUserSongPlayed,
 } from "../db/userSong.ts";
-import { setCommunityBookmark, findCommunityBookmarks } from "../db/community.ts";
+import { setCommunityBookmark } from "../db/community.ts";
+import { findAllCategories } from "../db/category.ts";
 import { isBestScoreValid, type ScoreStats } from "./scoreStats.ts";
 import {
   getTrackPreferences,
@@ -269,9 +271,10 @@ export interface CommunitySongListResult {
 }
 
 /** List public community songs as summaries, ordered by bookmark popularity
- *  (most bookmarked first), then by creation date. Each song includes the
- *  requesting user's score stats and community bookmark status. Paginated
- *  via limit/offset. */
+ *  (most bookmarked first), then by creation date. Excludes songs the
+ *  requesting user has bookmarked — those appear in `listBookmarkedSongs`
+ *  and the user's category groups instead. Each song includes the
+ *  requesting user's score stats. Paginated via limit/offset. */
 export function listPublicCommunitySongs(
   userId: number,
   limit: number,
@@ -283,16 +286,137 @@ export function listPublicCommunitySongs(
     statsBySongId.set(row.song_id, toScoreStats(row));
   }
 
-  const rows = getPublicCommunitySongs(limit, offset);
-  const songIds = rows.map((r) => r.id);
-  const bookmarkedIds = findCommunityBookmarks(userId, songIds);
+  const rows = getPublicCommunitySongs(limit, offset, userId);
 
   const songs = rows.map((row: PublicCommunitySongRow) => {
     const stats = statsBySongId.get(row.id) ?? EMPTY_STATS;
-    return rowToSummary(row, stats, bookmarkedIds.has(row.id), row.bookmark_count);
+    return rowToSummary(row, stats, false, row.bookmark_count);
   });
 
-  return { songs, total: countPublicCommunitySongs() };
+  return { songs, total: countPublicCommunitySongs(userId) };
+}
+
+/** A song item in the library menu, with a flag distinguishing own songs
+ *  from bookmarked community songs. */
+export interface LibraryMenuItem extends SongSummary {
+  isCommunity: boolean;
+}
+
+/** A category group in the library menu: a category (or "Uncategorized")
+ *  with its songs (own + bookmarked community) already grouped and sorted. */
+export interface LibraryCategoryGroup {
+  id: number | null;
+  name: string;
+  songs: LibraryMenuItem[];
+}
+
+/** The full library menu: category groups sorted by latest play time
+ *  (Uncategorized sinks to the bottom), each with its songs sorted by the
+ *  user's last-played time. */
+export interface LibraryMenu {
+  categories: LibraryCategoryGroup[];
+}
+
+/** Return the user's library (own songs + bookmarked community songs)
+ *  grouped by category, sorted server-side so the frontend can render the
+ *  groups directly without any client-side grouping. Own songs take
+ *  precedence over bookmarked community songs when the same song appears in
+ *  both (e.g. the owner bookmarked their own published song). */
+export function listLibrary(userId: number): LibraryMenu {
+  const rawStats = findAllScoreStats(userId);
+  const statsBySongId = new Map<number, ScoreStats>();
+  for (const row of rawStats) {
+    statsBySongId.set(row.song_id, toScoreStats(row));
+  }
+
+  const categories = findAllCategories();
+  const ownRows = getAllSongsForUser(userId);
+  const bookmarkedRows = getBookmarkedSongs(userId);
+
+  const ownIds = new Set(ownRows.map((r) => r.id));
+
+  const items: LibraryMenuItem[] = [];
+  for (const row of ownRows) {
+    const stats = statsBySongId.get(row.id) ?? EMPTY_STATS;
+    items.push({ ...rowToSummary(row, stats), isCommunity: false });
+  }
+
+  for (const row of bookmarkedRows) {
+    if (ownIds.has(row.id)) continue;
+    const stats = statsBySongId.get(row.id) ?? EMPTY_STATS;
+    items.push({ ...rowToSummary(row, stats, true), isCommunity: true });
+  }
+
+  const groupMap = new Map<number | null, LibraryMenuItem[]>();
+  for (const cat of categories) {
+    groupMap.set(cat.id, []);
+  }
+  groupMap.set(null, []);
+
+  for (const item of items) {
+    const catId = item.categoryId ?? null;
+
+    if (groupMap.has(catId)) {
+      groupMap.get(catId)!.push(item);
+    } else {
+      groupMap.get(null)!.push(item);
+    }
+  }
+
+  const sortByLastPlayed = (a: LibraryMenuItem, b: LibraryMenuItem): number => {
+    if (a.lastPlayedAt && b.lastPlayedAt) return a.lastPlayedAt < b.lastPlayedAt ? 1 : -1;
+
+    if (a.lastPlayedAt) return -1;
+
+    if (b.lastPlayedAt) return 1;
+
+    return 0;
+  };
+
+  const groups: LibraryCategoryGroup[] = [];
+  for (const cat of categories) {
+    const songs = groupMap.get(cat.id) ?? [];
+
+    if (songs.length > 0) {
+      songs.sort(sortByLastPlayed);
+      groups.push({ id: cat.id, name: cat.name, songs });
+    }
+  }
+
+  const uncategorized = groupMap.get(null) ?? [];
+
+  if (uncategorized.length > 0) {
+    uncategorized.sort(sortByLastPlayed);
+    groups.push({ id: null, name: "Uncategorized", songs: uncategorized });
+  }
+
+  groups.sort((a, b) => {
+    const aLast = latestPlayInGroup(a.songs);
+    const bLast = latestPlayInGroup(b.songs);
+
+    if (aLast !== bLast) return aLast < bLast ? 1 : -1;
+
+    if (a.id === null) return 1;
+
+    if (b.id === null) return -1;
+
+    return a.name.localeCompare(b.name, undefined, { sensitivity: "base" });
+  });
+
+  return { categories: groups };
+}
+
+/** Return the latest lastPlayedAt string in a group (empty string when none
+ *  have been played). SQL timestamps sort lexicographically so string
+ *  comparison suffices. */
+function latestPlayInGroup(songs: LibraryMenuItem[]): string {
+  let latest = "";
+  for (const s of songs) {
+    if (s.lastPlayedAt && s.lastPlayedAt > latest) {
+      latest = s.lastPlayedAt;
+    }
+  }
+  return latest;
 }
 
 /** Publish or unpublish a song to the community. Only the owner can do

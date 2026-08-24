@@ -89,11 +89,20 @@ export function deleteSong(id: number): void {
   db.run("DELETE FROM songs WHERE id = ?", [id]);
 }
 
-/** Count public community songs (for pagination totals). */
-export function countPublicCommunitySongs(): number {
+/** Count public community songs (for pagination totals), excluding songs
+ *  the requesting user has bookmarked (those live in their own category
+ *  groups instead of the community browse list). */
+export function countPublicCommunitySongs(userId: number): number {
   const row = db
-    .query("SELECT COUNT(*) AS count FROM songs WHERE public_community = 1")
-    .get() as { count: number };
+    .query(
+      `SELECT COUNT(*) AS count FROM songs s
+       WHERE s.public_community = 1
+         AND NOT EXISTS (
+           SELECT 1 FROM user_songs us
+           WHERE us.user_id = ? AND us.song_id = s.id AND us.community_bookmarked = 1
+         )`,
+    )
+    .get(userId) as { count: number };
   return row.count;
 }
 
@@ -103,19 +112,46 @@ export interface PublicCommunitySongRow extends SongRow {
 }
 
 /** Get public community songs ordered by bookmark popularity (most
- *  bookmarked first), then by creation date. Paginated via limit/offset. */
-export function getPublicCommunitySongs(limit: number, offset: number): PublicCommunitySongRow[] {
+ *  bookmarked first), then by creation date. Paginated via limit/offset.
+ *  Excludes songs the requesting user has bookmarked (those appear in the
+ *  user's category groups instead). */
+export function getPublicCommunitySongs(
+  limit: number,
+  offset: number,
+  userId: number,
+): PublicCommunitySongRow[] {
   return db
     .query(
       `SELECT s.*, COUNT(us.user_id) AS bookmark_count
        FROM songs s
        LEFT JOIN user_songs us ON us.song_id = s.id AND us.community_bookmarked = 1
        WHERE s.public_community = 1
+         AND NOT EXISTS (
+           SELECT 1 FROM user_songs us2
+           WHERE us2.user_id = ? AND us2.song_id = s.id AND us2.community_bookmarked = 1
+         )
        GROUP BY s.id
        ORDER BY bookmark_count DESC, s.created_at DESC
        LIMIT ? OFFSET ?`,
     )
-    .all(limit, offset) as PublicCommunitySongRow[];
+    .all(userId, limit, offset) as PublicCommunitySongRow[];
+}
+
+/** Get the public community songs the given user has bookmarked, ordered by
+ *  the user's last-played time (most recent first, never-played last), then
+ *  by song creation. These appear in the user's category groups in the
+ *  freeplay menu rather than in the community browse list. */
+export function getBookmarkedSongs(userId: number): SongRow[] {
+  return db
+    .query(
+      `SELECT s.*
+       FROM songs s
+       JOIN user_songs us
+         ON us.user_id = ? AND us.song_id = s.id AND us.community_bookmarked = 1
+       WHERE s.public_community = 1
+       ORDER BY us.last_played_at DESC, s.created_at DESC`,
+    )
+    .all(userId) as SongRow[];
 }
 
 /** Set the public_community flag on a song. */

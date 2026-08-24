@@ -19,7 +19,7 @@ import { setupHoverCursor } from './ui/play/HoverCursor.js';
 import { PracticeHand } from './utils/notes.js';
 import type { Song } from './utils/MidiParser.js';
 import {
-  fetchSongs, fetchSong, songFullToSong, summaryToSong, markSongPlayed,
+  fetchSong, songFullToSong, markSongPlayed,
   recordBestScore, updateSongTitle, deleteSong,
   fetchCommunitySong, setSongPublicCommunity, toggleCommunityBookmark,
   type SongFull,
@@ -33,16 +33,6 @@ export type AppMode = 'home' | 'freeplay' | 'settings';
 let currentMode: AppMode = 'home';
 let _homeScreen: HomeScreen | null = null;
 let _appInitialized = false;
-
-async function loadSongs(): Promise<Song[]> {
-  try {
-    const summaries = await fetchSongs();
-    return summaries.map(summaryToSong);
-  } catch (e) {
-    console.warn('Failed to load songs from API:', e);
-    return [];
-  }
-}
 
 function showApp(): void {
   document.getElementById('auth-screen')!.classList.remove('active');
@@ -108,26 +98,19 @@ function createAppContext(): AppContext {
   game.scoreDisplay = new ScoreDisplay();
   const trackSelect = new TrackSelect();
   const controls = new GameControls(game);
-  const menu = new Menu([]);
+  const menu = new Menu();
   const categorySelect = new CategorySelect();
   const songInfoPopup = new SongInfoPopup(game, () => controls.updatePauseBtn());
 
   return { canvas, game, controls, menu, songInfoPopup, midiInput, trackSelect, categorySelect };
 }
 
-/** Load categories, the user's songs, and fire off the community listing
- *  fetch (the latter is not awaited — it can populate whenever ready). */
+/** Load the user's library (own + bookmarked songs grouped by category) and
+ *  fire off the community browse listing (not awaited — it can populate
+ *  whenever ready). */
 async function loadMenuData(ctx: AppContext): Promise<void> {
   const { menu } = ctx;
-  await menu.loadCategories();
-
-  const songs = await loadSongs();
-  menu.refreshSongs(songs);
-
-  if (songs.length === 0) {
-    (document.getElementById('btn-start') as HTMLButtonElement).disabled = true;
-  }
-
+  await menu.loadLibrary();
   menu.loadCommunitySongs().catch((e) => console.error('Failed to load community songs:', e));
 }
 
@@ -148,9 +131,7 @@ function setupGameCallbacks(ctx: AppContext): void {
       homeScreenEl.classList.add('active');
     }
 
-    loadSongs()
-      .then((songs) => menu.refreshSongs(songs))
-      .catch((e) => console.error('Failed to refresh songs:', e));
+    loadMenuData(ctx).catch((e) => console.error('Failed to refresh menu:', e));
   };
 
   game.onResults = (scoring, song) => {

@@ -81,6 +81,60 @@ async function bookmarkSongWith(
   expect(res.ok()).toBeTruthy();
 }
 
+async function unbookmarkSongWith(
+  request: APIRequestContext,
+  token: string,
+  id: number,
+): Promise<void> {
+  const res = await request.put(`/api/songs/${id}/community-bookmark`, {
+    data: { communityBookmarked: false },
+    headers: { Authorization: `Bearer ${token}`, "Content-Type": "application/json" },
+  });
+  expect(res.ok()).toBeTruthy();
+}
+
+async function uploadSongWith(
+  request: APIRequestContext,
+  token: string,
+  title: string,
+  categoryId = "",
+): Promise<{ id: number }> {
+  const form: Record<string, string | { name: string; mimeType: string; buffer: Buffer }> = {
+    ...FORM_FIELDS,
+    title,
+    category_id: categoryId,
+    midi: buildMidi("seed.mid"),
+  };
+  const res = await request.post("/api/songs", {
+    multipart: form,
+    headers: { Authorization: `Bearer ${token}` },
+  });
+  expect(res.ok()).toBeTruthy();
+  return { id: (await res.json()).id };
+}
+
+async function publishSongWith(
+  request: APIRequestContext,
+  token: string,
+  id: number,
+): Promise<void> {
+  const res = await request.put(`/api/songs/${id}/public-community`, {
+    data: { publicCommunity: true },
+    headers: { Authorization: `Bearer ${token}`, "Content-Type": "application/json" },
+  });
+  expect(res.ok()).toBeTruthy();
+}
+
+async function deleteSongWith(
+  request: APIRequestContext,
+  token: string,
+  id: number,
+): Promise<void> {
+  await request.delete(`/api/songs/${id}`, {
+    headers: { Authorization: `Bearer ${token}` },
+  });
+}
+
 test.beforeAll(async ({ request }: { request: APIRequestContext }) => {
   await wipeDatabase(request);
 });
@@ -227,6 +281,98 @@ test.describe("API: community songs", () => {
 
   test("GET /api/community/songs requires auth", async ({ request }) => {
     const res = await request.get("/api/community/songs");
+    expect(res.status()).toBe(401);
+  });
+
+  test("GET /api/community/songs excludes songs the user has bookmarked", async ({ request }) => {
+    const publisher = await registerUser(request, uniqueUsername("comm_bmpub"));
+    let publishedId = -1;
+
+    try {
+      publishedId = (await uploadSongWith(request, publisher.token, "E2E-Comm-BM-Exclude")).id;
+      await publishSongWith(request, publisher.token, publishedId);
+
+      const headers = await authHeaders(request);
+      const before = await (await request.get("/api/community/songs", { headers })).json();
+      const beforeIds = before.songs.map((s: { id: number }) => s.id);
+      expect(beforeIds).toContain(publishedId);
+
+      const myToken = (await authJsonHeaders(request)).Authorization.replace("Bearer ", "");
+      await bookmarkSongWith(request, myToken, publishedId);
+
+      const after = await (await request.get("/api/community/songs", { headers })).json();
+      const afterIds = after.songs.map((s: { id: number }) => s.id);
+      expect(afterIds).not.toContain(publishedId);
+      expect(after.total).toBe(before.total - 1);
+    } finally {
+      if (publishedId !== -1) await deleteSongWith(request, publisher.token, publishedId);
+    }
+  });
+
+  test("GET /api/library groups own and bookmarked songs by category", async ({ request }) => {
+    const publisher = await registerUser(request, uniqueUsername("comm_libpub"));
+    let publishedId = -1;
+
+    try {
+      const myToken = (await authJsonHeaders(request)).Authorization.replace("Bearer ", "");
+      const catRes = await request.post("/api/categories", {
+        data: { name: "E2E-Lib-Metal" },
+        headers: { Authorization: `Bearer ${myToken}`, "Content-Type": "application/json" },
+      });
+      const categoryId = (await catRes.json()).id;
+
+      await uploadSongWith(request, myToken, "E2E-Lib-Own", String(categoryId));
+      publishedId = (await uploadSongWith(request, publisher.token, "E2E-Lib-Comm", String(categoryId))).id;
+      await publishSongWith(request, publisher.token, publishedId);
+      await bookmarkSongWith(request, myToken, publishedId);
+
+      const headers = await authHeaders(request);
+      const res = await request.get("/api/library", { headers });
+      expect(res.ok()).toBeTruthy();
+      const body = await res.json();
+      const metal = body.categories.find((g: { name: string }) => g.name === "E2E-Lib-Metal");
+      expect(metal).toBeDefined();
+      expect(metal.songs).toHaveLength(2);
+
+      const own = metal.songs.find((s: { title: string }) => s.title === "E2E-Lib-Own");
+      expect(own.isCommunity).toBe(false);
+
+      const comm = metal.songs.find((s: { title: string }) => s.title === "E2E-Lib-Comm");
+      expect(comm.isCommunity).toBe(true);
+      expect(comm.communityBookmarked).toBe(true);
+    } finally {
+      if (publishedId !== -1) await deleteSongWith(request, publisher.token, publishedId);
+    }
+  });
+
+  test("GET /api/library removes song after un-bookmarking", async ({ request }) => {
+    const publisher = await registerUser(request, uniqueUsername("comm_libunbm"));
+    let publishedId = -1;
+
+    try {
+      publishedId = (await uploadSongWith(request, publisher.token, "E2E-Lib-Unbm")).id;
+      await publishSongWith(request, publisher.token, publishedId);
+
+      const myToken = (await authJsonHeaders(request)).Authorization.replace("Bearer ", "");
+      await bookmarkSongWith(request, myToken, publishedId);
+
+      const headers = await authHeaders(request);
+      const before = await (await request.get("/api/library", { headers })).json();
+      const allBefore = before.categories.flatMap((g: { songs: Array<{ id: number }> }) => g.songs);
+      expect(allBefore.some((s: { id: number }) => s.id === publishedId)).toBe(true);
+
+      await unbookmarkSongWith(request, myToken, publishedId);
+
+      const after = await (await request.get("/api/library", { headers })).json();
+      const allAfter = after.categories.flatMap((g: { songs: Array<{ id: number }> }) => g.songs);
+      expect(allAfter.some((s: { id: number }) => s.id === publishedId)).toBe(false);
+    } finally {
+      if (publishedId !== -1) await deleteSongWith(request, publisher.token, publishedId);
+    }
+  });
+
+  test("GET /api/library requires auth", async ({ request }) => {
+    const res = await request.get("/api/library");
     expect(res.status()).toBe(401);
   });
 });
