@@ -345,7 +345,8 @@
   content: "\25BC";
 }
 
-.category-section.collapsed .category-songs {
+.category-section.collapsed .category-songs,
+.category-section.collapsed .community-load-more {
   display: none;
 }
 
@@ -411,4 +412,79 @@
   color: var(--accent-red);
   box-shadow: none;
   transform: none;
+}
+
+/* ============================================
+   COMMUNITY SECTION (inside freeplay song list)
+   ============================================ */
+
+.community-section {
+  margin-top: 1.5rem;
+}
+
+.community-header {
+  color: var(--accent-purple);
+}
+
+.community-song {
+  border-left-color: var(--accent-purple);
+}
+
+.community-song:hover {
+  border-left-color: var(--accent-purple);
+  background: rgba(180, 100, 255, 0.05);
+  box-shadow: 0 0 12px rgba(180, 100, 255, 0.08);
+}
+
+.community-song.selected {
+  border-left-color: var(--accent-purple);
+  background: rgba(180, 100, 255, 0.08);
+  box-shadow: 0 0 16px rgba(180, 100, 255, 0.12);
+}
+
+.bookmark-btn {
+  position: absolute;
+  top: 0.4rem;
+  right: 2.2rem;
+  background: transparent;
+  border: none;
+  color: var(--text-secondary);
+  font-size: 1.1rem;
+  cursor: pointer;
+  opacity: 0;
+  transition: opacity 0.15s, color 0.15s;
+  padding: 0.3rem 0.4rem;
+  line-height: 1;
+}
+
+.song-item:hover .bookmark-btn {
+  opacity: 0.6;
+}
+
+.bookmark-btn:hover {
+  opacity: 1;
+  color: var(--accent-yellow);
+}
+
+.bookmark-btn.bookmarked {
+  opacity: 1;
+  color: var(--accent-yellow);
+}
+
+.song-bookmark-count {
+  font-size: 0.7rem;
+  color: var(--accent-yellow);
+  margin-top: 0.1rem;
+  letter-spacing: 0.05em;
+  opacity: 0.7;
+}
+
+.community-load-more {
+  display: block;
+  margin: 0.5rem auto 0;
+  opacity: 0.7;
+}
+
+.community-load-more:hover {
+  opacity: 1;
 }

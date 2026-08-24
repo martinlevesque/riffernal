@@ -15,6 +15,9 @@ export interface SongSummary {
   lastPlayedAt: string | null;
   bestScore: number | null;
   lastScore: number | null;
+  publicCommunity: boolean;
+  communityBookmarked: boolean;
+  bookmarkCount?: number;
 }
 
 /** Per-user-per-song in-game Tracks panel preferences. */
@@ -161,6 +164,42 @@ export async function saveSongTrackPreferences(
   return res.json() as Promise<TrackPreferences>;
 }
 
+export interface CommunitySongListResult {
+  songs: SongSummary[];
+  total: number;
+}
+
+export async function fetchCommunitySongs(limit = 10, offset = 0): Promise<CommunitySongListResult> {
+  const res = await apiFetch(`/api/community/songs?limit=${limit}&offset=${offset}`);
+  if (!res.ok) throw new Error(await parseError(res));
+  return res.json() as Promise<CommunitySongListResult>;
+}
+
+export async function fetchCommunitySong(id: number): Promise<SongFull> {
+  const res = await apiFetch(`/api/community/songs/${id}`);
+  if (!res.ok) throw new Error(await parseError(res));
+  return res.json() as Promise<SongFull>;
+}
+
+export async function setSongPublicCommunity(id: number, value: boolean): Promise<SongFull> {
+  const res = await apiFetch(`/api/songs/${id}/public-community`, {
+    method: "PUT",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ publicCommunity: value }),
+  });
+  if (!res.ok) throw new Error(await parseError(res));
+  return res.json() as Promise<SongFull>;
+}
+
+export async function toggleCommunityBookmark(id: number, value: boolean): Promise<void> {
+  const res = await apiFetch(`/api/songs/${id}/community-bookmark`, {
+    method: "PUT",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ communityBookmarked: value }),
+  });
+  if (!res.ok) throw new Error(await parseError(res));
+}
+
 export function summaryToSong(s: SongSummary): Song {
   return {
     id: s.id,
@@ -175,6 +214,9 @@ export function summaryToSong(s: SongSummary): Song {
     lastPlayedAt: s.lastPlayedAt,
     bestScore: s.bestScore,
     lastScore: s.lastScore,
+    publicCommunity: s.publicCommunity,
+    communityBookmarked: s.communityBookmarked,
+    bookmarkCount: s.bookmarkCount,
   };
 }
 
@@ -197,5 +239,7 @@ export function songFullToSong(full: SongFull): Song {
     lastPlayedAt: full.lastPlayedAt,
     bestScore: full.bestScore,
     lastScore: full.lastScore,
+    publicCommunity: full.publicCommunity,
+    communityBookmarked: full.communityBookmarked,
   };
 }

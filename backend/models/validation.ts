@@ -34,3 +34,11 @@ export class ConflictError extends DomainError {
     super(message, 409);
   }
 }
+
+/** Authorization failure (authenticated but not allowed to access/modify
+ *  the resource). Maps to 403 Forbidden. */
+export class ForbiddenError extends DomainError {
+  constructor(message: string) {
+    super(message, 403);
+  }
+}

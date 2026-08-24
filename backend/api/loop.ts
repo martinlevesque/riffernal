@@ -6,7 +6,7 @@ import {
   removeLoop,
   type Loop,
 } from "../models/index.ts";
-import { json, parseJson, paramId, type Handler } from "./router.ts";
+import { json, parseJson, paramId, notFound, type Handler } from "./router.ts";
 import { requireAuth } from "./middleware.ts";
 
 export const loopRoutes = [
@@ -67,7 +67,7 @@ export const loopRoutes = [
       }
 
       if (!attempted) return json({ error: "No valid fields to update" }, 400);
-      if (!applied) return json({ error: "Not found" }, 404);
+      if (!applied) return notFound();
       return json(result);
     }) as Handler,
   },
@@ -80,7 +80,7 @@ export const loopRoutes = [
       const loopId = paramId(id);
       if (loopId instanceof Response) return loopId;
       const removed = removeLoop(auth.id, loopId);
-      return removed ? json({ ok: true }) : json({ error: "Not found" }, 404);
+      return removed ? json({ ok: true }) : notFound();
     }) as Handler,
   },
 ];

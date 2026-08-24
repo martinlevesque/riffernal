@@ -15,6 +15,7 @@ export interface SongRow {
   background_tracks: string | null;
   imported: number;
   imported_by_user_id: number | null;
+  public_community: number;
   created_at: string;
 }
 
@@ -86,4 +87,38 @@ export function updateSongTitle(id: number, title: string, artist: string): void
 
 export function deleteSong(id: number): void {
   db.run("DELETE FROM songs WHERE id = ?", [id]);
+}
+
+/** Count public community songs (for pagination totals). */
+export function countPublicCommunitySongs(): number {
+  const row = db
+    .query("SELECT COUNT(*) AS count FROM songs WHERE public_community = 1")
+    .get() as { count: number };
+  return row.count;
+}
+
+/** A public community song row with its bookmark popularity count. */
+export interface PublicCommunitySongRow extends SongRow {
+  bookmark_count: number;
+}
+
+/** Get public community songs ordered by bookmark popularity (most
+ *  bookmarked first), then by creation date. Paginated via limit/offset. */
+export function getPublicCommunitySongs(limit: number, offset: number): PublicCommunitySongRow[] {
+  return db
+    .query(
+      `SELECT s.*, COUNT(us.user_id) AS bookmark_count
+       FROM songs s
+       LEFT JOIN user_songs us ON us.song_id = s.id AND us.community_bookmarked = 1
+       WHERE s.public_community = 1
+       GROUP BY s.id
+       ORDER BY bookmark_count DESC, s.created_at DESC
+       LIMIT ? OFFSET ?`,
+    )
+    .all(limit, offset) as PublicCommunitySongRow[];
+}
+
+/** Set the public_community flag on a song. */
+export function updateSongPublicCommunity(id: number, value: number): void {
+  db.run("UPDATE songs SET public_community = ? WHERE id = ?", [value, id]);
 }

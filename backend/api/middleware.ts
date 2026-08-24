@@ -1,5 +1,5 @@
 import { validateSession, type AuthUser } from "../models/auth.ts";
-import { json } from "./router.ts";
+import { json, type Handler } from "./router.ts";
 
 /** Extract Bearer token from Authorization header. */
 function extractToken(req: Request): string | null {
@@ -20,4 +20,19 @@ export function requireAuth(req: Request): AuthUser | Response {
     return json({ error: "Invalid or expired token" }, 401);
   }
   return user;
+}
+
+/** Wrap a handler so it requires a valid auth token. The wrapped handler
+ *  receives the authenticated user directly, skipping the manual
+ *  `requireAuth` + `instanceof Response` dance. */
+export function withAuth(
+  handler: (req: Request, auth: AuthUser, params: Record<string, string>) => Promise<Response> | Response,
+): Handler {
+  return (req, params) => {
+    const auth = requireAuth(req);
+
+    if (auth instanceof Response) return auth;
+
+    return handler(req, auth, params);
+  };
 }

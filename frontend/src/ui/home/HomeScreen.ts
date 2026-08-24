@@ -92,10 +92,10 @@ export class HomeScreen {
 
     this._cards = [freeplayBtn, campaignBtn, settingsBtn, logoutBtn];
 
-    freeplayBtn.addEventListener('click', () => {
-      this._opts.onNavigate?.('freeplay');
-      this._screen.classList.remove('active');
-      document.getElementById('freeplay-screen')!.classList.add('active');
+    freeplayBtn.addEventListener("click", () => {
+      this._opts.onNavigate?.("freeplay");
+      this._screen.classList.remove("active");
+      document.getElementById("freeplay-screen")!.classList.add("active");
       this._stopAnimation();
     });
 

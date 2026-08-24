@@ -6,6 +6,7 @@ export interface UserSongRow {
   best_score: number;
   last_score: number | null;
   updated_at: string;
+  community_bookmarked: number;
 }
 
 export interface ScoreStatsRow {

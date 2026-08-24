@@ -10,7 +10,7 @@ import {
   type InsertSongInput,
   type SongUpdate,
 } from "../models/index.ts";
-import { json, parseJson, errMsg, handleErr, numOrNull, type Handler } from "./router.ts";
+import { json, parseJson, errMsg, handleErr, numOrNull, notFound, type Handler } from "./router.ts";
 import { requireAuth } from "./middleware.ts";
 
 /** Parse the multipart form for POST /api/songs into an InsertSongInput. */
@@ -64,7 +64,7 @@ export const songRoutes = [
       const auth = requireAuth(req);
       if (auth instanceof Response) return auth;
       const song = getSong(Number(id), auth.id);
-      return song ? json(song) : json({ error: "Not found" }, 404);
+      return song ? json(song) : notFound();
     }) as Handler,
   },
   {
@@ -88,7 +88,7 @@ export const songRoutes = [
       if (auth instanceof Response) return auth;
       const body = await parseJson<SongUpdate>(req);
       const updated = updateSong(Number(id), auth.id, body);
-      return updated ? json(updated) : json({ error: "Not found" }, 404);
+      return updated ? json(updated) : notFound();
     }) as Handler,
   },
   {
@@ -98,7 +98,7 @@ export const songRoutes = [
       const auth = requireAuth(req);
       if (auth instanceof Response) return auth;
       const touched = recordPlay(Number(id), auth.id);
-      return touched ? json({ ok: true }) : json({ error: "Not found" }, 404);
+      return touched ? json({ ok: true }) : notFound();
     }) as Handler,
   },
   {
@@ -111,7 +111,7 @@ export const songRoutes = [
       const result = recordBestScore(Number(id), auth.id, score);
       return result
         ? json({ isNew: result.isNew, bestScore: result.bestScore, lastScore: result.lastScore })
-        : json({ error: "Not found" }, 404);
+        : notFound();
     }) as Handler,
   },
   {
@@ -122,7 +122,7 @@ export const songRoutes = [
       if (auth instanceof Response) return auth;
       const body = await parseJson<{ backgroundTracks?: number[]; mainTrackMuted?: boolean }>(req);
       const saved = saveTrackPreferences(Number(id), auth.id, body);
-      return saved ? json(saved) : json({ error: "Not found" }, 404);
+      return saved ? json(saved) : notFound();
     }) as Handler,
   },
 ];

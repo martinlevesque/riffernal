@@ -5,6 +5,7 @@ export { type CategoryRow, findAllCategories, findCategoryByName, insertCategory
 export {
   type SongRow,
   type InsertSongInput,
+  type PublicCommunitySongRow,
   getAllSongs,
   getAllSongsForUser,
   getSongById,
@@ -12,6 +13,9 @@ export {
   updateSongCategory,
   updateSongTitle,
   deleteSong,
+  countPublicCommunitySongs,
+  getPublicCommunitySongs,
+  updateSongPublicCommunity,
 } from "./song.ts";
 export {
   type UserSongRow,
@@ -23,6 +27,7 @@ export {
   touchUserSongPlayed,
   findAllScoreStats,
 } from "./userSong.ts";
+export { setCommunityBookmark, findCommunityBookmarks } from "./community.ts";
 export {
   type UserRow,
   getUserRow,

@@ -14,6 +14,7 @@ export {
   type SongUpdate,
   type RecordBestScoreResult,
   type InsertSongInput,
+  type CommunitySongListResult,
   listSongs,
   getSong,
   createSong,
@@ -22,4 +23,8 @@ export {
   recordPlay,
   recordBestScore,
   saveTrackPreferences,
+  listPublicCommunitySongs,
+  setSongPublicCommunity,
+  toggleCommunityBookmark,
+  getCommunitySong,
 } from "./song.ts";
