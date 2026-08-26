@@ -236,6 +236,7 @@ function setupMenuCallbacks(ctx: AppContext): void {
     const newValue = !(song.publicCommunity === true);
     setSongPublicCommunity(id, newValue).then((updated) => {
       menu.updateSong(songFullToSong(updated));
+      menu.refreshAfterPublishChange(!newValue);
     }).catch((err) => {
       console.error('Failed to update community visibility:', err);
       alert('Failed to update community visibility.');

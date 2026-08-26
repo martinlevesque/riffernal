@@ -187,6 +187,14 @@ export class Menu {
     this.loadCommunitySongs().catch((err) => reportError("Failed to reload community songs", err));
   }
 
+  refreshAfterPublishChange(unpublished: boolean): void {
+    this.loadCommunitySongs().catch((err) => reportError("Failed to reload community songs", err));
+
+    if (unpublished) {
+      this.loadLibrary().catch((err) => reportError("Failed to reload library", err));
+    }
+  }
+
   private _closeAllActionMenus(): void {
     const menus = this._songListEl.querySelectorAll(".song-actions-menu:not(.hidden)");
     for (const menu of menus) {

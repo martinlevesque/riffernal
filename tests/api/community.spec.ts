@@ -125,6 +125,18 @@ async function publishSongWith(
   expect(res.ok()).toBeTruthy();
 }
 
+async function unpublishSongWith(
+  request: APIRequestContext,
+  token: string,
+  id: number,
+): Promise<void> {
+  const res = await request.put(`/api/songs/${id}/public-community`, {
+    data: { publicCommunity: false },
+    headers: { Authorization: `Bearer ${token}`, "Content-Type": "application/json" },
+  });
+  expect(res.ok()).toBeTruthy();
+}
+
 async function deleteSongWith(
   request: APIRequestContext,
   token: string,
@@ -232,6 +244,36 @@ test.describe("API: community songs", () => {
     expect(res.status()).toBe(403);
 
     await cleanupSongs(request, /^E2E-Comm-Forbidden$/);
+  });
+
+  test("unpublishing clears bookmarks so republished song reappears in community list", async ({ request }) => {
+    const publisher = await registerUser(request, uniqueUsername("comm_unpub"));
+    let publishedId = -1;
+
+    try {
+      publishedId = (await uploadSongWith(request, publisher.token, "E2E-Comm-Unpub")).id;
+      await publishSongWith(request, publisher.token, publishedId);
+
+      const myToken = (await authJsonHeaders(request)).Authorization.replace("Bearer ", "");
+      await bookmarkSongWith(request, myToken, publishedId);
+
+      const headers = await authHeaders(request);
+      const before = await (await request.get("/api/community/songs", { headers })).json();
+      expect(before.songs.some((s: { id: number }) => s.id === publishedId)).toBe(false);
+
+      await unpublishSongWith(request, publisher.token, publishedId);
+
+      const libraryAfterUnpublish = await (await request.get("/api/library", { headers })).json();
+      const allSongs = libraryAfterUnpublish.categories.flatMap((g: { songs: Array<{ id: number }> }) => g.songs);
+      expect(allSongs.some((s: { id: number }) => s.id === publishedId)).toBe(false);
+
+      await publishSongWith(request, publisher.token, publishedId);
+
+      const after = await (await request.get("/api/community/songs", { headers })).json();
+      expect(after.songs.some((s: { id: number }) => s.id === publishedId)).toBe(true);
+    } finally {
+      if (publishedId !== -1) await deleteSongWith(request, publisher.token, publishedId);
+    }
   });
 
   test("PUT /api/songs/:id/community-bookmark fails for non-public song", async ({ request }) => {

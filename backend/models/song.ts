@@ -19,7 +19,7 @@ import {
   findAllScoreStats,
   touchUserSongPlayed,
 } from "../db/userSong.ts";
-import { setCommunityBookmark } from "../db/community.ts";
+import { setCommunityBookmark, clearBookmarksForSong } from "../db/community.ts";
 import { findAllCategories } from "../db/category.ts";
 import { isBestScoreValid, type ScoreStats } from "./scoreStats.ts";
 import {
@@ -419,9 +419,6 @@ function latestPlayInGroup(songs: LibraryMenuItem[]): string {
   return latest;
 }
 
-/** Publish or unpublish a song to the community. Only the owner can do
- *  this. Returns the updated full DTO, or null when not found. Throws
- *  ForbiddenError when the requesting user is not the owner. */
 export function setSongPublicCommunity(id: number, userId: number, value: boolean): SongFull | null {
   const row = getSongById(id);
 
@@ -432,8 +429,14 @@ export function setSongPublicCommunity(id: number, userId: number, value: boolea
   }
 
   updateSongPublicCommunity(id, value ? 1 : 0);
+
+  if (!value) {
+    clearBookmarksForSong(id);
+  }
+
   const updated = getSongById(id)!;
   const stats = toScoreStats(findScoreStats(userId, id));
+
   return rowToFull(updated, stats);
 }
 

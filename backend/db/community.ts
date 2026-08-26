@@ -1,8 +1,6 @@
 import { db } from './connection.ts';
 import { inList } from './helpers/inList.ts';
 
-/** Set the community_bookmarked flag for a user and song. Creates the
- *  user_songs row if missing (best_score defaults to 0). value is 0 or 1. */
 export function setCommunityBookmark(userId: number, songId: number, value: number): void {
   db.query(
     `INSERT INTO user_songs (user_id, song_id, best_score, last_score, community_bookmarked)
@@ -11,6 +9,10 @@ export function setCommunityBookmark(userId: number, songId: number, value: numb
        community_bookmarked = excluded.community_bookmarked,
        updated_at = datetime('now')`,
   ).run(userId, songId, value);
+}
+
+export function clearBookmarksForSong(songId: number): void {
+  db.query("UPDATE user_songs SET community_bookmarked = 0 WHERE song_id = ?").run(songId);
 }
 
 /** Return a set of song_ids that the given user has community-bookmarked,
