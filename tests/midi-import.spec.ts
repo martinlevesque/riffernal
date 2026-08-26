@@ -106,8 +106,8 @@ test.describe('MIDI Import', () => {
 
     const importedItems = page.locator('.song-item.imported');
     await expect(importedItems).toHaveCount(2);
-    await expect(importedItems.nth(0)).toContainText('song-0');
-    await expect(importedItems.nth(1)).toContainText('song-1');
+    await expect(importedItems.nth(0)).toContainText('song-1');
+    await expect(importedItems.nth(1)).toContainText('song-0');
   });
 
   test('imported song can be selected and played', async ({ page }) => {

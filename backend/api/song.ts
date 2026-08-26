@@ -1,5 +1,6 @@
 import {
   listSongs,
+  listLibrary,
   getSong,
   createSong,
   updateSong,
@@ -34,6 +35,15 @@ async function parseCreateSongForm(req: Request, userId: number): Promise<Insert
 }
 
 export const songRoutes = [
+  {
+    method: "GET",
+    path: "/api/library",
+    handler: ((req: Request) => {
+      const auth = requireAuth(req);
+      if (auth instanceof Response) return auth;
+      return json(listLibrary(auth.id));
+    }) as Handler,
+  },
   {
     method: "GET",
     path: "/api/songs",

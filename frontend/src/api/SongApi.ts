@@ -20,6 +20,24 @@ export interface SongSummary {
   bookmarkCount?: number;
 }
 
+/** A song in the library menu, with a flag distinguishing own songs from
+ *  bookmarked community songs. */
+export interface LibraryMenuItem extends SongSummary {
+  isCommunity: boolean;
+}
+
+/** A category group in the library menu (or "Uncategorized"). */
+export interface LibraryCategoryGroup {
+  id: number | null;
+  name: string;
+  songs: LibraryMenuItem[];
+}
+
+/** The full library menu: category groups sorted by latest play time. */
+export interface LibraryMenu {
+  categories: LibraryCategoryGroup[];
+}
+
 /** Per-user-per-song in-game Tracks panel preferences. */
 export interface TrackPreferences {
   backgroundTracks: number[];
@@ -173,6 +191,15 @@ export async function fetchCommunitySongs(limit = 10, offset = 0): Promise<Commu
   const res = await apiFetch(`/api/community/songs?limit=${limit}&offset=${offset}`);
   if (!res.ok) throw new Error(await parseError(res));
   return res.json() as Promise<CommunitySongListResult>;
+}
+
+/** Fetch the user's library (own songs + bookmarked community songs) grouped
+ *  by category, sorted server-side. Replaces the separate own-songs and
+ *  bookmarked-songs calls so the frontend renders the groups directly. */
+export async function fetchLibrary(): Promise<LibraryMenu> {
+  const res = await apiFetch("/api/library");
+  if (!res.ok) throw new Error(await parseError(res));
+  return res.json() as Promise<LibraryMenu>;
 }
 
 export async function fetchCommunitySong(id: number): Promise<SongFull> {
