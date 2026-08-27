@@ -1,5 +1,5 @@
 import { Database } from "bun:sqlite";
-import { mkdirSync, existsSync } from "node:fs";
+import { mkdirSync, existsSync, rmSync } from "node:fs";
 import { join } from "node:path";
 
 const ROOT = join(import.meta.dir, "../..");
@@ -7,7 +7,14 @@ const DATA_DIR = join(ROOT, "data");
 
 mkdirSync(DATA_DIR, { recursive: true });
 
-export const DB_PATH = join(DATA_DIR, "riffernal.db");
+export const DB_PATH = join(DATA_DIR, process.env.RIFFERNAL_DB ?? "riffernal.db");
+
+if (process.env.RIFFERNAL_DB_RESET === "1") {
+  for (const ext of ["", "-wal", "-shm"]) {
+    const p = `${DB_PATH}${ext}`;
+    if (existsSync(p)) rmSync(p);
+  }
+}
 
 const isNew = !existsSync(DB_PATH);
 export const db = new Database(DB_PATH);
