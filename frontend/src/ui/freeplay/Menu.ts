@@ -296,12 +296,14 @@ export class Menu {
 
     const songsWrap = document.createElement("div");
     songsWrap.className = "category-songs";
+
     for (const { song, isCommunity } of group.items) {
-      songsWrap.appendChild(isCommunity ? this._renderCommunitySong(song) : this._renderSong(song));
+      songsWrap.appendChild(isCommunity ? this._renderCommunitySong(song, true) : this._renderSong(song));
     }
 
     section.appendChild(header);
     section.appendChild(songsWrap);
+
     return section;
   }
 
@@ -353,11 +355,11 @@ export class Menu {
     return section;
   }
 
-  private _renderCommunitySong(song: Song): HTMLElement {
+  private _renderCommunitySong(song: Song, showCommunityLabel = false): HTMLElement {
     const el = this._el("div", "song-item community-song");
     el.dataset.songId = song.id !== undefined ? String(song.id) : "";
 
-    this._renderSongMeta(song, el, true);
+    this._renderSongMeta(song, el, showCommunityLabel);
     this._renderSongStats(song, el);
     this._renderBookmarkButton(song, el);
 
@@ -426,17 +428,16 @@ export class Menu {
     return btn;
   }
 
-  private _renderSongMeta(song: Song, el: HTMLElement, isCommunity = false): void {
+  private _renderSongMeta(song: Song, el: HTMLElement, showCommunityLabel = false): void {
     const titleDiv = this._el("div", "song-title", song.title);
-
-    if (isCommunity) {
-      const label = this._el("span", "song-community-label", "Community");
-      titleDiv.appendChild(label);
-    }
 
     el.appendChild(titleDiv);
     el.appendChild(this._el("div", "song-artist", song.artist || ""));
     el.appendChild(this._el("span", `song-difficulty difficulty-${song.difficulty}`, song.difficulty));
+
+    if (showCommunityLabel) {
+      el.appendChild(this._el("span", "song-community-label", "Community"));
+    }
   }
 
   private _renderSongStats(song: Song, el: HTMLElement): void {

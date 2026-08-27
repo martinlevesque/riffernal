@@ -2,11 +2,11 @@
   "cookies": [],
   "origins": [
     {
-      "origin": "http://localhost:3000",
+      "origin": "http://localhost:3100",
       "localStorage": [
         {
           "name": "riffernal_token",
-          "value": "77ad7be028bedc130f33893cc9bcb23d3fe475efdc4a1a0cb67dbc6e904f4e3a"
+          "value": "80ed75c2d13559ceb72149c2ba538ba57e6615d277acb864787b485c5eb7614f"
         },
         {
           "name": "riffernal:theme",
