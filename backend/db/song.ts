@@ -106,9 +106,11 @@ export function countPublicCommunitySongs(userId: number): number {
   return row.count;
 }
 
-/** A public community song row with its bookmark popularity count. */
+/** A public community song row with its bookmark popularity count and the
+ *  username of the user who originally shared it to the community. */
 export interface PublicCommunitySongRow extends SongRow {
   bookmark_count: number;
+  imported_by_username?: string | null;
 }
 
 /** Get public community songs ordered by bookmark popularity (most
@@ -122,8 +124,9 @@ export function getPublicCommunitySongs(
 ): PublicCommunitySongRow[] {
   return db
     .query(
-      `SELECT s.*, COUNT(us.user_id) AS bookmark_count
+      `SELECT s.*, COUNT(us.user_id) AS bookmark_count, u.username AS imported_by_username
        FROM songs s
+       LEFT JOIN users u ON u.id = s.imported_by_user_id
        LEFT JOIN user_songs us ON us.song_id = s.id AND us.community_bookmarked = 1
        WHERE s.public_community = 1
          AND NOT EXISTS (

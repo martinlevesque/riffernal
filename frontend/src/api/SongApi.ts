@@ -11,6 +11,7 @@ export interface SongSummary {
   categoryId: number | null;
   imported: boolean;
   importedByUserId: number | null;
+  importedByUsername?: string | null;
   createdAt: string;
   lastPlayedAt: string | null;
   bestScore: number | null;
@@ -237,6 +238,7 @@ export function summaryToSong(s: SongSummary): Song {
     notes: [],
     imported: s.imported,
     importedByUserId: s.importedByUserId,
+    importedByUsername: s.importedByUsername ?? null,
     categoryId: s.categoryId,
     lastPlayedAt: s.lastPlayedAt,
     bestScore: s.bestScore,
@@ -257,6 +259,7 @@ export function songFullToSong(full: SongFull): Song {
     notes: full.notes,
     imported: full.imported,
     importedByUserId: full.importedByUserId,
+    importedByUsername: full.importedByUsername ?? null,
     tracks: full.tracks,
     selectedTrackIndices: full.selectedTrackIndices,
     trackHands: full.trackHands,

@@ -26,6 +26,7 @@ export interface Song {
   notes: Note[];
   imported?: boolean;
   importedByUserId?: number | null;
+  importedByUsername?: string | null;
   tracks?: TrackInfo[];
   selectedTrackIndices?: number[];
   trackHands?: Record<number, HandSide>;

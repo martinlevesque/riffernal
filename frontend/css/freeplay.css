@@ -216,6 +216,14 @@
   margin-top: 0.15rem;
 }
 
+.song-origin-user {
+  font-size: 0.75rem;
+  color: var(--text-secondary);
+  margin-top: 0.15rem;
+  font-style: italic;
+  opacity: 0.85;
+}
+
 .song-difficulty {
   display: inline-block;
   margin-top: 0.4rem;
