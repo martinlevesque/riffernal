@@ -60,6 +60,7 @@ export interface SongSummary {
   categoryId: number | null;
   imported: boolean;
   importedByUserId: number | null;
+  importedByUsername?: string | null;
   createdAt: string;
   lastPlayedAt: string | null;
   bestScore: number | null;
@@ -85,6 +86,7 @@ function rowToSummary(
   stats: ScoreStats = EMPTY_STATS,
   communityBookmarked = false,
   bookmarkCount?: number,
+  importedByUsername?: string | null,
 ): SongSummary {
   const summary: SongSummary = {
     id: row.id,
@@ -95,6 +97,7 @@ function rowToSummary(
     categoryId: row.category_id,
     imported: row.imported_by_user_id !== null,
     importedByUserId: row.imported_by_user_id,
+    importedByUsername: importedByUsername ?? null,
     createdAt: row.created_at,
     lastPlayedAt: stats.lastPlayedAt,
     bestScore: stats.bestScore,
@@ -290,7 +293,7 @@ export function listPublicCommunitySongs(
 
   const songs = rows.map((row: PublicCommunitySongRow) => {
     const stats = statsBySongId.get(row.id) ?? EMPTY_STATS;
-    return rowToSummary(row, stats, false, row.bookmark_count);
+    return rowToSummary(row, stats, false, row.bookmark_count, row.imported_by_username);
   });
 
   return { songs, total: countPublicCommunitySongs(userId) };

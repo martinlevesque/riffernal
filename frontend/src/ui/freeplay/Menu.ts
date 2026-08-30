@@ -146,6 +146,7 @@ export class Menu {
       notes: [],
       imported: s.imported,
       importedByUserId: s.importedByUserId,
+      importedByUsername: s.importedByUsername ?? null,
       categoryId: s.categoryId,
       lastPlayedAt: s.lastPlayedAt,
       bestScore: s.bestScore,
@@ -360,6 +361,11 @@ export class Menu {
     el.dataset.songId = song.id !== undefined ? String(song.id) : "";
 
     this._renderSongMeta(song, el, showCommunityLabel);
+
+    if (!showCommunityLabel && song.importedByUsername) {
+      el.appendChild(this._el("div", "song-origin-user", `Shared by ${song.importedByUsername}`));
+    }
+
     this._renderSongStats(song, el);
     this._renderBookmarkButton(song, el);
 
