@@ -19,9 +19,11 @@ import {
   findAllScoreStats,
   touchUserSongPlayed,
 } from "../db/userSong.ts";
+import { addDailyScore } from "../db/leaderboard.ts";
 import { setCommunityBookmark, clearBookmarksForSong } from "../db/community.ts";
 import { findAllCategories } from "../db/category.ts";
 import { isBestScoreValid, type ScoreStats } from "./scoreStats.ts";
+import { todayUTC } from "./leaderboard.ts";
 import {
   getTrackPreferences,
   saveTrackPreferences as savePrefs,
@@ -246,11 +248,16 @@ function validateScore(score: unknown): asserts score is number {
 }
 
 /** Record a best score for a song. Validates `score` first (throws on
- *  invalid input). Returns null when the song doesn't exist. */
+ *  invalid input). Returns null when the song doesn't exist. Also adds the
+ *  run's score to the user's daily total (powers the home-screen
+ *  leaderboard); the score is already validated non-negative here, so a 0
+ *  run is a harmless no-op on the board (filtered out by the leaderboard
+ *  query). */
 export function recordBestScore(songId: number, userId: number, score: unknown): RecordBestScoreResult | null {
   validateScore(score);
   if (!getSongById(songId)) return null;
   const raw = upsertBestScoreRaw(userId, songId, score);
+  addDailyScore(userId, songId, score, todayUTC());
   const bestScore = isBestScoreValid(raw.best_score) ? raw.best_score : null;
   return { bestScore, lastScore: raw.last_score, isNew: bestScore != null && raw.best_score === score };
 }

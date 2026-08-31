@@ -171,25 +171,8 @@ function buildSeedNotes(): Array<{ time: number; key: string; duration: number }
 }
 
 async function seedSong(request: APIRequestContext, title = 'E2E Seed'): Promise<{ id: number }> {
-  const headers = await authHeaders(request);
-  const res = await request.post('/api/songs', {
-    multipart: {
-      title,
-      artist: 'Test',
-      bpm: '120',
-      difficulty: 'easy',
-      notes: JSON.stringify(buildSeedNotes()),
-      tracks: '[]',
-      selected_track_indices: '[]',
-      track_hands: '{}',
-      background_tracks: '[]',
-      category_id: '',
-      midi: { name: 'seed.mid', mimeType: 'audio/midi', buffer: SEED_MIDI },
-    },
-    headers,
-  });
-  expect(res.ok()).toBeTruthy();
-  return { id: (await res.json()).id };
+  const id = await seedSongWithNotes(request, title, buildSeedNotes());
+  return { id };
 }
 
 /** Delete all songs whose title matches the given regex via the API. */
@@ -234,13 +217,17 @@ export async function deleteSong(request: APIRequestContext, id: number): Promis
   await request.delete(`/api/songs/${id}`, { headers });
 }
 
-/** Seed a song with optional custom notes. Returns the created song id. */
+/** Seed a song with optional custom notes. Returns the created song id.
+ *  Pass `token` to seed on behalf of another user (e.g. a throwaway user
+ *  registered for a specific test); omitted, the song belongs to the
+ *  shared e2e user. */
 export async function seedSongWithNotes(
   request: APIRequestContext,
   title: string,
   notes: Array<{ time: number; key: string; duration: number }>,
+  token?: string,
 ): Promise<number> {
-  const headers = await authHeaders(request);
+  const headers = token ? bearer(token) : await authHeaders(request);
   const res = await request.post('/api/songs', {
     multipart: {
       title,

@@ -129,6 +129,7 @@ function setupGameCallbacks(ctx: AppContext): void {
     } else {
       freeplayScreen.classList.remove('active');
       homeScreenEl.classList.add('active');
+      _homeScreen?.refreshLeaderboard();
     }
 
     loadMenuData(ctx).catch((e) => console.error('Failed to refresh menu:', e));
@@ -199,11 +200,12 @@ async function startSong(
 }
 
 /** Wire up all Menu action callbacks: start, rename, delete, publish,
- *  community-start, and bookmark. */
+ *  community-start, bookmark, and back-to-home navigation. */
 function setupMenuCallbacks(ctx: AppContext): void {
   const { menu } = ctx;
 
   menu.onStart = (song) => startSong(ctx, song, fetchSong);
+  menu.onBackToHome = () => _homeScreen?.show();
 
   const renamePopup = new RenameSongPopup({
     onSave: async (id, title, artist) => {

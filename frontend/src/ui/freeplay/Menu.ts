@@ -33,6 +33,7 @@ export class Menu {
   onDelete: ((song: Song) => void) | null = null;
   onPublishCommunity: ((song: Song) => void) | null = null;
   onBookmark: ((song: Song) => void) | null = null;
+  onBackToHome: (() => void) | null = null;
   private _songListEl: HTMLElement;
   private _startBtn: HTMLButtonElement;
   private _freeplayScreen: HTMLElement;
@@ -54,7 +55,7 @@ export class Menu {
     if (brandCorner) {
       brandCorner.addEventListener('click', () => {
         this._freeplayScreen.classList.remove('active');
-        document.getElementById('home-screen')!.classList.add('active');
+        this.onBackToHome?.();
       });
     }
 

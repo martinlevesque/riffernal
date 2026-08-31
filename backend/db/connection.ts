@@ -116,6 +116,22 @@ db.exec(`
   CREATE INDEX IF NOT EXISTS idx_user_song_loops ON user_song_loops(user_id, song_id);
 `);
 
+// Per-user-per-day running total of all scored runs. Each completed (non-
+// learning-mode) run adds its score to today's total for that user, and
+// records the song most recently scored today. Powers the daily leaderboard
+// on the home screen. `day` is a 'YYYY-MM-DD' string in UTC, matching the
+// datetime('now') convention used elsewhere.
+db.exec(`
+  CREATE TABLE IF NOT EXISTS user_daily_scores (
+    user_id INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+    day TEXT NOT NULL,
+    total_score INTEGER NOT NULL DEFAULT 0,
+    last_song_id INTEGER REFERENCES songs(id) ON DELETE SET NULL,
+    updated_at TEXT NOT NULL DEFAULT (datetime('now')),
+    PRIMARY KEY (user_id, day)
+  );
+`);
+
 // Indexes covering the query patterns used across db/. Declared with
 // `IF NOT EXISTS` so they are created on existing databases too, not only on
 // fresh ones. Run after all migrations/column-adds so referenced columns exist.
@@ -128,6 +144,7 @@ db.exec(`
   CREATE INDEX IF NOT EXISTS idx_songs_imported_by_user ON songs(imported_by_user_id, created_at);
   CREATE INDEX IF NOT EXISTS idx_songs_public_community ON songs(public_community);
   CREATE INDEX IF NOT EXISTS idx_sessions_user_id ON sessions(user_id);
+  CREATE INDEX IF NOT EXISTS idx_user_daily_scores_day_score ON user_daily_scores(day, total_score DESC);
 `);
 
 /** Add a column to a table only when it isn't already present. SQLite has no

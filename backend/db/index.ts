@@ -29,6 +29,12 @@ export {
 } from "./userSong.ts";
 export { setCommunityBookmark, findCommunityBookmarks } from "./community.ts";
 export {
+  type DailyScoreRow,
+  type LeaderboardScoreRow,
+  addDailyScore,
+  findTopDailyScores,
+} from "./leaderboard.ts";
+export {
   type UserRow,
   getUserRow,
   getUserByUsername,

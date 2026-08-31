@@ -1,6 +1,7 @@
 import { themeManager } from '../../themes/ThemeManager.js';
 import type { ThemeCss } from '../../themes/types.js';
 import type { AppMode } from '../../main.js';
+import { LeaderboardPanel } from './LeaderboardPanel.js';
 
 interface Ember {
   x: number;
@@ -48,6 +49,7 @@ export class HomeScreen {
   private _focusedIndex = 0;
   private _cards: HTMLElement[] = [];
   private _midiStatusEl: HTMLElement;
+  private _leaderboard: LeaderboardPanel;
   private _opts: HomeScreenOptions;
 
   constructor(opts: HomeScreenOptions = {}) {
@@ -56,6 +58,7 @@ export class HomeScreen {
     this._canvas = document.getElementById('home-canvas') as HTMLCanvasElement;
     this._ctx = this._canvas.getContext('2d')!;
     this._midiStatusEl = document.getElementById('midi-status-home')!;
+    this._leaderboard = new LeaderboardPanel();
 
     this._resize();
     window.addEventListener('resize', () => this._resize());
@@ -70,6 +73,7 @@ export class HomeScreen {
   show(): void {
     this._screen.classList.add('active');
     this._startAnimation();
+    this._leaderboard.refresh();
   }
 
   hide(): void {
@@ -82,6 +86,12 @@ export class HomeScreen {
     this._midiStatusEl.className = `midi-status${connected ? ' connected' : ''}`;
   }
 
+  /** Re-fetch and re-render the leaderboard panel (e.g. after a scoring run
+   *  returns to the home screen). Never rejects. */
+  refreshLeaderboard(): void {
+    this._leaderboard.refresh();
+  }
+
   // --- internals: wiring -----------------------------------------------------
 
   private _wireButtons(): void {
@@ -92,10 +102,10 @@ export class HomeScreen {
 
     this._cards = [freeplayBtn, campaignBtn, settingsBtn, logoutBtn];
 
-    freeplayBtn.addEventListener("click", () => {
-      this._opts.onNavigate?.("freeplay");
-      this._screen.classList.remove("active");
-      document.getElementById("freeplay-screen")!.classList.add("active");
+    freeplayBtn.addEventListener('click', () => {
+      this._opts.onNavigate?.('freeplay');
+      this._screen.classList.remove('active');
+      document.getElementById('freeplay-screen')!.classList.add('active');
       this._stopAnimation();
     });
 
@@ -309,7 +319,7 @@ export class HomeScreen {
 
     // Embers glow brighter near the bottom
     if (e.type === 'ember') {
-      alpha = 1 - (e.y / (screenH * 0.5));
+      alpha = 1 - e.y / (screenH * 0.5);
       alpha = Math.max(0.05, Math.min(0.5, alpha));
     }
 
@@ -344,7 +354,9 @@ export class HomeScreen {
   }
 
   private _alphaHex(hex: string, alpha: number): string {
-    const a = Math.round(Math.max(0, Math.min(1, alpha)) * 255).toString(16).padStart(2, '0');
+    const a = Math.round(Math.max(0, Math.min(1, alpha)) * 255)
+      .toString(16)
+      .padStart(2, '0');
     return `${hex}${a}`;
   }
 
