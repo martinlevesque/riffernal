@@ -8,13 +8,6 @@ export interface DailyScoreRow {
   updated_at: string;
 }
 
-/** Add `score` to the user's running total for `day`, and record `songId` as
- *  the most recently scored song that day. Creates the row if missing. Scores
- *  are added chronologically (one call per completed run), so overwriting
- *  last_song_id on each call naturally tracks the latest song of the day.
- *  Rows from earlier days are deleted first: the board only ever reads
- *  today, so old rows are dead weight and this keeps the table bounded at
- *  one row per active user. */
 export function addDailyScore(userId: number, songId: number, score: number, day: string): void {
   db.query("DELETE FROM user_daily_scores WHERE user_id = ? AND day < ?").run(userId, day);
 
@@ -28,8 +21,6 @@ export function addDailyScore(userId: number, songId: number, score: number, day
   ).run(userId, day, score, songId);
 }
 
-/** A leaderboard row: the user's daily total plus the title of the last song
- *  they scored that day. */
 export interface LeaderboardScoreRow {
   user_id: number;
   username: string;
@@ -37,10 +28,6 @@ export interface LeaderboardScoreRow {
   last_song_title: string | null;
 }
 
-/** Return the top users for a given day, ordered by total_score descending
- *  then username ascending (stable tie-break). Only rows with a positive
- *  total appear. `last_song_title` comes from the songs table via a LEFT JOIN
- *  (the song may have been deleted). Limited to `limit` rows. */
 export function findTopDailyScores(limit: number, day: string): LeaderboardScoreRow[] {
   return db
     .query(

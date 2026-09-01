@@ -1,8 +1,6 @@
 import { fetchLeaderboard, type LeaderboardEntry } from '../../api/LeaderboardApi.js';
 import { getStoredUser } from '../../api/AuthApi.js';
 
-/** Compact daily leaderboard panel shown on the home screen. Renders the
- *  top-10 table into the static `#home-leaderboard` container. */
 export class LeaderboardPanel {
   private _el: HTMLElement;
 
@@ -10,10 +8,6 @@ export class LeaderboardPanel {
     this._el = document.getElementById('home-leaderboard')!;
   }
 
-  /** Fetch today's leaderboard and re-render the compact table. Safe to call
-   *  repeatedly (e.g. after a scoring run returns to the home screen). Self-
-   *  contained: errors are logged here and never reject, and on failure the
-   *  panel keeps its last content. */
   async refresh(): Promise<void> {
     try {
       this._render(await fetchLeaderboard());
