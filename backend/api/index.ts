@@ -6,6 +6,7 @@ import { communityRoutes } from "./community.ts";
 import { userRoutes } from "./user.ts";
 import { loopRoutes } from "./loop.ts";
 import { authRoutes } from "./auth.ts";
+import { leaderboardRoutes } from "./leaderboard.ts";
 
 const routes: Route[] = defineRoutes([
   ...authRoutes,
@@ -14,6 +15,7 @@ const routes: Route[] = defineRoutes([
   ...communityRoutes,
   ...userRoutes,
   ...loopRoutes,
+  ...leaderboardRoutes,
 ]);
 
 /** Handle an API request. Returns a Response, or null if no route matched.

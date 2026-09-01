@@ -29,6 +29,15 @@ export {
 } from './song.js';
 
 export {
+  type LeaderboardEntry,
+  type SeededUser,
+  seedUserWithScores,
+  recordScore,
+  fetchLeaderboard,
+  expectWellFormedBoard,
+} from './leaderboard.js';
+
+export {
   type StartGameOptions,
   startGame,
   goToSongList,

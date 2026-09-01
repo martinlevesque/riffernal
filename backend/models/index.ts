@@ -1,5 +1,6 @@
 export { type Category, listCategories, createCategory } from "./category.ts";
 export { type GameSettings, getGameSettings, updateGameSettings } from "./user.ts";
+export { type LeaderboardEntry, getTodayLeaderboard } from "./leaderboard.ts";
 export {
   type Loop,
   listLoops,
