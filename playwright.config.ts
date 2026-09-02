@@ -9,6 +9,7 @@ const STORAGE_PATH = join(__dirname, 'tests', '.auth', 'user.json');
 // 3000). RIFFERNAL_DB_RESET=1 wipes test.db before the server boots, so
 // every run starts from a clean schema.
 const TEST_PORT = 3100;
+export { TEST_PORT };
 const TEST_DB = 'test.db';
 const TEST_ENV = {
   RIFFERNAL_DB: TEST_DB,

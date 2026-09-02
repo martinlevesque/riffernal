@@ -13,11 +13,24 @@ import {
 } from "../models/index.ts";
 import { json, parseJson, errMsg, handleErr, numOrNull, notFound, type Handler } from "./router.ts";
 import { requireAuth } from "./middleware.ts";
+import { ValidationError } from "../models/validation.ts";
 
-/** Parse the multipart form for POST /api/songs into an InsertSongInput. */
+/** MIME types accepted for the uploaded MIDI file part. Bun's formData()
+ *  re-derives each part's type from its filename, so this effectively
+ *  requires a .mid/.midi-style filename. */
+const MIDI_MIME_TYPES = new Set(["audio/midi", "audio/x-midi"]);
+
+/** Parse the multipart form for POST /api/songs into an InsertSongInput.
+ *  Throws a ValidationError when the `midi` part is not a MIDI file, before
+ *  its bytes are read. */
 async function parseCreateSongForm(req: Request, userId: number): Promise<InsertSongInput> {
   const form = await req.formData();
   const midiFile = form.get("midi") as File | null;
+
+  if (midiFile && !MIDI_MIME_TYPES.has(midiFile.type)) {
+    throw new ValidationError("midi file must be audio/midi");
+  }
+
   return {
     title: String(form.get("title") ?? ""),
     artist: String(form.get("artist") ?? ""),

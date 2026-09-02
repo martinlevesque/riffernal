@@ -1,5 +1,7 @@
 import { test, expect, type APIRequestContext } from "@playwright/test";
+import http from "node:http";
 import { wipeDatabase, cleanupSongs, cleanupCategoriesByLabel, authHeaders, authJsonHeaders } from "../helpers/index.js";
+import { TEST_PORT } from "../../playwright.config.js";
 
 const MIDI_HEADER = [0x4d, 0x54, 0x68, 0x64, 0x00, 0x00, 0x00, 0x06, 0x00, 0x00, 0x00, 0x01, 0x01, 0xe0];
 
@@ -35,6 +37,44 @@ async function createCategory(
   expect(res.ok()).toBeTruthy();
   const body = await res.json();
   return { id: body.id, name: body.name };
+}
+
+/** Send a POST to /api/songs whose declared Content-Length exceeds the
+ *  server's request-body limit, without writing any body bytes, and resolve
+ *  with the response status code. The server rejects on the declared size
+ *  before buffering anything; a raw node:http client is used (instead of
+ *  Playwright's request context, which surfaces the server's early close
+ *  as a write EPIPE) so the 413 response can still be read. */
+function postOversizedUpload(token: string, declaredLength: number): Promise<number> {
+  return new Promise((resolve, reject) => {
+    let settled = false;
+
+    const req = http.request(
+      {
+        host: "localhost",
+        port: TEST_PORT,
+        method: "POST",
+        path: "/api/songs",
+        headers: {
+          "Content-Type": "multipart/form-data; boundary=----e2eBoundary7f3a",
+          "Content-Length": String(declaredLength),
+          Authorization: `Bearer ${token}`,
+        },
+      },
+      (res) => {
+        res.resume();
+        settled = true;
+        resolve(res.statusCode ?? 0);
+        req.destroy();
+      },
+    );
+
+    req.on("error", (err) => {
+      if (!settled) reject(err);
+    });
+
+    req.flushHeaders();
+  });
 }
 
 test.beforeAll(async ({ request }: { request: APIRequestContext }) => {
@@ -77,6 +117,59 @@ test.describe("API: songs CRUD", () => {
     expect(body.imported).toBe(true);
 
     await cleanupSongs(request, /^E2E-Upload$/);
+  });
+
+  test("POST /api/songs rejects a non-MIDI file content type with 400", async ({ request }) => {
+    const midi = buildMidi("e2e-notmidi.txt");
+    const form: Record<string, string | { name: string; mimeType: string; buffer: Buffer }> = {
+      title: "E2E-NotMidi",
+      artist: "",
+      bpm: "120",
+      difficulty: "medium",
+      notes: "[]",
+      tracks: "[]",
+      selected_track_indices: "[]",
+      track_hands: "{}",
+      background_tracks: "[]",
+      category_id: "",
+      midi: { ...midi, mimeType: "text/plain" },
+    };
+
+    const headers = await authHeaders(request);
+    const res = await request.post("/api/songs", { multipart: form, headers });
+    expect(res.status()).toBe(400);
+    const body = await res.json();
+    expect(String(body.error).toLowerCase()).toContain("midi");
+
+    await cleanupSongs(request, /^E2E-NotMidi$/);
+  });
+
+  test("POST /api/songs rejects a midi string field with 400", async ({ request }) => {
+    const form: Record<string, string | { name: string; mimeType: string; buffer: Buffer }> = {
+      title: "E2E-NotMidi",
+      artist: "",
+      bpm: "120",
+      difficulty: "medium",
+      notes: "[]",
+      tracks: "[]",
+      selected_track_indices: "[]",
+      track_hands: "{}",
+      background_tracks: "[]",
+      category_id: "",
+      midi: "not-a-file",
+    };
+
+    const headers = await authHeaders(request);
+    const res = await request.post("/api/songs", { multipart: form, headers });
+    expect(res.status()).toBe(400);
+  });
+
+  test("POST /api/songs rejects bodies over the size limit with 413", async ({ request }) => {
+    const headers = await authHeaders(request);
+    const token = headers.Authorization.replace("Bearer ", "");
+
+    const status = await postOversizedUpload(token, 11 * 1024 * 1024);
+    expect(status).toBe(413);
   });
 
   test("GET /api/songs/:id returns the song", async ({ request }) => {

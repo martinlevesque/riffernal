@@ -11,6 +11,8 @@ const CERTS = join(ROOT, "certs");
 
 const transpiler = new Bun.Transpiler({ loader: "ts", target: "browser" });
 
+const MAX_REQUEST_BODY_SIZE = 10 * 1024 * 1024;
+
 const MIME_TYPES: Record<string, string> = {
   ".html": "text/html; charset=utf-8",
   ".js": "application/javascript; charset=utf-8",
@@ -163,7 +165,7 @@ function startListening(port: number, httpOnly: boolean): void {
     };
 
     if (httpOnly) {
-      Bun.serve({ port, fetch: fetchHandler });
+      Bun.serve({ port, fetch: fetchHandler, maxRequestBodySize: MAX_REQUEST_BODY_SIZE });
     } else {
       generateCerts();
       Bun.serve({
@@ -173,6 +175,7 @@ function startListening(port: number, httpOnly: boolean): void {
           cert: Bun.file(join(CERTS, "cert.pem")),
         },
         fetch: fetchHandler,
+        maxRequestBodySize: MAX_REQUEST_BODY_SIZE,
       });
     }
   } catch (err: unknown) {
