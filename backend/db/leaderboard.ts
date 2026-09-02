@@ -26,12 +26,13 @@ export interface LeaderboardScoreRow {
   username: string;
   total_score: number;
   last_song_title: string | null;
+  last_song_artist: string | null;
 }
 
 export function findTopDailyScores(limit: number, day: string): LeaderboardScoreRow[] {
   return db
     .query(
-      `SELECT uds.user_id, u.username, uds.total_score, s.title AS last_song_title
+      `SELECT uds.user_id, u.username, uds.total_score, s.title AS last_song_title, s.artist AS last_song_artist
        FROM user_daily_scores uds
        JOIN users u ON u.id = uds.user_id
        LEFT JOIN songs s ON s.id = uds.last_song_id

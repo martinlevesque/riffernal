@@ -6,6 +6,7 @@ export interface LeaderboardEntry {
   username: string;
   totalScore: number;
   lastSong: string | null;
+  lastSongArtist: string | null;
 }
 
 export function todayUTC(): string {
@@ -19,6 +20,7 @@ function toLeaderboard(rows: LeaderboardScoreRow[]): LeaderboardEntry[] {
     username: row.username,
     totalScore: row.total_score,
     lastSong: row.last_song_title,
+    lastSongArtist: row.last_song_artist,
   }));
 }
 

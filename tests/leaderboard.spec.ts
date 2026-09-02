@@ -28,7 +28,7 @@ test.describe('Home leaderboard', () => {
   test('shows the top user and highlights the current user row', async ({ request, page }) => {
     const id = await seedSongWithNotes(request, 'LB-UI-Song', [
       { time: 2.0, key: 'C4', duration: 0.4 },
-    ]);
+    ], undefined, 'LB-UI-Artist');
 
     // No explicit token: the shared e2e user scores the run, matching the
     // logged-in browser session so the row is highlighted as "you".
@@ -56,7 +56,9 @@ test.describe('Home leaderboard', () => {
     const title = await youRow.getAttribute('title');
     expect(title).toContain(username!);
     expect(title).toContain('12,345');
-    expect(title).toContain('LB-UI-Song');
+    // The last-song column shows both artist and title.
+    expect(title).toContain('LB-UI-Artist — LB-UI-Song');
+    await expect(youRow.locator('.home-leaderboard-song')).toContainText('LB-UI-Artist — LB-UI-Song');
 
     // Cleanup
     await deleteSong(request, id);

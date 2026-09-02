@@ -16,13 +16,15 @@ export interface LeaderboardEntry {
   username: string;
   totalScore: number;
   lastSong: string | null;
+  lastSongArtist: string | null;
 }
 
 /** A seeded leaderboard participant: a freshly registered user (session
- *  included) with their own song, whose title is returned so tests can
- *  assert the "last song" column. */
+ *  included) with their own song, whose title and artist are returned so
+ *  tests can assert the "last song" column. */
 export interface SeededUser extends AuthSession {
   songTitle: string;
+  songArtist: string;
 }
 
 /** Register a throwaway user with their own song and record one run score
@@ -35,18 +37,20 @@ export async function seedUserWithScores(
 ): Promise<SeededUser> {
   const session = await registerUser(request, uniqueUsername(prefix));
   const songTitle = `${prefix}-Song`;
+  const songArtist = `${prefix}-Artist`;
   const songId = await seedSongWithNotes(
     request,
     songTitle,
     [{ time: 0, key: 'C4', duration: 1 }],
     session.token,
+    songArtist,
   );
 
   for (const score of scores) {
     await recordScore(request, songId, score, session.token);
   }
 
-  return { ...session, songTitle };
+  return { ...session, songTitle, songArtist };
 }
 
 /** Record a run score for a song via the best-score endpoint, adding to the

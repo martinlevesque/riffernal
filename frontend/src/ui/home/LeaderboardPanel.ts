@@ -31,16 +31,19 @@ export class LeaderboardPanel {
     const rows = entries
       .map((e) => {
         const isYou = me != null && e.userId === me.id;
-        const lastSong = e.lastSong
-          ? this._escapeHtml(e.lastSong)
+        const songLabel = e.lastSong
+          ? (e.lastSongArtist ? `${e.lastSongArtist} — ${e.lastSong}` : e.lastSong)
+          : null;
+        const lastSong = songLabel
+          ? this._escapeHtml(songLabel)
           : '<span class="home-leaderboard-dash">—</span>';
         const userCell =
           this._escapeHtml(e.username) +
           (isYou ? ' <span class="home-leaderboard-you">you</span>' : '');
         // The username and last-song cells truncate with ellipsis, so carry
         // the full row text in a native title tooltip shown on hover.
-        const fullText = e.lastSong
-          ? `#${e.rank} ${e.username} · ${e.totalScore.toLocaleString()} · Last: ${e.lastSong}`
+        const fullText = songLabel
+          ? `#${e.rank} ${e.username} · ${e.totalScore.toLocaleString()} · Last: ${songLabel}`
           : `#${e.rank} ${e.username} · ${e.totalScore.toLocaleString()}`;
 
         return (

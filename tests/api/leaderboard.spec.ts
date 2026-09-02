@@ -32,10 +32,14 @@ test.describe('API: leaderboard', () => {
     expect(entryB!.totalScore).toBe(200);
     expect(entryC!.totalScore).toBe(350);
 
-    // lastSong reflects the most recently scored song for each user.
+    // lastSong reflects the most recently scored song for each user,
+    // with its artist alongside the title.
     expect(entryA!.lastSong).toBe(a.songTitle);
     expect(entryB!.lastSong).toBe(b.songTitle);
     expect(entryC!.lastSong).toBe(c.songTitle);
+    expect(entryA!.lastSongArtist).toBe(a.songArtist);
+    expect(entryB!.lastSongArtist).toBe(b.songArtist);
+    expect(entryC!.lastSongArtist).toBe(c.songArtist);
 
     // The board is global and accumulates across the test run (other tests
     // may have seeded scores for the shared e2e user), so assert relative

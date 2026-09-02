@@ -6,6 +6,7 @@ export interface LeaderboardEntry {
   username: string;
   totalScore: number;
   lastSong: string | null;
+  lastSongArtist: string | null;
 }
 
 /** Fetch today's top-10 leaderboard (ranked by daily total score). */
