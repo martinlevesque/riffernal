@@ -226,12 +226,13 @@ export async function seedSongWithNotes(
   title: string,
   notes: Array<{ time: number; key: string; duration: number }>,
   token?: string,
+  artist = 'Test',
 ): Promise<number> {
   const headers = token ? bearer(token) : await authHeaders(request);
   const res = await request.post('/api/songs', {
     multipart: {
       title,
-      artist: 'Test',
+      artist,
       bpm: '120',
       difficulty: 'easy',
       notes: JSON.stringify(notes),
