@@ -20,6 +20,10 @@ import { ValidationError } from "../models/validation.ts";
  *  requires a .mid/.midi-style filename. */
 const MIDI_MIME_TYPES = new Set(["audio/midi", "audio/x-midi"]);
 
+/** Hard cap on the uploaded midi file part. The largest real import is
+ *  ~107 KB, so 500 KB is generous headroom. */
+const MAX_MIDI_FILE_BYTES = 500 * 1024;
+
 /** Parse the multipart form for POST /api/songs into an InsertSongInput.
  *  Throws a ValidationError when the `midi` part is not a MIDI file, before
  *  its bytes are read. */
@@ -29,6 +33,10 @@ async function parseCreateSongForm(req: Request, userId: number): Promise<Insert
 
   if (midiFile && !MIDI_MIME_TYPES.has(midiFile.type)) {
     throw new ValidationError("midi file must be audio/midi");
+  }
+
+  if (midiFile && midiFile.size > MAX_MIDI_FILE_BYTES) {
+    throw new ValidationError("midi file too large (max 500 KB)");
   }
 
   return {

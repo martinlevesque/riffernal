@@ -164,11 +164,33 @@ test.describe("API: songs CRUD", () => {
     expect(res.status()).toBe(400);
   });
 
+  test("POST /api/songs rejects a midi file over 500 KB with 400", async ({ request }) => {
+    const form: Record<string, string | { name: string; mimeType: string; buffer: Buffer }> = {
+      title: "E2E-TooBig",
+      artist: "",
+      bpm: "120",
+      difficulty: "medium",
+      notes: "[]",
+      tracks: "[]",
+      selected_track_indices: "[]",
+      track_hands: "{}",
+      background_tracks: "[]",
+      category_id: "",
+      midi: { name: "e2e-toobig.mid", mimeType: "audio/midi", buffer: Buffer.alloc(600 * 1024, 0x41) },
+    };
+
+    const headers = await authHeaders(request);
+    const res = await request.post("/api/songs", { multipart: form, headers });
+    expect(res.status()).toBe(400);
+    const body = await res.json();
+    expect(String(body.error).toLowerCase()).toContain("large");
+  });
+
   test("POST /api/songs rejects bodies over the size limit with 413", async ({ request }) => {
     const headers = await authHeaders(request);
     const token = headers.Authorization.replace("Bearer ", "");
 
-    const status = await postOversizedUpload(token, 11 * 1024 * 1024);
+    const status = await postOversizedUpload(token, 2 * 1024 * 1024 + 512);
     expect(status).toBe(413);
   });
 
