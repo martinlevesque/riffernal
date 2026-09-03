@@ -115,7 +115,6 @@ db.exec(`
 db.exec("CREATE INDEX IF NOT EXISTS idx_songs_category ON songs(category_id)");
 db.exec("CREATE INDEX IF NOT EXISTS idx_songs_created_at ON songs(created_at)");
 db.exec("CREATE INDEX IF NOT EXISTS idx_songs_imported_by_user ON songs(imported_by_user_id, created_at)");
-db.exec("DROP INDEX IF EXISTS idx_songs_public_community");
 db.exec("CREATE INDEX IF NOT EXISTS idx_songs_public_community_created_at ON songs(public_community, created_at)");
 db.exec("CREATE INDEX IF NOT EXISTS idx_sessions_user_id ON sessions(user_id)");
 db.exec("CREATE INDEX IF NOT EXISTS idx_user_song_loops ON user_song_loops(user_id, song_id)");
