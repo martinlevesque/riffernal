@@ -15,18 +15,13 @@ import { json, parseJson, errMsg, handleErr, numOrNull, notFound, type Handler }
 import { requireAuth } from "./middleware.ts";
 import { ValidationError } from "../models/validation.ts";
 
-/** MIME types accepted for the uploaded MIDI file part. Bun's formData()
- *  re-derives each part's type from its filename, so this effectively
- *  requires a .mid/.midi-style filename. */
+// Bun's formData() re-derives part types from the filename, so this is
+// effectively a .mid/.midi filename check, not a client-declared type check.
 const MIDI_MIME_TYPES = new Set(["audio/midi", "audio/x-midi"]);
 
-/** Hard cap on the uploaded midi file part. The largest real import is
- *  ~107 KB, so 500 KB is generous headroom. */
+// Largest real import is ~107 KB.
 const MAX_MIDI_FILE_BYTES = 500 * 1024;
 
-/** Parse the multipart form for POST /api/songs into an InsertSongInput.
- *  Throws a ValidationError when the `midi` part is not a MIDI file, before
- *  its bytes are read. */
 async function parseCreateSongForm(req: Request, userId: number): Promise<InsertSongInput> {
   const form = await req.formData();
   const midiFile = form.get("midi") as File | null;

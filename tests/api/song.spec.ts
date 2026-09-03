@@ -39,12 +39,10 @@ async function createCategory(
   return { id: body.id, name: body.name };
 }
 
-/** Send a POST to /api/songs whose declared Content-Length exceeds the
- *  server's request-body limit, without writing any body bytes, and resolve
- *  with the response status code. The server rejects on the declared size
- *  before buffering anything; a raw node:http client is used (instead of
- *  Playwright's request context, which surfaces the server's early close
- *  as a write EPIPE) so the 413 response can still be read. */
+/** No body bytes are needed: the server 413s on the declared
+ *  Content-Length before buffering. A raw node:http client is used because
+ *  Playwright's request context surfaces the server's early close as a
+ *  write EPIPE instead of the 413 response. */
 function postOversizedUpload(token: string, declaredLength: number): Promise<number> {
   return new Promise((resolve, reject) => {
     let settled = false;

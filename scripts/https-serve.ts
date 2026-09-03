@@ -11,9 +11,9 @@ const CERTS = join(ROOT, "certs");
 
 const transpiler = new Bun.Transpiler({ loader: "ts", target: "browser" });
 
-// Cap request bodies above the largest real import (~1.55 MB: a 107 KB midi
-// file plus its ~1.4 MB parsed-notes JSON) so a single request can never
-// buffer ~128 MiB (Bun's default) in memory.
+// Bun's default is 128 MiB, fully buffered per request. 2 MB clears the
+// largest real import (~1.55 MB — its parsed-notes JSON dominates the
+// body, not the midi file).
 const MAX_REQUEST_BODY_SIZE = 2 * 1024 * 1024;
 
 const MIME_TYPES: Record<string, string> = {
