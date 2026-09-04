@@ -18,6 +18,7 @@ if (process.env.RIFFERNAL_DB_RESET === "1") {
 
 export const db = new Database(DB_PATH);
 db.exec("PRAGMA journal_mode = WAL");
+db.exec("PRAGMA synchronous = NORMAL");
 db.exec("PRAGMA foreign_keys = ON");
 
 db.exec(`
