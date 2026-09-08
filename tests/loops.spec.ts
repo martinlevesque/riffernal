@@ -867,11 +867,11 @@ test.describe('Loops - end-to-end restart', () => {
 
     // Loops were loaded at startup, so the chain should auto-engage at the
     // first enabled loop. Loop-status text shows the active loop's bounds.
-    await expectLoopStatus(page, 'Loop 3.00s-7.00s');
+    await expectLoopStatus(page, 'Loop 0:03-0:07');
 
     await page.locator('#btn-restart').click();
     // After restart, retry() should re-engage the chain at the first loop.
-    await expectLoopStatus(page, 'Loop 3.00s-7.00s');
+    await expectLoopStatus(page, 'Loop 0:03-0:07');
   });
 
   test('clicking restart with 1 enabled loop seeks to the loop start, not the song beginning', async ({ page, request }) => {
@@ -895,13 +895,13 @@ test.describe('Loops - end-to-end restart', () => {
     await page.locator('#play-screen').waitFor({ state: 'attached', timeout: 5000 });
 
     await page.locator('#btn-close-song-info').click();
-    await expectLoopStatus(page, 'Loop 5.00s-8.00s');
+    await expectLoopStatus(page, 'Loop 0:05-0:08');
     await expectMode(page, 'learn');
 
     await page.locator('#btn-restart').click();
 
     // After restart, loop should still be active and in LEARN mode.
-    await expectLoopStatus(page, 'Loop 5.00s-8.00s');
+    await expectLoopStatus(page, 'Loop 0:05-0:08');
     await expectMode(page, 'learn');
 
     // Read currentTime directly from the game instance. With the pre-roll
@@ -971,11 +971,11 @@ test.describe('Loops - end-to-end toggle + restart', () => {
     await closeSheet(page);
 
     await page.locator('#btn-restart').click();
-    await expectLoopStatus(page, 'Loop 3.00s-7.00s');
+    await expectLoopStatus(page, 'Loop 0:03-0:07');
 
     await page.locator('#btn-restart').click();
     // After restart, retry() re-engages at the first enabled loop.
-    await expectLoopStatus(page, 'Loop 3.00s-7.00s');
+    await expectLoopStatus(page, 'Loop 0:03-0:07');
   });
 });
 
