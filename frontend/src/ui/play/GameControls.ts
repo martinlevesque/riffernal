@@ -2,6 +2,7 @@ import { type Game, GameState } from '../../game/Game.js';
 import { PracticeHand } from '../../utils/notes.js';
 import { fetchUserSettings, updateUserSettings } from '../../api/UserApi.js';
 import { themeManager } from '../../themes/ThemeManager.js';
+import { formatTime } from '../../utils/helpers.js';
 
 export class GameControls {
   game: Game;
@@ -156,7 +157,7 @@ export class GameControls {
     else if (this.game.loopActive) {
       const cur = this.game.loop.current;
       loopStatus.textContent = cur
-        ? `Loop ${cur.startTime.toFixed(2)}s-${cur.endTime.toFixed(2)}s`
+        ? `Loop ${formatTime(cur.startTime)}-${formatTime(cur.endTime)}`
         : 'Chain active';
     } else if (savedCount > 0) {
       loopStatus.textContent = enabledCount > 0

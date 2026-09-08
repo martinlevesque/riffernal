@@ -1,6 +1,6 @@
 import { type Game, LoopDefinitionState } from '../../game/Game.js';
 import { updateLoopEnabled, updateLoopEndTime, deleteLoop } from '../../api/LoopApi.js';
-import { reportError } from '../../utils/helpers.js';
+import { formatTime, reportError } from '../../utils/helpers.js';
 
 export interface LoopsPanelCallbacks {
   setMode: (learning: boolean) => void;
@@ -8,7 +8,7 @@ export interface LoopsPanelCallbacks {
 }
 
 function fmtBounds(start: number, end: number): string {
-  return `${start.toFixed(2)}s-${end.toFixed(2)}s`;
+  return `${formatTime(start)}-${formatTime(end)}`;
 }
 
 export class LoopsPanel {
