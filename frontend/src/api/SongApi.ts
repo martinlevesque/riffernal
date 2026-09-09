@@ -27,11 +27,14 @@ export interface LibraryMenuItem extends SongSummary {
   isCommunity: boolean;
 }
 
-/** A category group in the library menu (or "Uncategorized"). */
+/** A category group in the library menu (or "Uncategorized"). `songs` is
+ *  capped server-side; `total` is the full count, used to show a "Load
+ *  more" affordance backed by `fetchLibraryCategorySongs`. */
 export interface LibraryCategoryGroup {
   id: number | null;
   name: string;
   songs: LibraryMenuItem[];
+  total: number;
 }
 
 /** The full library menu: category groups sorted by latest play time. */
@@ -201,6 +204,26 @@ export async function fetchLibrary(): Promise<LibraryMenu> {
   const res = await apiFetch("/api/library");
   if (!res.ok) throw new Error(await parseError(res));
   return res.json() as Promise<LibraryMenu>;
+}
+
+/** Paginated result of listing a single library category's songs. */
+export interface LibraryCategorySongsResult {
+  songs: LibraryMenuItem[];
+  total: number;
+}
+
+/** Fetch a page of songs for a single library category (or "Uncategorized"
+ *  when `categoryId` is null). Used by the menu's per-category "Load more"
+ *  to page beyond the songs already embedded in `fetchLibrary`. */
+export async function fetchLibraryCategorySongs(
+  categoryId: number | null,
+  limit = 10,
+  offset = 0,
+): Promise<LibraryCategorySongsResult> {
+  const segment = categoryId === null ? "uncategorized" : String(categoryId);
+  const res = await apiFetch(`/api/library/categories/${segment}/songs?limit=${limit}&offset=${offset}`);
+  if (!res.ok) throw new Error(await parseError(res));
+  return res.json() as Promise<LibraryCategorySongsResult>;
 }
 
 export async function fetchCommunitySong(id: number): Promise<SongFull> {

@@ -1,6 +1,7 @@
 import {
   listSongs,
   listLibrary,
+  listLibraryCategorySongs,
   getSong,
   createSong,
   updateSong,
@@ -12,6 +13,7 @@ import {
   type SongUpdate,
 } from "../models/index.ts";
 import { json, parseJson, errMsg, handleErr, numOrNull, notFound, type Handler } from "./router.ts";
+import { parsePagination } from "./helpers/pagination.ts";
 import { requireAuth } from "./middleware.ts";
 import { ValidationError } from "../models/validation.ts";
 
@@ -58,6 +60,26 @@ export const songRoutes = [
       const auth = requireAuth(req);
       if (auth instanceof Response) return auth;
       return json(listLibrary(auth.id));
+    }) as Handler,
+  },
+  {
+    method: "GET",
+    path: "/api/library/categories/:categoryId/songs",
+    handler: ((req: Request, { categoryId }: Record<string, string>) => {
+      const auth = requireAuth(req);
+      if (auth instanceof Response) return auth;
+
+      let parsedCategoryId: number | null;
+      if (categoryId === "uncategorized") {
+        parsedCategoryId = null;
+      } else {
+        const n = Number(categoryId);
+        if (!Number.isFinite(n) || n <= 0) return json({ error: "Invalid categoryId" }, 400);
+        parsedCategoryId = n;
+      }
+
+      const { limit, offset } = parsePagination(new URL(req.url));
+      return json(listLibraryCategorySongs(auth.id, parsedCategoryId, limit, offset));
     }) as Handler,
   },
   {

@@ -313,11 +313,15 @@ export interface LibraryMenuItem extends SongSummary {
 }
 
 /** A category group in the library menu: a category (or "Uncategorized")
- *  with its songs (own + bookmarked community) already grouped and sorted. */
+ *  with its songs (own + bookmarked community) already grouped and sorted.
+ *  `songs` is capped to `LIBRARY_CATEGORY_PAGE_SIZE`; `total` is the full
+ *  count for the category so the frontend can show a "Load more" affordance
+ *  backed by `listLibraryCategorySongs`. */
 export interface LibraryCategoryGroup {
   id: number | null;
   name: string;
   songs: LibraryMenuItem[];
+  total: number;
 }
 
 /** The full library menu: category groups sorted by latest play time
@@ -327,22 +331,24 @@ export interface LibraryMenu {
   categories: LibraryCategoryGroup[];
 }
 
-/** Return the user's library (own songs + bookmarked community songs)
- *  grouped by category, sorted server-side so the frontend can render the
- *  groups directly without any client-side grouping. Own songs take
- *  precedence over bookmarked community songs when the same song appears in
- *  both (e.g. the owner bookmarked their own published song). */
-export function listLibrary(userId: number): LibraryMenu {
+/** Max songs returned per category group in `listLibrary`. Categories with
+ *  more songs than this expose their full count via `total`; the rest are
+ *  fetched a page at a time via `listLibraryCategorySongs`. */
+export const LIBRARY_CATEGORY_PAGE_SIZE = 10;
+
+/** Fetch the user's own + bookmarked community songs (deduped, own takes
+ *  precedence) as flat, untagged-by-category `LibraryMenuItem`s. Shared by
+ *  `listLibrary` (grouping) and `listLibraryCategorySongs` (single-category
+ *  pagination). */
+function buildLibraryItems(userId: number): LibraryMenuItem[] {
   const rawStats = findAllScoreStats(userId);
   const statsBySongId = new Map<number, ScoreStats>();
   for (const row of rawStats) {
     statsBySongId.set(row.song_id, toScoreStats(row));
   }
 
-  const categories = findAllCategories();
   const ownRows = getAllSongsForUser(userId);
   const bookmarkedRows = getBookmarkedSongs(userId);
-
   const ownIds = new Set(ownRows.map((r) => r.id));
 
   const items: LibraryMenuItem[] = [];
@@ -356,6 +362,47 @@ export function listLibrary(userId: number): LibraryMenu {
     const stats = statsBySongId.get(row.id) ?? EMPTY_STATS;
     items.push({ ...rowToSummary(row, stats, true), isCommunity: true });
   }
+
+  return items;
+}
+
+/** Sort comparator for library items: most-recently-played first, never-
+ *  played songs sink to the bottom. */
+function sortByLastPlayed(a: LibraryMenuItem, b: LibraryMenuItem): number {
+  if (a.lastPlayedAt && b.lastPlayedAt) return a.lastPlayedAt < b.lastPlayedAt ? 1 : -1;
+
+  if (a.lastPlayedAt) return -1;
+
+  if (b.lastPlayedAt) return 1;
+
+  return 0;
+}
+
+/** Paginated songs for a single library category (or "Uncategorized" when
+ *  `categoryId` is null), sorted by last-played time. Used by the frontend's
+ *  per-category "Load more" to fetch beyond the page already embedded in
+ *  `listLibrary`. */
+export function listLibraryCategorySongs(
+  userId: number,
+  categoryId: number | null,
+  limit: number,
+  offset: number,
+): { songs: LibraryMenuItem[]; total: number } {
+  const items = buildLibraryItems(userId).filter((item) => (item.categoryId ?? null) === categoryId);
+  items.sort(sortByLastPlayed);
+  return { songs: items.slice(offset, offset + limit), total: items.length };
+}
+
+/** Return the user's library (own songs + bookmarked community songs)
+ *  grouped by category, sorted server-side so the frontend can render the
+ *  groups directly without any client-side grouping. Own songs take
+ *  precedence over bookmarked community songs when the same song appears in
+ *  both (e.g. the owner bookmarked their own published song). Each group's
+ *  songs are capped to `LIBRARY_CATEGORY_PAGE_SIZE`; use
+ *  `listLibraryCategorySongs` to page through the rest. */
+export function listLibrary(userId: number): LibraryMenu {
+  const categories = findAllCategories();
+  const items = buildLibraryItems(userId);
 
   const groupMap = new Map<number | null, LibraryMenuItem[]>();
   for (const cat of categories) {
@@ -373,23 +420,13 @@ export function listLibrary(userId: number): LibraryMenu {
     }
   }
 
-  const sortByLastPlayed = (a: LibraryMenuItem, b: LibraryMenuItem): number => {
-    if (a.lastPlayedAt && b.lastPlayedAt) return a.lastPlayedAt < b.lastPlayedAt ? 1 : -1;
-
-    if (a.lastPlayedAt) return -1;
-
-    if (b.lastPlayedAt) return 1;
-
-    return 0;
-  };
-
   const groups: LibraryCategoryGroup[] = [];
   for (const cat of categories) {
     const songs = groupMap.get(cat.id) ?? [];
 
     if (songs.length > 0) {
       songs.sort(sortByLastPlayed);
-      groups.push({ id: cat.id, name: cat.name, songs });
+      groups.push({ id: cat.id, name: cat.name, songs: songs.slice(0, LIBRARY_CATEGORY_PAGE_SIZE), total: songs.length });
     }
   }
 
@@ -397,7 +434,12 @@ export function listLibrary(userId: number): LibraryMenu {
 
   if (uncategorized.length > 0) {
     uncategorized.sort(sortByLastPlayed);
-    groups.push({ id: null, name: "Uncategorized", songs: uncategorized });
+    groups.push({
+      id: null,
+      name: "Uncategorized",
+      songs: uncategorized.slice(0, LIBRARY_CATEGORY_PAGE_SIZE),
+      total: uncategorized.length,
+    });
   }
 
   groups.sort((a, b) => {

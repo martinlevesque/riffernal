@@ -3,6 +3,7 @@ import { formatScore, formatRelativeTime, reportError } from "../../utils/helper
 import {
   fetchCommunitySongs,
   fetchLibrary,
+  fetchLibraryCategorySongs,
   type SongSummary,
 } from "../../api/SongApi.js";
 
@@ -15,10 +16,13 @@ interface MenuGroup {
   id: number | null;
   name: string;
   items: GroupedItem[];
+  total: number;
+  loading: boolean;
 }
 
 const COLLAPSED_KEY = "riffernal:collapsed-categories";
 const COMMUNITY_PAGE_SIZE = 10;
+const CATEGORY_PAGE_SIZE = 10;
 
 export class Menu {
   private _groups: MenuGroup[] = [];
@@ -71,6 +75,8 @@ export class Menu {
         id: g.id,
         name: g.name,
         items: g.songs.map((s) => ({ song: this._itemToSong(s), isCommunity: s.isCommunity })),
+        total: g.total,
+        loading: false,
       }));
       this._render();
     } catch (err) {
@@ -104,9 +110,12 @@ export class Menu {
       const before = group.items.length;
       group.items = group.items.filter((i) => i.song.id !== id);
 
-      if (group.items.length !== before) break;
+      if (group.items.length !== before) {
+        group.total = Math.max(0, group.total - 1);
+        break;
+      }
     }
-    this._groups = this._groups.filter((g) => g.items.length > 0);
+    this._groups = this._groups.filter((g) => g.total > 0);
 
     if (this._selectedSong?.id === id) {
       this._selectedSong = null;
@@ -172,6 +181,26 @@ export class Menu {
       reportError("Failed to load community songs", err);
     } finally {
       this._communityLoading = false;
+    }
+  }
+
+  private async _loadMoreCategory(categoryId: number | null): Promise<void> {
+    const group = this._groups.find((g) => g.id === categoryId);
+    if (!group || group.loading) return;
+    group.loading = true;
+
+    try {
+      const result = await fetchLibraryCategorySongs(categoryId, CATEGORY_PAGE_SIZE, group.items.length);
+      group.items = [
+        ...group.items,
+        ...result.songs.map((s) => ({ song: this._itemToSong(s), isCommunity: s.isCommunity })),
+      ];
+      group.total = result.total;
+      this._render();
+    } catch (err) {
+      reportError("Failed to load more songs", err);
+    } finally {
+      group.loading = false;
     }
   }
 
@@ -284,7 +313,7 @@ export class Menu {
 
     const header = document.createElement("div");
     header.className = "category-header";
-    header.innerHTML = `<span>${group.name}</span><span><span class="category-count">${group.items.length}</span><span class="category-collapse-icon"></span></span>`;
+    header.innerHTML = `<span>${group.name}</span><span><span class="category-count">${group.total}</span><span class="category-collapse-icon"></span></span>`;
     header.addEventListener("click", () => {
       const collapsedNow = section.classList.toggle("collapsed");
 
@@ -305,6 +334,16 @@ export class Menu {
 
     section.appendChild(header);
     section.appendChild(songsWrap);
+
+    if (group.items.length < group.total) {
+      const loadMoreBtn = this._el("button", "btn-link category-load-more",
+        `Load more (${group.total - group.items.length} remaining)`) as HTMLButtonElement;
+      loadMoreBtn.addEventListener("click", (e) => {
+        e.stopPropagation();
+        this._loadMoreCategory(group.id);
+      });
+      section.appendChild(loadMoreBtn);
+    }
 
     return section;
   }

@@ -417,4 +417,96 @@ test.describe("API: community songs", () => {
     const res = await request.get("/api/library");
     expect(res.status()).toBe(401);
   });
+
+  test("GET /api/library caps songs per category and exposes total", async ({ request }) => {
+    const myToken = (await authJsonHeaders(request)).Authorization.replace("Bearer ", "");
+    const catRes = await request.post("/api/categories", {
+      data: { name: "E2E-Lib-Page" },
+      headers: { Authorization: `Bearer ${myToken}`, "Content-Type": "application/json" },
+    });
+    const categoryId = (await catRes.json()).id;
+    const ids: number[] = [];
+
+    try {
+      for (let i = 0; i < 12; i++) {
+        const song = await uploadSongWith(request, myToken, `E2E-Lib-Page-${i}`, String(categoryId));
+        ids.push(song.id);
+      }
+
+      const headers = await authHeaders(request);
+      const res = await request.get("/api/library", { headers });
+      expect(res.ok()).toBeTruthy();
+      const body = await res.json();
+      const group = body.categories.find((g: { name: string }) => g.name === "E2E-Lib-Page");
+      expect(group).toBeDefined();
+      expect(group.songs).toHaveLength(10);
+      expect(group.total).toBe(12);
+    } finally {
+      for (const id of ids) await deleteSongWith(request, myToken, id);
+    }
+  });
+
+  test("GET /api/library/categories/:categoryId/songs paginates with limit and offset", async ({ request }) => {
+    const myToken = (await authJsonHeaders(request)).Authorization.replace("Bearer ", "");
+    const catRes = await request.post("/api/categories", {
+      data: { name: "E2E-Lib-CatPage" },
+      headers: { Authorization: `Bearer ${myToken}`, "Content-Type": "application/json" },
+    });
+    const categoryId = (await catRes.json()).id;
+    const ids: number[] = [];
+
+    try {
+      for (let i = 0; i < 12; i++) {
+        const song = await uploadSongWith(request, myToken, `E2E-Lib-CatPage-${i}`, String(categoryId));
+        ids.push(song.id);
+      }
+
+      const headers = await authHeaders(request);
+      const page1 = await (
+        await request.get(`/api/library/categories/${categoryId}/songs?limit=10&offset=0`, { headers })
+      ).json();
+      expect(page1.songs).toHaveLength(10);
+      expect(page1.total).toBe(12);
+
+      const page2 = await (
+        await request.get(`/api/library/categories/${categoryId}/songs?limit=10&offset=10`, { headers })
+      ).json();
+      expect(page2.songs).toHaveLength(2);
+      expect(page2.total).toBe(12);
+
+      const page1Ids = page1.songs.map((s: { id: number }) => s.id);
+      const page2Ids = page2.songs.map((s: { id: number }) => s.id);
+      for (const id of page2Ids) {
+        expect(page1Ids).not.toContain(id);
+      }
+    } finally {
+      for (const id of ids) await deleteSongWith(request, myToken, id);
+    }
+  });
+
+  test("GET /api/library/categories/uncategorized/songs paginates songs with no category", async ({ request }) => {
+    const myToken = (await authJsonHeaders(request)).Authorization.replace("Bearer ", "");
+    const song = await uploadSongWith(request, myToken, "E2E-Lib-Uncat");
+
+    try {
+      const headers = await authHeaders(request);
+      const res = await request.get("/api/library/categories/uncategorized/songs?limit=10&offset=0", { headers });
+      expect(res.ok()).toBeTruthy();
+      const body = await res.json();
+      expect(body.songs.some((s: { id: number }) => s.id === song.id)).toBe(true);
+    } finally {
+      await deleteSongWith(request, myToken, song.id);
+    }
+  });
+
+  test("GET /api/library/categories/:categoryId/songs requires auth", async ({ request }) => {
+    const res = await request.get("/api/library/categories/uncategorized/songs");
+    expect(res.status()).toBe(401);
+  });
+
+  test("GET /api/library/categories/:categoryId/songs rejects invalid categoryId", async ({ request }) => {
+    const headers = await authHeaders(request);
+    const res = await request.get("/api/library/categories/not-a-number/songs", { headers });
+    expect(res.status()).toBe(400);
+  });
 });
