@@ -29,6 +29,7 @@ export {
   saveTrackPreferences,
   listPublicCommunitySongs,
   listLibrary,
+  listLibraryCategorySongs,
   setSongPublicCommunity,
   toggleCommunityBookmark,
   getCommunitySong,
