@@ -96,9 +96,11 @@ The full Playwright suite is slow — plan for **7–8 minutes** end-to-end
 
 - Always add a blank line before and after `if`, `else`, `for`, and `while` statements
 - Never leave `catch` blocks empty — at least log the error (e.g., `console.error(err)`)
-- Comments must not repeat what the code already expresses. Add them rarely —
-  only when they contribute something the code doesn't define (the reasoning
-  behind a magic value, a platform quirk, a non-obvious constraint)
+- Comments must not repeat what the code already expresses. Only comment
+  what the source doesn't already convey (the reasoning behind a magic
+  value, a platform quirk, a non-obvious constraint). Keep them short —
+  avoid verbose comments and doc blocks that restate parameters, types, or
+  behavior visible from the signature/code itself.
 - Do not reference issue numbers (e.g., `#86`, `issue #88`) in source code,
   comments, or test names — use the PR/commit title or git log for traceability
   instead of tying the code to a GitHub issue
