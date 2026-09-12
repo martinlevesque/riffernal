@@ -45,7 +45,7 @@ export default defineConfig({
     {
       name: 'e2e',
       testDir: './tests',
-      testIgnore: ['**/api/**'],
+      testIgnore: ['**/api/**', '**/unit/**'],
       use: { browserName: 'chromium', storageState: STORAGE_PATH },
     },
     {
