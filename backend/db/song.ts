@@ -1,4 +1,5 @@
 import { db } from "./connection.ts";
+import { columns } from "./helpers/columns.ts";
 
 export interface SongRow {
   id: number;
@@ -19,6 +20,21 @@ export interface SongRow {
   created_at: string;
 }
 
+/** Subset of SongRow columns needed for summary/list views.
+ *  Excludes the heavy blobs: notes, midi_data, tracks,
+ *  selected_track_indices, track_hands, background_tracks. */
+export interface SongSummaryRow {
+  id: number;
+  title: string;
+  artist: string;
+  bpm: number;
+  difficulty: string;
+  category_id: number | null;
+  imported_by_user_id: number | null;
+  public_community: number;
+  created_at: string;
+}
+
 export interface InsertSongInput {
   title: string;
   artist: string;
@@ -34,17 +50,41 @@ export interface InsertSongInput {
   imported_by_user_id?: number | null;
 }
 
+const SUMMARY_COLUMNS = [
+  "id",
+  "title",
+  "artist",
+  "bpm",
+  "difficulty",
+  "category_id",
+  "imported_by_user_id",
+  "public_community",
+  "created_at",
+];
+
 export function getAllSongs(): SongRow[] {
   return db
     .query("SELECT * FROM songs ORDER BY created_at DESC")
     .all() as SongRow[];
 }
 
-/** Get songs owned by a specific user (imported_by_user_id = userId). */
-export function getAllSongsForUser(userId: number): SongRow[] {
+/** Get summary columns for all songs owned by a specific user. */
+export function getAllSongsSummaryForUser(userId: number): SongSummaryRow[] {
   return db
-    .query("SELECT * FROM songs WHERE imported_by_user_id = ? ORDER BY created_at DESC")
-    .all(userId) as SongRow[];
+    .query(`SELECT ${columns(SUMMARY_COLUMNS)} FROM songs WHERE imported_by_user_id = ? ORDER BY created_at DESC`)
+    .all(userId) as SongSummaryRow[];
+}
+
+/** Check whether a song exists (cheap: no column data fetched). */
+export function songExists(id: number): boolean {
+  return db.query("SELECT 1 FROM songs WHERE id = ?").get(id) != null;
+}
+
+/** Get summary columns for a single song by id. */
+export function getSongSummaryById(id: number): SongSummaryRow | undefined {
+  return db
+    .query(`SELECT ${columns(SUMMARY_COLUMNS)} FROM songs WHERE id = ?`)
+    .get(id) as SongSummaryRow | undefined;
 }
 
 export function getSongById(id: number): SongRow | undefined {
@@ -108,7 +148,7 @@ export function countPublicCommunitySongs(userId: number): number {
 
 /** A public community song row with its bookmark popularity count and the
  *  username of the user who originally shared it to the community. */
-export interface PublicCommunitySongRow extends SongRow {
+export interface PublicCommunitySongRow extends SongSummaryRow {
   bookmark_count: number;
   imported_by_username?: string | null;
 }
@@ -124,7 +164,7 @@ export function getPublicCommunitySongs(
 ): PublicCommunitySongRow[] {
   return db
     .query(
-      `SELECT s.*, COUNT(us.user_id) AS bookmark_count, u.username AS imported_by_username
+      `SELECT ${columns(SUMMARY_COLUMNS, "s")}, COUNT(us.user_id) AS bookmark_count, u.username AS imported_by_username
        FROM songs s
        LEFT JOIN users u ON u.id = s.imported_by_user_id
        LEFT JOIN user_songs us ON us.song_id = s.id AND us.community_bookmarked = 1
@@ -144,17 +184,17 @@ export function getPublicCommunitySongs(
  *  the user's last-played time (most recent first, never-played last), then
  *  by song creation. These appear in the user's category groups in the
  *  freeplay menu rather than in the community browse list. */
-export function getBookmarkedSongs(userId: number): SongRow[] {
+export function getBookmarkedSongs(userId: number): SongSummaryRow[] {
   return db
     .query(
-      `SELECT s.*
+      `SELECT ${columns(SUMMARY_COLUMNS, "s")}
        FROM songs s
        JOIN user_songs us
          ON us.user_id = ? AND us.song_id = s.id AND us.community_bookmarked = 1
        WHERE s.public_community = 1
        ORDER BY us.last_played_at DESC, s.created_at DESC`,
     )
-    .all(userId) as SongRow[];
+    .all(userId) as SongSummaryRow[];
 }
 
 /** Set the public_community flag on a song. */

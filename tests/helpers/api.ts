@@ -2,7 +2,7 @@ import { expect, type APIRequestContext } from '@playwright/test';
 import { readFileSync, existsSync } from 'node:fs';
 import { join } from 'node:path';
 
-const STORAGE_PATH = join(process.cwd(), 'tests', '.auth', 'user.json');
+const STORAGE_PATH = join(process.cwd(), 'tests', 'e2e', '.auth', 'user.json');
 
 let testAuthToken: string | null = null;
 

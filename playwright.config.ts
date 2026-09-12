@@ -1,7 +1,7 @@
 import { defineConfig } from '@playwright/test';
 import { join } from 'node:path';
 
-const STORAGE_PATH = join(__dirname, 'tests', '.auth', 'user.json');
+const STORAGE_PATH = join(__dirname, 'tests', 'e2e', '.auth', 'user.json');
 
 // The test suite runs against its own isolated SQLite database
 // (data/test.db) on a dedicated port so it never touches the developer's
@@ -24,7 +24,7 @@ export default defineConfig({
   retries: process.env.CI ? 2 : 0,
   workers: 1,
   reporter: 'html',
-  globalSetup: './tests/global-setup.mts',
+  globalSetup: './tests/e2e/global-setup.mts',
   use: {
     baseURL: `http://localhost:${TEST_PORT}`,
     ignoreHTTPSErrors: true,
@@ -44,13 +44,12 @@ export default defineConfig({
   projects: [
     {
       name: 'e2e',
-      testDir: './tests',
-      testIgnore: ['**/api/**', '**/unit/**'],
+      testDir: './tests/e2e',
       use: { browserName: 'chromium', storageState: STORAGE_PATH },
     },
     {
       name: 'api',
-      testDir: './tests/api',
+      testDir: './tests/backend/api',
       testIgnore: ['**/helpers/**'],
     },
   ],

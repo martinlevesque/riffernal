@@ -20,12 +20,48 @@ When a GitHub URL is pasted, use `gh` CLI (e.g., `gh issue view`, `gh pr view`) 
 
 ## Testing
 
-- **Framework**: Playwright
-- **Command**: `bun run test`
+- **Framework**: Playwright (e2e + API) / bun:test (unit)
+- **Command**: `bun run test` (full Playwright suite)
 - **Config**: `playwright.config.ts`
-- **Tests**: `tests/` — two projects: `api` (`tests/api/**`) and `e2e` (all other specs, browser-driven)
-- **Unit tests**: `bun run test:unit` (`tests/api/helpers/`, `tests/unit/`)
-- **CI**: GitHub Actions (`.github/workflows/e2e.yml`)
+- **Unit tests**: `bun run test:unit`
+
+### Test folder structure
+
+Test files mirror the source tree they exercise:
+
+```
+tests/
+├── backend/              ← mirrors backend/
+│   ├── api/              ← API endpoint tests (Playwright --project=api)
+│   │   ├── helpers/      ← API helper unit tests (bun:test)
+│   │   └── *.spec.ts
+│   └── db/               ← DB layer unit tests (bun:test)
+│       └── *.spec.ts
+├── frontend/             ← mirrors frontend/src/
+│   └── src/
+│       └── utils/
+│           └── *.spec.ts ← unit tests (bun:test)
+├── e2e/                  ← browser E2E tests (Playwright --project=e2e)
+│   └── *.spec.ts
+└── helpers/              ← shared test helpers (used by both api + e2e)
+    ├── api.ts
+    ├── page/
+    └── ...
+```
+
+**Rule**: place a test file at the same relative path under `tests/` as the
+source file it tests lives under `backend/` or `frontend/src/`. E2E tests
+that don't target a specific source file go in `tests/e2e/`. Shared test
+utilities (auth helpers, page objects, seed functions) stay in `tests/helpers/`.
+
+### Playwright projects
+
+| Project | `testDir` | Description |
+| --- | --- | --- |
+| `api` | `tests/backend/api` | API endpoint tests (excludes `helpers/`) |
+| `e2e` | `tests/e2e` | Browser-driven end-to-end tests |
+
+CI: GitHub Actions (`.github/workflows/e2e.yml`)
 
 Tests start a local dev server automatically, no manual server startup needed.
 
@@ -37,20 +73,21 @@ parent is the full suite, run the full suite once — it already includes the
 own suite. Targeted invocations:
 
 ```bash
-bun x playwright test --project=api tests/api/song.spec.ts  # one spec
-bun x playwright test --project=api                          # one project
-bun run test                                                 # full suite
+bun x playwright test --project=api tests/backend/api/song.spec.ts  # one spec
+bun x playwright test --project=api                                  # one project
+bun run test                                                         # full suite
 ```
 
 | Changed file | Re-run |
 | --- | --- |
-| `backend/api/<name>.ts` | `tests/api/<name>.spec.ts`, then the `api` project |
-| `backend/models/<name>.ts` | the `tests/api/*.spec.ts` files exercising it (grep for its exports), then the `api` project |
-| `tests/api/<name>.spec.ts` | the `api` project (it includes the spec) |
-| `tests/api/helpers/*.spec.ts`, `tests/unit/*.spec.ts` | `bun run test:unit` |
-| `frontend/src/**` | the e2e specs covering the module (grep `tests/` for the feature) as a quick check, then the full suite |
-| `tests/<name>.spec.ts` (e2e) | the full suite (it includes the spec) |
-| `backend/api.ts`, `backend/api/router.ts`, `backend/api/middleware.ts`, `backend/api/index.ts`, `backend/models/index.ts`, `backend/db/**`, `tests/helpers/**`, `tests/global-setup.mts`, `scripts/**`, `playwright.config.ts` | full suite |
+| `backend/api/<name>.ts` | `tests/backend/api/<name>.spec.ts`, then the `api` project |
+| `backend/models/<name>.ts` | the `tests/backend/api/*.spec.ts` files exercising it (grep for its exports), then the `api` project |
+| `backend/db/<name>.ts` | `tests/backend/db/<name>.spec.ts` if it exists, then `bun run test:unit` |
+| `tests/backend/api/<name>.spec.ts` | the `api` project (it includes the spec) |
+| `tests/backend/api/helpers/*.spec.ts`, `tests/backend/db/*.spec.ts`, `tests/frontend/**/*.spec.ts` | `bun run test:unit` |
+| `frontend/src/**` | the e2e specs covering the module (grep `tests/e2e/` for the feature) as a quick check, then the full suite |
+| `tests/e2e/<name>.spec.ts` | the full suite (it includes the spec) |
+| `backend/api.ts`, `backend/api/router.ts`, `backend/api/middleware.ts`, `backend/api/index.ts`, `backend/models/index.ts`, `backend/db/**`, `tests/helpers/**`, `tests/e2e/global-setup.mts`, `scripts/**`, `playwright.config.ts` | full suite |
 
 Comment-only changes need only `bun run lint` and `bun run typecheck`. When
 you can't tell which specs cover a file, grep `tests/` for its exported
