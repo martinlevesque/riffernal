@@ -111,21 +111,17 @@ export class MidiInput {
 
     const noteName = midiToNoteName(noteNumber);
     if (!noteName || !NOTE_TO_LANE.has(noteName)) {
-      console.log('[MIDI] Ignored:', data, '->', noteName);
       return;
     }
 
     if (command === 0x90 && velocity > 0) {
       if (this._heldNotes.has(noteNumber)) {
-        console.log('[MIDI] Duplicate Note On ignored:', noteName);
         return;
       }
       this._heldNotes.add(noteNumber);
-      console.log('[MIDI] Note On:', noteName, 'vel', velocity);
       if (this.onNoteOn) this.onNoteOn(noteName, `midi_${noteNumber}`, velocity);
     } else if (command === 0x80 || (command === 0x90 && velocity === 0)) {
       this._heldNotes.delete(noteNumber);
-      console.log('[MIDI] Note Off:', noteName);
       if (this.onNoteOff) this.onNoteOff(noteName, `midi_${noteNumber}`);
     }
   }
