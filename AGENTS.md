@@ -24,7 +24,7 @@ When a GitHub URL is pasted, use `gh` CLI (e.g., `gh issue view`, `gh pr view`) 
 - **Command**: `bun run test`
 - **Config**: `playwright.config.ts`
 - **Tests**: `tests/` — two projects: `api` (`tests/api/**`) and `e2e` (all other specs, browser-driven)
-- **Unit tests**: `bun run test:unit` (`tests/api/helpers/`)
+- **Unit tests**: `bun run test:unit` (`tests/api/helpers/`, `tests/unit/`)
 - **CI**: GitHub Actions (`.github/workflows/e2e.yml`)
 
 Tests start a local dev server automatically, no manual server startup needed.
@@ -47,7 +47,7 @@ bun run test                                                 # full suite
 | `backend/api/<name>.ts` | `tests/api/<name>.spec.ts`, then the `api` project |
 | `backend/models/<name>.ts` | the `tests/api/*.spec.ts` files exercising it (grep for its exports), then the `api` project |
 | `tests/api/<name>.spec.ts` | the `api` project (it includes the spec) |
-| `tests/api/helpers/*.spec.ts` | `bun run test:unit` |
+| `tests/api/helpers/*.spec.ts`, `tests/unit/*.spec.ts` | `bun run test:unit` |
 | `frontend/src/**` | the e2e specs covering the module (grep `tests/` for the feature) as a quick check, then the full suite |
 | `tests/<name>.spec.ts` (e2e) | the full suite (it includes the spec) |
 | `backend/api.ts`, `backend/api/router.ts`, `backend/api/middleware.ts`, `backend/api/index.ts`, `backend/models/index.ts`, `backend/db/**`, `tests/helpers/**`, `tests/global-setup.mts`, `scripts/**`, `playwright.config.ts` | full suite |

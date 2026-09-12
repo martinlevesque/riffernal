@@ -1,5 +1,5 @@
 import { test, expect } from '@playwright/test';
-import { CANVAS_HEIGHT, makeSong } from './helpers/index.js';
+import { CANVAS_WIDTH, CANVAS_HEIGHT, makeSong } from './helpers/index.js';
 
 test('notes with same start time share same Y coordinate', async ({ page }) => {
   await page.goto('/');
@@ -33,4 +33,47 @@ test('notes with same start time share same Y coordinate', async ({ page }) => {
   const bottomValues = result.map((n: any) => n.bottom);
   expect(new Set(bottomValues).size).toBe(1);
   expect(new Set(yValues).size).toBeGreaterThan(1);
+});
+
+test('used-key range snaps outward to white keys so edge black keys stay on screen', async ({ page }) => {
+  await page.goto('/');
+
+  const songData = makeSong([
+    { time: 1.0, key: 'C#2', duration: 0.5 },
+    { time: 1.5, key: 'E4', duration: 0.2 },
+    { time: 2.0, key: 'A#6', duration: 0.3 },
+  ]);
+
+  const result = await page.evaluate(async ({ song, W }) => {
+    // @ts-expect-error browser-side dynamic import
+    const { Game } = await import('/js/game/Game.js');
+    // @ts-expect-error browser-side dynamic import
+    const { Synth } = await import('/js/audio/Synth.js');
+    // @ts-expect-error browser-side dynamic import
+    const { KeyboardInput } = await import('/js/input/KeyboardInput.js');
+    // @ts-expect-error browser-side dynamic import
+    const { MidiInput } = await import('/js/input/MidiInput.js');
+    // @ts-expect-error browser-side dynamic import
+    const { NOTE_NAMES, getPianoKeyLayout } = await import('/js/utils/notes.js');
+
+    const canvas = document.createElement('canvas');
+    canvas.width = W;
+    const game = new Game(canvas, new Synth(), new KeyboardInput(), new MidiInput());
+    game.setShowUsedKeys(true);
+    game.start(song);
+
+    const range = game.usedNoteRange!;
+    const layoutFor = (key: string) => getPianoKeyLayout(key, W, range);
+    return {
+      minName: NOTE_NAMES[range.minNoteIdx],
+      maxName: NOTE_NAMES[range.maxNoteIdx],
+      low: layoutFor('C#2'),
+      high: layoutFor('A#6'),
+    };
+  }, { song: songData, W: CANVAS_WIDTH });
+
+  expect(result.minName).toBe('C2');
+  expect(result.maxName).toBe('B6');
+  expect(result.low.x).toBeGreaterThanOrEqual(0);
+  expect(result.high.x + result.high.width).toBeLessThanOrEqual(CANVAS_WIDTH);
 });

@@ -123,7 +123,17 @@ export function getVisibleRange(noteNames: string[]): VisibleRange | null {
     }
   }
   if (max === -1) return null;
-  return { minNoteIdx: min, maxNoteIdx: max };
+  return snapRangeToWhiteKeys({ minNoteIdx: min, maxNoteIdx: max });
+}
+
+/** Expand range boundaries outward to white keys. A black key at the edge
+ *  positions itself relative to a white key outside the range, so it (and
+ *  any falling note on its lane) renders off-screen. */
+export function snapRangeToWhiteKeys(range: VisibleRange): VisibleRange {
+  let { minNoteIdx, maxNoteIdx } = range;
+  while (minNoteIdx > 0 && NOTE_NAMES[minNoteIdx].includes('#')) minNoteIdx--;
+  while (maxNoteIdx < NOTE_NAMES.length - 1 && NOTE_NAMES[maxNoteIdx].includes('#')) maxNoteIdx++;
+  return { minNoteIdx, maxNoteIdx };
 }
 
 export function countWhiteKeysInRange(range: VisibleRange): number {

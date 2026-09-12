@@ -9,7 +9,7 @@ import { NoteManager, SCROLL_SPEED, HIT_ZONE_Y_RATIO } from './NoteManager.js';
 import type { HitResult, SongNote } from './NoteManager.js';
 import { NoteGrade, gradeLabel, TAP_NOTE_THRESHOLD, SUCCESS_PARTICLE_HOLD_RATIO, comboBoost } from './scoring.js';
 import type { Scoring } from './scoring.js';
-import { NOTE_TO_LANE, handColor, getPianoKeyLayout, PracticeHand, GM_DRUM_CHANNEL } from '../utils/notes.js';
+import { NOTE_TO_LANE, handColor, getPianoKeyLayout, getVisibleRange, PracticeHand, GM_DRUM_CHANNEL } from '../utils/notes.js';
 import { formatTime } from '../utils/helpers.js';
 import { hasMeaningfulScore } from './scoring.js';
 import type { VisibleRange } from '../utils/notes.js';
@@ -445,19 +445,7 @@ export class Game {
   }
 
   private _computeUsedNoteRange(song: Song): void {
-    if (!this.showUsedKeys) {
-      this.usedNoteRange = null;
-      return;
-    }
-    let min = Infinity;
-    let max = -1;
-    for (const note of song.notes) {
-      const idx = NOTE_TO_LANE.get(note.key);
-      if (idx === undefined) continue;
-      if (idx < min) min = idx;
-      if (idx > max) max = idx;
-    }
-    this.usedNoteRange = max === -1 ? null : { minNoteIdx: min, maxNoteIdx: max };
+    this.usedNoteRange = this.showUsedKeys ? getVisibleRange(song.notes.map((n) => n.key)) : null;
   }
 
   setShowUsedKeys(enabled: boolean): void {
