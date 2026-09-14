@@ -4,10 +4,13 @@ export { DB_PATH, db } from "./connection.ts";
 export { type CategoryRow, findAllCategories, findCategoryByName, insertCategoryRow } from "./category.ts";
 export {
   type SongRow,
+  type SongSummaryRow,
   type InsertSongInput,
   type PublicCommunitySongRow,
   getAllSongs,
-  getAllSongsForUser,
+  getAllSongsSummaryForUser,
+  songExists,
+  getSongSummaryById,
   getSongById,
   insertSong,
   updateSongCategory,

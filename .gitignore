@@ -3,6 +3,7 @@ test-results/
 playwright-report/
 playwright-api-report/
 tests/.auth/
+tests/e2e/.auth/
 dist/
 certs/
 data/

@@ -1,6 +1,8 @@
 import {
-  getAllSongsForUser,
+  getAllSongsSummaryForUser,
   getSongById,
+  getSongSummaryById,
+  songExists,
   insertSong,
   updateSongCategory,
   updateSongTitle,
@@ -10,6 +12,7 @@ import {
   getBookmarkedSongs,
   updateSongPublicCommunity,
   type SongRow,
+  type SongSummaryRow,
   type InsertSongInput,
   type PublicCommunitySongRow,
 } from "../db/song.ts";
@@ -84,7 +87,7 @@ export interface SongFull extends SongSummary {
 }
 
 function rowToSummary(
-  row: SongRow,
+  row: SongSummaryRow,
   stats: ScoreStats = EMPTY_STATS,
   communityBookmarked = false,
   bookmarkCount?: number,
@@ -140,7 +143,7 @@ export function listSongs(userId: number): SongSummary[] {
   for (const row of rawStats) {
     statsBySongId.set(row.song_id, toScoreStats(row));
   }
-  const songs = getAllSongsForUser(userId).map((row) => {
+  const songs = getAllSongsSummaryForUser(userId).map((row) => {
     const stats = statsBySongId.get(row.id) ?? EMPTY_STATS;
     return rowToSummary(row, stats);
   });
@@ -189,7 +192,7 @@ function validateTitle(title: string): void {
  *  Throws when an empty title is provided. The controller maps those to
  *  404 / 400 respectively. */
 export function updateSong(id: number, userId: number, changes: SongUpdate): SongFull | null {
-  if (!getSongById(id)) return null;
+  if (!songExists(id)) return null;
 
   if (changes.title !== undefined) {
     validateTitle(changes.title);
@@ -208,7 +211,7 @@ export function updateSong(id: number, userId: number, changes: SongUpdate): Son
 /** Delete a song. Returns a truthy result when deleted, or throws when
  *  not found or when the song is owned by another user. */
 export function removeSong(id: number, userId: number): { ok: boolean } {
-  const row = getSongById(id);
+  const row = getSongSummaryById(id);
 
   if (!row) {
     throw new Error("Not found");
@@ -225,7 +228,7 @@ export function removeSong(id: number, userId: number): { ok: boolean } {
 /** Touch the user's per-song last_played_at. Returns true when touched,
  *  false when the song doesn't exist. */
 export function recordPlay(id: number, userId: number): boolean {
-  if (!getSongById(id)) return false;
+  if (!songExists(id)) return false;
   touchUserSongPlayed(userId, id);
   return true;
 }
@@ -255,7 +258,7 @@ function validateScore(score: unknown): asserts score is number {
  *  query). */
 export function recordBestScore(songId: number, userId: number, score: unknown): RecordBestScoreResult | null {
   validateScore(score);
-  if (!getSongById(songId)) return null;
+  if (!songExists(songId)) return null;
   const raw = upsertBestScoreRaw(userId, songId, score);
   addDailyScore(userId, songId, score, todayUTC());
   const bestScore = isBestScoreValid(raw.best_score) ? raw.best_score : null;
@@ -270,7 +273,7 @@ export function saveTrackPreferences(
   userId: number,
   input: { backgroundTracks?: unknown; mainTrackMuted?: unknown },
 ): TrackPreferences | null {
-  if (!getSongById(songId)) return null;
+  if (!songExists(songId)) return null;
   return savePrefs(userId, songId, input);
 }
 
@@ -347,7 +350,7 @@ function buildLibraryItems(userId: number): LibraryMenuItem[] {
     statsBySongId.set(row.song_id, toScoreStats(row));
   }
 
-  const ownRows = getAllSongsForUser(userId);
+  const ownRows = getAllSongsSummaryForUser(userId);
   const bookmarkedRows = getBookmarkedSongs(userId);
   const ownIds = new Set(ownRows.map((r) => r.id));
 
@@ -472,7 +475,7 @@ function latestPlayInGroup(songs: LibraryMenuItem[]): string {
 }
 
 export function setSongPublicCommunity(id: number, userId: number, value: boolean): SongFull | null {
-  const row = getSongById(id);
+  const row = getSongSummaryById(id);
 
   if (!row) return null;
 
@@ -496,7 +499,7 @@ export function setSongPublicCommunity(id: number, userId: number, value: boolea
  *  Returns true when updated, false when the song doesn't exist or isn't
  *  public. */
 export function toggleCommunityBookmark(songId: number, userId: number, value: boolean): boolean {
-  const row = getSongById(songId);
+  const row = getSongSummaryById(songId);
 
   if (!row || row.public_community !== 1) return false;
 
