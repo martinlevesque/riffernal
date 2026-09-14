@@ -509,4 +509,82 @@ test.describe("API: community songs", () => {
     const res = await request.get("/api/library/categories/not-a-number/songs", { headers });
     expect(res.status()).toBe(400);
   });
+
+  test("bookmarking a community song copies the publisher's loops to the bookmarker", async ({ request }) => {
+    const publisher = await registerUser(request, uniqueUsername("comm_loopcopy"));
+    let publishedId = -1;
+
+    try {
+      publishedId = (await uploadSongWith(request, publisher.token, "E2E-Comm-LoopCopy")).id;
+      await publishSongWith(request, publisher.token, publishedId);
+
+      const publisherHeaders = {
+        Authorization: `Bearer ${publisher.token}`,
+        "Content-Type": "application/json",
+      };
+      await request.post(`/api/songs/${publishedId}/loops`, {
+        data: { startTime: 1, endTime: 3, enabled: true },
+        headers: publisherHeaders,
+      });
+      await request.post(`/api/songs/${publishedId}/loops`, {
+        data: { startTime: 5, endTime: 8, enabled: false },
+        headers: publisherHeaders,
+      });
+
+      const publisherLoops = await (
+        await request.get(`/api/songs/${publishedId}/loops`, { headers: publisherHeaders })
+      ).json();
+      expect(publisherLoops).toHaveLength(2);
+
+      const myToken = (await authJsonHeaders(request)).Authorization.replace("Bearer ", "");
+      await bookmarkSongWith(request, myToken, publishedId);
+
+      const myHeaders = await authHeaders(request);
+      const myLoops = await (
+        await request.get(`/api/songs/${publishedId}/loops`, { headers: myHeaders })
+      ).json();
+      expect(myLoops).toHaveLength(2);
+      expect(myLoops[0].startTime).toBe(1);
+      expect(myLoops[0].endTime).toBe(3);
+      expect(myLoops[0].enabled).toBe(true);
+      expect(myLoops[1].startTime).toBe(5);
+      expect(myLoops[1].endTime).toBe(8);
+      expect(myLoops[1].enabled).toBe(false);
+    } finally {
+      if (publishedId !== -1) await deleteSongWith(request, publisher.token, publishedId);
+    }
+  });
+
+  test("un-bookmarking and re-bookmarking does not duplicate loops", async ({ request }) => {
+    const publisher = await registerUser(request, uniqueUsername("comm_loopdup"));
+    let publishedId = -1;
+
+    try {
+      publishedId = (await uploadSongWith(request, publisher.token, "E2E-Comm-LoopDup")).id;
+      await publishSongWith(request, publisher.token, publishedId);
+
+      const publisherHeaders = {
+        Authorization: `Bearer ${publisher.token}`,
+        "Content-Type": "application/json",
+      };
+      await request.post(`/api/songs/${publishedId}/loops`, {
+        data: { startTime: 2, endTime: 5, enabled: true },
+        headers: publisherHeaders,
+      });
+
+      const myToken = (await authJsonHeaders(request)).Authorization.replace("Bearer ", "");
+
+      await bookmarkSongWith(request, myToken, publishedId);
+      await unbookmarkSongWith(request, myToken, publishedId);
+      await bookmarkSongWith(request, myToken, publishedId);
+
+      const myHeaders = await authHeaders(request);
+      const myLoops = await (
+        await request.get(`/api/songs/${publishedId}/loops`, { headers: myHeaders })
+      ).json();
+      expect(myLoops).toHaveLength(1);
+    } finally {
+      if (publishedId !== -1) await deleteSongWith(request, publisher.token, publishedId);
+    }
+  });
 });

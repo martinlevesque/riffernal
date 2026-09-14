@@ -24,6 +24,7 @@ import {
 } from "../db/userSong.ts";
 import { addDailyScore } from "../db/leaderboard.ts";
 import { setCommunityBookmark, clearBookmarksForSong } from "../db/community.ts";
+import { copyLoopsToUser } from "../db/loop.ts";
 import { findAllCategories } from "../db/category.ts";
 import { isBestScoreValid, type ScoreStats } from "./scoreStats.ts";
 import { todayUTC } from "./leaderboard.ts";
@@ -496,6 +497,7 @@ export function setSongPublicCommunity(id: number, userId: number, value: boolea
 }
 
 /** Bookmark or unbookmark a public community song for the requesting user.
+ *  When bookmarking, copies the original creator's loops to the bookmarking user.
  *  Returns true when updated, false when the song doesn't exist or isn't
  *  public. */
 export function toggleCommunityBookmark(songId: number, userId: number, value: boolean): boolean {
@@ -504,6 +506,11 @@ export function toggleCommunityBookmark(songId: number, userId: number, value: b
   if (!row || row.public_community !== 1) return false;
 
   setCommunityBookmark(userId, songId, value ? 1 : 0);
+
+  if (value && row.imported_by_user_id && row.imported_by_user_id !== userId) {
+    copyLoopsToUser(row.imported_by_user_id, userId, songId);
+  }
+
   return true;
 }
 
