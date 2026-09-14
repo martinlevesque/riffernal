@@ -68,3 +68,24 @@ export function deleteLoop(userId: number, id: number): boolean {
     .run(id, userId);
   return result.changes > 0;
 }
+
+/** Copy all loops from one user to another for a given song.
+ *  Skips loops that already exist (same user, song, start_time, end_time).
+ *  Returns the number of loops copied. */
+export function copyLoopsToUser(fromUserId: number, toUserId: number, songId: number): number {
+  const result = db
+    .query(
+      `INSERT INTO user_song_loops (user_id, song_id, start_time, end_time, enabled)
+       SELECT ?, song_id, start_time, end_time, enabled
+       FROM user_song_loops
+       WHERE user_id = ? AND song_id = ?
+       AND NOT EXISTS (
+         SELECT 1 FROM user_song_loops AS existing
+         WHERE existing.user_id = ? AND existing.song_id = user_song_loops.song_id
+           AND existing.start_time = user_song_loops.start_time
+           AND existing.end_time = user_song_loops.end_time
+       )`,
+    )
+    .run(toUserId, fromUserId, songId, toUserId);
+  return result.changes;
+}
