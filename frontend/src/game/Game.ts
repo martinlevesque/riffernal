@@ -478,7 +478,13 @@ export class Game {
       }
       const label = gradeLabel(grade);
       const color = getFeedbackColors()[grade];
-      this.scoreDisplay?.showFeedback(`+${result.score} ${label}`, color);
+      let text = `+${result.score} ${label}`;
+      if (this.learningMode) {
+        const ms = result.offsetMs;
+        const sign = ms > 0 ? '+' : '';
+        text += ` ${sign}${ms}ms`;
+      }
+      this.scoreDisplay?.showFeedback(text, color);
 
       const note = result.note;
       const holdRatio = note.duration > 0 ? note.accumulatedHeldDuration / note.duration : 0;

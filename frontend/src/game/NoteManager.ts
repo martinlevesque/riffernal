@@ -42,6 +42,7 @@ export interface SongNote extends Note {
   channel: number;
   rawMidi: number;
   program: number;
+  hitOffsetMs: number;
 }
 
 export interface ActiveNoteRender {
@@ -61,6 +62,7 @@ export interface ActiveNoteRender {
 export interface HitResult {
   note: SongNote;
   result: NoteGrade;
+  offsetMs: number;
 }
 
 export interface ReleaseResult {
@@ -74,6 +76,7 @@ export interface ResolveResult {
   note: SongNote;
   score: number;
   grade: NoteGrade | null;
+  offsetMs: number;
 }
 
 export class NoteManager {
@@ -133,6 +136,7 @@ export class NoteManager {
         channel: n.channel ?? 0,
         rawMidi: n.rawMidi ?? 0,
         program: n.program ?? -1,
+        hitOffsetMs: 0,
       };
     }).sort((a, b) => a.time - b.time);
     this.activeNotes = [];
@@ -290,7 +294,7 @@ export class NoteManager {
           this._markResolved(note);
           if (!note.autoPlayed) {
             note.earnedScore = this.scoring.finalizeNote(note.grade!, cumulativeRatio, note.earlyMultiplier);
-            if (this.onResolve) this.onResolve({ note, score: note.earnedScore, grade: note.grade! });
+            if (this.onResolve) this.onResolve({ note, score: note.earnedScore, grade: note.grade!, offsetMs: note.hitOffsetMs });
           }
         }
         continue;
@@ -302,10 +306,10 @@ export class NoteManager {
           if (note.accumulatedHeldDuration > 0 && note.grade !== null) {
             const cumulativeRatio = note.accumulatedHeldDuration / note.duration;
             note.earnedScore = this.scoring.finalizeNote(note.grade, cumulativeRatio, note.earlyMultiplier);
-            if (this.onResolve) this.onResolve({ note, score: note.earnedScore, grade: note.grade });
+            if (this.onResolve) this.onResolve({ note, score: note.earnedScore, grade: note.grade, offsetMs: note.hitOffsetMs });
           } else {
             this.scoring.finalizeNote(null, 0);
-            if (this.onResolve) this.onResolve({ note, score: 0, grade: null });
+            if (this.onResolve) this.onResolve({ note, score: 0, grade: null, offsetMs: 0 });
           }
         }
         continue;
@@ -373,7 +377,7 @@ export class NoteManager {
     note.holding = false;
     this._markResolved(note);
     note.earnedScore = this.scoring.finalizeNote(grade, clampedRatio, note.earlyMultiplier);
-    if (this.onResolve) this.onResolve({ note, score: note.earnedScore, grade });
+    if (this.onResolve) this.onResolve({ note, score: note.earnedScore, grade, offsetMs: note.hitOffsetMs });
   }
 
   private _tryRecoverFailingNote(currentTime: number, lane: number, octaveAgnostic = false): HitResult | null {
@@ -419,7 +423,7 @@ export class NoteManager {
         this._resolveTapNote(note, grade, (noteEnd - currentTime) / note.duration);
       }
 
-      return { note, result: grade };
+      return { note, result: grade, offsetMs: note.hitOffsetMs };
     }
     return null;
   }
@@ -452,13 +456,17 @@ export class NoteManager {
     this.scoring.recordNotePress();
     bestNote.grade = grade;
 
+    const offsetMs = Math.round((currentTime - bestNote.time) * 1000);
+    bestNote.hitOffsetMs = offsetMs;
+    this.scoring.recordOffset(offsetMs);
+
     if (bestNote.duration <= TAP_NOTE_THRESHOLD) {
       this._resolveTapNote(bestNote, grade, 1);
     } else {
       this._beginHold(bestNote, currentTime);
     }
 
-    return { note: bestNote, result: grade };
+    return { note: bestNote, result: grade, offsetMs };
   }
 
   checkRelease(currentTime: number, lane: number, octaveAgnostic = false): ReleaseResult | null {
@@ -483,7 +491,7 @@ export class NoteManager {
       holdingNote.holding = false;
       this._markResolved(holdingNote);
       holdingNote.earnedScore = this.scoring.finalizeNote(holdingNote.grade!, cumulativeRatio, holdingNote.earlyMultiplier);
-      if (this.onResolve) this.onResolve({ note: holdingNote, score: holdingNote.earnedScore, grade: holdingNote.grade! });
+      if (this.onResolve) this.onResolve({ note: holdingNote, score: holdingNote.earnedScore, grade: holdingNote.grade!, offsetMs: holdingNote.hitOffsetMs });
       return null;
     }
 

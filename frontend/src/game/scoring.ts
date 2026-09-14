@@ -110,6 +110,8 @@ export class Scoring {
   failures = 0;
   failureWeight = 0;
   totalNotes = 0;
+  private _totalOffsetMs = 0;
+  private _offsetCount = 0;
   /** When false, scoring mutations are skipped (loop/practice mode). Notes
    *  still resolve and play feedback, but the score does not change. */
   enabled = true;
@@ -126,6 +128,8 @@ export class Scoring {
     this.failures = 0;
     this.failureWeight = 0;
     this.totalNotes = totalNotes;
+    this._totalOffsetMs = 0;
+    this._offsetCount = 0;
     this.enabled = true;
   }
 
@@ -146,6 +150,16 @@ export class Scoring {
     if (!this.enabled) return;
     this.wrongNotes++;
     this.score = Math.max(0, this.score - WRONG_PRESS_PENALTY);
+  }
+
+  recordOffset(offsetMs: number): void {
+    this._totalOffsetMs += offsetMs;
+    this._offsetCount++;
+  }
+
+  getAverageOffsetMs(): number {
+    if (this._offsetCount === 0) return 0;
+    return Math.round(this._totalOffsetMs / this._offsetCount);
   }
 
   finalizeNote(
