@@ -1,6 +1,6 @@
 import { test, expect } from '@playwright/test';
 import { makeSong } from '../helpers/song.js';
-import { buildFreezeResumeScript } from '../helpers/page/game.js';
+import { buildFreezeResumeScript, evaluateWithNoteManager } from '../helpers/page/game.js';
 import {
   startGame,
   expectPlayScreenActive,
@@ -65,5 +65,47 @@ test.describe('Timing offset in play mode', () => {
     const stats = page.locator('#result-stats');
     await expect(stats).toContainText('Avg timing');
     await expect(stats).toContainText('ms');
+  });
+
+  test('early press records negative offset', async ({ page }) => {
+    await page.goto('/');
+    const song = makeSong([
+      { time: 2.0, key: 'C3', duration: 0.25 },
+      { time: 5.0, key: 'E3', duration: 0.25 },
+    ]);
+    const result = await evaluateWithNoteManager(page, song, `
+      nm.update(1.9, H);
+      const lane = NOTE_TO_LANE.get('C3');
+      const hit = nm.checkHit(1.9, lane);
+      return {
+        hit: !!hit,
+        offsetMs: hit ? hit.note.hitOffsetMs : null,
+        grade: hit ? hit.result : null,
+      };
+    `);
+    expect(result.hit).toBe(true);
+    expect(result.grade).toBe('GOOD');
+    // Pressed at 1.9s for a note at 2.0s = -100ms (early)
+    expect(result.offsetMs).toBeLessThan(0);
+  });
+
+  test('on-time press records near-zero offset', async ({ page }) => {
+    await page.goto('/');
+    const song = makeSong([
+      { time: 2.0, key: 'C3', duration: 0.25 },
+    ]);
+    const result = await evaluateWithNoteManager(page, song, `
+      nm.update(2.0, H);
+      const lane = NOTE_TO_LANE.get('C3');
+      const hit = nm.checkHit(2.0, lane);
+      return {
+        hit: !!hit,
+        offsetMs: hit ? hit.note.hitOffsetMs : null,
+        grade: hit ? hit.result : null,
+      };
+    `);
+    expect(result.hit).toBe(true);
+    expect(result.grade).toBe('PERFECT');
+    expect(result.offsetMs).toBe(0);
   });
 });
