@@ -458,7 +458,6 @@ export class NoteManager {
 
     const offsetMs = Math.round((currentTime - bestNote.time) * 1000);
     bestNote.hitOffsetMs = offsetMs;
-    this.scoring.recordOffset(offsetMs);
 
     if (bestNote.duration <= TAP_NOTE_THRESHOLD) {
       this._resolveTapNote(bestNote, grade, 1);

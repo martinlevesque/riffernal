@@ -532,12 +532,17 @@ export class Game {
     if (this.learningMode) {
       const outcome = this.noteManager.checkLearningHit(this.currentTime, lane, performance.now(), this.octaveAgnostic);
       if (outcome.wrong) this.scoreDisplay?.showFeedback('Wrong', getFeedbackColors().MISS);
+      for (const r of outcome.results) {
+        r.offsetMs = Math.round((performance.now() - this._refRealTime) / 1000 * this.speedMultiplier * 1000);
+        this.noteManager.scoring.recordOffset(r.offsetMs);
+      }
       return outcome.results;
     }
     const r = this.noteManager.checkHit(this.currentTime, lane, this.octaveAgnostic);
     if (r === null && !this.noteManager.hasUnresolvedNoteInLane(lane, this.currentTime, this.octaveAgnostic)) {
       this.scoreDisplay?.showFeedback('Wrong', getFeedbackColors().MISS);
     }
+    if (r) this.noteManager.scoring.recordOffset(r.offsetMs);
     return r ? [r] : [];
   }
 
