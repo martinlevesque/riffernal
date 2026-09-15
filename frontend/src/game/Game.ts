@@ -480,9 +480,11 @@ export class Game {
       const color = getFeedbackColors()[grade];
       let text = `+${result.score} ${label}`;
       if (this.learningMode) {
-        const ms = result.offsetMs;
-        const sign = ms > 0 ? '+' : '';
-        text += ` ${sign}${ms}ms`;
+        const ms = Math.abs(result.offsetMs);
+        if (ms > 50) {
+          const dir = result.offsetMs > 0 ? 'late' : 'early';
+          text += `\n${ms} ms ${dir}`;
+        }
       }
       this.scoreDisplay?.showFeedback(text, color);
 
