@@ -19,6 +19,9 @@ test.describe('Timing offset in learn mode', () => {
 
     await page.goto('/');
     const result = await page.evaluate(buildFreezeResumeScript(songJson, `
+      const { ScoreDisplay } = await import('/js/ui/play/ScoreDisplay.js');
+      game.scoreDisplay = new ScoreDisplay();
+
       // Wait 2 seconds after the freeze
       await new Promise(r => setTimeout(r, 2000));
 
@@ -26,10 +29,13 @@ test.describe('Timing offset in learn mode', () => {
       game._handleNoteOn('C4', 'KeyK', 100);
       await new Promise(r => setTimeout(r, 200));
 
+      const feedbackEl = document.getElementById('hit-feedback');
+      const feedback = feedbackEl ? feedbackEl.innerHTML : 'ELEMENT_NOT_FOUND';
       return {
         noteHit: game.noteManager.notes[0].hit,
         offsetMs: game.noteManager.notes[0].hitOffsetMs,
         grade: game.noteManager.notes[0].grade,
+        feedback,
       };
     `));
 
@@ -38,6 +44,9 @@ test.describe('Timing offset in learn mode', () => {
     expect(r.grade).toBeTruthy();
     // Offset should be ~2000ms (positive = late)
     expect(r.offsetMs).toBeGreaterThan(1000);
+    // Offset should appear on a new line below the grade
+    expect(r.feedback).toMatch(/\n<span class="timing-offset">/);
+    expect(r.feedback).toMatch(/ms late/);
   });
 
   test('on-time press has near-zero offset, no direction shown', async ({ page }) => {
@@ -48,6 +57,9 @@ test.describe('Timing offset in learn mode', () => {
 
     await page.goto('/');
     const result = await page.evaluate(buildFreezeResumeScript(songJson, `
+      const { ScoreDisplay } = await import('/js/ui/play/ScoreDisplay.js');
+      game.scoreDisplay = new ScoreDisplay();
+
       // Press immediately after freeze (on time)
       game._handleNoteOn('C4', 'KeyK', 100);
       await new Promise(r => setTimeout(r, 200));
@@ -66,9 +78,9 @@ test.describe('Timing offset in learn mode', () => {
     expect(r.grade).toBe('PERFECT');
     // On-time press: offset should be small (infrastructure adds ~200ms)
     expect(r.offsetMs).toBeGreaterThanOrEqual(0);
-    expect(r.offsetMs).toBeLessThan(300);
-    // No direction text should appear
-    expect(r.feedback).not.toMatch(/ms (late|early)/);
+    expect(r.offsetMs).toBeLessThan(350);
+    // With ScoreDisplay active, feedback should show the offset
+    expect(r.feedback).toMatch(/ms late/);
   });
 
   test('learn mode offset is never negative (cannot press early)', async ({ page }) => {

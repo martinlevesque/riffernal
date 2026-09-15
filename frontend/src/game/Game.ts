@@ -489,9 +489,7 @@ export class Game {
       let offsetHtml = '';
       if (ms > 50) {
         const dir = result.offsetMs > 0 ? 'late' : 'early';
-        offsetHtml = this.learningMode
-          ? `\n<span class="timing-offset">${ms} ms ${dir}</span>`
-          : ` <span class="timing-offset">${ms} ms ${dir}</span>`;
+        offsetHtml = `\n<span class="timing-offset">${ms} ms ${dir}</span>`;
       }
       this.scoreDisplay?.showFeedback(`+${result.score} ${label}${offsetHtml}`, color);
 
