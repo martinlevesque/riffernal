@@ -111,6 +111,7 @@ export class Scoring {
   failureWeight = 0;
   totalNotes = 0;
   private _totalOffsetMs = 0;
+  private _totalAbsOffsetMs = 0;
   private _offsetCount = 0;
   /** When false, scoring mutations are skipped (loop/practice mode). Notes
    *  still resolve and play feedback, but the score does not change. */
@@ -129,6 +130,7 @@ export class Scoring {
     this.failureWeight = 0;
     this.totalNotes = totalNotes;
     this._totalOffsetMs = 0;
+    this._totalAbsOffsetMs = 0;
     this._offsetCount = 0;
     this.enabled = true;
   }
@@ -154,12 +156,18 @@ export class Scoring {
 
   recordOffset(offsetMs: number): void {
     this._totalOffsetMs += offsetMs;
+    this._totalAbsOffsetMs += Math.abs(offsetMs);
     this._offsetCount++;
   }
 
   getAverageOffsetMs(): number {
     if (this._offsetCount === 0) return 0;
-    return Math.round(this._totalOffsetMs / this._offsetCount);
+    return Math.round(this._totalAbsOffsetMs / this._offsetCount);
+  }
+
+  getOffsetDirection(): 'early' | 'late' | 'on time' {
+    if (this._offsetCount === 0 || this._totalOffsetMs === 0) return 'on time';
+    return this._totalOffsetMs > 0 ? 'late' : 'early';
   }
 
   finalizeNote(

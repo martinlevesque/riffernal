@@ -45,8 +45,7 @@ export class ResultsScreen {
     const n = scoring.totalResolvedNotes;
     const accuracy = scoring.getAccuracy();
     const avgOffset = scoring.getAverageOffsetMs();
-    const offsetSign = avgOffset > 0 ? '+' : '';
-    const offsetLabel = avgOffset > 0 ? 'late' : avgOffset < 0 ? 'early' : 'on time';
+    const offsetDir = scoring.getOffsetDirection();
 
     this._stats.innerHTML = `
       <div class="stats-practice-highlight">
@@ -68,15 +67,14 @@ export class ResultsScreen {
       </div>
       <div class="stats-row">
         <span class="stats-col"><span class="stat-label">Max Combo</span><span class="stat-value">${scoring.maxCombo}</span></span>
-        <span class="stats-col"><span class="stat-label">Avg Timing</span><span class="stat-value">${offsetSign}${avgOffset}ms ${offsetLabel}</span></span>
+        <span class="stats-col"><span class="stat-label">Avg Timing</span><span class="stat-value">${avgOffset}ms ${offsetDir}</span></span>
       </div>
     `;
   }
 
   private _renderPlayStats(scoring: Scoring): void {
     const avgOffset = scoring.getAverageOffsetMs();
-    const offsetSign = avgOffset > 0 ? '+' : '';
-    const offsetLabel = avgOffset > 0 ? 'late' : avgOffset < 0 ? 'early' : 'on time';
+    const offsetDir = scoring.getOffsetDirection();
 
     this._stats.innerHTML = `
       Score: <span class="stat-value">${formatScore(scoring.score)}</span><br>
@@ -88,7 +86,7 @@ export class ResultsScreen {
       Dropped: <span class="stat-value">${scoring.failures}</span><br>
       Max Combo: <span class="stat-value">${scoring.maxCombo}</span><br>
       Accuracy: <span class="stat-value">${scoring.getAccuracy()}%</span><br>
-      <span class="stat-secondary">Avg timing: ${offsetSign}${avgOffset}ms ${offsetLabel}</span>
+      <span class="stat-secondary">Avg timing: ${avgOffset}ms ${offsetDir}</span>
     `;
   }
 
