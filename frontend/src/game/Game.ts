@@ -485,14 +485,15 @@ export class Game {
       }
       const label = gradeLabel(grade);
       const color = getFeedbackColors()[grade];
-      let text = `+${result.score} ${label}`;
       const ms = Math.abs(result.offsetMs);
+      let offsetHtml = '';
       if (ms > 50) {
         const dir = result.offsetMs > 0 ? 'late' : 'early';
-        const offsetHtml = `<span class="timing-offset">${ms} ms ${dir}</span>`;
-        text += this.learningMode ? `\n${offsetHtml}` : ` ${offsetHtml}`;
+        offsetHtml = this.learningMode
+          ? `\n<span class="timing-offset">${ms} ms ${dir}</span>`
+          : ` <span class="timing-offset">${ms} ms ${dir}</span>`;
       }
-      this.scoreDisplay?.showFeedback(text, color);
+      this.scoreDisplay?.showFeedback(`+${result.score} ${label}${offsetHtml}`, color);
 
       const note = result.note;
       const holdRatio = note.duration > 0 ? note.accumulatedHeldDuration / note.duration : 0;
