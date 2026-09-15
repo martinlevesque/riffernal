@@ -42,15 +42,16 @@ test.describe('Timing offset in learn mode', () => {
 });
 
 test.describe('Timing offset in play mode', () => {
-  test('feedback during song does not show ms offset', async ({ page }) => {
+  test('feedback during song shows grade but no ms offset for perfect hits', async ({ page }) => {
     await startGame(page);
     await expectPlayScreenActive(page);
 
     // Press a key (will be a Wrong/Miss since no note is there)
     await page.keyboard.press('KeyA');
     const feedback = await page.locator('#hit-feedback').textContent({ timeout: 1000 });
-    expect(feedback).toMatch(/Miss|Wrong|Perfect|Great|Good/);
-    expect(feedback).not.toMatch(/ms (late|early)/);
+    expect(feedback).toMatch(/Miss|Wrong/);
+    // Miss/Wrong have no offset — should not show ms
+    expect(feedback).not.toMatch(/ms/);
   });
 
   test('results screen shows avg timing after completion', async ({ page }) => {

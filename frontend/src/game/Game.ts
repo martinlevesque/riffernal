@@ -486,12 +486,11 @@ export class Game {
       const label = gradeLabel(grade);
       const color = getFeedbackColors()[grade];
       let text = `+${result.score} ${label}`;
-      if (this.learningMode) {
-        const ms = Math.abs(result.offsetMs);
-        if (ms > 50) {
-          const dir = result.offsetMs > 0 ? 'late' : 'early';
-          text += `\n${ms} ms ${dir}`;
-        }
+      const ms = Math.abs(result.offsetMs);
+      if (ms > 50) {
+        const dir = result.offsetMs > 0 ? 'late' : 'early';
+        const offsetHtml = `<span class="timing-offset">${ms} ms ${dir}</span>`;
+        text += this.learningMode ? `\n${offsetHtml}` : ` ${offsetHtml}`;
       }
       this.scoreDisplay?.showFeedback(text, color);
 
