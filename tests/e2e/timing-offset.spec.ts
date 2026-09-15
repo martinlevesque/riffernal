@@ -1,6 +1,12 @@
 import { test, expect } from '@playwright/test';
 import { makeSong } from '../helpers/song.js';
 import { buildFreezeResumeScript } from '../helpers/page/game.js';
+import {
+  startGame,
+  expectPlayScreenActive,
+  speedUp,
+  waitForResults,
+} from '../helpers/index.js';
 
 test.describe('Timing offset in learn mode', () => {
   test.setTimeout(20000);
@@ -32,5 +38,31 @@ test.describe('Timing offset in learn mode', () => {
     expect(r.grade).toBeTruthy();
     // Offset should be ~2000ms (positive = late)
     expect(r.offsetMs).toBeGreaterThan(1000);
+  });
+});
+
+test.describe('Timing offset in play mode', () => {
+  test('feedback during song does not show ms offset', async ({ page }) => {
+    await startGame(page);
+    await expectPlayScreenActive(page);
+
+    // Press a key (will be a Wrong/Miss since no note is there)
+    await page.keyboard.press('KeyA');
+    const feedback = await page.locator('#hit-feedback').textContent({ timeout: 1000 });
+    expect(feedback).toMatch(/Miss|Wrong|Perfect|Great|Good/);
+    expect(feedback).not.toMatch(/ms (late|early)/);
+  });
+
+  test('results screen shows avg timing after completion', async ({ page }) => {
+    test.setTimeout(30000);
+    await startGame(page);
+    await expectPlayScreenActive(page);
+
+    await speedUp(page);
+    await waitForResults(page);
+
+    const stats = page.locator('#result-stats');
+    await expect(stats).toContainText('Avg timing');
+    await expect(stats).toContainText('ms');
   });
 });
