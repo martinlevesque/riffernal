@@ -96,6 +96,7 @@ export class Game {
   private _refGameTime = 0;
   private _refRealTime = 0;
   private _preFrameRealTime = 0;
+  private _learningFrozenRealTime = 0;
   private _animationId: number | null = null;
   private _pressedLanes = new Map<number, number>();
   private _usedLearningMode = false;
@@ -148,7 +149,11 @@ export class Game {
       this._frameCount++;
 
       this._preFrameRealTime = this._refRealTime;
+      const prevTime = this.currentTime;
       this._updateFrameTime(now, delta);
+      if (this.currentTime === prevTime && this.learningMode) {
+        this._learningFrozenRealTime = this._preFrameRealTime;
+      }
       this._checkLoopWrap();
 
       this.scrollOffset += SCROLL_SPEED * delta * this.speedMultiplier;
@@ -537,7 +542,7 @@ export class Game {
       const outcome = this.noteManager.checkLearningHit(this.currentTime, lane, performance.now(), this.octaveAgnostic);
       if (outcome.wrong) this.scoreDisplay?.showFeedback('Wrong', getFeedbackColors().MISS);
       for (const r of outcome.results) {
-        r.offsetMs = Math.round((performance.now() - this._preFrameRealTime) / 1000 * this.speedMultiplier * 1000);
+        r.offsetMs = Math.round((performance.now() - (this._learningFrozenRealTime || this._preFrameRealTime)) / 1000 * this.speedMultiplier * 1000);
         this.noteManager.scoring.recordOffset(r.offsetMs);
       }
       return outcome.results;
