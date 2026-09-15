@@ -90,6 +90,9 @@ export class NoteManager {
   onAutoPlayOn: ((note: SongNote) => void) | null = null;
   learningMode = false;
   practiceHand: PracticeHand = PracticeHand.Both;
+  /** Set by Game before calling checkLearningHit so _tryNormalHit can use
+   *  the real-time offset instead of the frozen game-time offset. */
+  pendingRealTimeOffsetMs = 0;
   private _nextNoteIndex = 0;
   private _selectedNoteCount = 0;
   private _selectedResolvedCount = 0;
@@ -456,7 +459,7 @@ export class NoteManager {
     this.scoring.recordNotePress();
     bestNote.grade = grade;
 
-    const offsetMs = Math.round((currentTime - bestNote.time) * 1000);
+    const offsetMs = this.pendingRealTimeOffsetMs || Math.round((currentTime - bestNote.time) * 1000);
     bestNote.hitOffsetMs = offsetMs;
 
     if (bestNote.duration <= TAP_NOTE_THRESHOLD) {

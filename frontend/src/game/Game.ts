@@ -151,7 +151,7 @@ export class Game {
       this._preFrameRealTime = this._refRealTime;
       const prevTime = this.currentTime;
       this._updateFrameTime(now, delta);
-      if (this.currentTime === prevTime && this.learningMode) {
+      if (this.currentTime === prevTime && this.learningMode && this._learningFrozenRealTime === 0) {
         this._learningFrozenRealTime = this._preFrameRealTime;
       }
       this._checkLoopWrap();
@@ -539,10 +539,12 @@ export class Game {
 
   private _resolveHit(lane: number): HitResult[] {
     if (this.learningMode) {
+      const frozenRef = (this._learningFrozenRealTime || this._preFrameRealTime) * 1000;
+      this._learningFrozenRealTime = 0;
+      this.noteManager.pendingRealTimeOffsetMs = Math.round((performance.now() - frozenRef) / 1000 * this.speedMultiplier * 1000);
       const outcome = this.noteManager.checkLearningHit(this.currentTime, lane, performance.now(), this.octaveAgnostic);
       if (outcome.wrong) this.scoreDisplay?.showFeedback('Wrong', getFeedbackColors().MISS);
       for (const r of outcome.results) {
-        r.offsetMs = Math.round((performance.now() - (this._learningFrozenRealTime || this._preFrameRealTime)) / 1000 * this.speedMultiplier * 1000);
         this.noteManager.scoring.recordOffset(r.offsetMs);
       }
       return outcome.results;
