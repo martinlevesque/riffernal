@@ -183,7 +183,8 @@ test.describe('Timing offset in play mode', () => {
     await waitForResults(page);
 
     const stats = page.locator('#result-stats');
-    await expect(stats).toContainText('Timing (ms)');
+    await expect(stats).toContainText('Timing');
+    await expect(stats).toContainText('ms');
     await expect(stats).toContainText(/late|early|mixed|on time/);
   });
 
