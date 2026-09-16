@@ -86,7 +86,7 @@ export class ResultsScreen {
       Dropped: <span class="stat-value">${scoring.failures}</span><br>
       Max Combo: <span class="stat-value">${scoring.maxCombo}</span><br>
       Accuracy: <span class="stat-value">${scoring.getAccuracy()}%</span><br>
-      <span class="stat-secondary">Timing ${avgOffset} ms ${offsetDir}</span>
+      <span class="stat-secondary">Timing - ${avgOffset} ms ${offsetDir}</span>
     `;
   }
 
