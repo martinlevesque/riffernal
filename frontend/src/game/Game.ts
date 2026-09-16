@@ -6,7 +6,7 @@ import { Renderer } from './rendering/Renderer.js';
 import { LoopDefinitionState } from './Loop.js';
 export { LoopDefinitionState };
 import { NoteManager, SCROLL_SPEED, HIT_ZONE_Y_RATIO } from './NoteManager.js';
-import type { HitResult, SongNote } from './NoteManager.js';
+import type { HitResult, ResolveResult, SongNote } from './NoteManager.js';
 import { NoteGrade, gradeLabel, TIMING_OFFSET_DISPLAY_THRESHOLD_MS, TAP_NOTE_THRESHOLD, SUCCESS_PARTICLE_HOLD_RATIO, comboBoost } from './scoring.js';
 import type { Scoring } from './scoring.js';
 import { NOTE_TO_LANE, handColor, getPianoKeyLayout, getVisibleRange, PracticeHand, GM_DRUM_CHANNEL } from '../utils/notes.js';
@@ -496,18 +496,7 @@ export class Game {
       }
       const label = gradeLabel(grade);
       const color = getFeedbackColors()[grade];
-      // Per-note offset feedback is a learn-mode teaching aid; play mode
-      // still records offsets for the results-screen timing stat.
-      let feedbackText = `+${result.score} ${label}`;
-
-      if (this.learningMode) {
-        const ms = Math.abs(result.offsetMs);
-        if (ms > TIMING_OFFSET_DISPLAY_THRESHOLD_MS) {
-          const dir = result.offsetMs > 0 ? 'late' : 'early';
-          feedbackText += `\n<span class="timing-offset">${ms} ms ${dir}</span>`;
-        }
-      }
-      this.scoreDisplay?.showFeedback(feedbackText, color);
+      this.scoreDisplay?.showFeedback(this._hitFeedbackText(result, label), color);
 
       const note = result.note;
       const holdRatio = note.duration > 0 ? note.accumulatedHeldDuration / note.duration : 0;
@@ -527,6 +516,22 @@ export class Game {
         );
       }
     };
+  }
+
+  /** Per-note offset feedback is a learn-mode teaching aid; play mode
+   *  still records offsets for the results-screen timing stat. */
+  private _hitFeedbackText(result: ResolveResult, label: string): string {
+    let text = `+${result.score} ${label}`;
+
+    if (this.learningMode) {
+      const ms = Math.abs(result.offsetMs);
+      if (ms > TIMING_OFFSET_DISPLAY_THRESHOLD_MS) {
+        const dir = result.offsetMs > 0 ? 'late' : 'early';
+        text += `\n<span class="timing-offset">${ms} ms ${dir}</span>`;
+      }
+    }
+
+    return text;
   }
 
   // -- Input handling -------------------------------------------------------
