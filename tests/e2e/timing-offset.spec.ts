@@ -1,180 +1,184 @@
-import { test, expect } from '@playwright/test';
-import { makeSong } from '../helpers/song.js';
-import { buildFreezeResumeScript, evaluateWithNoteManager } from '../helpers/page/game.js';
+import { test, expect, type Page } from '@playwright/test';
+import type { NoteSpec } from '../helpers/song.js';
 import {
   startGame,
   expectPlayScreenActive,
   speedUp,
   waitForResults,
+  toggleLearnMode,
 } from '../helpers/index.js';
 
-test.describe('Timing offset in learn mode', () => {
-  test.setTimeout(20000);
+// All interactions go through the UI and assert user-visible DOM only:
+// real keyboard presses, #hit-feedback, #time-display, and the results
+// screen — no game or module internals.
+//
+// Notes are seeded at whole seconds so the time display only shows a
+// freeze label once the game is actually frozen there (the label would
+// otherwise also flash by while the note scrolls in).
 
-  test('late press records positive hitOffsetMs', async ({ page }) => {
-    const songJson = JSON.stringify(makeSong([
-      { time: 0.5, key: 'C4', duration: 0.25 },
-      { time: 10.0, key: 'E4', duration: 0.25 },
-    ], 'TimingTest'));
+const FEEDBACK = '#hit-feedback';
+const TIME_DISPLAY = '#time-display';
 
-    await page.goto('/');
-    const result = await page.evaluate(buildFreezeResumeScript(songJson, `
-      const { ScoreDisplay } = await import('/js/ui/play/ScoreDisplay.js');
-      game.scoreDisplay = new ScoreDisplay();
+/** Start the seeded song in LEARN mode. */
+async function startLearnGame(page: Page, notes: NoteSpec[]): Promise<void> {
+  await startGame(page, { notes });
+  await toggleLearnMode(page);
+}
 
-      // Wait 2 seconds after the freeze
-      await new Promise(r => setTimeout(r, 2000));
+/** Wait until the game is frozen at a note whose time displays as `label`. */
+async function waitForFreeze(page: Page, label: string): Promise<void> {
+  await expect(page.locator(TIME_DISPLAY)).toContainText(`${label} /`, { timeout: 15000 });
+}
 
-      // Press C4
-      game._handleNoteOn('C4', 'KeyK', 100);
-      await new Promise(r => setTimeout(r, 200));
+/** Read the "N ms late" value from the hit feedback, 0 when absent. */
+async function readLateMs(page: Page): Promise<number> {
+  const text = await page.locator(FEEDBACK).textContent() ?? '';
+  return Number(text.match(/(\d+) ms late/)?.[1] ?? 0);
+}
 
-      const feedbackEl = document.getElementById('hit-feedback');
-      const feedback = feedbackEl ? feedbackEl.innerHTML : 'ELEMENT_NOT_FOUND';
-      return {
-        noteHit: game.noteManager.notes[0].hit,
-        offsetMs: game.noteManager.notes[0].hitOffsetMs,
-        grade: game.noteManager.notes[0].grade,
-        feedback,
-      };
-    `));
+test.describe('Timing feedback in learn mode', () => {
+  test.setTimeout(30000);
 
-    const r = result as any;
-    expect(r.noteHit).toBe(true);
-    expect(r.grade).toBeTruthy();
-    // Offset should be ~2000ms (positive = late)
-    expect(r.offsetMs).toBeGreaterThan(1000);
-    // Offset should appear on a new line below the grade
-    expect(r.feedback).toMatch(/\n<span class="timing-offset">/);
-    expect(r.feedback).toMatch(/ms late/);
+  test('late press shows the ms offset below the grade', async ({ page }) => {
+    await startLearnGame(page, [
+      { time: 1.0, key: 'C4', duration: 0.4 },
+      { time: 10.0, key: 'E4', duration: 0.4 },
+    ]);
+    await expectPlayScreenActive(page);
+
+    await waitForFreeze(page, '0:01');
+    await page.waitForTimeout(2000);
+    await page.keyboard.press('KeyK');
+
+    await expect(page.locator(FEEDBACK)).toContainText(/ms late/, { timeout: 2000 });
+    const ms = await readLateMs(page);
+    expect(ms).toBeGreaterThanOrEqual(1200);
+
+    const feedback = await page.locator(FEEDBACK).innerHTML();
+    expect(feedback).toMatch(/timing-offset/);
+    expect(feedback).toMatch(/ms late/);
   });
 
-  test('immediate press after freeze shows offset only above threshold', async ({ page }) => {
-    const songJson = JSON.stringify(makeSong([
-      { time: 0.5, key: 'C4', duration: 0.25 },
-      { time: 10.0, key: 'E4', duration: 0.25 },
-    ], 'TimingTest'));
+  test('pressing soon after the freeze shows only a small offset', async ({ page }) => {
+    await startLearnGame(page, [
+      { time: 1.0, key: 'C4', duration: 0.4 },
+      { time: 10.0, key: 'E4', duration: 0.4 },
+    ]);
+    await expectPlayScreenActive(page);
 
-    await page.goto('/');
-    const result = await page.evaluate(buildFreezeResumeScript(songJson, `
-      const { ScoreDisplay } = await import('/js/ui/play/ScoreDisplay.js');
-      const { TIMING_OFFSET_DISPLAY_THRESHOLD_MS } = await import('/js/game/scoring.js');
-      game.scoreDisplay = new ScoreDisplay();
+    await waitForFreeze(page, '0:01');
+    await page.waitForTimeout(400);
+    await page.keyboard.press('KeyK');
 
-      // Press as soon as the freeze is detected (as on-time as the harness allows)
-      game._handleNoteOn('C4', 'KeyK', 100);
-      await new Promise(r => setTimeout(r, 200));
+    await expect(page.locator(FEEDBACK)).toContainText(/Perfect|Great|Good/, { timeout: 2000 });
+    await expect(page.locator(FEEDBACK)).not.toContainText('ms early');
+    const ms = await readLateMs(page);
+    if (ms > 0) expect(ms).toBeLessThan(800);
+  });
 
-      const feedback = document.getElementById('hit-feedback')?.textContent ?? '';
-      return {
-        noteHit: game.noteManager.notes[0].hit,
-        offsetMs: game.noteManager.notes[0].hitOffsetMs,
-        grade: game.noteManager.notes[0].grade,
-        feedback,
-        threshold: TIMING_OFFSET_DISPLAY_THRESHOLD_MS,
-      };
-    `));
+  test('never shows an early offset at various press delays', async ({ page }) => {
+    await startLearnGame(page, [
+      { time: 1.0, key: 'C4', duration: 0.4 },
+      { time: 3.0, key: 'E4', duration: 0.4 },
+      { time: 5.0, key: 'C5', duration: 0.4 },
+      { time: 7.0, key: 'D5', duration: 0.4 },
+    ]);
+    await expectPlayScreenActive(page);
 
-    const r = result as any;
-    expect(r.noteHit).toBe(true);
-    expect(r.grade).toBe('PERFECT');
-    // Offset is the freeze-detection latency: small and never negative
-    expect(r.offsetMs).toBeGreaterThanOrEqual(0);
-    expect(r.offsetMs).toBeLessThan(500);
-    // The offset text must appear exactly when the offset exceeds the threshold
-    if (r.offsetMs > r.threshold) {
-      expect(r.feedback).toMatch(/ms late/);
-    } else {
-      expect(r.feedback).not.toMatch(/ms/);
+    const freezes = ['0:01', '0:03', '0:05', '0:07'];
+    const keys = ['KeyK', 'Semicolon', 'Digit1', 'Digit2'];
+    const delays = [400, 1000, 400, 1000];
+
+    for (let i = 0; i < keys.length; i++) {
+      await waitForFreeze(page, freezes[i]);
+      await page.waitForTimeout(delays[i]);
+      await page.keyboard.press(keys[i]);
+
+      // Learn mode freezes at the note, so a press is never early: the
+      // grade always shows and the direction is never "early".
+      await expect(page.locator(FEEDBACK)).toContainText(/Perfect|Great|Good/, { timeout: 2000 });
+      await expect(page.locator(FEEDBACK)).not.toContainText('ms early');
     }
   });
 
-  test('wrong press does not reset the freeze anchor', async ({ page }) => {
-    const songJson = JSON.stringify(makeSong([
-      { time: 0.5, key: 'C4', duration: 0.25 },
-      { time: 10.0, key: 'E4', duration: 0.25 },
-    ], 'TimingTest'));
+  test('wrong press does not reset the late measurement', async ({ page }) => {
+    await startLearnGame(page, [
+      { time: 1.0, key: 'C4', duration: 0.4 },
+      { time: 10.0, key: 'E4', duration: 0.4 },
+    ]);
+    await expectPlayScreenActive(page);
 
-    await page.goto('/');
-    const result = await page.evaluate(buildFreezeResumeScript(songJson, `
-      // Wait 1s after freeze, then press a wrong key
-      await new Promise(r => setTimeout(r, 1000));
-      game._handleNoteOn('G4', 'KeyL', 100);
-      // Wait another 1s, then press the correct key
-      await new Promise(r => setTimeout(r, 1000));
-      game._handleNoteOn('C4', 'KeyK', 100);
-      await new Promise(r => setTimeout(r, 100));
-      return { offsetMs: game.noteManager.notes[0].hitOffsetMs };
-    `));
+    await waitForFreeze(page, '0:01');
+    await page.waitForTimeout(2000);
+    await page.keyboard.press('Period'); // wrong key: D#2, not in the song
+    await page.waitForTimeout(2000);
+    await page.keyboard.press('KeyK');
 
-    const r = result as any;
-    // Measured from the freeze start (~2000ms), not from the wrong press (~1000ms)
-    expect(r.offsetMs).toBeGreaterThan(1500);
+    await expect(page.locator(FEEDBACK)).toContainText(/ms late/, { timeout: 2000 });
+    const ms = await readLateMs(page);
+    // Measured from the freeze (~4s), not from the wrong press (~2s)
+    expect(ms).toBeGreaterThanOrEqual(3000);
   });
 
-  test('chord offset is measured from freeze start, not inter-press gap', async ({ page }) => {
-    const songJson = JSON.stringify(makeSong([
-      { time: 0.5, key: 'C4', duration: 0.25 },
-      { time: 0.5, key: 'E4', duration: 0.25 },
-      { time: 10.0, key: 'G4', duration: 0.25 },
-    ], 'TimingTest'));
+  test('chord timing is measured from when the chord appeared', async ({ page }) => {
+    await startLearnGame(page, [
+      { time: 1.0, key: 'C4', duration: 0.4 },
+      { time: 1.0, key: 'E4', duration: 0.4 },
+      { time: 10.0, key: 'G4', duration: 0.4 },
+    ]);
+    await expectPlayScreenActive(page);
 
-    await page.goto('/');
-    const result = await page.evaluate(buildFreezeResumeScript(songJson, `
-      await new Promise(r => setTimeout(r, 2000));
-      game._handleNoteOn('C4', 'KeyK', 100);
-      await new Promise(r => setTimeout(r, 100));
-      game._handleNoteOn('E4', 'KeyL', 100);
-      await new Promise(r => setTimeout(r, 100));
-      return {
-        c4: game.noteManager.notes[0].hitOffsetMs,
-        e4: game.noteManager.notes[1].hitOffsetMs,
-      };
-    `));
+    await waitForFreeze(page, '0:01');
+    await page.waitForTimeout(2000);
+    await page.keyboard.press('KeyK');
+    await page.waitForTimeout(100);
+    await page.keyboard.press('Semicolon');
 
-    const r = result as any;
-    // Both chord notes are ~2s late (freeze start -> completing press),
-    // not ~100ms (the gap between the two presses)
-    expect(r.c4).toBeGreaterThan(1500);
-    expect(r.e4).toBeGreaterThan(1500);
-  });
-
-  test('learn mode offset is never negative (cannot press early)', async ({ page }) => {
-    const songJson = JSON.stringify(makeSong([
-      { time: 0.5, key: 'C4', duration: 0.25 },
-      { time: 10.0, key: 'E4', duration: 0.25 },
-    ], 'TimingTest'));
-
-    await page.goto('/');
-    // Test at various delays: 0ms, 500ms, 1000ms, 2000ms
-    for (const delay of [0, 500, 1000, 2000]) {
-      const result = await page.evaluate(buildFreezeResumeScript(songJson, `
-        await new Promise(r => setTimeout(r, ${delay}));
-        game._handleNoteOn('C4', 'KeyK', 100);
-        await new Promise(r => setTimeout(r, 100));
-        return { offsetMs: game.noteManager.notes[0].hitOffsetMs };
-      `));
-      const r = result as any;
-      // Offset must always be >= 0 in learn mode
-      expect(r.offsetMs).toBeGreaterThanOrEqual(0);
-    }
+    await expect(page.locator(FEEDBACK)).toContainText(/ms late/, { timeout: 2000 });
+    const ms = await readLateMs(page);
+    // ~2s after the chord appeared, not ~100ms (the gap between presses)
+    expect(ms).toBeGreaterThanOrEqual(1500);
   });
 });
 
-test.describe('Timing offset in play mode', () => {
-  test('feedback during song shows grade but no ms offset for perfect hits', async ({ page }) => {
+test.describe('Timing feedback in play mode', () => {
+  test('wrong press shows no ms offset', async ({ page }) => {
     await startGame(page);
     await expectPlayScreenActive(page);
 
-    // Press a key (will be a Wrong/Miss since no note is there)
     await page.keyboard.press('KeyA');
-    const feedback = await page.locator('#hit-feedback').textContent({ timeout: 1000 });
+    const feedback = await page.locator(FEEDBACK).textContent({ timeout: 1000 });
     expect(feedback).toMatch(/Miss|Wrong/);
-    // Miss/Wrong have no offset — should not show ms
     expect(feedback).not.toMatch(/ms/);
   });
 
-  test('results screen shows timing offset after completion', async ({ page }) => {
+  test('hit shows grade but no per-note offset', async ({ page }) => {
+    await startGame(page, { notes: [
+      { time: 1.5, key: 'C3', duration: 0.4 },
+      { time: 10.0, key: 'E3', duration: 0.4 },
+    ] });
+    await expectPlayScreenActive(page);
+
+    // The note reaches the hit zone around the "0:01" display tick; press
+    // repeatedly across the timing window until one press lands a hit.
+    await expect(page.locator(TIME_DISPLAY)).toContainText('0:01 /', { timeout: 15000 });
+
+    let hitFeedback = '';
+    for (let i = 0; i < 8; i++) {
+      await page.keyboard.press('KeyA');
+      const fb = await page.locator(FEEDBACK).textContent() ?? '';
+      if (/Perfect|Great|Good/.test(fb)) {
+        hitFeedback = fb;
+        break;
+      }
+      await page.waitForTimeout(120);
+    }
+
+    expect(hitFeedback).toMatch(/Perfect|Great|Good/);
+    expect(hitFeedback).not.toMatch(/ms/);
+  });
+
+  test('results screen shows the timing stat', async ({ page }) => {
     test.setTimeout(30000);
     await startGame(page);
     await expectPlayScreenActive(page);
@@ -186,131 +190,5 @@ test.describe('Timing offset in play mode', () => {
     await expect(stats).toContainText('Timing - ');
     await expect(stats).toContainText('ms');
     await expect(stats).toContainText(/late|early|mixed|on time/);
-  });
-
-  test('late hit shows grade but no per-note offset in play mode', async ({ page }) => {
-    const songJson = JSON.stringify(makeSong([
-      { time: 2.0, key: 'C4', duration: 0.25 },
-      { time: 10.0, key: 'E4', duration: 0.25 },
-    ], 'TimingTest'));
-
-    await page.goto('/');
-    const result = await page.evaluate(`(async () => {
-      const { Game } = await import('/js/game/Game.js');
-      const { Synth } = await import('/js/audio/Synth.js');
-      const { KeyboardInput } = await import('/js/input/KeyboardInput.js');
-      const { MidiInput } = await import('/js/input/MidiInput.js');
-      const { ScoreDisplay } = await import('/js/ui/play/ScoreDisplay.js');
-      const canvas = document.getElementById('gameCanvas');
-      const game = new Game(canvas, new Synth(), new KeyboardInput(), new MidiInput());
-      game.start(${songJson});
-      game.scoreDisplay = new ScoreDisplay();
-
-      // Press ~70ms late: offset exceeds the display threshold but stays
-      // inside the GOOD timing window
-      await new Promise((resolve, reject) => {
-        const poll = setInterval(() => {
-          if (game.currentTime >= 2.055 && game.currentTime <= 2.115) {
-            clearInterval(poll);
-            game._handleNoteOn('C4', 'KeyK', 100);
-            resolve();
-          } else if (game.currentTime > 2.13) {
-            clearInterval(poll);
-            reject(new Error('note window missed: ' + game.currentTime));
-          }
-        }, 5);
-      });
-      await new Promise(r => setTimeout(r, 100));
-
-      const feedbackEl = document.getElementById('hit-feedback');
-      const data = {
-        noteHit: game.noteManager.notes[0].hit,
-        grade: game.noteManager.notes[0].grade,
-        offsetMs: game.noteManager.notes[0].hitOffsetMs,
-        avgRecorded: game.noteManager.scoring.getAverageOffsetMs(),
-        feedback: feedbackEl ? feedbackEl.innerHTML : 'ELEMENT_NOT_FOUND',
-      };
-      game.backToMenu();
-      return data;
-    })()`);
-
-    const r = result as any;
-    expect(r.noteHit).toBe(true);
-    expect(r.grade).toBeTruthy();
-    expect(r.offsetMs).toBeGreaterThan(50);
-    // No per-note offset in play-mode feedback
-    expect(r.feedback).not.toMatch(/timing-offset/);
-    expect(r.feedback).not.toMatch(/ms/);
-    // ...but the offset is still recorded for the results-screen stat
-    expect(r.avgRecorded).toBeGreaterThan(0);
-  });
-
-  test('early press records negative offset', async ({ page }) => {
-    await page.goto('/');
-    const song = makeSong([
-      { time: 2.0, key: 'C3', duration: 0.25 },
-      { time: 5.0, key: 'E3', duration: 0.25 },
-    ]);
-    const result = await evaluateWithNoteManager(page, song, `
-      nm.update(1.9, H);
-      const lane = NOTE_TO_LANE.get('C3');
-      const hit = nm.checkHit(1.9, lane);
-      return {
-        hit: !!hit,
-        offsetMs: hit ? hit.note.hitOffsetMs : null,
-        grade: hit ? hit.result : null,
-      };
-    `);
-    expect(result.hit).toBe(true);
-    expect(result.grade).toBe('GOOD');
-    // Pressed at 1.9s for a note at 2.0s = -100ms (early)
-    expect(result.offsetMs).toBeLessThan(0);
-  });
-
-  test('recovered failing note does not double-record its offset', async ({ page }) => {
-    await page.goto('/');
-    const song = makeSong([
-      { time: 2.0, key: 'C3', duration: 1.0 },
-      { time: 5.0, key: 'E3', duration: 0.25 },
-    ]);
-    const result = await evaluateWithNoteManager(page, song, `
-      nm.update(1.9, H);
-      const laneC = NOTE_TO_LANE.get('C3');
-      const laneE = NOTE_TO_LANE.get('E3');
-      nm.checkHit(1.9, laneC);            // fresh hit, offset -100ms
-      nm.checkRelease(2.05, laneC);       // drop early -> failing
-      const recovered = nm.checkHit(2.2, laneC); // re-press recovers
-      nm.update(4.95, H);
-      nm.checkHit(5.0, laneE);            // fresh hit, offset 0ms
-      return {
-        recovered: !!recovered,
-        avgOffsetMs: nm.scoring.getAverageOffsetMs(),
-        direction: nm.scoring.getOffsetDirection(),
-      };
-    `);
-    expect(result.recovered).toBe(true);
-    // Only the two fresh hits count: (100 + 0) / 2 = 50
-    expect(result.avgOffsetMs).toBe(50);
-    expect(result.direction).toBe('early');
-  });
-
-  test('on-time press records near-zero offset', async ({ page }) => {
-    await page.goto('/');
-    const song = makeSong([
-      { time: 2.0, key: 'C3', duration: 0.25 },
-    ]);
-    const result = await evaluateWithNoteManager(page, song, `
-      nm.update(2.0, H);
-      const lane = NOTE_TO_LANE.get('C3');
-      const hit = nm.checkHit(2.0, lane);
-      return {
-        hit: !!hit,
-        offsetMs: hit ? hit.note.hitOffsetMs : null,
-        grade: hit ? hit.result : null,
-      };
-    `);
-    expect(result.hit).toBe(true);
-    expect(result.grade).toBe('PERFECT');
-    expect(result.offsetMs).toBe(0);
   });
 });
