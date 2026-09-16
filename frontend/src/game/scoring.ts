@@ -58,6 +58,10 @@ export const GRADE_THRESHOLDS = {
   C: 45,
 } as const;
 
+/** How a run's timing offsets trend: the sign of the net offset, 'mixed'
+ *  when early and late cancel out, 'on time' when nothing was recorded. */
+export type OffsetDirection = 'early' | 'late' | 'on time' | 'mixed';
+
 export function gradeLabel(grade: NoteGrade): string {
   if (grade === NoteGrade.GOOD) return "Good!";
   return grade.charAt(0) + grade.slice(1).toLowerCase();
@@ -172,7 +176,7 @@ export class Scoring {
     return Math.round(this._totalAbsOffsetMs / this._offsetCount);
   }
 
-  getOffsetDirection(): 'early' | 'late' | 'on time' | 'mixed' {
+  getOffsetDirection(): OffsetDirection {
     if (this._offsetCount === 0) return 'on time';
 
     if (this._totalOffsetMs === 0) {
