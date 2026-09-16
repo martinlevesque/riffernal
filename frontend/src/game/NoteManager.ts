@@ -236,14 +236,26 @@ export class NoteManager {
     this.resetLearningState();
   }
 
+  /** Advance note gameplay state to `currentTime`: auto-plays non-practiced
+   *  notes, resolves completed holds and failures, marks missed notes,
+   *  activates notes entering the hittable window, then prunes the active
+   *  render list. */
   update(currentTime: number, height: number, loopEndCutoff: number | null = null): void {
     const hitZoneY = height * HIT_ZONE_Y_RATIO;
     const lookAhead = hitZoneY / SCROLL_SPEED;
 
+    this._skipResolvedNotes();
+    this._advanceNoteStates(currentTime, lookAhead, loopEndCutoff);
+    this._pruneActiveNotes(currentTime, hitZoneY, height);
+  }
+
+  private _skipResolvedNotes(): void {
     while (this._nextNoteIndex < this.notes.length && this.notes[this._nextNoteIndex].resolved) {
       this._nextNoteIndex++;
     }
+  }
 
+  private _advanceNoteStates(currentTime: number, lookAhead: number, loopEndCutoff: number | null): void {
     for (let i = this._nextNoteIndex; i < this.notes.length; i++) {
       const note = this.notes[i];
       if (note.resolved) {
@@ -267,74 +279,102 @@ export class NoteManager {
         break;
       }
 
-      if (this._isAutoPlayNote(note) && !note.autoPlayed) {
-        if (timeDiff <= 0) {
-          note.autoPlayed = true;
-          if (this.onAutoPlayOn) this.onAutoPlayOn(note);
-          if (note.duration <= TAP_NOTE_THRESHOLD) {
-            note.hit = true;
-            note.holding = false;
-            this._markResolved(note);
-          } else {
-            note.holding = true;
-            note.pressStartTime = note.time;
-          }
-          continue;
-        }
-      }
+      if (this._resolveAutoPlayNote(note, timeDiff)) continue;
 
       if (note.holding) {
-        if (currentTime >= note.time + note.duration) {
-          const noteEnd = note.time + note.duration;
-          const finalSegment = noteEnd - note.pressStartTime;
-          note.accumulatedHeldDuration += Math.max(0, finalSegment);
-          note.accumulatedHeldDuration = Math.min(note.accumulatedHeldDuration, note.duration);
-          const cumulativeRatio = note.accumulatedHeldDuration / note.duration;
-          note.hit = true;
-          note.holding = false;
-          this._markResolved(note);
-          if (!note.autoPlayed) {
-            note.earnedScore = this.scoring.finalizeNote(note.grade!, cumulativeRatio, note.earlyMultiplier);
-            if (this.onResolve) this.onResolve({ note, score: note.earnedScore, grade: note.grade!, offsetMs: note.hitOffsetMs });
-          }
-        }
+        this._finishHold(note, currentTime);
         continue;
       }
 
       if (note.failing) {
-        if (currentTime >= note.time + note.duration) {
-          this._markResolved(note);
-          if (note.accumulatedHeldDuration > 0 && note.grade !== null) {
-            const cumulativeRatio = note.accumulatedHeldDuration / note.duration;
-            note.earnedScore = this.scoring.finalizeNote(note.grade, cumulativeRatio, note.earlyMultiplier);
-            if (this.onResolve) this.onResolve({ note, score: note.earnedScore, grade: note.grade, offsetMs: note.hitOffsetMs });
-          } else {
-            this.scoring.finalizeNote(null, 0);
-            if (this.onResolve) this.onResolve({ note, score: 0, grade: null, offsetMs: 0 });
-          }
-        }
+        this._finishFailingNote(note, currentTime);
         continue;
       }
 
       if (timeDiff < -TIMING.GOOD) {
-        if (note.selected) {
-          note.missed = true;
-          note.failing = true;
-          if (this.onMiss) this.onMiss(note);
-        } else {
-          this._markResolved(note);
-        }
+        this._expireNote(note);
         continue;
       }
 
-      if (timeDiff <= lookAhead && !note.activated) {
-        note.activated = true;
-        if (note.selected) {
-          this.activeNotes.push(note);
-        }
-      }
+      this._activateNote(note, timeDiff, lookAhead);
     }
+  }
 
+  /** Auto-played notes (background tracks / non-practiced hand) resolve
+   *  themselves on schedule. Returns true when the note was handled and the
+   *  scan should move on. */
+  private _resolveAutoPlayNote(note: SongNote, timeDiff: number): boolean {
+    if (!this._isAutoPlayNote(note) || note.autoPlayed || timeDiff > 0) return false;
+
+    note.autoPlayed = true;
+    if (this.onAutoPlayOn) this.onAutoPlayOn(note);
+    if (note.duration <= TAP_NOTE_THRESHOLD) {
+      note.hit = true;
+      note.holding = false;
+      this._markResolved(note);
+    } else {
+      note.holding = true;
+      note.pressStartTime = note.time;
+    }
+    return true;
+  }
+
+  /** Resolve a held note that has reached the end of its duration. */
+  private _finishHold(note: SongNote, currentTime: number): void {
+    if (currentTime < note.time + note.duration) return;
+
+    const noteEnd = note.time + note.duration;
+    const finalSegment = noteEnd - note.pressStartTime;
+    note.accumulatedHeldDuration += Math.max(0, finalSegment);
+    note.accumulatedHeldDuration = Math.min(note.accumulatedHeldDuration, note.duration);
+    const cumulativeRatio = note.accumulatedHeldDuration / note.duration;
+    note.hit = true;
+    note.holding = false;
+    this._markResolved(note);
+    if (!note.autoPlayed) {
+      note.earnedScore = this.scoring.finalizeNote(note.grade!, cumulativeRatio, note.earlyMultiplier);
+      if (this.onResolve) this.onResolve({ note, score: note.earnedScore, grade: note.grade!, offsetMs: note.hitOffsetMs });
+    }
+  }
+
+  /** Resolve a failing (dropped hold) note at the end of its duration. */
+  private _finishFailingNote(note: SongNote, currentTime: number): void {
+    if (currentTime < note.time + note.duration) return;
+
+    this._markResolved(note);
+    if (note.accumulatedHeldDuration > 0 && note.grade !== null) {
+      const cumulativeRatio = note.accumulatedHeldDuration / note.duration;
+      note.earnedScore = this.scoring.finalizeNote(note.grade, cumulativeRatio, note.earlyMultiplier);
+      if (this.onResolve) this.onResolve({ note, score: note.earnedScore, grade: note.grade, offsetMs: note.hitOffsetMs });
+    } else {
+      this.scoring.finalizeNote(null, 0);
+      if (this.onResolve) this.onResolve({ note, score: 0, grade: null, offsetMs: 0 });
+    }
+  }
+
+  /** A note whose GOOD window has passed: missed when player-tracked,
+   *  silently skipped otherwise. */
+  private _expireNote(note: SongNote): void {
+    if (note.selected) {
+      note.missed = true;
+      note.failing = true;
+      if (this.onMiss) this.onMiss(note);
+    } else {
+      this._markResolved(note);
+    }
+  }
+
+  private _activateNote(note: SongNote, timeDiff: number, lookAhead: number): void {
+    if (timeDiff > lookAhead || note.activated) return;
+
+    note.activated = true;
+    if (note.selected) {
+      this.activeNotes.push(note);
+    }
+  }
+
+  /** Drop resolved and fully-scrolled-off notes from the active render list. */
+  private _pruneActiveNotes(currentTime: number, hitZoneY: number, height: number): void {
     let writeIdx = 0;
     for (let i = 0; i < this.activeNotes.length; i++) {
       const n = this.activeNotes[i];
