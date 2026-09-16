@@ -494,13 +494,18 @@ export class Game {
       }
       const label = gradeLabel(grade);
       const color = getFeedbackColors()[grade];
-      const ms = Math.abs(result.offsetMs);
-      let offsetHtml = '';
-      if (ms > TIMING_OFFSET_DISPLAY_THRESHOLD_MS) {
-        const dir = result.offsetMs > 0 ? 'late' : 'early';
-        offsetHtml = `\n<span class="timing-offset">${ms} ms ${dir}</span>`;
+      // Per-note offset feedback is a learn-mode teaching aid; play mode
+      // still records offsets for the results-screen timing stat.
+      let feedbackText = `+${result.score} ${label}`;
+
+      if (this.learningMode) {
+        const ms = Math.abs(result.offsetMs);
+        if (ms > TIMING_OFFSET_DISPLAY_THRESHOLD_MS) {
+          const dir = result.offsetMs > 0 ? 'late' : 'early';
+          feedbackText += `\n<span class="timing-offset">${ms} ms ${dir}</span>`;
+        }
       }
-      this.scoreDisplay?.showFeedback(`+${result.score} ${label}${offsetHtml}`, color);
+      this.scoreDisplay?.showFeedback(feedbackText, color);
 
       const note = result.note;
       const holdRatio = note.duration > 0 ? note.accumulatedHeldDuration / note.duration : 0;

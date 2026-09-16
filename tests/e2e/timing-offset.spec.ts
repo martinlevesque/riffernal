@@ -188,6 +188,63 @@ test.describe('Timing offset in play mode', () => {
     await expect(stats).toContainText(/late|early|mixed|on time/);
   });
 
+  test('late hit shows grade but no per-note offset in play mode', async ({ page }) => {
+    const songJson = JSON.stringify(makeSong([
+      { time: 2.0, key: 'C4', duration: 0.25 },
+      { time: 10.0, key: 'E4', duration: 0.25 },
+    ], 'TimingTest'));
+
+    await page.goto('/');
+    const result = await page.evaluate(`(async () => {
+      const { Game } = await import('/js/game/Game.js');
+      const { Synth } = await import('/js/audio/Synth.js');
+      const { KeyboardInput } = await import('/js/input/KeyboardInput.js');
+      const { MidiInput } = await import('/js/input/MidiInput.js');
+      const { ScoreDisplay } = await import('/js/ui/play/ScoreDisplay.js');
+      const canvas = document.getElementById('gameCanvas');
+      const game = new Game(canvas, new Synth(), new KeyboardInput(), new MidiInput());
+      game.start(${songJson});
+      game.scoreDisplay = new ScoreDisplay();
+
+      // Press ~70ms late: offset exceeds the display threshold but stays
+      // inside the GOOD timing window
+      await new Promise((resolve, reject) => {
+        const poll = setInterval(() => {
+          if (game.currentTime >= 2.055 && game.currentTime <= 2.115) {
+            clearInterval(poll);
+            game._handleNoteOn('C4', 'KeyK', 100);
+            resolve();
+          } else if (game.currentTime > 2.13) {
+            clearInterval(poll);
+            reject(new Error('note window missed: ' + game.currentTime));
+          }
+        }, 5);
+      });
+      await new Promise(r => setTimeout(r, 100));
+
+      const feedbackEl = document.getElementById('hit-feedback');
+      const data = {
+        noteHit: game.noteManager.notes[0].hit,
+        grade: game.noteManager.notes[0].grade,
+        offsetMs: game.noteManager.notes[0].hitOffsetMs,
+        avgRecorded: game.noteManager.scoring.getAverageOffsetMs(),
+        feedback: feedbackEl ? feedbackEl.innerHTML : 'ELEMENT_NOT_FOUND',
+      };
+      game.backToMenu();
+      return data;
+    })()`);
+
+    const r = result as any;
+    expect(r.noteHit).toBe(true);
+    expect(r.grade).toBeTruthy();
+    expect(r.offsetMs).toBeGreaterThan(50);
+    // No per-note offset in play-mode feedback
+    expect(r.feedback).not.toMatch(/timing-offset/);
+    expect(r.feedback).not.toMatch(/ms/);
+    // ...but the offset is still recorded for the results-screen stat
+    expect(r.avgRecorded).toBeGreaterThan(0);
+  });
+
   test('early press records negative offset', async ({ page }) => {
     await page.goto('/');
     const song = makeSong([
