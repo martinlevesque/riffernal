@@ -331,16 +331,23 @@ export class Game {
     if (!(this.currentTime >= effectiveEnd)) return;
 
     // Advance to the next loop in the chain (wraps to 0 at the end). Apply
-    // a pre-roll buffer only when transitioning to a DIFFERENT loop (the
-    // chain moves to a new region the player hasn't just rehearsed); a
-    // single loop wrapping back to itself restarts immediately, matching
-    // the prior single-loop practice UX.
+    // a pre-roll buffer only when the next loop has a gap after the current
+    // one (the player missed notes in between and needs time to prepare).
+    // Adjacent loops (next starts at or before current ends) transition
+    // seamlessly; a single loop wrapping back to itself also restarts
+    // immediately.
     const prevIndex = this.loop.currentIndex;
     this.noteManager.scoring.resetCombo();
     const next = this.loop.advance();
     if (!next) return;
     const sameLoop = prevIndex !== null && this.loop.currentIndex === prevIndex;
-    if (sameLoop) {
+    // Adjacent loops (next starts at or before current ends) transition
+    // seamlessly. A forward gap or a wrap-around (next before current)
+    // means the player missed notes, so a buffer gives them time to
+    // prepare.
+    const wrappedAround = !sameLoop && this.loop.currentIndex! < prevIndex!;
+    const hasGap = wrappedAround || next.startTime > current.endTime;
+    if (sameLoop || !hasGap) {
       this.seekTo(next.startTime);
     } else {
       this._seekWithBuffer(next.startTime, LOOP_TRANSITION_SECONDS);

@@ -714,6 +714,41 @@ test.describe('Loops - chain', () => {
     expect(result.finalCurrentTime).toBeGreaterThan(-1.0);
   });
 
+  test('adjacent loops transition seamlessly without a buffer', async ({ page }) => {
+    const songJson = JSON.stringify(makeSong([
+      { time: 0.5, key: 'C3', duration: 0.25 },
+      { time: 2.0, key: 'E3', duration: 0.25 },
+      { time: 3.5, key: 'G3', duration: 0.25 },
+      { time: 5.0, key: 'A3', duration: 0.25 },
+    ], 'AdjacentLoops'));
+    await page.goto('/');
+    const result = await page.evaluate(gameEvalBody(songJson, `
+      game.loop.setLoops([
+        { id: 10, startTime: 1.0, endTime: 3.0, enabled: true },
+        { id: 20, startTime: 3.0, endTime: 5.0, enabled: true },
+      ]);
+      game.loop.engage(); // currentIndex = 0
+      // Simulate reaching loop 0's effective end -> advance to loop 1
+      game.seekTo(3.0);
+      game.refRealTime = performance.now() / 1000;
+      let advancedToOne = false;
+      for (let i = 0; i < 40; i++) {
+        await new Promise(r => setTimeout(r, 50));
+        if (game.loop.currentIndex === 1) { advancedToOne = true; break; }
+      }
+      return {
+        advancedToOne,
+        finalIndex: game.loop.currentIndex,
+        finalCurrentTime: game.currentTime,
+      };
+    `)) as { advancedToOne: boolean; finalIndex: number | null; finalCurrentTime: number };
+    expect(result.advancedToOne).toBe(true);
+    expect(result.finalIndex).toBe(1);
+    // Adjacent loops: no buffer, so currentTime should be at or near loop 1 start.
+    expect(result.finalCurrentTime).toBeGreaterThanOrEqual(2.9);
+    expect(result.finalCurrentTime).toBeLessThanOrEqual(3.1);
+  });
+
   test('zero enabled loops means no chaining and normal play (completion)', async ({ page }) => {
     const songJson = JSON.stringify(makeSong([
       { time: 0.5, key: 'C3', duration: 0.25 },
