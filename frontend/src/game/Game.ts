@@ -110,7 +110,6 @@ export class Game {
   private _timeDisplayEl: HTMLElement;
   private _onResize: () => void;
   private _resizeRaf = false;
-  private _boundLoop: () => void;
   private _lastFrameTime = 0;
   private _completionTime: number | null = null;
   private _lastSheetBottom = -1;
@@ -140,55 +139,58 @@ export class Game {
       }
     };
     window.addEventListener('resize', this._onResize);
-
-    this._boundLoop = (): void => {
-      if (this._paused) return;
-
-      const now = performance.now() / 1000;
-      const delta = this._lastFrameTime ? now - this._lastFrameTime : 1 / 60;
-      this._lastFrameTime = now;
-      this._frameCount++;
-
-      this._preFrameRealTime = this._refRealTime;
-      const prevTime = this.currentTime;
-      this._updateFrameTime(now, delta);
-      // Track freeze transitions so the real-time anchor is captured exactly
-      // once per freeze (at its start) and survives wrong/partial presses.
-      const frozenNow = this.learningMode && !this.loopPlay && this.state === GameState.Playing
-        && this.currentTime === prevTime;
-
-      if (frozenNow && !this._learningFrozen) {
-        this._learningFrozenRealTime = this._preFrameRealTime;
-      }
-
-      this._learningFrozen = frozenNow;
-      this._checkLoopWrap();
-
-      this.scrollOffset += SCROLL_SPEED * delta * this.speedMultiplier;
-
-      this.renderer.clear();
-      this.renderer.beginFrame(performance.now());
-      this.renderer.drawHighway(this.scrollOffset, this._pressedLanes, this.usedNoteRange);
-
-      if (this.state === GameState.Playing) {
-        this._renderPlayingFrame();
-      }
-
-      if (this.renderer.sheetBottom !== this._lastSheetBottom) {
-        this._lastSheetBottom = this.renderer.sheetBottom;
-        this._resizeHandle.style.top = `${this.renderer.sheetBottom}px`;
-      }
-
-      this.renderer.drawParticles();
-      this.renderer.piano.showComputerKeys = this._midiInput.device.type === InputDeviceType.ComputerKeyboard;
-      this.renderer.drawPiano(this._pressedLanes, this.usedNoteRange);
-      this.renderer.drawHitZone(this._pressedLanes, this.usedNoteRange);
-
-      if (this.state !== GameState.Menu) {
-        this._animationId = requestAnimationFrame(this._boundLoop);
-      }
-    };
   }
+
+  /** Main animation-frame tick: advances game time, renders the frame, and
+   *  re-arms itself until the game returns to the menu. Arrow property so it
+   *  can be passed directly to requestAnimationFrame. */
+  private _mainLoop = (): void => {
+    if (this._paused) return;
+
+    const now = performance.now() / 1000;
+    const delta = this._lastFrameTime ? now - this._lastFrameTime : 1 / 60;
+    this._lastFrameTime = now;
+    this._frameCount++;
+
+    this._preFrameRealTime = this._refRealTime;
+    const prevTime = this.currentTime;
+    this._updateFrameTime(now, delta);
+    // Track freeze transitions so the real-time anchor is captured exactly
+    // once per freeze (at its start) and survives wrong/partial presses.
+    const frozenNow = this.learningMode && !this.loopPlay && this.state === GameState.Playing
+      && this.currentTime === prevTime;
+
+    if (frozenNow && !this._learningFrozen) {
+      this._learningFrozenRealTime = this._preFrameRealTime;
+    }
+
+    this._learningFrozen = frozenNow;
+    this._checkLoopWrap();
+
+    this.scrollOffset += SCROLL_SPEED * delta * this.speedMultiplier;
+
+    this.renderer.clear();
+    this.renderer.beginFrame(performance.now());
+    this.renderer.drawHighway(this.scrollOffset, this._pressedLanes, this.usedNoteRange);
+
+    if (this.state === GameState.Playing) {
+      this._renderPlayingFrame();
+    }
+
+    if (this.renderer.sheetBottom !== this._lastSheetBottom) {
+      this._lastSheetBottom = this.renderer.sheetBottom;
+      this._resizeHandle.style.top = `${this.renderer.sheetBottom}px`;
+    }
+
+    this.renderer.drawParticles();
+    this.renderer.piano.showComputerKeys = this._midiInput.device.type === InputDeviceType.ComputerKeyboard;
+    this.renderer.drawPiano(this._pressedLanes, this.usedNoteRange);
+    this.renderer.drawHitZone(this._pressedLanes, this.usedNoteRange);
+
+    if (this.state !== GameState.Menu) {
+      this._animationId = requestAnimationFrame(this._mainLoop);
+    }
+  };
 
   // -- Loop forwarding ------------------------------------------------------
 
@@ -451,7 +453,7 @@ export class Game {
     this._setupNoteCallbacks();
 
     this._lastFrameTime = 0;
-    this._boundLoop();
+    this._mainLoop();
   }
 
   /** Pause the game loop. Used by main.ts to freeze the game while the
@@ -728,7 +730,7 @@ export class Game {
       // is recaptured at resume time, not the pre-pause instant.
       this._learningFrozen = false;
       this._lastFrameTime = 0;
-      this._boundLoop();
+      this._mainLoop();
     } else {
       this._paused = true;
       if (this._animationId !== null) {
