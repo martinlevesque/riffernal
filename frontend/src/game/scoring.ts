@@ -24,6 +24,10 @@ export const TAP_NOTE_THRESHOLD = 0.4; // seconds — notes shorter than this ar
 // ms — in LEARN mode, chord notes (same-time) must all be pressed within this real-time window
 export const LEARNING_CHORD_WINDOW = 200;
 
+// ms — per-note timing offsets are only surfaced in the hit feedback
+// when the absolute offset exceeds this threshold
+export const TIMING_OFFSET_DISPLAY_THRESHOLD_MS = 50;
+
 // Score deducted for pressing a key that doesn't match any active note
 export const WRONG_PRESS_PENALTY = 50;
 
@@ -155,6 +159,8 @@ export class Scoring {
   }
 
   recordOffset(offsetMs: number): void {
+    if (!this.enabled) return;
+
     this._totalOffsetMs += offsetMs;
     this._totalAbsOffsetMs += Math.abs(offsetMs);
     this._offsetCount++;
@@ -162,11 +168,17 @@ export class Scoring {
 
   getAverageOffsetMs(): number {
     if (this._offsetCount === 0) return 0;
+
     return Math.round(this._totalAbsOffsetMs / this._offsetCount);
   }
 
-  getOffsetDirection(): 'early' | 'late' | 'on time' {
-    if (this._offsetCount === 0 || this._totalOffsetMs === 0) return 'on time';
+  getOffsetDirection(): 'early' | 'late' | 'on time' | 'mixed' {
+    if (this._offsetCount === 0) return 'on time';
+
+    if (this._totalOffsetMs === 0) {
+      return this._totalAbsOffsetMs === 0 ? 'on time' : 'mixed';
+    }
+
     return this._totalOffsetMs > 0 ? 'late' : 'early';
   }
 

@@ -86,11 +86,6 @@
   margin: 0.4rem 0;
 }
 
-.stats-center {
-  text-align: center;
-  margin: 0.4rem 0;
-}
-
 .stats-col {
   display: flex;
   flex-direction: column;

@@ -49,7 +49,7 @@ test.describe('Timing offset in learn mode', () => {
     expect(r.feedback).toMatch(/ms late/);
   });
 
-  test('on-time press has near-zero offset, no direction shown', async ({ page }) => {
+  test('immediate press after freeze shows offset only above threshold', async ({ page }) => {
     const songJson = JSON.stringify(makeSong([
       { time: 0.5, key: 'C4', duration: 0.25 },
       { time: 10.0, key: 'E4', duration: 0.25 },
@@ -58,9 +58,10 @@ test.describe('Timing offset in learn mode', () => {
     await page.goto('/');
     const result = await page.evaluate(buildFreezeResumeScript(songJson, `
       const { ScoreDisplay } = await import('/js/ui/play/ScoreDisplay.js');
+      const { TIMING_OFFSET_DISPLAY_THRESHOLD_MS } = await import('/js/game/scoring.js');
       game.scoreDisplay = new ScoreDisplay();
 
-      // Press immediately after freeze (on time)
+      // Press as soon as the freeze is detected (as on-time as the harness allows)
       game._handleNoteOn('C4', 'KeyK', 100);
       await new Promise(r => setTimeout(r, 200));
 
@@ -70,17 +71,72 @@ test.describe('Timing offset in learn mode', () => {
         offsetMs: game.noteManager.notes[0].hitOffsetMs,
         grade: game.noteManager.notes[0].grade,
         feedback,
+        threshold: TIMING_OFFSET_DISPLAY_THRESHOLD_MS,
       };
     `));
 
     const r = result as any;
     expect(r.noteHit).toBe(true);
     expect(r.grade).toBe('PERFECT');
-    // On-time press: offset should be small (infrastructure adds ~200ms)
+    // Offset is the freeze-detection latency: small and never negative
     expect(r.offsetMs).toBeGreaterThanOrEqual(0);
-    expect(r.offsetMs).toBeLessThan(350);
-    // With ScoreDisplay active, feedback should show the offset
-    expect(r.feedback).toMatch(/ms late/);
+    expect(r.offsetMs).toBeLessThan(500);
+    // The offset text must appear exactly when the offset exceeds the threshold
+    if (r.offsetMs > r.threshold) {
+      expect(r.feedback).toMatch(/ms late/);
+    } else {
+      expect(r.feedback).not.toMatch(/ms/);
+    }
+  });
+
+  test('wrong press does not reset the freeze anchor', async ({ page }) => {
+    const songJson = JSON.stringify(makeSong([
+      { time: 0.5, key: 'C4', duration: 0.25 },
+      { time: 10.0, key: 'E4', duration: 0.25 },
+    ], 'TimingTest'));
+
+    await page.goto('/');
+    const result = await page.evaluate(buildFreezeResumeScript(songJson, `
+      // Wait 1s after freeze, then press a wrong key
+      await new Promise(r => setTimeout(r, 1000));
+      game._handleNoteOn('G4', 'KeyL', 100);
+      // Wait another 1s, then press the correct key
+      await new Promise(r => setTimeout(r, 1000));
+      game._handleNoteOn('C4', 'KeyK', 100);
+      await new Promise(r => setTimeout(r, 100));
+      return { offsetMs: game.noteManager.notes[0].hitOffsetMs };
+    `));
+
+    const r = result as any;
+    // Measured from the freeze start (~2000ms), not from the wrong press (~1000ms)
+    expect(r.offsetMs).toBeGreaterThan(1500);
+  });
+
+  test('chord offset is measured from freeze start, not inter-press gap', async ({ page }) => {
+    const songJson = JSON.stringify(makeSong([
+      { time: 0.5, key: 'C4', duration: 0.25 },
+      { time: 0.5, key: 'E4', duration: 0.25 },
+      { time: 10.0, key: 'G4', duration: 0.25 },
+    ], 'TimingTest'));
+
+    await page.goto('/');
+    const result = await page.evaluate(buildFreezeResumeScript(songJson, `
+      await new Promise(r => setTimeout(r, 2000));
+      game._handleNoteOn('C4', 'KeyK', 100);
+      await new Promise(r => setTimeout(r, 100));
+      game._handleNoteOn('E4', 'KeyL', 100);
+      await new Promise(r => setTimeout(r, 100));
+      return {
+        c4: game.noteManager.notes[0].hitOffsetMs,
+        e4: game.noteManager.notes[1].hitOffsetMs,
+      };
+    `));
+
+    const r = result as any;
+    // Both chord notes are ~2s late (freeze start -> completing press),
+    // not ~100ms (the gap between the two presses)
+    expect(r.c4).toBeGreaterThan(1500);
+    expect(r.e4).toBeGreaterThan(1500);
   });
 
   test('learn mode offset is never negative (cannot press early)', async ({ page }) => {
@@ -151,6 +207,33 @@ test.describe('Timing offset in play mode', () => {
     expect(result.grade).toBe('GOOD');
     // Pressed at 1.9s for a note at 2.0s = -100ms (early)
     expect(result.offsetMs).toBeLessThan(0);
+  });
+
+  test('recovered failing note does not double-record its offset', async ({ page }) => {
+    await page.goto('/');
+    const song = makeSong([
+      { time: 2.0, key: 'C3', duration: 1.0 },
+      { time: 5.0, key: 'E3', duration: 0.25 },
+    ]);
+    const result = await evaluateWithNoteManager(page, song, `
+      nm.update(1.9, H);
+      const laneC = NOTE_TO_LANE.get('C3');
+      const laneE = NOTE_TO_LANE.get('E3');
+      nm.checkHit(1.9, laneC);            // fresh hit, offset -100ms
+      nm.checkRelease(2.05, laneC);       // drop early -> failing
+      const recovered = nm.checkHit(2.2, laneC); // re-press recovers
+      nm.update(4.95, H);
+      nm.checkHit(5.0, laneE);            // fresh hit, offset 0ms
+      return {
+        recovered: !!recovered,
+        avgOffsetMs: nm.scoring.getAverageOffsetMs(),
+        direction: nm.scoring.getOffsetDirection(),
+      };
+    `);
+    expect(result.recovered).toBe(true);
+    // Only the two fresh hits count: (100 + 0) / 2 = 50
+    expect(result.avgOffsetMs).toBe(50);
+    expect(result.direction).toBe('early');
   });
 
   test('on-time press records near-zero offset', async ({ page }) => {

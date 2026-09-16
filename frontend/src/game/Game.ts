@@ -7,7 +7,7 @@ import { LoopDefinitionState } from './Loop.js';
 export { LoopDefinitionState };
 import { NoteManager, SCROLL_SPEED, HIT_ZONE_Y_RATIO } from './NoteManager.js';
 import type { HitResult, SongNote } from './NoteManager.js';
-import { NoteGrade, gradeLabel, TAP_NOTE_THRESHOLD, SUCCESS_PARTICLE_HOLD_RATIO, comboBoost } from './scoring.js';
+import { NoteGrade, gradeLabel, TIMING_OFFSET_DISPLAY_THRESHOLD_MS, TAP_NOTE_THRESHOLD, SUCCESS_PARTICLE_HOLD_RATIO, comboBoost } from './scoring.js';
 import type { Scoring } from './scoring.js';
 import { NOTE_TO_LANE, handColor, getPianoKeyLayout, getVisibleRange, PracticeHand, GM_DRUM_CHANNEL } from '../utils/notes.js';
 import { formatTime } from '../utils/helpers.js';
@@ -96,6 +96,7 @@ export class Game {
   private _refGameTime = 0;
   private _refRealTime = 0;
   private _preFrameRealTime = 0;
+  private _learningFrozen = false;
   private _learningFrozenRealTime = 0;
   private _animationId: number | null = null;
   private _pressedLanes = new Map<number, number>();
@@ -151,9 +152,16 @@ export class Game {
       this._preFrameRealTime = this._refRealTime;
       const prevTime = this.currentTime;
       this._updateFrameTime(now, delta);
-      if (this.currentTime === prevTime && this.learningMode && this._learningFrozenRealTime === 0) {
+      // Track freeze transitions so the real-time anchor is captured exactly
+      // once per freeze (at its start) and survives wrong/partial presses.
+      const frozenNow = this.learningMode && !this.loopPlay && this.state === GameState.Playing
+        && this.currentTime === prevTime;
+
+      if (frozenNow && !this._learningFrozen) {
         this._learningFrozenRealTime = this._preFrameRealTime;
       }
+
+      this._learningFrozen = frozenNow;
       this._checkLoopWrap();
 
       this.scrollOffset += SCROLL_SPEED * delta * this.speedMultiplier;
@@ -419,6 +427,7 @@ export class Game {
     this.songBpm = song.bpm;
     this._refGameTime = -COUNTDOWN_SECONDS;
     this._refRealTime = performance.now() / 1000;
+    this._learningFrozen = false;
     this.state = GameState.Playing;
     this._pressedLanes.clear();
     this._completionTime = null;
@@ -487,7 +496,7 @@ export class Game {
       const color = getFeedbackColors()[grade];
       const ms = Math.abs(result.offsetMs);
       let offsetHtml = '';
-      if (ms > 50) {
+      if (ms > TIMING_OFFSET_DISPLAY_THRESHOLD_MS) {
         const dir = result.offsetMs > 0 ? 'late' : 'early';
         offsetHtml = `\n<span class="timing-offset">${ms} ms ${dir}</span>`;
       }
@@ -537,21 +546,23 @@ export class Game {
 
   private _resolveHit(lane: number): HitResult[] {
     if (this.learningMode) {
-      const frozenRef = (this._learningFrozenRealTime || this._preFrameRealTime) * 1000;
-      this._learningFrozenRealTime = 0;
-      this.noteManager.pendingRealTimeOffsetMs = Math.round((performance.now() - frozenRef) / 1000 * this.speedMultiplier * 1000);
-      const outcome = this.noteManager.checkLearningHit(this.currentTime, lane, performance.now(), this.octaveAgnostic);
-      if (outcome.wrong) this.scoreDisplay?.showFeedback('Wrong', getFeedbackColors().MISS);
-      for (const r of outcome.results) {
-        this.noteManager.scoring.recordOffset(r.offsetMs);
+      // While frozen, game time is pinned at the note, so the offset must come
+      // from real time vs the freeze anchor. Unfrozen (early) presses fall
+      // back to the game-time diff inside NoteManager, which stays signed.
+      let pressOffsetMs: number | null = null;
+
+      if (this._learningFrozen) {
+        pressOffsetMs = Math.round((performance.now() - this._learningFrozenRealTime * 1000) * this.speedMultiplier);
       }
+
+      const outcome = this.noteManager.checkLearningHit(this.currentTime, lane, performance.now(), this.octaveAgnostic, pressOffsetMs);
+      if (outcome.wrong) this.scoreDisplay?.showFeedback('Wrong', getFeedbackColors().MISS);
       return outcome.results;
     }
     const r = this.noteManager.checkHit(this.currentTime, lane, this.octaveAgnostic);
     if (r === null && !this.noteManager.hasUnresolvedNoteInLane(lane, this.currentTime, this.octaveAgnostic)) {
       this.scoreDisplay?.showFeedback('Wrong', getFeedbackColors().MISS);
     }
-    if (r) this.noteManager.scoring.recordOffset(r.offsetMs);
     return r ? [r] : [];
   }
 
@@ -708,6 +719,9 @@ export class Game {
       this._paused = false;
       this._refGameTime = this.currentTime;
       this._refRealTime = performance.now() / 1000;
+      // Force a freeze transition on the next frame so the real-time anchor
+      // is recaptured at resume time, not the pre-pause instant.
+      this._learningFrozen = false;
       this._lastFrameTime = 0;
       this._boundLoop();
     } else {
@@ -733,6 +747,7 @@ export class Game {
     this._refGameTime = clamped;
     this._refRealTime = performance.now() / 1000;
     this.currentTime = clamped;
+    this._learningFrozen = false;
     this.scrollOffset = 0;
     this._completionTime = null;
     this._pressedLanes.clear();
@@ -754,6 +769,7 @@ export class Game {
     this.noteManager.resetLearningState();
     this._refGameTime = this.currentTime;
     this._refRealTime = performance.now() / 1000;
+    this._learningFrozen = false;
   }
 
   setPracticeHand(hand: PracticeHand): void {

@@ -90,9 +90,6 @@ export class NoteManager {
   onAutoPlayOn: ((note: SongNote) => void) | null = null;
   learningMode = false;
   practiceHand: PracticeHand = PracticeHand.Both;
-  /** Set by Game before calling checkLearningHit so _tryNormalHit can use
-   *  the real-time offset instead of the frozen game-time offset. */
-  pendingRealTimeOffsetMs = 0;
   private _nextNoteIndex = 0;
   private _selectedNoteCount = 0;
   private _selectedResolvedCount = 0;
@@ -225,6 +222,7 @@ export class NoteManager {
       note.accumulatedHeldDuration = 0;
       note.earlyMultiplier = 1;
       note.autoPlayed = false;
+      note.hitOffsetMs = 0;
     }
     this.activeNotes = [];
     let firstUnresolved = 0;
@@ -349,9 +347,12 @@ export class NoteManager {
     this.activeNotes.length = writeIdx;
   }
 
-  checkHit(currentTime: number, lane: number, octaveAgnostic = false): HitResult | null {
+  /** `pressOffsetMs` overrides the game-time offset when the caller has a
+   *  more accurate real-time measurement (learn mode, where game time is
+   *  frozen at the note). Null falls back to `currentTime - note.time`. */
+  checkHit(currentTime: number, lane: number, octaveAgnostic = false, pressOffsetMs: number | null = null): HitResult | null {
     const result = this._tryRecoverFailingNote(currentTime, lane, octaveAgnostic)
-      ?? this._tryNormalHit(currentTime, lane, octaveAgnostic);
+      ?? this._tryNormalHit(currentTime, lane, octaveAgnostic, pressOffsetMs);
     if (result === null && !this.hasUnresolvedNoteInLane(lane, currentTime, octaveAgnostic)) {
       this.scoring.recordWrongPress();
     }
@@ -431,7 +432,7 @@ export class NoteManager {
     return null;
   }
 
-  private _tryNormalHit(currentTime: number, lane: number, octaveAgnostic = false): HitResult | null {
+  private _tryNormalHit(currentTime: number, lane: number, octaveAgnostic = false, pressOffsetMs: number | null = null): HitResult | null {
     let bestNote: SongNote | null = null;
     let bestDiff = Infinity;
     let isEarlyHit = false;
@@ -459,8 +460,9 @@ export class NoteManager {
     this.scoring.recordNotePress();
     bestNote.grade = grade;
 
-    const offsetMs = this.pendingRealTimeOffsetMs || Math.round((currentTime - bestNote.time) * 1000);
+    const offsetMs = pressOffsetMs ?? Math.round((currentTime - bestNote.time) * 1000);
     bestNote.hitOffsetMs = offsetMs;
+    this.scoring.recordOffset(offsetMs);
 
     if (bestNote.duration <= TAP_NOTE_THRESHOLD) {
       this._resolveTapNote(bestNote, grade, 1);
@@ -575,7 +577,7 @@ export class NoteManager {
     return null;
   }
 
-  checkLearningHit(currentTime: number, lane: number, realTime: number = performance.now(), octaveAgnostic = false): LearningHitOutcome {
+  checkLearningHit(currentTime: number, lane: number, realTime: number = performance.now(), octaveAgnostic = false, pressOffsetMs: number | null = null): LearningHitOutcome {
     const recoverResult = this._tryRecoverFailingNote(currentTime, lane, octaveAgnostic);
     if (recoverResult) {
       return { results: [recoverResult], wrong: false };
@@ -593,7 +595,7 @@ export class NoteManager {
     if (this._learningAnchor === null) {
       // Unreachable: hasPlayableNote already confirmed a note exists within
       // TIMING.GOOD, so _tryNormalHit will always find it.
-      const result = this._tryNormalHit(currentTime, lane, octaveAgnostic);
+      const result = this._tryNormalHit(currentTime, lane, octaveAgnostic, pressOffsetMs);
       return { results: result ? [result] : [], wrong: false };
     }
     const inChord = octaveAgnostic
@@ -623,7 +625,7 @@ export class NoteManager {
 
     const results: HitResult[] = [];
     for (const pressedLane of this._learningChordPresses) {
-      const r = this.checkHit(currentTime, pressedLane, octaveAgnostic);
+      const r = this.checkHit(currentTime, pressedLane, octaveAgnostic, pressOffsetMs);
       if (r) results.push(r);
     }
     this._learningChordPresses.clear();
