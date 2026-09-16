@@ -67,7 +67,7 @@ export class ResultsScreen {
       </div>
       <div class="stats-row">
         <span class="stats-col"><span class="stat-label">Max Combo</span><span class="stat-value">${scoring.maxCombo}</span></span>
-        <span class="stats-col"><span class="stat-label">Avg Timing</span><span class="stat-value">${avgOffset}ms ${offsetDir}</span></span>
+        <span class="stats-col"><span class="stat-label">Timing (ms)</span><span class="stat-value">${avgOffset} ${offsetDir}</span></span>
       </div>
     `;
   }
@@ -86,7 +86,7 @@ export class ResultsScreen {
       Dropped: <span class="stat-value">${scoring.failures}</span><br>
       Max Combo: <span class="stat-value">${scoring.maxCombo}</span><br>
       Accuracy: <span class="stat-value">${scoring.getAccuracy()}%</span><br>
-      <span class="stat-secondary">Avg timing: ${avgOffset}ms ${offsetDir}</span>
+      <span class="stat-secondary">Timing (ms): ${avgOffset} ${offsetDir}</span>
     `;
   }
 

@@ -174,7 +174,7 @@ test.describe('Timing offset in play mode', () => {
     expect(feedback).not.toMatch(/ms/);
   });
 
-  test('results screen shows avg timing after completion', async ({ page }) => {
+  test('results screen shows timing offset after completion', async ({ page }) => {
     test.setTimeout(30000);
     await startGame(page);
     await expectPlayScreenActive(page);
@@ -183,8 +183,8 @@ test.describe('Timing offset in play mode', () => {
     await waitForResults(page);
 
     const stats = page.locator('#result-stats');
-    await expect(stats).toContainText('Avg timing');
-    await expect(stats).toContainText('ms');
+    await expect(stats).toContainText('Timing (ms)');
+    await expect(stats).toContainText(/late|early|mixed|on time/);
   });
 
   test('early press records negative offset', async ({ page }) => {
