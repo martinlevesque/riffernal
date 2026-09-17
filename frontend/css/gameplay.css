@@ -188,10 +188,17 @@
   opacity: 0;
   transition: opacity 0.1s;
   text-shadow: 0 0 20px currentColor, 0 0 40px currentColor;
+  white-space: pre-line;
+  text-align: center;
 }
 
 #hit-feedback.show {
   opacity: 1;
+}
+
+.timing-offset {
+  color: var(--accent-red);
+  font-size: 0.85em;
 }
 
 /* ============================================

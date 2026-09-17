@@ -6,8 +6,8 @@ import { Renderer } from './rendering/Renderer.js';
 import { LoopDefinitionState } from './Loop.js';
 export { LoopDefinitionState };
 import { NoteManager, SCROLL_SPEED, HIT_ZONE_Y_RATIO } from './NoteManager.js';
-import type { HitResult, SongNote } from './NoteManager.js';
-import { NoteGrade, gradeLabel, TAP_NOTE_THRESHOLD, SUCCESS_PARTICLE_HOLD_RATIO, comboBoost } from './scoring.js';
+import type { HitResult, ResolveResult, SongNote } from './NoteManager.js';
+import { NoteGrade, gradeLabel, TIMING_OFFSET_DISPLAY_THRESHOLD_MS, TAP_NOTE_THRESHOLD, SUCCESS_PARTICLE_HOLD_RATIO, comboBoost } from './scoring.js';
 import type { Scoring } from './scoring.js';
 import { NOTE_TO_LANE, handColor, getPianoKeyLayout, getVisibleRange, PracticeHand, GM_DRUM_CHANNEL } from '../utils/notes.js';
 import { formatTime } from '../utils/helpers.js';
@@ -95,6 +95,9 @@ export class Game {
   private _currentSong: Song | null = null;
   private _refGameTime = 0;
   private _refRealTime = 0;
+  private _preFrameRealTime = 0;
+  private _learningFrozen = false;
+  private _learningFrozenRealTime = 0;
   private _animationId: number | null = null;
   private _pressedLanes = new Map<number, number>();
   private _usedLearningMode = false;
@@ -107,7 +110,6 @@ export class Game {
   private _timeDisplayEl: HTMLElement;
   private _onResize: () => void;
   private _resizeRaf = false;
-  private _boundLoop: () => void;
   private _lastFrameTime = 0;
   private _completionTime: number | null = null;
   private _lastSheetBottom = -1;
@@ -137,43 +139,58 @@ export class Game {
       }
     };
     window.addEventListener('resize', this._onResize);
-
-    this._boundLoop = (): void => {
-      if (this._paused) return;
-
-      const now = performance.now() / 1000;
-      const delta = this._lastFrameTime ? now - this._lastFrameTime : 1 / 60;
-      this._lastFrameTime = now;
-      this._frameCount++;
-
-      this._updateFrameTime(now, delta);
-      this._checkLoopWrap();
-
-      this.scrollOffset += SCROLL_SPEED * delta * this.speedMultiplier;
-
-      this.renderer.clear();
-      this.renderer.beginFrame(performance.now());
-      this.renderer.drawHighway(this.scrollOffset, this._pressedLanes, this.usedNoteRange);
-
-      if (this.state === GameState.Playing) {
-        this._renderPlayingFrame();
-      }
-
-      if (this.renderer.sheetBottom !== this._lastSheetBottom) {
-        this._lastSheetBottom = this.renderer.sheetBottom;
-        this._resizeHandle.style.top = `${this.renderer.sheetBottom}px`;
-      }
-
-      this.renderer.drawParticles();
-      this.renderer.piano.showComputerKeys = this._midiInput.device.type === InputDeviceType.ComputerKeyboard;
-      this.renderer.drawPiano(this._pressedLanes, this.usedNoteRange);
-      this.renderer.drawHitZone(this._pressedLanes, this.usedNoteRange);
-
-      if (this.state !== GameState.Menu) {
-        this._animationId = requestAnimationFrame(this._boundLoop);
-      }
-    };
   }
+
+  /** Main animation-frame tick: advances game time, renders the frame, and
+   *  re-arms itself until the game returns to the menu. Arrow property so it
+   *  can be passed directly to requestAnimationFrame. */
+  private _mainLoop = (): void => {
+    if (this._paused) return;
+
+    const now = performance.now() / 1000;
+    const delta = this._lastFrameTime ? now - this._lastFrameTime : 1 / 60;
+    this._lastFrameTime = now;
+    this._frameCount++;
+
+    this._preFrameRealTime = this._refRealTime;
+    const prevTime = this.currentTime;
+    this._updateFrameTime(now, delta);
+    // Track freeze transitions so the real-time anchor is captured exactly
+    // once per freeze (at its start) and survives wrong/partial presses.
+    const frozenNow = this.learningMode && !this.loopPlay && this.state === GameState.Playing
+      && this.currentTime === prevTime;
+
+    if (frozenNow && !this._learningFrozen) {
+      this._learningFrozenRealTime = this._preFrameRealTime;
+    }
+
+    this._learningFrozen = frozenNow;
+    this._checkLoopWrap();
+
+    this.scrollOffset += SCROLL_SPEED * delta * this.speedMultiplier;
+
+    this.renderer.clear();
+    this.renderer.beginFrame(performance.now());
+    this.renderer.drawHighway(this.scrollOffset, this._pressedLanes, this.usedNoteRange);
+
+    if (this.state === GameState.Playing) {
+      this._renderPlayingFrame();
+    }
+
+    if (this.renderer.sheetBottom !== this._lastSheetBottom) {
+      this._lastSheetBottom = this.renderer.sheetBottom;
+      this._resizeHandle.style.top = `${this.renderer.sheetBottom}px`;
+    }
+
+    this.renderer.drawParticles();
+    this.renderer.piano.showComputerKeys = this._midiInput.device.type === InputDeviceType.ComputerKeyboard;
+    this.renderer.drawPiano(this._pressedLanes, this.usedNoteRange);
+    this.renderer.drawHitZone(this._pressedLanes, this.usedNoteRange);
+
+    if (this.state !== GameState.Menu) {
+      this._animationId = requestAnimationFrame(this._mainLoop);
+    }
+  };
 
   // -- Loop forwarding ------------------------------------------------------
 
@@ -412,6 +429,7 @@ export class Game {
     this.songBpm = song.bpm;
     this._refGameTime = -COUNTDOWN_SECONDS;
     this._refRealTime = performance.now() / 1000;
+    this._learningFrozen = false;
     this.state = GameState.Playing;
     this._pressedLanes.clear();
     this._completionTime = null;
@@ -435,7 +453,7 @@ export class Game {
     this._setupNoteCallbacks();
 
     this._lastFrameTime = 0;
-    this._boundLoop();
+    this._mainLoop();
   }
 
   /** Pause the game loop. Used by main.ts to freeze the game while the
@@ -478,7 +496,7 @@ export class Game {
       }
       const label = gradeLabel(grade);
       const color = getFeedbackColors()[grade];
-      this.scoreDisplay?.showFeedback(`+${result.score} ${label}`, color);
+      this.scoreDisplay?.showFeedback(this._hitFeedbackText(result, label), color);
 
       const note = result.note;
       const holdRatio = note.duration > 0 ? note.accumulatedHeldDuration / note.duration : 0;
@@ -498,6 +516,22 @@ export class Game {
         );
       }
     };
+  }
+
+  /** Per-note offset feedback is a learn-mode teaching aid; play mode
+   *  still records offsets for the results-screen timing stat. */
+  private _hitFeedbackText(result: ResolveResult, label: string): string {
+    let text = `+${result.score} ${label}`;
+
+    if (this.learningMode) {
+      const ms = Math.abs(result.offsetMs);
+      if (ms > TIMING_OFFSET_DISPLAY_THRESHOLD_MS) {
+        const dir = result.offsetMs > 0 ? 'late' : 'early';
+        text += `\n<span class="timing-offset">${ms} ms ${dir}</span>`;
+      }
+    }
+
+    return text;
   }
 
   // -- Input handling -------------------------------------------------------
@@ -524,7 +558,16 @@ export class Game {
 
   private _resolveHit(lane: number): HitResult[] {
     if (this.learningMode) {
-      const outcome = this.noteManager.checkLearningHit(this.currentTime, lane, performance.now(), this.octaveAgnostic);
+      // While frozen, game time is pinned at the note, so the offset must come
+      // from real time vs the freeze anchor. Unfrozen (early) presses fall
+      // back to the game-time diff inside NoteManager, which stays signed.
+      let pressOffsetMs: number | null = null;
+
+      if (this._learningFrozen) {
+        pressOffsetMs = Math.round((performance.now() - this._learningFrozenRealTime * 1000) * this.speedMultiplier);
+      }
+
+      const outcome = this.noteManager.checkLearningHit(this.currentTime, lane, performance.now(), this.octaveAgnostic, pressOffsetMs);
       if (outcome.wrong) this.scoreDisplay?.showFeedback('Wrong', getFeedbackColors().MISS);
       return outcome.results;
     }
@@ -688,8 +731,11 @@ export class Game {
       this._paused = false;
       this._refGameTime = this.currentTime;
       this._refRealTime = performance.now() / 1000;
+      // Force a freeze transition on the next frame so the real-time anchor
+      // is recaptured at resume time, not the pre-pause instant.
+      this._learningFrozen = false;
       this._lastFrameTime = 0;
-      this._boundLoop();
+      this._mainLoop();
     } else {
       this._paused = true;
       if (this._animationId !== null) {
@@ -713,6 +759,7 @@ export class Game {
     this._refGameTime = clamped;
     this._refRealTime = performance.now() / 1000;
     this.currentTime = clamped;
+    this._learningFrozen = false;
     this.scrollOffset = 0;
     this._completionTime = null;
     this._pressedLanes.clear();
@@ -734,6 +781,7 @@ export class Game {
     this.noteManager.resetLearningState();
     this._refGameTime = this.currentTime;
     this._refRealTime = performance.now() / 1000;
+    this._learningFrozen = false;
   }
 
   setPracticeHand(hand: PracticeHand): void {

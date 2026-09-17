@@ -44,6 +44,8 @@ export class ResultsScreen {
   private _renderPracticeStats(scoring: Scoring): void {
     const n = scoring.totalResolvedNotes;
     const accuracy = scoring.getAccuracy();
+    const avgOffset = scoring.getAverageOffsetMs();
+    const offsetDir = scoring.getOffsetDirection();
 
     this._stats.innerHTML = `
       <div class="stats-practice-highlight">
@@ -63,14 +65,17 @@ export class ResultsScreen {
         <span class="stats-col"><span class="stat-label">Wrong</span><span class="stat-value">${scoring.wrongNotes} / ${n}</span></span>
         <span class="stats-col"><span class="stat-label">Dropped</span><span class="stat-value">${scoring.failures} / ${n}</span></span>
       </div>
-      <div class="stats-center">
-        <span class="stat-label">Max Combo</span>
-        <span class="stat-value">${scoring.maxCombo}</span>
+      <div class="stats-row">
+        <span class="stats-col"><span class="stat-label">Max Combo</span><span class="stat-value">${scoring.maxCombo}</span></span>
+        <span class="stats-col"><span class="stat-label">Timing</span><span class="stat-value">${avgOffset} ms ${offsetDir}</span></span>
       </div>
     `;
   }
 
   private _renderPlayStats(scoring: Scoring): void {
+    const avgOffset = scoring.getAverageOffsetMs();
+    const offsetDir = scoring.getOffsetDirection();
+
     this._stats.innerHTML = `
       Score: <span class="stat-value">${formatScore(scoring.score)}</span><br>
       Perfect: <span class="stat-value">${scoring.perfects}</span><br>
@@ -80,7 +85,8 @@ export class ResultsScreen {
       Wrong: <span class="stat-value">${scoring.wrongNotes}</span><br>
       Dropped: <span class="stat-value">${scoring.failures}</span><br>
       Max Combo: <span class="stat-value">${scoring.maxCombo}</span><br>
-      Accuracy: <span class="stat-value">${scoring.getAccuracy()}%</span>
+      Accuracy: <span class="stat-value">${scoring.getAccuracy()}%</span><br>
+      <span class="stat-secondary">Timing - ${avgOffset} ms ${offsetDir}</span>
     `;
   }
 
