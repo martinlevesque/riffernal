@@ -108,6 +108,8 @@ export class Game {
   private _homeScreen: HTMLElement;
   private _resizeHandle: HTMLElement;
   private _timeDisplayEl: HTMLElement;
+  private _songTitleEl: HTMLElement;
+  private readonly _baseDocTitle = document.title;
   private _onResize: () => void;
   private _resizeRaf = false;
   private _lastFrameTime = 0;
@@ -128,6 +130,7 @@ export class Game {
     this._homeScreen = document.getElementById('home-screen')!;
     this._resizeHandle = document.getElementById('sheet-resize-handle')!;
     this._timeDisplayEl = document.getElementById('time-display')!;
+    this._songTitleEl = document.getElementById('song-title-display')!;
 
     this._onResize = () => {
       if (!this._resizeRaf) {
@@ -425,6 +428,7 @@ export class Game {
     }
 
     this._currentSong = song;
+    this._updateSongTitleDisplay();
     this.noteManager.loadSong(song);
     this.songBpm = song.bpm;
     this._refGameTime = -COUNTDOWN_SECONDS;
@@ -464,6 +468,18 @@ export class Game {
 
   private _computeUsedNoteRange(song: Song): void {
     this.usedNoteRange = this.showUsedKeys ? getVisibleRange(song.notes.map((n) => n.key)) : null;
+  }
+
+  /** Show the current song's title and artist in the play-screen HUD and
+   *  the browser tab title while a song is active. */
+  private _updateSongTitleDisplay(): void {
+    const song = this._currentSong;
+
+    if (!song) return;
+
+    const label = song.artist ? `${song.title} — ${song.artist}` : song.title;
+    this._songTitleEl.textContent = label;
+    document.title = `${label} | ${this._baseDocTitle}`;
   }
 
   setShowUsedKeys(enabled: boolean): void {
@@ -679,6 +695,8 @@ export class Game {
     this.state = GameState.Menu;
     this._resultsScreen.hide();
     this._playScreen.classList.remove('active');
+    this._songTitleEl.textContent = '';
+    document.title = this._baseDocTitle;
     this._keyboardInput.stop();
     this._synth.releaseAll();
     this._keyboardInput.onNoteOn = null;

@@ -19,6 +19,15 @@ test.describe('Gameplay', () => {
     await expect(page.locator('#score-value')).toBeVisible();
   });
 
+  test('song title and artist show in HUD and browser title', async ({ page }) => {
+    await expect(page.locator('#song-title-display')).toHaveText('E2E Seed — Test');
+    await expect(page).toHaveTitle('E2E Seed — Test | Riffernal');
+
+    await page.evaluate(() => (window as any)._game.backToMenu());
+    await expect(page.locator('#song-title-display')).toBeEmpty();
+    await expect(page).toHaveTitle('Riffernal');
+  });
+
   test('pressing a key shows hit feedback', async ({ page }) => {
     await page.keyboard.press('KeyA');
     await expect(page.locator('#hit-feedback')).toHaveText(/Miss|Wrong|Perfect|Great|Good/, { timeout: 1000 });
