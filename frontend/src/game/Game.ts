@@ -24,7 +24,7 @@ import type { MidiInput } from '../input/MidiInput.js';
 import { InputDeviceType } from '../input/types.js';
 import type { ScoreDisplay } from '../ui/play/ScoreDisplay.js';
 import type { Song } from '../utils/MidiParser.js';
-import { LoopService } from './LoopService.js';
+import { LoopService, type SavedLoop } from './LoopService.js';
 import { ResultsScreen } from './rendering/ResultsScreen.js';
 import { themeManager } from '../themes/ThemeManager.js';
 
@@ -330,27 +330,27 @@ export class Game {
     const effectiveEnd = this.noteManager.getLoopEffectiveEnd(current.endTime);
     if (!(this.currentTime >= effectiveEnd)) return;
 
-    // Advance to the next loop in the chain (wraps to 0 at the end). Apply
-    // a pre-roll buffer only when the next loop has a gap after the current
-    // one (the player missed notes in between and needs time to prepare).
-    // Adjacent loops (next starts at or before current ends) transition
-    // seamlessly; a single loop wrapping back to itself also restarts
-    // immediately.
+    this._advanceToNextLoop(current);
+  }
+
+  /** Advance the engaged chain to its next loop (wraps to 0 at the end),
+   *  then seek there: with a pre-roll buffer when the chain jumps to a
+   *  new region (a forward gap after the current loop, or a wrap-around
+   *  to an earlier one), seamlessly otherwise (adjacent loops, or a
+   *  single loop wrapping back to itself). */
+  private _advanceToNextLoop(current: SavedLoop): void {
     const prevIndex = this.loop.currentIndex;
     this.noteManager.scoring.resetCombo();
     const next = this.loop.advance();
     if (!next) return;
+
     const sameLoop = prevIndex !== null && this.loop.currentIndex === prevIndex;
-    // Adjacent loops (next starts at or before current ends) transition
-    // seamlessly. A forward gap or a wrap-around (next before current)
-    // means the player missed notes, so a buffer gives them time to
-    // prepare.
     const wrappedAround = !sameLoop && this.loop.currentIndex! < prevIndex!;
-    const hasGap = wrappedAround || next.startTime > current.endTime;
-    if (sameLoop || !hasGap) {
-      this.seekTo(next.startTime);
-    } else {
+    const hasGap = wrappedAround || (!sameLoop && next.startTime > current.endTime);
+    if (hasGap) {
       this._seekWithBuffer(next.startTime, LOOP_TRANSITION_SECONDS);
+    } else {
+      this.seekTo(next.startTime);
     }
   }
 
