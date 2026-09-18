@@ -30,7 +30,7 @@ const html = readFileSync(htmlSrc, "utf-8");
 const ts = Date.now().toString(36);
 writeFileSync(htmlDist, html.replace('src="js/main.js"', `src="js/main.js?v=${ts}"`));
 
-for (const item of ["css"]) {
+for (const item of ["css", "assets"]) {
   cpSync(join(ROOT, "frontend", item), join(DIST, item), { recursive: true });
 }
 

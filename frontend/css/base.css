@@ -26,8 +26,8 @@
   --border-strong: #555;
   --border-divider: #444;
   --text-on-accent: #fff;
-  --font-ui: 'Inter', system-ui, -apple-system, sans-serif;
-  --font-mono: 'JetBrains Mono', 'Courier New', monospace;
+  --font-ui: 'Press Start 2P', 'Courier New', monospace;
+  --font-mono: 'VT323', 'Press Start 2P', 'Courier New', monospace;
 }
 
 /* ============================================

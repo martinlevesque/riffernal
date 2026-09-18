@@ -60,10 +60,11 @@ export const ironTheme: Theme = {
     hitLine: '#ffdd22',
   },
   fonts: {
-    ui: "'Inter', system-ui, -apple-system, sans-serif",
-    mono: "'JetBrains Mono', 'Courier New', monospace",
+    ui: "'Press Start 2P', 'Courier New', monospace",
+    mono: "'VT323', 'Press Start 2P', 'Courier New', monospace",
   },
   effects: {
-    grainOverlay: true,
+    grainOverlay: false,
+    scanlines: true,
   },
 };
