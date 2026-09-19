@@ -30,7 +30,7 @@
   border: 1px solid var(--border-medium);
   border-radius: 8px;
   font-family: var(--font-mono);
-  font-size: 0.85rem;
+  font-size: 0.95rem;
   color: var(--text-secondary);
   pointer-events: none;
 }
@@ -49,7 +49,7 @@
   border: 1px solid var(--border-medium);
   border-radius: 8px;
   font-family: var(--font-mono);
-  font-size: 1.1rem;
+  font-size: 1.2rem;
   font-weight: bold;
   letter-spacing: 0.04em;
   pointer-events: none;
@@ -60,23 +60,23 @@
 }
 
 #score-value {
-  font-size: 1.4rem;
+  font-size: 1.55rem;
   text-shadow: 0 0 10px rgba(255, 255, 255, 0.25);
 }
 
 #combo-display {
-  font-size: 0.85rem;
+  font-size: 0.9rem;
   color: var(--accent-yellow);
 }
 
 #accuracy-display {
-  font-size: 0.8rem;
+  font-size: 0.9rem;
   color: var(--text-secondary);
   font-family: var(--font-mono);
 }
 
 #time-display {
-  font-size: 0.8rem;
+  font-size: 0.9rem;
   color: var(--text-secondary);
   letter-spacing: 0.05em;
   font-family: var(--font-mono);
@@ -213,7 +213,7 @@
   left: 50%;
   transform: translate(-50%, -50%);
   font-family: var(--font-ui);
-  font-size: 1.5rem;
+  font-size: 1.7rem;
   font-weight: 900;
   letter-spacing: 0.15em;
   pointer-events: none;
@@ -321,6 +321,6 @@
   }
 
   #song-title-display {
-    font-size: 0.75rem;
+    font-size: 0.8rem;
   }
 }

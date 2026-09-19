@@ -128,7 +128,7 @@
   align-items: center;
   justify-content: space-between;
   font-family: var(--font-ui);
-  font-size: 0.75rem;
+  font-size: 0.85rem;
   letter-spacing: 0.08em;
   color: var(--text-secondary);
   margin-bottom: 0.4rem;
@@ -174,7 +174,7 @@
   background: rgba(30, 30, 38, 0.7);
   border: 1px solid var(--border-medium);
   font-family: var(--font-mono);
-  font-size: 0.82rem;
+  font-size: 0.9rem;
   color: var(--text-primary);
   cursor: pointer;
 }
@@ -232,7 +232,7 @@
 
 .loops-list-empty {
   font-family: var(--font-ui);
-  font-size: 0.8rem;
+  font-size: 0.85rem;
   color: var(--text-secondary);
   padding: 0.3rem 0.5rem;
   font-style: italic;
