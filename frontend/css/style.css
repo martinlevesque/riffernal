@@ -1,3 +1,4 @@
+@import 'fonts.css';
 @import 'base.css';
 @import 'components.css';
 @import 'freeplay.css';
@@ -8,3 +9,4 @@
 @import 'home.css';
 @import 'auth.css';
 @import 'effects.css';
+@import 'pixel.css';

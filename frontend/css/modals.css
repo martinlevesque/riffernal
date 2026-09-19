@@ -16,7 +16,7 @@
   border: 1px solid var(--border-medium);
   border-radius: 8px;
   padding: 2rem;
-  max-width: 500px;
+  max-width: clamp(500px, 44vw, 680px);
   width: 90%;
   max-height: 80vh;
   display: flex;
@@ -247,7 +247,7 @@
   border: 1px solid var(--border-medium);
   border-radius: 8px;
   padding: 2rem;
-  max-width: 460px;
+  max-width: clamp(460px, 42vw, 660px);
   width: 90%;
   max-height: 80vh;
   display: flex;
@@ -384,7 +384,7 @@
   border: 1px solid var(--border-medium);
   border-radius: 8px;
   padding: 2rem 2.5rem;
-  max-width: 360px;
+  max-width: clamp(360px, 34vw, 440px);
   width: 90%;
   box-shadow:
     0 0 40px rgba(0, 0, 0, 0.5),

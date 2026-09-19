@@ -1,0 +1,425 @@
+/* ============================================
+   PIXEL DESIGN LANGUAGE
+   The app-wide retro look. All themes render in
+   this language; themes only fine-tune palette,
+   fonts and effects.
+
+   Reusable primitives for new components:
+   .pixel-box        raised panel (border + hard offset shadow)
+   .pixel-box-inset  sunken panel
+   .pixel-btn        chunky pressable button
+   Custom properties below control the shared look.
+   ============================================ */
+
+:root {
+  --pixel-border: 3px;
+  --pixel-shadow-color: rgba(0, 0, 0, 0.85);
+}
+
+/* ============================================
+   CORE PATTERNS (reusable)
+   ============================================ */
+
+.pixel-box {
+  background: var(--bg-surface);
+  border: var(--pixel-border) solid var(--border-strong);
+  box-shadow: 4px 4px 0 var(--pixel-shadow-color);
+}
+
+.pixel-box-inset {
+  background: var(--bg-dark);
+  border: var(--pixel-border) solid var(--border-medium);
+  box-shadow: inset 3px 3px 0 rgba(0, 0, 0, 0.55);
+}
+
+.pixel-btn {
+  border: var(--pixel-border) solid var(--border-strong);
+  box-shadow: 3px 3px 0 var(--pixel-shadow-color);
+  transition: transform 0.08s steps(1), box-shadow 0.08s steps(1),
+    background-color 0.12s, color 0.12s, border-color 0.12s;
+}
+
+.pixel-btn:active:not(:disabled) {
+  transform: translate(3px, 3px);
+  box-shadow: 0 0 0 var(--pixel-shadow-color);
+}
+
+/* ============================================
+   CANVASES — render low-res, upscale crisp
+   ============================================ */
+
+#gameCanvas,
+#home-canvas,
+#sheet-canvas {
+  image-rendering: pixelated;
+}
+
+/* ============================================
+   GLOBAL TEXT RULES
+   ============================================ */
+
+body {
+  /* Press Start 2P only ships weight 400 — never fake-bold the pixels */
+  font-synthesis: none;
+}
+
+/* Hard offset shadows instead of soft glows for display text */
+.home-title,
+.title,
+#result-title,
+.auth-brand {
+  text-shadow: 4px 4px 0 var(--pixel-shadow-color);
+}
+
+#result-grade {
+  text-shadow: 6px 6px 0 var(--pixel-shadow-color);
+}
+
+.new-best-banner {
+  text-shadow: 3px 3px 0 var(--pixel-shadow-color);
+  animation: pixel-blink 0.8s steps(2, jump-none) infinite;
+}
+
+@keyframes pixel-blink {
+  50% {
+    opacity: 0.35;
+  }
+}
+
+#hit-feedback {
+  text-shadow: 3px 3px 0 var(--pixel-shadow-color);
+}
+
+#score-value {
+  text-shadow: 2px 2px 0 var(--pixel-shadow-color);
+}
+
+/* Small supporting text reads better in the terminal pixel font */
+.home-mode-hint,
+.controls-hint,
+.midi-status,
+.home-leaderboard-title,
+.home-leaderboard-table,
+.category-header .category-count,
+.empty-song-list,
+.song-artist,
+.song-origin-user,
+.song-last-played,
+.song-scores,
+.song-bookmark-count,
+.auth-subtitle,
+.auth-error,
+.auth-field-label,
+#track-select-hint,
+#category-select-count,
+#result-stats,
+#sheet-hint,
+.bg-panel-title,
+.stat-label,
+.stat-secondary,
+.mode-label,
+.field-label span,
+.setting-toggle,
+.setting-theme-label,
+.song-info-label {
+  font-family: var(--font-mono);
+  font-size: 1.05rem;
+  letter-spacing: 0.04em;
+}
+
+/* ============================================
+   SQUARE CORNERS EVERYWHERE
+   ============================================ */
+
+#app,
+#app * {
+  border-radius: 0;
+}
+
+#sheet-resize-handle::after {
+  border-radius: 0;
+}
+
+/* ============================================
+   PANELS & CHIPS — flat, no blur, hard shadow
+   ============================================ */
+
+.popup-card,
+.auth-card,
+#track-select-card,
+#category-select-card,
+.home-leaderboard,
+.bg-panel,
+.song-actions-menu,
+.theme-dropdown,
+#score-display,
+#song-title-display,
+#speed-control,
+#mode-control {
+  background: var(--bg-surface);
+  backdrop-filter: none;
+  border: var(--pixel-border) solid var(--border-strong);
+  box-shadow: 4px 4px 0 var(--pixel-shadow-color);
+}
+
+.loops-panel,
+#sheet-toolbar {
+  backdrop-filter: none;
+  border-bottom: var(--pixel-border) solid var(--border-strong);
+}
+
+#sheet-screen {
+  background: rgba(5, 5, 10, 0.96);
+}
+
+#sheet-canvas {
+  background: var(--bg-dark);
+}
+
+/* ============================================
+   BUTTONS — chunky pixel buttons
+   ============================================ */
+
+.btn,
+.btn-icon,
+.btn-start,
+.home-mode-card,
+.mode-btn,
+.speed-btn,
+.loop-btn,
+.track-select-btn,
+.track-hand-btn,
+.track-bg-btn,
+.bg-track-toggle,
+.sheet-nav-btn,
+.sheet-close-btn,
+.open-sheet-btn,
+.loops-panel-add-btn,
+.loop-row-toggle,
+.loop-row-extend,
+.loop-row-delete,
+.loop-row-save,
+.loop-row-cancel {
+  border-width: var(--pixel-border);
+  box-shadow: 3px 3px 0 var(--pixel-shadow-color);
+  transition: transform 0.08s steps(1), box-shadow 0.08s steps(1),
+    background-color 0.12s, color 0.12s, border-color 0.12s;
+}
+
+.btn:active:not(:disabled),
+.btn-icon:active:not(:disabled),
+.btn-start:active:not(:disabled),
+.home-mode-card:active:not(:disabled),
+.mode-btn:active:not(:disabled),
+.speed-btn:active:not(:disabled),
+.loop-btn:active:not(:disabled),
+.track-select-btn:active:not(:disabled),
+.track-hand-btn:active:not(:disabled),
+.track-bg-btn:active:not(:disabled),
+.bg-track-toggle:active:not(:disabled),
+.sheet-nav-btn:active:not(:disabled),
+.sheet-close-btn:active:not(:disabled),
+.open-sheet-btn:active:not(:disabled),
+.loops-panel-add-btn:active:not(:disabled),
+.loop-row-toggle:active:not(:disabled),
+.loop-row-extend:active:not(:disabled),
+.loop-row-delete:active:not(:disabled),
+.loop-row-save:active:not(:disabled),
+.loop-row-cancel:active:not(:disabled) {
+  transform: translate(3px, 3px);
+  box-shadow: 0 0 0 var(--pixel-shadow-color);
+}
+
+/* Replace soft hover glows with hard offset shadows */
+.btn-primary:hover {
+  background: var(--accent-orange);
+  border-color: var(--accent-orange);
+  box-shadow: 3px 3px 0 var(--pixel-shadow-color);
+}
+
+.btn-icon:hover {
+  box-shadow: 3px 3px 0 var(--pixel-shadow-color);
+}
+
+.btn-start {
+  box-shadow: 4px 4px 0 var(--pixel-shadow-color);
+}
+
+.btn-start:hover {
+  background: var(--accent-red);
+  color: var(--text-on-accent);
+  transform: none;
+  box-shadow: 4px 4px 0 var(--pixel-shadow-color);
+}
+
+.btn-start:active:not(:disabled) {
+  transform: translate(4px, 4px);
+  box-shadow: 0 0 0 var(--pixel-shadow-color);
+}
+
+.btn-link:hover {
+  border-bottom: var(--pixel-border) solid var(--accent-red);
+}
+
+kbd {
+  background: var(--bg-surface-2);
+  border: 2px solid var(--border-strong);
+  border-bottom-width: 5px;
+  box-shadow: none;
+  font-size: 1rem;
+  padding: 0.05rem 0.35rem 0;
+}
+
+/* ============================================
+   HOME SCREEN
+   ============================================ */
+
+.home-title {
+  font-size: clamp(1.4rem, 5vw, 5rem);
+  letter-spacing: 0.1em;
+}
+
+.home-mode-card {
+  letter-spacing: 0.15em;
+  border-width: var(--pixel-border);
+  box-shadow: 4px 4px 0 var(--pixel-shadow-color);
+  background: var(--bg-card);
+}
+
+.home-mode-card.focused {
+  box-shadow: 4px 4px 0 var(--accent-red);
+}
+
+.home-mode-card:disabled.focused {
+  box-shadow: 4px 4px 0 var(--pixel-shadow-color);
+}
+
+/* ============================================
+   FREEPLAY SONG LIST
+   ============================================ */
+
+.song-item {
+  border: 2px solid var(--border-medium);
+  border-left-width: 6px;
+  box-shadow: 3px 3px 0 var(--pixel-shadow-color);
+}
+
+.song-item:hover {
+  box-shadow: 3px 3px 0 var(--accent-red);
+}
+
+.song-item.imported:hover {
+  box-shadow: 3px 3px 0 var(--accent-blue);
+}
+
+.song-item.imported.selected,
+.song-item.selected {
+  border-color: var(--accent-red);
+  border-left-color: var(--accent-red);
+  box-shadow: 3px 3px 0 var(--accent-red);
+}
+
+.song-item.imported.selected {
+  border-color: var(--accent-blue);
+  border-left-color: var(--accent-blue);
+  box-shadow: 3px 3px 0 var(--accent-blue);
+}
+
+.community-song:hover {
+  box-shadow: 3px 3px 0 var(--accent-purple);
+}
+
+.community-song.selected {
+  border-color: var(--accent-purple);
+  border-left-color: var(--accent-purple);
+  box-shadow: 3px 3px 0 var(--accent-purple);
+}
+
+.song-difficulty,
+.song-community-label {
+  border: 2px solid currentColor;
+}
+
+/* ============================================
+   GAMEPLAY HUD
+   Small HUD buttons use the narrow terminal font
+   so the control clusters keep their footprint.
+   ============================================ */
+
+.mode-btn,
+.speed-btn,
+.loop-btn,
+.track-select-btn,
+.track-hand-btn,
+.track-bg-btn,
+.bg-track-toggle,
+.sheet-nav-btn,
+.sheet-close-btn,
+.open-sheet-btn,
+.loops-panel-add-btn,
+.loop-row-toggle,
+.loop-row-extend,
+.loop-row-delete,
+.loop-row-save,
+.loop-row-cancel {
+  font-family: var(--font-mono);
+  font-size: 1rem;
+}
+
+#loop-status,
+#speed-value,
+#sheet-page-info,
+.track-info {
+  font-size: 1rem;
+}
+
+/* The wider pixel control clusters collide with the centered score HUD on
+   smaller windows — drop the HUD below the control row instead. */
+@media (max-width: 1360px) {
+  #hud-top {
+    top: 52px;
+    max-width: calc(100% - 2rem);
+  }
+
+  #song-title-display {
+    font-size: 0.95rem;
+  }
+}
+
+/* ============================================
+   MODALS & INPUTS
+   ============================================ */
+
+.popup {
+  backdrop-filter: none;
+  background: rgba(0, 0, 0, 0.85);
+}
+
+input[type="text"],
+.auth-input {
+  border: var(--pixel-border) solid var(--border-medium);
+  font-size: 0.85rem;
+}
+
+input[type="text"]:focus,
+.auth-input:focus {
+  box-shadow: 3px 3px 0 rgba(51, 187, 255, 0.45);
+}
+
+.track-item,
+.category-item {
+  border-width: 2px;
+}
+
+.track-item:hover,
+.category-item:hover {
+  transform: translate(-1px, -1px);
+}
+
+/* ============================================
+   RESULTS SCREEN
+   ============================================ */
+
+#results-screen.active {
+  background: rgba(5, 5, 10, 0.94);
+}

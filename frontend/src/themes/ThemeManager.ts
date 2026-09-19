@@ -26,6 +26,11 @@ const CSS_VAR_MAP: Record<keyof ThemeCss, string> = {
   textOnAccent: '--text-on-accent',
 };
 
+const FONT_VAR_MAP: Record<keyof Theme['fonts'], string> = {
+  ui: '--font-ui',
+  mono: '--font-mono',
+};
+
 class ThemeManager {
   private _current: Theme = ironTheme;
 
@@ -67,11 +72,14 @@ class ThemeManager {
       root.style.setProperty(cssVar, theme.css[key as keyof ThemeCss]);
     }
 
-    if (theme.effects.grainOverlay) {
-      document.body.classList.add('has-grain');
-    } else {
-      document.body.classList.remove('has-grain');
+    for (const [key, cssVar] of Object.entries(FONT_VAR_MAP)) {
+      root.style.setProperty(cssVar, theme.fonts[key as keyof Theme['fonts']]);
     }
+
+    root.dataset.theme = theme.id;
+
+    this._toggleEffectClass('has-grain', theme.effects.grainOverlay);
+    this._toggleEffectClass('has-scanlines', theme.effects.scanlines);
 
     localStorage.setItem(STORAGE_KEY, theme.id);
   }
@@ -81,6 +89,10 @@ class ThemeManager {
     const next = ALL_THEMES[(idx + 1) % ALL_THEMES.length];
     this.apply(next);
     return next;
+  }
+
+  private _toggleEffectClass(className: string, enabled: boolean): void {
+    document.body.classList.toggle(className, enabled);
   }
 }
 

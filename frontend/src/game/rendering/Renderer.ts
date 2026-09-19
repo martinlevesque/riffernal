@@ -19,6 +19,9 @@ const SHEET_MARGIN = 8;
 const STAFF_TOP_PADDING = 5;
 const STAFF_GAP = 8;
 const STAFF_BOTTOM_PADDING = 5;
+/** Fraction of CSS resolution canvases render at; the browser upscales
+ *  with image-rendering: pixelated for the retro pixel look. */
+const PIXEL_RENDER_SCALE = 0.5;
 
 export const CLEF_TYPES = {
   BASS: 'bass',
@@ -210,14 +213,12 @@ export class Renderer {
   }
 
   resize(): void {
-    const lowEnd = isLowEndDevice();
-    const dpr = Math.min(window.devicePixelRatio || 1, lowEnd ? 1 : 2);
     const cssW = this.canvas.clientWidth || window.innerWidth;
     const cssH = this.canvas.clientHeight || window.innerHeight;
-    this.canvas.width = cssW * dpr;
-    this.canvas.height = cssH * dpr;
+    this.canvas.width = Math.max(1, Math.floor(cssW * PIXEL_RENDER_SCALE));
+    this.canvas.height = Math.max(1, Math.floor(cssH * PIXEL_RENDER_SCALE));
     this.ctx.setTransform(1, 0, 0, 1, 0, 0);
-    this.ctx.scale(dpr, dpr);
+    this.ctx.scale(PIXEL_RENDER_SCALE, PIXEL_RENDER_SCALE);
     this.width = cssW;
     this.height = cssH;
     this._glowGradCache.clear();
