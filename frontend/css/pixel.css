@@ -275,12 +275,11 @@ kbd {
    ============================================ */
 
 .home-title {
-  font-size: clamp(1.4rem, 5.5vw, 3rem);
+  font-size: clamp(1.4rem, 5vw, 5rem);
   letter-spacing: 0.1em;
 }
 
 .home-mode-card {
-  font-size: 1rem;
   letter-spacing: 0.15em;
   border-width: var(--pixel-border);
   box-shadow: 4px 4px 0 var(--pixel-shadow-color);
