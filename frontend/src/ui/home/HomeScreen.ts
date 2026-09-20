@@ -25,6 +25,9 @@ interface Flash {
 
 const MAX_EMBERS = 50;
 const SPARK_INTERVAL = 0.15;
+/** Fraction of CSS resolution the home canvas renders at; the browser
+ *  upscales with image-rendering: pixelated for the retro pixel look. */
+const PIXEL_RENDER_SCALE = 0.5;
 
 const SPARK_ALT_COLOR = '#ff7722';
 const FLASH_MID_COLOR = '#ff4400';
@@ -147,12 +150,11 @@ export class HomeScreen {
   }
 
   private _resize(): void {
-    const dpr = window.devicePixelRatio || 1;
-    this._canvas.width = window.innerWidth * dpr;
-    this._canvas.height = window.innerHeight * dpr;
+    this._canvas.width = Math.max(1, Math.floor(window.innerWidth * PIXEL_RENDER_SCALE));
+    this._canvas.height = Math.max(1, Math.floor(window.innerHeight * PIXEL_RENDER_SCALE));
     this._canvas.style.width = `${window.innerWidth}px`;
     this._canvas.style.height = `${window.innerHeight}px`;
-    this._ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+    this._ctx.setTransform(PIXEL_RENDER_SCALE, 0, 0, PIXEL_RENDER_SCALE, 0, 0);
   }
 
   private _startAnimation(): void {

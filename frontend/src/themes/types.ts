@@ -63,6 +63,8 @@ export interface ThemeFonts {
 
 export interface ThemeEffects {
   grainOverlay: boolean;
+  /** CRT-style scanline overlay across UI screens. */
+  scanlines: boolean;
 }
 
 export interface Theme {

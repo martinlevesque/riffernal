@@ -45,7 +45,7 @@ export class ScoreDisplay {
   }
 
   showFeedback(result: string, color: string): void {
-    this._feedbackEl.textContent = result;
+    this._feedbackEl.innerHTML = result;
     this._feedbackEl.style.color = color;
     this._feedbackEl.classList.add('show');
 
