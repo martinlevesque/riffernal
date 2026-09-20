@@ -4,7 +4,7 @@
 
 .btn {
   font-family: var(--font-ui);
-  font-size: 0.85rem;
+  font-size: 0.9rem;
   padding: 0.6rem 2rem;
   border: 1px solid;
   border-radius: 4px;
@@ -43,7 +43,7 @@
   border: none;
   color: var(--text-secondary);
   font-family: var(--font-ui);
-  font-size: 0.85rem;
+  font-size: 0.9rem;
   letter-spacing: 0.1em;
   cursor: pointer;
   padding: 0.3rem 0;
@@ -166,7 +166,7 @@ input[type="text"]:focus {
   padding: 0.35rem 0.8rem;
   border: 1px solid var(--border-medium);
   border-radius: 4px;
-  font-size: 0.8rem;
+  font-size: 0.85rem;
 }
 
 /* ============================================

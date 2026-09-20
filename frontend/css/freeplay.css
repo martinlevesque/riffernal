@@ -6,7 +6,7 @@
   position: absolute;
   top: 1rem;
   left: 1.5rem;
-  font-size: 0.85rem;
+  font-size: 0.9rem;
   font-weight: 700;
   letter-spacing: 0.25em;
   color: var(--text-secondary);
@@ -89,7 +89,7 @@
   border-radius: 4px;
   color: var(--text-secondary);
   font-family: var(--font-ui);
-  font-size: 0.85rem;
+  font-size: 0.9rem;
   text-align: left;
   cursor: pointer;
   transition: all 0.12s;
@@ -201,7 +201,7 @@
   margin-left: 0.5rem;
   padding: 0.1rem 0.5rem;
   border-radius: 3px;
-  font-size: 0.7rem;
+  font-size: 0.75rem;
   font-weight: 500;
   text-transform: uppercase;
   letter-spacing: 0.1em;
@@ -229,7 +229,7 @@
   margin-top: 0.4rem;
   padding: 0.1rem 0.5rem;
   border-radius: 3px;
-  font-size: 0.7rem;
+  font-size: 0.75rem;
   text-transform: uppercase;
   letter-spacing: 0.1em;
 }
@@ -305,7 +305,7 @@
   border-radius: 4px;
   color: var(--text-secondary);
   font-family: var(--font-ui);
-  font-size: 0.85rem;
+  font-size: 0.9rem;
   text-align: left;
   cursor: pointer;
   transition: all 0.12s;
@@ -336,7 +336,7 @@
   padding: 0.5rem 1rem;
   cursor: pointer;
   color: var(--accent-purple);
-  font-size: 0.85rem;
+  font-size: 0.9rem;
   letter-spacing: 0.15em;
   text-transform: uppercase;
   border-bottom: 1px solid var(--border-medium);
@@ -355,7 +355,7 @@
 }
 
 .category-header .category-collapse-icon {
-  font-size: 0.75rem;
+  font-size: 0.8rem;
   color: var(--text-secondary);
   margin-left: 0.4rem;
 }

@@ -123,7 +123,7 @@ body {
 .setting-theme-label,
 .song-info-label {
   font-family: var(--font-mono);
-  font-size: 1.05rem;
+  font-size: 1.15rem;
   letter-spacing: 0.04em;
 }
 
@@ -363,7 +363,7 @@ kbd {
 .loop-row-save,
 .loop-row-cancel {
   font-family: var(--font-mono);
-  font-size: 1rem;
+  font-size: 1.05rem;
 }
 
 #loop-status,
@@ -374,10 +374,11 @@ kbd {
 }
 
 /* The wider pixel control clusters collide with the centered score HUD on
-   smaller windows — drop the HUD below the control row instead. */
-@media (max-width: 1360px) {
+   smaller windows — drop the HUD below the control row instead. The
+   threshold tracks the viewport-scaled rem base (16px floor, 19px cap). */
+@media (max-width: 1600px) {
   #hud-top {
-    top: 52px;
+    top: 60px;
     max-width: calc(100% - 2rem);
   }
 
@@ -398,7 +399,7 @@ kbd {
 input[type="text"],
 .auth-input {
   border: var(--pixel-border) solid var(--border-medium);
-  font-size: 0.85rem;
+  font-size: 0.95rem;
 }
 
 input[type="text"]:focus,

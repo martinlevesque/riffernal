@@ -34,6 +34,12 @@
    BASE LAYOUT
    ============================================ */
 
+/* Scale the rem base with viewport width so text grows on large screens
+   instead of staying pinned at 16px (Press Start 2P is hard to read small). */
+html {
+  font-size: clamp(16px, 13px + 0.4vw, 19px);
+}
+
 body {
   background: var(--bg-dark);
   color: var(--text-primary);
