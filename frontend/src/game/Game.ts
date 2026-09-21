@@ -24,7 +24,7 @@ import type { MidiInput } from '../input/MidiInput.js';
 import { InputDeviceType } from '../input/types.js';
 import type { ScoreDisplay } from '../ui/play/ScoreDisplay.js';
 import type { Song } from '../utils/MidiParser.js';
-import { LoopService } from './LoopService.js';
+import { LoopService, type SavedLoop } from './LoopService.js';
 import { ResultsScreen } from './rendering/ResultsScreen.js';
 import { themeManager } from '../themes/ThemeManager.js';
 
@@ -350,20 +350,27 @@ export class Game {
     const effectiveEnd = this.noteManager.getLoopEffectiveEnd(current.endTime);
     if (!(this.currentTime >= effectiveEnd)) return;
 
-    // Advance to the next loop in the chain (wraps to 0 at the end). Apply
-    // a pre-roll buffer only when transitioning to a DIFFERENT loop (the
-    // chain moves to a new region the player hasn't just rehearsed); a
-    // single loop wrapping back to itself restarts immediately, matching
-    // the prior single-loop practice UX.
+    this._advanceToNextLoop(current);
+  }
+
+  /** Advance the engaged chain to its next loop (wraps to 0 at the end),
+   *  then seek there: with a pre-roll buffer when the chain jumps to a
+   *  new region (a forward gap after the current loop, or a wrap-around
+   *  to an earlier one), seamlessly otherwise (adjacent loops, or a
+   *  single loop wrapping back to itself). */
+  private _advanceToNextLoop(current: SavedLoop): void {
     const prevIndex = this.loop.currentIndex;
     this.noteManager.scoring.resetCombo();
     const next = this.loop.advance();
     if (!next) return;
+
     const sameLoop = prevIndex !== null && this.loop.currentIndex === prevIndex;
-    if (sameLoop) {
-      this.seekTo(next.startTime);
-    } else {
+    const wrappedAround = !sameLoop && this.loop.currentIndex! < prevIndex!;
+    const hasGap = wrappedAround || (!sameLoop && next.startTime > current.endTime);
+    if (hasGap) {
       this._seekWithBuffer(next.startTime, LOOP_TRANSITION_SECONDS);
+    } else {
+      this.seekTo(next.startTime);
     }
   }
 
