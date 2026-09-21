@@ -98,6 +98,101 @@ export async function evaluateWithNoteManager(page: Page, song: SongData, code: 
   return page.evaluate(body);
 }
 
+// -- boot helpers (direct-engine tests) ---------------------------------------
+
+/** One saved loop handed to a booted game's LoopService. */
+export interface TestLoop {
+  id: number;
+  startTime: number;
+  endTime: number;
+  enabled: boolean;
+}
+
+/** Boot a Game instance in the page and expose it as `window._testGame`.
+ *  Standalone function: Playwright serializes it into the browser context. */
+async function bootTestGame(opts: {
+  song: SongData;
+  learningMode?: boolean;
+  loops?: TestLoop[];
+}): Promise<void> {
+  // @ts-expect-error browser-side dynamic import
+  const { Game } = await import('/js/game/Game.js');
+  // @ts-expect-error browser-side dynamic import
+  const { Synth } = await import('/js/audio/Synth.js');
+  // @ts-expect-error browser-side dynamic import
+  const { KeyboardInput } = await import('/js/input/KeyboardInput.js');
+  // @ts-expect-error browser-side dynamic import
+  const { MidiInput } = await import('/js/input/MidiInput.js');
+  const canvas = document.getElementById('gameCanvas');
+  const game = new Game(canvas, new Synth(), new KeyboardInput(), new MidiInput());
+  if (opts.learningMode) {
+    game.setLearningMode(true);
+  }
+  if (opts.loops) {
+    game.loadLoops(opts.loops);
+  }
+  game.start(opts.song);
+  (window as unknown as Record<string, unknown>)._testGame = game;
+}
+
+/** Navigate to the app and boot a fresh Game running `song` for
+ *  direct-engine tests (instance exposed as `window._testGame`). */
+export async function bootGame(
+  page: Page,
+  song: SongData,
+  opts: { learningMode?: boolean; loops?: TestLoop[] } = {},
+): Promise<void> {
+  await page.goto('/');
+  await page.evaluate(bootTestGame, { song, learningMode: opts.learningMode, loops: opts.loops });
+}
+
+/** Boot a page-side NoteManager loaded with `song`, exposed as `window._testNm`. */
+async function bootTestNoteManager(song: SongData): Promise<void> {
+  // @ts-expect-error browser-side dynamic import
+  const { NoteManager } = await import('/js/game/NoteManager.js');
+  const nm = new NoteManager();
+  nm.loadSong(song);
+  (window as unknown as Record<string, unknown>)._testNm = nm;
+}
+
+/** Navigate to the app and boot a fresh NoteManager for
+ *  direct-engine tests (instance exposed as `window._testNm`). */
+export async function bootNoteManager(page: Page, song: SongData): Promise<void> {
+  await page.goto('/');
+  await page.evaluate(bootTestNoteManager, song);
+}
+
+/** Snapshot of engine state from the app's live game instance (`window._game`).
+ *  Only for assertions the DOM cannot express (e.g. exact currentTime). */
+export interface GameSnapshot {
+  currentTime: number;
+  learningMode: boolean;
+  loopActive: boolean;
+  loopStart: number | null;
+  loopEnd: number | null;
+  savedLoopCount: number;
+  chainLen: number;
+  currentIndex: number | null;
+  scoringEnabled: boolean;
+}
+
+export async function gameState(page: Page): Promise<GameSnapshot> {
+  return page.evaluate(() => {
+    const g = (window as any)._game;
+    return {
+      currentTime: g.currentTime,
+      learningMode: g.learningMode,
+      loopActive: g.loopActive,
+      loopStart: g.loopStart,
+      loopEnd: g.loopEnd,
+      savedLoopCount: g.loop.loops.length,
+      chainLen: g.loop.chain.length,
+      currentIndex: g.loop.currentIndex,
+      scoringEnabled: g.noteManager.scoring.enabled,
+    };
+  });
+}
+
 /** Build the evaluate body for a learning-mode freeze/resume test.
  *  `action` is an async function body that must `return` the `after` object. */
 export function buildFreezeResumeScript(songJson: string, action: string): string {

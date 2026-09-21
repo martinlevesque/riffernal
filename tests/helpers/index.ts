@@ -57,6 +57,11 @@ export {
   expectLoopStatus,
   expectPracticeHand,
   evaluateWithNoteManager,
+  bootGame,
+  bootNoteManager,
+  gameState,
+  type GameSnapshot,
+  type TestLoop,
   buildFreezeResumeScript,
 } from './page/game.js';
 
