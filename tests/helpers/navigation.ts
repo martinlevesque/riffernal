@@ -19,7 +19,7 @@ export async function goToSongList(page: Page): Promise<void> {
   await page.locator('[data-mode="freeplay"]').click();
 }
 
-export async function startGame(page: Page, options: StartGameOptions = {}): Promise<void> {
+export async function startGame(page: Page, options: StartGameOptions = {}): Promise<number> {
   const { keepSong = false, songTitle = 'E2E Seed', notes, loops } = options;
   const request = page.context().request;
   await wipeDatabase(request);
@@ -47,4 +47,5 @@ export async function startGame(page: Page, options: StartGameOptions = {}): Pro
     const headers = await authHeaders(page.context().request);
     page.context().request.delete(`/api/songs/${id}`, { headers }).catch(() => {});
   }
+  return id;
 }

@@ -69,8 +69,39 @@ export async function expectMode(page: Page, mode: 'learn' | 'play'): Promise<vo
 // -- loop --------------------------------------------------------------------
 
 /** Assert the loop status text. */
-export async function expectLoopStatus(page: Page, text: string): Promise<void> {
-  await expect(page.locator('#loop-status')).toHaveText(text);
+export async function expectLoopStatus(page: Page, text: string, timeout = 5000): Promise<void> {
+  await expect(page.locator('#loop-status')).toHaveText(text, { timeout });
+}
+
+/** Snapshot of engine state from the app's live game instance. Only for
+ *  assertions the DOM cannot express (e.g. exact currentTime). */
+export interface GameSnapshot {
+  currentTime: number;
+  learningMode: boolean;
+  loopActive: boolean;
+  loopStart: number | null;
+  loopEnd: number | null;
+  savedLoopCount: number;
+  chainLen: number;
+  currentIndex: number | null;
+  scoringEnabled: boolean;
+}
+
+export async function gameState(page: Page): Promise<GameSnapshot> {
+  return page.evaluate(() => {
+    const g = (window as unknown as { _game: any })._game;
+    return {
+      currentTime: g.currentTime,
+      learningMode: g.learningMode,
+      loopActive: g.loopActive,
+      loopStart: g.loopStart,
+      loopEnd: g.loopEnd,
+      savedLoopCount: g.loop.loops.length,
+      chainLen: g.loop.chain.length,
+      currentIndex: g.loop.currentIndex,
+      scoringEnabled: g.noteManager.scoring.enabled,
+    };
+  });
 }
 
 // -- practice hand -----------------------------------------------------------
