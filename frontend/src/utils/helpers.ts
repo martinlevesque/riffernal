@@ -14,6 +14,8 @@ export function lerp(a: number, b: number, t: number): number {
 }
 
 export function formatTime(seconds: number): string {
+  // Preroll buffers can briefly leave playback time below zero.
+  seconds = Math.max(0, seconds);
   const m = Math.floor(seconds / 60);
   const s = Math.floor(seconds % 60);
   return `${m}:${s.toString().padStart(2, '0')}`;

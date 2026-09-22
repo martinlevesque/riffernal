@@ -3,9 +3,6 @@
    ============================================ */
 
 .open-sheet-btn {
-  position: absolute;
-  top: 92px;
-  right: 8px;
   font-family: var(--font-ui);
   font-size: 0.9rem;
   line-height: 1;
