@@ -119,6 +119,9 @@ export class GameControls {
     modeLearn.classList.toggle('active', learning);
     handControl.classList.toggle('active', learning);
 
+    const accuracyCell = document.getElementById('accuracy-cell')!;
+    accuracyCell.style.display = learning ? 'none' : '';
+
     if (!learning && this.game.loopActive) {
       this.game.deactivateLoop();
       this.updateLoopUI();
