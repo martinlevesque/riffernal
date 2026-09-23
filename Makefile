@@ -1,4 +1,4 @@
-.PHONY: build run deploy deploy-https stop clean logs
+.PHONY: build run deploy deploy-https dev dev-stop clean logs
 
 IMAGE_NAME := riffernal
 CONTAINER_NAME := riffernal
@@ -26,6 +26,13 @@ deploy-https: build
 		$(IMAGE_NAME) \
 		bun run start
 	@echo "Deployed with HTTPS! Visit https://localhost:$(PORT)"
+
+dev:
+	docker compose -f docker-compose.dev.yml up -d
+	@echo "Dev server running! Visit http://localhost:$(PORT) (make dev-stop to stop)"
+
+dev-stop:
+	docker compose -f docker-compose.dev.yml down
 
 stop:
 	-docker stop $(CONTAINER_NAME)

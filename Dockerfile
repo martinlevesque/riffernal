@@ -26,6 +26,4 @@ RUN mkdir -p data certs && apt-get update && apt-get install -y --no-install-rec
 ENV PORT=9876
 EXPOSE 9876
 
-VOLUME /app/data
-
 CMD ["bun", "run", "start", "--http"]
