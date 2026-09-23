@@ -373,20 +373,6 @@ kbd {
   font-size: 1rem;
 }
 
-/* The wider pixel control clusters collide with the centered score HUD on
-   smaller windows — drop the HUD below the control row instead. The
-   threshold tracks the viewport-scaled rem base (16px floor, 19px cap). */
-@media (max-width: 1600px) {
-  #hud-top {
-    top: 60px;
-    max-width: calc(100% - 2rem);
-  }
-
-  #song-title-display {
-    font-size: 0.95rem;
-  }
-}
-
 /* ============================================
    MODALS & INPUTS
    ============================================ */

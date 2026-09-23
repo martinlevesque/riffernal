@@ -2,21 +2,28 @@
    GAMEPLAY HUD
    ============================================ */
 
-/* Top-center HUD column: score display with the song title stacked below.
- * Sizing is relative so the stack stays clear of the mode/speed control
- * clusters at any window size. */
-#hud-top {
+/* Top HUD row: mode/hand controls on the left, score + song title centered,
+ * speed/loop controls on the right. Flex layout keeps the three clusters from
+ * ever overlapping, whatever the window width. */
+#hud-bar {
   position: absolute;
-  top: 10px;
-  left: 50%;
-  transform: translateX(-50%);
+  top: 12px;
+  left: 1rem;
+  right: 1rem;
+  display: flex;
+  align-items: flex-start;
+  gap: 0.75rem;
+  pointer-events: none;
+  z-index: 11;
+}
+
+#hud-top {
+  flex: 1 1 0;
+  min-width: 14rem;
   display: flex;
   flex-direction: column;
   align-items: center;
   gap: 0.35rem;
-  max-width: calc(100% - 24rem);
-  pointer-events: none;
-  z-index: 11;
 }
 
 #song-title-display {
@@ -41,8 +48,11 @@
 
 #score-display {
   display: flex;
+  flex-wrap: wrap;
+  justify-content: center;
   align-items: baseline;
-  gap: 0.7em;
+  column-gap: 0.7em;
+  row-gap: 0.1em;
   padding: 0.3rem 0.9rem;
   background: rgba(14, 14, 14, 0.85);
   backdrop-filter: blur(8px);
@@ -82,16 +92,24 @@
   font-family: var(--font-mono);
 }
 
+/* Separator between accuracy and time lives on the time itself so a wrapped
+   time row stays self-contained instead of leaving a dangling dot above. */
+#time-display:not(:empty)::before {
+  content: '\00B7';
+  margin-right: 0.7em;
+  color: var(--border-medium);
+  font-weight: normal;
+}
+
 #score-display > .hud-sep {
   color: var(--border-medium);
   font-weight: normal;
 }
 
 #speed-control {
-  position: absolute;
-  top: 12px;
-  right: 1rem;
   display: flex;
+  flex-wrap: wrap;
+  justify-content: flex-end;
   align-items: center;
   gap: 0.5rem;
   background: rgba(20, 20, 20, 0.85);
@@ -100,14 +118,12 @@
   border-radius: 6px;
   border: 1px solid var(--border-medium);
   pointer-events: auto;
-  z-index: 11;
 }
 
 #mode-control {
-  position: absolute;
-  top: 12px;
-  left: 1rem;
   display: flex;
+  flex-wrap: wrap;
+  justify-content: flex-start;
   align-items: center;
   gap: 0.4rem;
   background: rgba(20, 20, 20, 0.85);
@@ -116,7 +132,6 @@
   border-radius: 6px;
   border: 1px solid var(--border-medium);
   pointer-events: auto;
-  z-index: 11;
 }
 
 .mode-label {
@@ -316,8 +331,15 @@
 }
 
 @media (max-width: 900px) {
-  #hud-top {
-    max-width: calc(100% - 14rem);
+  .speed-btn,
+  .mode-btn,
+  .loop-btn {
+    font-size: 0.7rem;
+    padding: 0.15rem 0.35rem;
+  }
+
+  #speed-value {
+    min-width: 2.5em;
   }
 
   #song-title-display {
