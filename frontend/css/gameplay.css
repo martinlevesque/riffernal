@@ -24,7 +24,6 @@
   flex-direction: column;
   align-items: center;
   gap: 0.35rem;
-  pointer-events: none;
 }
 
 #song-title-display {
@@ -95,7 +94,7 @@
 
 /* Separator between accuracy and time lives on the time itself so a wrapped
    time row stays self-contained instead of leaving a dangling dot above. */
-#time-display::before {
+#time-display:not(:empty)::before {
   content: '\00B7';
   margin-right: 0.7em;
   color: var(--border-medium);

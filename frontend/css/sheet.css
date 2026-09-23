@@ -13,8 +13,6 @@
   padding: 0.15rem 0.45rem;
   border-radius: 4px;
   cursor: pointer;
-  pointer-events: auto;
-  z-index: 12;
   transition: all 0.15s;
 }
 
