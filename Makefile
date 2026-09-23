@@ -29,7 +29,8 @@ deploy-https: build
 
 dev:
 	docker compose -f docker-compose.dev.yml up -d
-	@echo "Dev server running! Visit http://localhost:$(PORT) (make dev-stop to stop)"
+	@echo "Dev server running! Visit http://localhost:$(PORT) (Ctrl+C detaches logs, make dev-stop stops it)"
+	docker compose -f docker-compose.dev.yml logs -f
 
 dev-stop:
 	docker compose -f docker-compose.dev.yml down
