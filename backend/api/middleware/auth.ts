@@ -1,5 +1,5 @@
-import { validateSession, type AuthUser } from "../models/auth.ts";
-import { json, type Handler } from "./router.ts";
+import { validateSession, type AuthUser } from "../../models/auth.ts";
+import { json, type Handler } from "../router.ts";
 
 /** Extract Bearer token from Authorization header. */
 function extractToken(req: Request): string | null {

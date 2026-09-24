@@ -1,6 +1,6 @@
 import { listCategories, createCategory } from "../models/index.ts";
 import { json, parseJson, handleErr, type Handler } from "./router.ts";
-import { requireAuth } from "./middleware.ts";
+import { requireAuth } from "./middleware/index.ts";
 
 export const categoryRoutes = [
   {

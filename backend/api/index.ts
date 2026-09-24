@@ -1,5 +1,6 @@
 import { defineRoutes, json, type Route, handleErr } from "./router.ts";
 import { maybeCompress } from "./helpers/compression.ts";
+import { errDetails, logger } from "./helpers/logger.ts";
 import { DomainError } from "../models/validation.ts";
 import { categoryRoutes } from "./category.ts";
 import { songRoutes } from "./song.ts";
@@ -47,6 +48,8 @@ export async function handleApi(req: Request, pathname: string): Promise<Respons
       if (err instanceof DomainError) {
         return await maybeCompress(req, json({ error: err.message }, err.status));
       }
+
+      logger.error(`${req.method} ${pathname} failed: ${errDetails(err)}`);
       return await maybeCompress(req, handleErr(err));
     }
   }

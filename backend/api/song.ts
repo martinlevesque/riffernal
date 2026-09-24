@@ -14,7 +14,7 @@ import {
 } from "../models/index.ts";
 import { json, parseJson, errMsg, handleErr, numOrNull, notFound, type Handler } from "./router.ts";
 import { parsePagination } from "./helpers/pagination.ts";
-import { requireAuth } from "./middleware.ts";
+import { requireAuth } from "./middleware/index.ts";
 import { ValidationError } from "../models/validation.ts";
 
 // Bun's formData() re-derives part types from the filename, so this is
