@@ -150,12 +150,13 @@
    ============================================ */
 
 .auth-brand {
-  font-size: 2rem;
+  font-size: 1.5rem;
   font-weight: 900;
   letter-spacing: 0.3em;
   text-align: center;
   margin-bottom: 1.5rem;
   user-select: none;
+  white-space: nowrap;
 }
 
 .auth-brand .accent {
