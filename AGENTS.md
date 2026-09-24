@@ -87,7 +87,7 @@ bun run test                                                         # full suit
 | `tests/backend/api/helpers/*.spec.ts`, `tests/backend/db/*.spec.ts`, `tests/frontend/**/*.spec.ts` | `bun run test:unit` |
 | `frontend/src/**` | the e2e specs covering the module (grep `tests/e2e/` for the feature) as a quick check, then the full suite |
 | `tests/e2e/<name>.spec.ts` | the full suite (it includes the spec) |
-| `backend/api.ts`, `backend/api/router.ts`, `backend/api/middleware.ts`, `backend/api/index.ts`, `backend/models/index.ts`, `backend/db/**`, `tests/helpers/**`, `tests/e2e/global-setup.mts`, `scripts/**`, `playwright.config.ts` | full suite |
+| `backend/api.ts`, `backend/api/router.ts`, `backend/api/middleware/**`, `backend/api/index.ts`, `backend/models/index.ts`, `backend/db/**`, `tests/helpers/**`, `tests/e2e/global-setup.mts`, `scripts/**`, `playwright.config.ts` | full suite |
 
 Comment-only changes need only `bun run lint` and `bun run typecheck`. When
 you can't tell which specs cover a file, grep `tests/` for its exported

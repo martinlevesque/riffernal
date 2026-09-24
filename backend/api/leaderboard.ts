@@ -1,6 +1,6 @@
 import { getTodayLeaderboard } from "../models/index.ts";
 import { json } from "./router.ts";
-import { withAuth } from "./middleware.ts";
+import { withAuth } from "./middleware/index.ts";
 
 export const leaderboardRoutes = [
   {

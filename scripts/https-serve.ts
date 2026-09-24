@@ -3,6 +3,7 @@ import { networkInterfaces } from "node:os";
 import { join } from "node:path";
 import { spawnSync } from "bun";
 import { handleApi } from "../backend/api.ts";
+import { withErrorHandling, withRequestLogging } from "../backend/api/middleware/index.ts";
 
 const ROOT = join(import.meta.dir, "..");
 const SRC = join(ROOT, "frontend", "src");
@@ -162,10 +163,12 @@ function startListening(port: number, httpOnly: boolean): void {
   const scheme = httpOnly ? "http" : "https";
 
   try {
-    const fetchHandler = async (req: Request): Promise<Response> => {
-      const url = new URL(req.url);
-      return handleRequest(req, url.pathname);
-    };
+    const fetchHandler = withErrorHandling(
+      withRequestLogging(async (req: Request): Promise<Response> => {
+        const url = new URL(req.url);
+        return handleRequest(req, url.pathname);
+      }),
+    );
 
     if (httpOnly) {
       Bun.serve({ port, fetch: fetchHandler, maxRequestBodySize: MAX_REQUEST_BODY_SIZE });

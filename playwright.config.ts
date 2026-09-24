@@ -15,6 +15,8 @@ const TEST_ENV = {
   RIFFERNAL_DB: TEST_DB,
   RIFFERNAL_DB_RESET: '1',
   PORT: String(TEST_PORT),
+  // Keep request logs out of the test report; errors still surface.
+  LOG_LEVEL: 'error',
 };
 
 export default defineConfig({

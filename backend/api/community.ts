@@ -5,7 +5,7 @@ import {
   getCommunitySong,
 } from "../models/index.ts";
 import { json, parseJson, handleErr, notFound } from "./router.ts";
-import { withAuth } from "./middleware.ts";
+import { withAuth } from "./middleware/index.ts";
 import { parsePagination } from "./helpers/pagination.ts";
 
 export const communityRoutes = [

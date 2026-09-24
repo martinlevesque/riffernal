@@ -1,6 +1,6 @@
 import { getGameSettings, updateGameSettings, type GameSettings } from "../models/index.ts";
 import { json, parseJson, type Handler } from "./router.ts";
-import { requireAuth } from "./middleware.ts";
+import { requireAuth } from "./middleware/index.ts";
 
 export const userRoutes = [
   {

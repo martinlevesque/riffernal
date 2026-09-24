@@ -7,7 +7,7 @@ import {
   type Loop,
 } from "../models/index.ts";
 import { json, parseJson, paramId, notFound, type Handler } from "./router.ts";
-import { requireAuth } from "./middleware.ts";
+import { requireAuth } from "./middleware/index.ts";
 
 export const loopRoutes = [
   {
