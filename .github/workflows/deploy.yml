@@ -19,6 +19,9 @@ jobs:
       - name: Install Railway CLI
         run: curl -fsSL https://railway.com/install.sh | sh
 
+      - name: Add Railway CLI to PATH
+        run: echo "$HOME/.railway/bin" >> "$GITHUB_PATH"
+
       - name: Deploy
         run: railway up --service "$RAILWAY_SERVICE" --ci
         env:
