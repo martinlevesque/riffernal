@@ -211,7 +211,10 @@ export class SheetView {
   renderSheetPage(): void {
     if (!this._sheetOpen) return;
     const ctx = this._sheetRenderer.ctx;
-    ctx.clearRect(0, 0, this._sheetCanvas.width, this._sheetCanvas.height);
+    // The context is scaled by PIXEL_RENDER_SCALE, so clear in CSS units —
+    // canvas.width/height are device pixels and would only wipe the
+    // top-left quarter, leaving stale pixels from the previous page.
+    ctx.clearRect(0, 0, this._sheetRenderer.width, this._sheetRenderer.height);
     const start = this._sheetCurrentPage * this._pageDuration();
     const end = Math.min(start + this._pageDuration(), this._game.noteManager.getSongDuration());
 
