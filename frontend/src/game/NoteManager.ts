@@ -707,29 +707,6 @@ export class NoteManager {
     return effective;
   }
 
-  /** Find the SongNote whose time is closest to `time`. When `staff` is given
-   *  ('treble' | 'bass'), restrict the search to that hand. Returns null if
-   *  no notes exist in the consideration set. */
-  findNearestNote(time: number, staff?: 'treble' | 'bass'): SongNote | null {
-    const pool = staff === 'treble' ? this.trebleNotes : staff === 'bass' ? this.bassNotes : this.notes;
-    if (pool.length === 0) {
-      return staff ? this.findNearestNote(time) : null;
-    }
-    let lo = 0;
-    let hi = pool.length;
-    while (lo < hi) {
-      const mid = (lo + hi) >>> 1;
-      if (pool[mid].time < time) lo = mid + 1;
-      else hi = mid;
-    }
-    let candidate = pool[Math.min(lo, pool.length - 1)];
-    if (lo > 0) {
-      const prev = pool[lo - 1];
-      if (Math.abs(prev.time - time) <= Math.abs(candidate.time - time)) candidate = prev;
-    }
-    return candidate;
-  }
-
   /** Find the note closest to a click position in pixel space.
    *  Uses the renderer's coordinate mapping to compute 2D distance.
    *  Returns null if no note is within `maxRadius` pixels. */
