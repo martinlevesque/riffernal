@@ -879,6 +879,62 @@ test.describe('Loops - UI', () => {
     await openSheet(page);
     await expect(page.locator('#sheet-page-info')).toContainText('/ 2');
   });
+
+  test('next sheet page does not retain the previous page loop overlay or highlighted notes', async ({ page }) => {
+    const notes: Array<{ time: number; key: string; duration: number }> = [];
+    const keys = ['C4', 'D4', 'E4', 'F4', 'G4', 'A4', 'B4', 'C5'];
+
+    for (let i = 0; i < 100; i++) {
+      notes.push({ time: 0.5 + i * 0.6, key: keys[i % keys.length], duration: 0.3 });
+    }
+
+    // Loop spans pages 1 and 2 (page = 18 beats @ 120bpm = 9s): page 2 must
+    // show only the [9s, 10s] tail, with no overlay carried over from page 1.
+    await startGame(page, {
+      keepSong: true,
+      songTitle: 'SheetPageClear',
+      notes,
+      loops: [{ startTime: 1.0, endTime: 10.0, enabled: true }],
+    });
+
+    await closeSongInfoPopup(page);
+    await openSheet(page);
+    await page.locator('#btn-add-loop').click();
+    await page.locator('#btn-sheet-next').click();
+    await expect(page.locator('#sheet-page-info')).toContainText('2 /');
+
+    // Scan past the loop-end marker column (t=10s ≈ x=93 device px): any
+    // wide horizontal run of purple-tinted pixels is stale page-1 overlay.
+    const maxRun = await page.evaluate(() => {
+      const canvas = document.getElementById('sheet-canvas') as HTMLCanvasElement;
+      const ctx = canvas.getContext('2d')!;
+      const x0 = 100;
+      const y0 = 42;
+      const y1 = Math.min(115, canvas.height);
+      const img = ctx.getImageData(x0, y0, canvas.width - x0, y1 - y0);
+      const w = img.width;
+      let maxRun = 0;
+
+      for (let y = 0; y < img.height; y++) {
+        let run = 0;
+
+        for (let x = 0; x < w; x++) {
+          const i = (y * w + x) * 4;
+
+          if (img.data[i + 2] - img.data[i] > 12 && img.data[i + 2] > 40) {
+            run++;
+            maxRun = Math.max(maxRun, run);
+          } else {
+            run = 0;
+          }
+        }
+      }
+
+      return maxRun;
+    });
+
+    expect(maxRun).toBeLessThan(25);
+  });
 });
 
 // -- e2e: saved loops survive restart ----------------------------------------
