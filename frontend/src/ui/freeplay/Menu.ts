@@ -42,12 +42,14 @@ export class Menu {
   private _startBtn: HTMLButtonElement;
   private _freeplayScreen: HTMLElement;
   private _midiStatusEl: HTMLElement;
+  private _controlsHintEl: HTMLElement | null;
 
   constructor() {
     this._songListEl = document.getElementById("song-list")!;
     this._startBtn = document.getElementById("btn-start") as HTMLButtonElement;
     this._freeplayScreen = document.getElementById("freeplay-screen")!;
     this._midiStatusEl = document.getElementById("midi-status")!;
+    this._controlsHintEl = this._freeplayScreen.querySelector(".controls-hint");
     this._render();
     this._startBtn.addEventListener("click", () => {
       if (this._selectedSong && this.onStart) {
@@ -592,5 +594,7 @@ export class Menu {
   setMidiStatus(connected: boolean, message: string): void {
     this._midiStatusEl.textContent = message;
     this._midiStatusEl.className = `midi-status${connected ? " connected" : ""}`;
+
+    this._controlsHintEl?.classList.toggle("hidden", connected);
   }
 }
