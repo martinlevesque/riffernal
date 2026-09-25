@@ -77,7 +77,7 @@ export class MidiImportDialog {
                 proceed(song, file);
               },
               onCancel: () => {
-                this._menu.setMidiStatus(false, 'Import cancelled');
+                this._menu.setMidiStatus(this._midiInput.connected, 'Import cancelled');
               },
             });
           } else {
