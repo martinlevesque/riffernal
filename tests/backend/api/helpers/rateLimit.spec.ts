@@ -74,6 +74,27 @@ describe("FixedWindowLimiter", () => {
     expect(limiter.allow("1.2.3.4", start + MINUTE - 1).allowed).toBe(false);
     expect(limiter.allow("1.2.3.4", start + MINUTE).allowed).toBe(true);
   });
+
+  test("blocks immediately under a max=0 budget", () => {
+    const limiter = new FixedWindowLimiter({ windowMs: MINUTE, max: 0 });
+    const start = 1_000_000;
+
+    const decision = limiter.allow("1.2.3.4", start);
+    expect(decision.allowed).toBe(false);
+    expect(decision.retryAfterSeconds).toBe(60);
+  });
+
+  test("sweeps expired windows once the map grows past its threshold", () => {
+    const limiter = new FixedWindowLimiter({ windowMs: MINUTE, max: 1 }, 2);
+    const start = 1_000_000;
+
+    limiter.allow("1.1.1.1", start);
+    limiter.allow("2.2.2.2", start);
+
+    limiter.allow("3.3.3.3", start + MINUTE + 1);
+
+    expect(limiter.size).toBe(1);
+  });
 });
 
 describe("FailureLockout", () => {
@@ -132,6 +153,31 @@ describe("FailureLockout", () => {
     lockout.recordFailure("user:ip", start);
 
     expect(lockout.allow("user:ip", start).allowed).toBe(true);
+  });
+
+  test("sweeps stale streaks once the map grows past its threshold", () => {
+    const lockout = new FailureLockout(2, MINUTE, 2);
+    const start = 1_000_000;
+
+    lockout.recordFailure("a:ip", start);
+    lockout.recordFailure("b:ip", start);
+
+    lockout.recordFailure("c:ip", start + MINUTE + 1);
+
+    expect(lockout.size).toBe(1);
+  });
+
+  test("a swept streak restarts counting from zero", () => {
+    const lockout = new FailureLockout(2, MINUTE, 2);
+    const start = 1_000_000;
+
+    lockout.recordFailure("a:ip", start);
+    lockout.recordFailure("b:ip", start);
+
+    lockout.recordFailure("c:ip", start + MINUTE + 1);
+    lockout.recordFailure("a:ip", start + MINUTE + 1);
+
+    expect(lockout.allow("a:ip", start + MINUTE + 1).allowed).toBe(true);
   });
 });
 
@@ -199,12 +245,29 @@ describe("withRateLimit", () => {
   });
 
   describe("login failure lockout", () => {
-    function loginDeps(maxFailures = 5): Required<Omit<RateLimitDeps, "limiters">> & RateLimitDeps {
+    function loginDeps(maxFailures = 5): RateLimitDeps {
       return {
         limiters: new Map([["login", new FixedWindowLimiter({ windowMs: HOUR, max: 100 })]]),
         loginFailures: new FailureLockout(maxFailures, MINUTE),
       };
     }
+
+    test("non-401 failures do not feed the lockout", async () => {
+      const deps = loginDeps(2);
+
+      let handlerCalls = 0;
+      const handler = withRateLimit("login", async () => {
+        handlerCalls += 1;
+        return new Response("", { status: 400 });
+      }, deps);
+
+      for (let i = 0; i < 10; i++) {
+        const res = await handler(loginRequest({ username: "victim", password: "" }), {});
+        expect(res.status).toBe(400);
+      }
+
+      expect(handlerCalls).toBe(10);
+    });
 
     test("locks out after repeated failed logins for the same username", async () => {
       const deps = loginDeps(5);

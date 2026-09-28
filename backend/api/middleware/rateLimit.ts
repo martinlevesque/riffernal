@@ -20,12 +20,13 @@ interface WindowEntry {
 interface LockoutEntry {
   failures: number;
   lockedUntilMs: number;
+  lastFailureMs: number;
 }
 
 /** Sweep only becomes necessary if client keys (mostly spoofed or rotating
  *  X-Forwarded-For values) grow without bound; a normal instance never
  *  reaches this size. */
-const SWEEP_THRESHOLD = 10_000;
+export const SWEEP_THRESHOLD = 10_000;
 
 /** Fixed-window counter per key: counts every request and resets at the end
  *  of the window. In-memory and best-effort, so it resets on restart —
@@ -33,14 +34,26 @@ const SWEEP_THRESHOLD = 10_000;
 export class FixedWindowLimiter {
   private windows = new Map<string, WindowEntry>();
 
-  constructor(private readonly rule: RateLimitRule) {}
+  constructor(
+    private readonly rule: RateLimitRule,
+    private readonly sweepThreshold = SWEEP_THRESHOLD,
+  ) {}
+
+  get size(): number {
+    return this.windows.size;
+  }
 
   allow(key: string, now: number = Date.now()): RateLimitDecision {
     const entry = this.windows.get(key);
 
     if (!entry || now >= entry.resetAtMs) {
       this.sweepExpired(now);
-      this.windows.set(key, { count: 1, resetAtMs: now + this.rule.windowMs });
+      const fresh = { count: 1, resetAtMs: now + this.rule.windowMs };
+      this.windows.set(key, fresh);
+
+      if (fresh.count > this.rule.max) {
+        return { allowed: false, retryAfterSeconds: Math.ceil((fresh.resetAtMs - now) / 1000) };
+      }
 
       return { allowed: true, retryAfterSeconds: 0 };
     }
@@ -55,7 +68,7 @@ export class FixedWindowLimiter {
   }
 
   private sweepExpired(now: number): void {
-    if (this.windows.size < SWEEP_THRESHOLD) {
+    if (this.windows.size < this.sweepThreshold) {
       return;
     }
 
@@ -75,7 +88,12 @@ export class FailureLockout {
   constructor(
     private readonly maxFailures: number,
     private readonly lockoutMs: number,
+    private readonly sweepThreshold = SWEEP_THRESHOLD,
   ) {}
+
+  get size(): number {
+    return this.entries.size;
+  }
 
   allow(key: string, now: number = Date.now()): RateLimitDecision {
     const entry = this.entries.get(key);
@@ -88,8 +106,11 @@ export class FailureLockout {
   }
 
   recordFailure(key: string, now: number = Date.now()): void {
-    const entry = this.entries.get(key) ?? { failures: 0, lockedUntilMs: 0 };
+    this.sweepStale(now);
+
+    const entry = this.entries.get(key) ?? { failures: 0, lockedUntilMs: 0, lastFailureMs: 0 };
     entry.failures += 1;
+    entry.lastFailureMs = now;
 
     if (entry.failures >= this.maxFailures) {
       entry.lockedUntilMs = now + this.lockoutMs;
@@ -101,6 +122,21 @@ export class FailureLockout {
 
   recordSuccess(key: string): void {
     this.entries.delete(key);
+  }
+
+  /** A failure streak only counts while it stays "consecutive" — entries
+   *  idle past the lockout span are dead memory, so prune them once the map
+   *  grows large (e.g. from an attacker spraying random usernames). */
+  private sweepStale(now: number): void {
+    if (this.entries.size < this.sweepThreshold) {
+      return;
+    }
+
+    for (const [key, entry] of this.entries) {
+      if (now > entry.lastFailureMs + this.lockoutMs) {
+        this.entries.delete(key);
+      }
+    }
   }
 }
 
@@ -242,14 +278,15 @@ export function withRateLimit(
       return handler(req, params);
     }
 
-    const decision = limiterIn(windows, route).allow(clientIp(req));
+    const ip = clientIp(req);
+    const decision = limiterIn(windows, route).allow(ip);
 
     if (!decision.allowed) {
       return tooManyRequests(decision.retryAfterSeconds);
     }
 
     if (route === "login") {
-      return loginWithFailureTracking(req, params, clientIp(req), failureLock, handler);
+      return loginWithFailureTracking(req, params, ip, failureLock, handler);
     }
 
     return handler(req, params);
