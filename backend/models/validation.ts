@@ -35,6 +35,14 @@ export class ConflictError extends DomainError {
   }
 }
 
+/** Request body over an endpoint's size cap. Maps to 413 Payload Too
+ *  Large. */
+export class PayloadTooLargeError extends DomainError {
+  constructor(message: string) {
+    super(message, 413);
+  }
+}
+
 /** Authorization failure (authenticated but not allowed to access/modify
  *  the resource). Maps to 403 Forbidden. */
 export class ForbiddenError extends DomainError {

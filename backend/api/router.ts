@@ -1,4 +1,4 @@
-import { DomainError } from "../models/validation.ts";
+import { DomainError, PayloadTooLargeError } from "../models/validation.ts";
 
 export function json(data: unknown, status = 200): Response {
   return new Response(JSON.stringify(data), {
@@ -12,8 +12,67 @@ export function notFound(): Response {
   return json({ error: "Not found" }, 404);
 }
 
+// Largest JSON body the app legitimately sends is a full PUT /api/songs/:id
+// metadata update (notes JSON dominates); 1 MB clears it with room to spare.
+const MAX_JSON_BODY_BYTES = 1024 * 1024;
+
+function chunksToBuffer(chunks: Uint8Array[], total: number): Uint8Array {
+  const out = new Uint8Array(total);
+  let offset = 0;
+
+  for (const chunk of chunks) {
+    out.set(chunk, offset);
+    offset += chunk.byteLength;
+  }
+
+  return out;
+}
+
+/** Read the request body without ever buffering more than `max` bytes:
+ *  the guarded stream bails as soon as the cap is exceeded, so a lying or
+ *  absent Content-Length (chunked transfer) still cannot balloon memory. */
+async function readBodyCapped(req: Request, max: number): Promise<Uint8Array> {
+  const contentLength = Number(req.headers.get("content-length") ?? "");
+
+  if (Number.isFinite(contentLength) && contentLength > max) {
+    req.body?.cancel().catch(() => {});
+    throw new PayloadTooLargeError(`Request body exceeds ${max} bytes`);
+  }
+
+  const reader = req.body?.getReader();
+
+  if (!reader) {
+    return new Uint8Array(0);
+  }
+
+  const chunks: Uint8Array[] = [];
+  let total = 0;
+
+  while (true) {
+    const { done, value } = await reader.read();
+
+    if (done) {
+      break;
+    }
+
+    total += value.byteLength;
+
+    if (total > max) {
+      await reader.cancel().catch(() => {});
+      throw new PayloadTooLargeError(`Request body exceeds ${max} bytes`);
+    }
+
+    chunks.push(value);
+  }
+
+  return chunksToBuffer(chunks, total);
+}
+
+/** Read and parse a JSON body, rejecting anything over the shared 1 MB cap
+ *  with a 413 instead of buffering the payload first. */
 export async function parseJson<T = unknown>(req: Request): Promise<T> {
-  return (await req.json()) as T;
+  const body = await readBodyCapped(req, MAX_JSON_BODY_BYTES);
+  return JSON.parse(new TextDecoder().decode(body)) as T;
 }
 
 export type Handler = (req: Request, params: Record<string, string>) => Promise<Response> | Response;
