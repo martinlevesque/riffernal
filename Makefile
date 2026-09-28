@@ -1,4 +1,4 @@
-.PHONY: build run deploy deploy-https dev dev-stop clean logs
+.PHONY: build run deploy deploy-https dev dev-stop clean logs backup restore
 
 IMAGE_NAME := riffernal
 CONTAINER_NAME := riffernal
@@ -44,3 +44,13 @@ clean: stop
 
 logs:
 	docker logs -f $(CONTAINER_NAME)
+
+backup:
+	bun run scripts/db-backup.ts
+
+restore:
+	@if [ -z "$(FILE)" ]; then \
+		echo "Usage: make restore FILE=backups/riffernal-YYYYMMDD-HHMMSS.db"; \
+		exit 1; \
+	fi
+	bun run scripts/db-restore.ts "$(FILE)"

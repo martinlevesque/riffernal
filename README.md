@@ -41,3 +41,26 @@ bun run test
 ```bash
 bun run typecheck
 ```
+
+## Backup & restore
+
+All state lives in `data/riffernal.db` on the server volume. Snapshot it with
+SQLite's online backup — safe to run while the server is up:
+
+```bash
+make backup    # writes backups/riffernal-YYYYMMDD-HHMMSS.db (gitignored)
+```
+
+Restore a snapshot (stops nothing for you — shut the server down first):
+
+```bash
+make restore FILE=backups/riffernal-YYYYMMDD-HHMMSS.db
+```
+
+On Railway, pull the file off the service volume into your local `backups/`
+directory:
+
+```bash
+railway ssh <service> -- bun run scripts/db-backup.ts
+railway ssh <service> -- cat backups/<name>.db > backups/<name>.db
+```
