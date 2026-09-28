@@ -52,6 +52,9 @@ const TEST_ENV = {
   PORT: String(TEST_PORT),
   // Keep request logs out of the test report; errors still surface.
   LOG_LEVEL: 'error',
+  // The suites hammer register/login beyond any sane rate budget, so the
+  // auth throttler is bypassed under test.
+  RIFFERNAL_RATE_LIMIT_DISABLED: '1',
 };
 
 export default defineConfig({
