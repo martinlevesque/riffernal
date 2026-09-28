@@ -121,28 +121,6 @@ test.describe('Loops - NoteManager.resetFromTime', () => {
     expect(result.nextNoteIndex).toBe(1);
     expect(result.isComplete).toBe(false);
   });
-
-  test('findNearestNote returns closest note by time, restricted by staff', async ({ page }) => {
-    const song = makeSong([
-      { time: 1.0, key: 'C3', duration: 0.25 },
-      { time: 2.0, key: 'C5', duration: 0.25 },
-      { time: 3.0, key: 'E3', duration: 0.25 },
-    ]);
-    await bootNoteManager(page, song);
-    const result = await page.evaluate(async () => {
-      const nm = (window as any)._testNm;
-      return {
-        nearest1_8: nm.findNearestNote(1.8).time,
-        nearest2_2: nm.findNearestNote(2.2).time,
-        nearestTreble: nm.findNearestNote(2.2, 'treble').time,
-        nearestBass: nm.findNearestNote(2.2, 'bass').time,
-      };
-    });
-    expect(result.nearest1_8).toBe(2.0);
-    expect(result.nearest2_2).toBe(2.0);
-    expect(result.nearestTreble).toBe(2.0);
-    expect(result.nearestBass).toBe(3.0);
-  });
 });
 
 // -- Game method tests (constructed instance, no DOM wiring) -----------------
@@ -868,16 +846,50 @@ test.describe('Loops - UI', () => {
     await expect(page.locator('#sheet-page-info')).toContainText('2 /');
   });
 
-  test('clicking the game-screen sheet seeks the game without opening the full sheet', async ({ page }) => {
+  test('clicking a note on the game-screen sheet seeks the game without opening the full sheet', async ({ page }) => {
     await startGame(page);
+    await closeSongInfoPopup(page);
+    await page.waitForFunction(() => {
+      const g = (window as any)._game;
+      return g && g.renderer.sheetBarW > 0;
+    });
+    // Pause so the scrolling sheet doesn't move the note between reading its
+    // pixel position and clicking it.
+    const target = await page.evaluate(() => {
+      const g = (window as any)._game;
+      g.pause();
+      const note = g.noteManager.notes[0];
+      const pos = g.renderer.notePixelPosition(note);
+      const rect = document.getElementById('gameCanvas')!.getBoundingClientRect();
+      return { x: rect.left + pos.x, y: rect.top + pos.y, time: note.time };
+    });
+    await page.mouse.click(target.x, target.y);
+    await expectSheetScreenInactive(page);
+    const state = await gameState(page);
+    expect(state.currentTime).toBeGreaterThanOrEqual(target.time);
+  });
+
+  test('clicking outside the sheet notes does not seek the game', async ({ page }) => {
+    await startGame(page);
+    await closeSongInfoPopup(page);
+    await page.waitForFunction(() => {
+      const g = (window as any)._game;
+      return g && g.renderer.sheetBarW > 0;
+    });
+    await page.evaluate(() => {
+      (window as any)._game.pause();
+    });
+    const before = (await gameState(page)).currentTime;
     const rect = await page.locator('#gameCanvas').boundingBox();
     expect(rect).not.toBeNull();
-    const clickX = rect!.x + rect!.width * 0.30;
-    const clickY = rect!.y + 110;
-    await page.mouse.click(clickX, clickY);
-    await expectSheetScreenInactive(page);
-    await openSheet(page);
-    await expect(page.locator('#sheet-page-info')).toContainText('/ 2');
+    // Empty sheet-staff space, far from any visible note.
+    await page.mouse.click(rect!.x + rect!.width * 0.05, rect!.y + 110);
+    // Falling-notes highway below the sheet.
+    await page.mouse.click(rect!.x + rect!.width * 0.5, rect!.y + rect!.height * 0.6);
+    // Piano area at the bottom.
+    await page.mouse.click(rect!.x + rect!.width * 0.5, rect!.y + rect!.height * 0.95);
+    const after = (await gameState(page)).currentTime;
+    expect(after).toBe(before);
   });
 
   test('next sheet page does not retain the previous page loop overlay or highlighted notes', async ({ page }) => {

@@ -293,17 +293,8 @@ export class SheetView {
     if (r.sheetBarW <= 0) return null;
 
     if (x < r.sheetBarX - maxRadius || x > r.sheetBarX + r.sheetBarW + maxRadius) return null;
-    const note = this._game.noteManager.findNearestNoteByClick(x, y, r, maxRadius);
 
-    if (note) return note;
-    const t = r.sheetViewStart
-      + ((x - r.sheetBarX) / r.sheetBarW) * (r.sheetViewEnd - r.sheetViewStart);
-    let staff: 'treble' | 'bass' | undefined;
-
-    if (y >= r.sheetTrebleTop && y <= r.sheetTrebleBottom) staff = 'treble';
-    else if (y >= r.sheetBassTop && y <= r.sheetBassBottom) staff = 'bass';
-
-    return this._game.noteManager.findNearestNote(t, staff);
+    return this._game.noteManager.findNearestNoteByClick(x, y, r, maxRadius);
   }
 
   private async _handleCanvasClick(e: MouseEvent, targetCanvas: HTMLCanvasElement, renderer: Renderer): Promise<void> {
