@@ -1,4 +1,4 @@
-.PHONY: build run deploy deploy-https dev dev-stop clean logs backup restore
+.PHONY: build run deploy deploy-https dev dev-stop worktree clean logs backup restore
 
 IMAGE_NAME := riffernal
 CONTAINER_NAME := riffernal
@@ -34,6 +34,18 @@ dev:
 
 dev-stop:
 	docker compose -f docker-compose.dev.yml down
+
+# Usage: make worktree branch=<branch> (e.g. make worktree branch=fix/178-foo).
+# Works from any directory inside the repository.
+ifeq ($(origin branch),command line)
+# Copy the command-line override to a plain variable; passing the target
+# by name (make worktree branch=foo) would otherwise be invisible to $(BRANCH).
+BRANCH := $(branch)
+endif
+
+worktree:
+	@test -n "$(BRANCH)" || { echo "Usage: make worktree branch=<branch>"; exit 1; }
+	@bun run scripts/worktree.ts "$(BRANCH)"
 
 stop:
 	-docker stop $(CONTAINER_NAME)
