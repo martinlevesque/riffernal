@@ -93,27 +93,29 @@ export class AuthScreen {
          </div>`;
 
     this._screen.innerHTML = `
-      <div class="auth-card">
+      <div class="auth-panel">
         <div class="auth-brand"><span class="accent">RIFF</span>ERNAL</div>
         ${intro}
-        <h2>${MODE_LABEL[mode]}</h2>
-        ${subtitle}
-        <form class="auth-form" id="auth-form">
-          <label class="auth-field">
-            <span class="auth-field-label">Username</span>
-            <input type="text" class="auth-input" id="auth-username" placeholder="Username..." maxlength="32" autocomplete="username" required>
-          </label>
-          ${taglineField}
-          <label class="auth-field">
-            <span class="auth-field-label">Password</span>
-            <input type="password" class="auth-input" id="auth-password" placeholder="Password..." minlength="4" autocomplete="${PASSWORD_AUTOCOMPLETE[mode]}" required>
-          </label>
-          <div class="auth-error" id="auth-error"></div>
-          <div class="auth-actions">
-            <button type="submit" class="btn btn-primary" id="auth-submit">${SUBMIT_LABEL[mode]}</button>
-          </div>
-        </form>
-        ${toggleHtml}
+        <div class="auth-card">
+          <h2>${MODE_LABEL[mode]}</h2>
+          ${subtitle}
+          <form class="auth-form" id="auth-form">
+            <label class="auth-field">
+              <span class="auth-field-label">Username</span>
+              <input type="text" class="auth-input" id="auth-username" placeholder="Username..." maxlength="32" autocomplete="username" required>
+            </label>
+            ${taglineField}
+            <label class="auth-field">
+              <span class="auth-field-label">Password</span>
+              <input type="password" class="auth-input" id="auth-password" placeholder="Password..." minlength="4" autocomplete="${PASSWORD_AUTOCOMPLETE[mode]}" required>
+            </label>
+            <div class="auth-error" id="auth-error"></div>
+            <div class="auth-actions">
+              <button type="submit" class="btn btn-primary" id="auth-submit">${SUBMIT_LABEL[mode]}</button>
+            </div>
+          </form>
+          ${toggleHtml}
+        </div>
       </div>
     `;
 
