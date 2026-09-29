@@ -32,7 +32,7 @@ const INTRO_HTML = `
       <li>Drop in any MIDI file and play</li>
       <li>Connect your MIDI keyboard</li>
       <li>Slow down, loop, and nail it</li>
-      <li>Climb the daily leaderboard</li>
+      <li>Share and import community songs</li>
     </ul>
   </div>
 `;

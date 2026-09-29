@@ -212,8 +212,8 @@ input[type="text"]:focus {
 
 .intro-list li {
   font-family: var(--font-mono);
-  font-size: 0.85rem;
-  line-height: 1.2;
+  font-size: 0.8rem;
+  line-height: 1.25;
   color: var(--text-secondary);
   padding-left: 0.9rem;
   position: relative;
