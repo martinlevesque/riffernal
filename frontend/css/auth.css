@@ -150,7 +150,9 @@
    ============================================ */
 
 .auth-brand {
-  font-size: 1.5rem;
+  /* Scale down on narrow viewports: a fixed size can spill past the card
+     border on phones, where the card shrinks with the viewport. */
+  font-size: clamp(0.85rem, 5vw, 1.5rem);
   font-weight: 900;
   letter-spacing: 0.3em;
   text-align: center;
