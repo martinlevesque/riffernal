@@ -27,11 +27,11 @@ const PASSWORD_AUTOCOMPLETE: Record<AuthMode, string> = {
 
 const INTRO_HTML = `
   <div class="intro">
-    <p class="intro-lead">Turn any song into a falling-notes piano game.</p>
+    <p class="intro-lead">Your favorite songs, played like a rhythm game.</p>
     <ul class="intro-list">
-      <li>Import your own MIDI files</li>
-      <li>Use computer keys or a MIDI keyboard</li>
-      <li>Practice hands, slow down, loop parts</li>
+      <li>Drop in any MIDI file and play</li>
+      <li>Computer keys or MIDI keyboard</li>
+      <li>Slow down, loop, and nail it</li>
       <li>Climb the daily leaderboard</li>
     </ul>
   </div>

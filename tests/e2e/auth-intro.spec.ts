@@ -15,8 +15,8 @@ test.describe('Auth screen introduction', () => {
 
     const intro = page.locator('.intro');
     await expect(intro).toBeVisible();
-    await expect(intro).toContainText('falling-notes');
-    await expect(intro).toContainText('Import your own MIDI files');
+    await expect(intro).toContainText('rhythm game');
+    await expect(intro).toContainText('Drop in any MIDI file');
     await expect(intro).toContainText('daily leaderboard');
 
     const contentCount = await intro.locator('p, li').count();
