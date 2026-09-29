@@ -6,6 +6,7 @@ import {
   fetchLibraryCategorySongs,
   type SongSummary,
 } from "../../api/SongApi.js";
+import { getSongListKeys } from "./songListKeys.js";
 
 interface GroupedItem {
   song: Song;
@@ -43,6 +44,7 @@ export class Menu {
   private _freeplayScreen: HTMLElement;
   private _midiStatusEl: HTMLElement;
   private _controlsHintEl: HTMLElement | null;
+  private _noteCapture: ((note: string) => void) | null = null;
 
   constructor() {
     this._songListEl = document.getElementById("song-list")!;
@@ -411,16 +413,8 @@ export class Menu {
     this._renderSongStats(song, el);
     this._renderBookmarkButton(song, el);
 
-    el.addEventListener("click", () => {
-      this._selectedSong = song;
-      this._songListEl.querySelectorAll(".song-item").forEach((s) => { s.classList.remove("selected"); });
-      el.classList.add("selected");
-      this._startBtn.disabled = false;
-    });
-
-    el.addEventListener("dblclick", () => {
-      if (this.onCommunityStart) this.onCommunityStart(song);
-    });
+    el.addEventListener("click", () => this._selectSong(song, el));
+    el.addEventListener("dblclick", () => this._startSong(song, true));
 
     return el;
   }
@@ -448,16 +442,8 @@ export class Menu {
     this._renderSongStats(song, el);
     this._renderSongActions(song, el);
 
-    el.addEventListener("click", () => {
-      this._selectedSong = song;
-      this._songListEl.querySelectorAll(".song-item").forEach((s) => { s.classList.remove("selected"); });
-      el.classList.add("selected");
-      this._startBtn.disabled = false;
-    });
-
-    el.addEventListener("dblclick", () => {
-      if (this.onStart) this.onStart(song);
-    });
+    el.addEventListener("click", () => this._selectSong(song, el));
+    el.addEventListener("dblclick", () => this._startSong(song, false));
 
     return el;
   }
@@ -555,6 +541,90 @@ export class Menu {
 
     el.appendChild(actionsBtn);
     el.appendChild(actionsMenu);
+  }
+
+  /** While rebinding, a capture callback swallows every incoming note. */
+  setNoteCapture(cb: ((note: string) => void) | null): void {
+    this._noteCapture = cb;
+  }
+
+  /** Route a piano note-on (MIDI or computer keyboard) to the song-list
+   *  shortcuts. Only active while the freeplay screen is shown on its own —
+   *  popups and overlay screens suspend navigation. */
+  handleNoteOn(note: string): void {
+    if (this._noteCapture) {
+      this._noteCapture(note);
+      return;
+    }
+
+    if (!this._freeplayScreen.classList.contains("active")) return;
+    if (document.querySelector(".popup:not(.hidden)")) return;
+    if (document.querySelector(".screen.active:not(#freeplay-screen)")) return;
+
+    const keys = getSongListKeys();
+
+    if (note === keys.prev || note === keys.next) {
+      this._moveSelection(note === keys.next ? 1 : -1);
+    } else if (note === keys.enter) {
+      this._startSelected();
+    }
+  }
+
+  private _selectSong(song: Song, el: HTMLElement): void {
+    this._selectedSong = song;
+    this._songListEl.querySelectorAll(".song-item").forEach((s) => { s.classList.remove("selected"); });
+    el.classList.add("selected");
+    this._startBtn.disabled = false;
+  }
+
+  private _startSong(song: Song, isCommunity: boolean): void {
+    if (isCommunity) {
+      this.onCommunityStart?.(song);
+    } else {
+      this.onStart?.(song);
+    }
+  }
+
+  private _visibleItems(): HTMLElement[] {
+    return Array.from(this._songListEl.querySelectorAll(".song-item"))
+      .filter((el): el is HTMLElement => el instanceof HTMLElement && el.offsetParent !== null);
+  }
+
+  private _moveSelection(delta: number): void {
+    const items = this._visibleItems();
+
+    if (items.length === 0) return;
+
+    const current = items.findIndex((el) => el.classList.contains("selected"));
+    const next = (current + delta + items.length) % items.length;
+    const el = items[next];
+    const song = this._findSong(Number(el.dataset.songId));
+
+    if (!song) return;
+
+    this._selectSong(song, el);
+    el.scrollIntoView({ block: "nearest" });
+  }
+
+  private _startSelected(): void {
+    const el = this._visibleItems().find((item) => item.classList.contains("selected"));
+
+    if (!el) return;
+
+    const song = this._findSong(Number(el.dataset.songId));
+
+    if (!song) return;
+
+    this._startSong(song, el.classList.contains("community-song"));
+  }
+
+  private _findSong(id: number): Song | null {
+    for (const group of this._groups) {
+      const item = group.items.find((i) => i.song.id === id);
+
+      if (item) return item.song;
+    }
+    return this._communitySongs.find((s) => s.id === id) ?? null;
   }
 
   private _autoSelect(song: Song): void {

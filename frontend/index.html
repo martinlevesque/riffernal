@@ -185,9 +185,25 @@
               <span class="setting-theme-label">Theme</span>
               <div id="settings-theme-list" class="setting-theme-options"></div>
             </div>
+            <div class="setting-shortcuts">
+              <button id="btn-menu-shortcuts" class="btn-link" type="button">Keyboard shortcuts&hellip;</button>
+            </div>
           </div>
           <div class="popup-actions">
             <button id="btn-close-settings" class="btn btn-primary">CLOSE</button>
+          </div>
+        </div>
+      </div>
+
+      <div id="shortcuts-popup" class="popup hidden">
+        <div class="popup-card">
+          <h2>KEYBOARD SHORTCUTS</h2>
+          <div class="popup-body">
+            <p class="shortcuts-hint">Song list navigation. Click a shortcut, then play a note on your MIDI keyboard (or a piano key on your computer keyboard) to bind it.</p>
+            <div id="shortcut-list" class="shortcut-list"></div>
+          </div>
+          <div class="popup-actions">
+            <button id="btn-close-shortcuts" class="btn btn-primary">CLOSE</button>
           </div>
         </div>
       </div>

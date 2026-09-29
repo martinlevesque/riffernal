@@ -58,4 +58,22 @@ test.describe("API: user settings", () => {
     const body = await res.json();
     expect(body).toHaveProperty("piano_show_used_keys_only");
   });
+
+  test("PUT /api/user/settings round-trips keyboard_menu_shortcuts", async ({ request }) => {
+    const jsonHeaders = await authJsonHeaders(request);
+    const shortcuts = { prev: "C3", next: "D3", enter: "E3" };
+    const res = await request.put("/api/user/settings", {
+      data: { keyboard_menu_shortcuts: shortcuts },
+      headers: jsonHeaders,
+    });
+    expect(res.ok()).toBeTruthy();
+    const body = await res.json();
+    expect(body.keyboard_menu_shortcuts).toEqual(shortcuts);
+
+    const headers = await authHeaders(request);
+    const getRes = await request.get("/api/user", { headers });
+    expect(getRes.ok()).toBeTruthy();
+    const getBody = await getRes.json();
+    expect(getBody.keyboard_menu_shortcuts).toEqual(shortcuts);
+  });
 });

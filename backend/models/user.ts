@@ -4,9 +4,16 @@ export interface CurrentUser {
   id: number;
 }
 
+export interface KeyboardMenuShortcuts {
+  prev?: string | null;
+  next?: string | null;
+  enter?: string | null;
+}
+
 export interface GameSettings {
   piano_show_used_keys_only?: boolean;
   octave_agnostic?: boolean;
+  keyboard_menu_shortcuts?: KeyboardMenuShortcuts;
 }
 
 /** Parse the user's persisted game settings JSON. Corrupt or missing JSON

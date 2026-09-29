@@ -93,6 +93,7 @@ export class KeyboardInput {
   private _onKeyDown(e: KeyboardEvent): void {
     if (!this.enabled) return;
     if (e.repeat) return;
+    if (e.target instanceof HTMLInputElement || e.target instanceof HTMLTextAreaElement) return;
 
     const note = KEYBOARD_MAP[e.code];
     if (!note) return;
@@ -109,6 +110,9 @@ export class KeyboardInput {
 
     const note = KEYBOARD_MAP[e.code];
     if (!note) return;
+    // Keys pressed while typing in a text input never produced a note-on —
+    // ignore their release too.
+    if (!this._pressedKeys.has(e.code)) return;
 
     e.preventDefault();
     this._pressedKeys.delete(e.code);
