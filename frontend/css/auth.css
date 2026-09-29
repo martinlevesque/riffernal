@@ -37,7 +37,7 @@
   border: 1px solid var(--border-medium);
   border-radius: 8px;
   padding: 1.6rem 2.5rem 1.5rem;
-  width: clamp(360px, 36vw, 560px);
+  width: min(clamp(360px, 36vw, 560px), calc(100vw - 1.5rem));
   box-shadow:
     0 0 40px rgba(0, 0, 0, 0.5),
     0 0 1px rgba(255, 255, 255, 0.05);
@@ -180,6 +180,18 @@
 
 /* The intro sits between brand and card, sized to the card column. */
 #auth-screen .intro {
-  width: clamp(360px, 36vw, 560px);
+  width: min(clamp(360px, 36vw, 560px), calc(100vw - 1.5rem));
   margin: 0;
+}
+
+/* -- mobile / short viewports --------------------------------------------- */
+
+@media (max-width: 480px) {
+  .auth-panel {
+    gap: 0.75rem;
+  }
+
+  .auth-card {
+    padding: 1.25rem 1rem;
+  }
 }
