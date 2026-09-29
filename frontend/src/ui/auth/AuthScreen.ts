@@ -25,6 +25,18 @@ const PASSWORD_AUTOCOMPLETE: Record<AuthMode, string> = {
   register: "new-password",
 };
 
+const INTRO_HTML = `
+  <div class="auth-intro">
+    <p class="auth-intro-lead">Turn any song into a falling-notes piano game.</p>
+    <ul class="auth-intro-list">
+      <li>Import your own MIDI files</li>
+      <li>Use computer keys or a MIDI keyboard</li>
+      <li>Practice hands, slow down, loop parts</li>
+      <li>Climb the daily leaderboard</li>
+    </ul>
+  </div>
+`;
+
 export class AuthScreen {
   private _screen: HTMLElement;
   private _opts: AuthScreenOptions;
@@ -66,6 +78,8 @@ export class AuthScreen {
          </label>`
       : "";
 
+    const intro = mode === "setup" ? "" : INTRO_HTML;
+
     const subtitle = mode === "setup"
       ? `<p class="auth-subtitle">Create your admin account to get started</p>`
       : "";
@@ -81,6 +95,7 @@ export class AuthScreen {
     this._screen.innerHTML = `
       <div class="auth-card">
         <div class="auth-brand"><span class="accent">RIFF</span>ERNAL</div>
+        ${intro}
         <h2>${MODE_LABEL[mode]}</h2>
         ${subtitle}
         <form class="auth-form" id="auth-form">

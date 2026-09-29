@@ -11,6 +11,7 @@
   display: flex;
   align-items: center;
   justify-content: center;
+  overflow-y: auto;
   pointer-events: auto;
   background: var(--bg-dark);
 }
@@ -20,12 +21,15 @@
    ============================================ */
 
 .auth-card {
+  /* margin:auto keeps the card centered while overflow-y:auto on the parent
+     lets short viewports scroll to it instead of clipping it in half. */
   background: var(--bg-surface);
   border: 1px solid var(--border-medium);
   border-radius: 8px;
-  padding: 2rem 2.5rem;
+  padding: 1.5rem 2.5rem;
   max-width: 400px;
   width: 90%;
+  margin: auto;
   box-shadow:
     0 0 40px rgba(0, 0, 0, 0.5),
     0 0 1px rgba(255, 255, 255, 0.05);
@@ -58,7 +62,7 @@
   display: flex;
   flex-direction: column;
   gap: 0.3rem;
-  margin-bottom: 1rem;
+  margin-bottom: 0.9rem;
 }
 
 .auth-field-label {
@@ -122,7 +126,7 @@
 }
 
 .auth-toggle {
-  margin-top: 1rem;
+  margin-top: 0.5rem;
   text-align: center;
 }
 
@@ -160,5 +164,45 @@
 }
 
 .auth-brand .accent {
+  color: var(--accent-red);
+}
+
+/* ============================================
+   AUTH SCREEN - APP INTRODUCTION
+   ============================================ */
+
+.auth-intro {
+  margin: 0 0 0.75rem;
+  text-align: left;
+}
+
+.auth-intro-lead {
+  font-family: var(--font-mono);
+  font-size: 1rem;
+  line-height: 1.2;
+  color: var(--text-primary);
+  margin-bottom: 0.35rem;
+}
+
+.auth-intro-list {
+  list-style: none;
+  display: flex;
+  flex-direction: column;
+  gap: 0.1rem;
+}
+
+.auth-intro-list li {
+  font-family: var(--font-mono);
+  font-size: 0.85rem;
+  line-height: 1.2;
+  color: var(--text-secondary);
+  padding-left: 0.9rem;
+  position: relative;
+}
+
+.auth-intro-list li::before {
+  content: '+';
+  position: absolute;
+  left: 0;
   color: var(--accent-red);
 }
