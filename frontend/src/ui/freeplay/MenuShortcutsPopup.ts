@@ -32,9 +32,9 @@ export class MenuShortcutsPopup {
     });
 
     document.addEventListener("keydown", (e) => {
-      if (this._listening && e.key === "Escape") {
+      if (!this._popup.classList.contains("hidden") && e.key === "Escape") {
         e.preventDefault();
-        this._stopListening();
+        this._close();
       }
     });
 
