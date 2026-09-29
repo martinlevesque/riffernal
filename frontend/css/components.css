@@ -185,3 +185,43 @@ input[type="text"]:focus {
 .midi-status.connected {
   color: var(--accent-green);
 }
+
+/* ============================================
+   INTRO (lead line + plus-marker bullet list)
+   ============================================ */
+
+.intro {
+  margin: 0 0 0.75rem;
+  text-align: left;
+}
+
+.intro-lead {
+  font-family: var(--font-mono);
+  font-size: 1rem;
+  line-height: 1.2;
+  color: var(--text-primary);
+  margin-bottom: 0.35rem;
+}
+
+.intro-list {
+  list-style: none;
+  display: flex;
+  flex-direction: column;
+  gap: 0.1rem;
+}
+
+.intro-list li {
+  font-family: var(--font-mono);
+  font-size: 0.85rem;
+  line-height: 1.2;
+  color: var(--text-secondary);
+  padding-left: 0.9rem;
+  position: relative;
+}
+
+.intro-list li::before {
+  content: '+';
+  position: absolute;
+  left: 0;
+  color: var(--accent-red);
+}

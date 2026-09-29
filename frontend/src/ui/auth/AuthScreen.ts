@@ -26,9 +26,9 @@ const PASSWORD_AUTOCOMPLETE: Record<AuthMode, string> = {
 };
 
 const INTRO_HTML = `
-  <div class="auth-intro">
-    <p class="auth-intro-lead">Turn any song into a falling-notes piano game.</p>
-    <ul class="auth-intro-list">
+  <div class="intro">
+    <p class="intro-lead">Turn any song into a falling-notes piano game.</p>
+    <ul class="intro-list">
       <li>Import your own MIDI files</li>
       <li>Use computer keys or a MIDI keyboard</li>
       <li>Practice hands, slow down, loop parts</li>

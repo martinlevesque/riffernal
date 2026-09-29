@@ -13,7 +13,7 @@ test.describe('Auth screen introduction', () => {
   test('shows a short introduction describing the app', async ({ page }) => {
     await expectAuthScreenActive(page);
 
-    const intro = page.locator('.auth-intro');
+    const intro = page.locator('.intro');
     await expect(intro).toBeVisible();
     await expect(intro).toContainText('falling-notes');
     await expect(intro).toContainText('Import your own MIDI files');
@@ -27,7 +27,7 @@ test.describe('Auth screen introduction', () => {
     await page.locator('#auth-toggle-btn').click();
     await expectAuthScreenActive(page);
 
-    const intro = page.locator('.auth-intro');
+    const intro = page.locator('.intro');
     await expect(intro).toBeVisible();
   });
 });
