@@ -20,6 +20,18 @@ bun run dev
 
 Open http://localhost:3000.
 
+## Worktrees
+
+Check a branch out into a dedicated worktree next to the main repository:
+
+```bash
+make worktree branch=<branch>
+```
+
+Reuses the worktree if the branch is already checked out somewhere, and
+prints the folder to `cd` into. Local and `origin/*` branches are checked
+out as-is; any other name is created off `master`.
+
 ## Build
 
 Compile TypeScript to JavaScript:

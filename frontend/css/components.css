@@ -169,6 +169,60 @@ input[type="text"]:focus {
   font-size: 0.85rem;
 }
 
+.setting-shortcuts {
+  margin-top: 1rem;
+}
+
+.shortcuts-hint {
+  color: var(--text-secondary);
+  font-size: 0.8rem;
+  letter-spacing: 0.05em;
+  margin-bottom: 1rem;
+}
+
+.shortcut-list {
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+}
+
+.shortcut-row {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 1rem;
+  width: 100%;
+  padding: 0.5rem 0.75rem;
+  border: 1px solid var(--border-subtle);
+  border-radius: 4px;
+  background: none;
+  color: var(--text-secondary);
+  font-size: 0.85rem;
+  letter-spacing: 0.05em;
+  cursor: pointer;
+  transition: color 0.15s, border-color 0.15s;
+}
+
+.shortcut-row:hover {
+  color: var(--text-primary);
+  border-color: var(--border-medium);
+}
+
+.shortcut-row .shortcut-key {
+  font-family: var(--font-mono);
+  font-weight: bold;
+  color: var(--text-primary);
+}
+
+.shortcut-row.listening {
+  border-color: var(--accent-red);
+  color: var(--text-primary);
+}
+
+.shortcut-row.listening .shortcut-key {
+  color: var(--accent-red);
+}
+
 /* ============================================
    MIDI STATUS
    ============================================ */

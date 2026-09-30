@@ -3,6 +3,7 @@ import { Synth } from './audio/Synth.js';
 import { KeyboardInput } from './input/KeyboardInput.js';
 import { MidiInput } from './input/MidiInput.js';
 import { Menu } from './ui/freeplay/Menu.js';
+import { MenuShortcutsPopup } from './ui/freeplay/MenuShortcutsPopup.js';
 import { ScoreDisplay } from './ui/play/ScoreDisplay.js';
 import { TrackSelect } from './ui/freeplay/TrackSelect.js';
 import { CategorySelect } from './ui/freeplay/CategorySelect.js';
@@ -80,6 +81,7 @@ interface AppContext {
   game: Game;
   controls: GameControls;
   menu: Menu;
+  keyboardInput: KeyboardInput;
   songInfoPopup: SongInfoPopup;
   midiInput: MidiInput;
   trackSelect: TrackSelect;
@@ -99,10 +101,11 @@ function createAppContext(): AppContext {
   const trackSelect = new TrackSelect();
   const controls = new GameControls(game);
   const menu = new Menu();
+  new MenuShortcutsPopup(menu);
   const categorySelect = new CategorySelect();
   const songInfoPopup = new SongInfoPopup(game, () => controls.updatePauseBtn());
 
-  return { canvas, game, controls, menu, songInfoPopup, midiInput, trackSelect, categorySelect };
+  return { canvas, game, controls, menu, keyboardInput, songInfoPopup, midiInput, trackSelect, categorySelect };
 }
 
 /** Load the user's library (own + bookmarked songs grouped by category) and
@@ -112,6 +115,19 @@ async function loadMenuData(ctx: AppContext): Promise<void> {
   const { menu } = ctx;
   await menu.loadLibrary();
   menu.loadCommunitySongs().catch((e) => console.error('Failed to load community songs:', e));
+}
+
+/** While browsing menus the game has not started, so piano key presses
+ *  (MIDI or computer keyboard) belong to the song-list shortcuts.
+ *  Game.start() takes the input callbacks over and Game clears them when
+ *  leaving gameplay, so this must re-run on every return to the menu. */
+function wireMenuNoteInput(ctx: AppContext): void {
+  const { menu, midiInput, keyboardInput } = ctx;
+  midiInput.onNoteOn = (note) => menu.handleNoteOn(note);
+  keyboardInput.onNoteOn = (note) => menu.handleNoteOn(note);
+  midiInput.onNoteOff = (note) => menu.handleNoteOff(note);
+  keyboardInput.onNoteOff = (note) => menu.handleNoteOff(note);
+  keyboardInput.start();
 }
 
 /** Wire up the game's own lifecycle callbacks (back-to-menu navigation and
@@ -132,6 +148,7 @@ function setupGameCallbacks(ctx: AppContext): void {
       _homeScreen?.refreshLeaderboard();
     }
 
+    wireMenuNoteInput(ctx);
     loadMenuData(ctx).catch((e) => console.error('Failed to refresh menu:', e));
   };
 
@@ -316,6 +333,8 @@ async function initApp(): Promise<void> {
   _homeScreen.show();
 
   const ctx = createAppContext();
+  ctx.menu.setHomeActions((action) => _homeScreen?.cardAction(action));
+  wireMenuNoteInput(ctx);
   await loadMenuData(ctx);
   setupGameCallbacks(ctx);
   setupMenuCallbacks(ctx);
