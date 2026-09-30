@@ -11,8 +11,21 @@
   display: flex;
   align-items: center;
   justify-content: center;
+  overflow-y: auto;
   pointer-events: auto;
   background: var(--bg-dark);
+}
+
+/* Column of brand + intro + card. margin:auto centers it and collapses to 0
+   when content outgrows the viewport, so the parent's overflow-y can scroll
+   instead of clipping the top. */
+.auth-panel {
+  margin: auto;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 0.75rem;
+  padding: 0.25rem 0;
 }
 
 /* ============================================
@@ -23,9 +36,8 @@
   background: var(--bg-surface);
   border: 1px solid var(--border-medium);
   border-radius: 8px;
-  padding: 2rem 2.5rem;
-  max-width: 400px;
-  width: 90%;
+  padding: 0.6rem 2.5rem;
+  width: min(clamp(360px, 36vw, 560px), calc(100vw - 1.5rem));
   box-shadow:
     0 0 40px rgba(0, 0, 0, 0.5),
     0 0 1px rgba(255, 255, 255, 0.05);
@@ -35,7 +47,7 @@
   font-size: 1rem;
   letter-spacing: 0.25em;
   text-align: center;
-  margin-bottom: 0.3rem;
+  margin-bottom: 0.25rem;
   color: var(--text-secondary);
   font-weight: 400;
 }
@@ -57,8 +69,21 @@
 .auth-field {
   display: flex;
   flex-direction: column;
-  gap: 0.3rem;
-  margin-bottom: 1rem;
+  gap: 0.25rem;
+  margin-bottom: 0.55rem;
+}
+
+/* The register-only decoy email field: it looks like the other inputs until
+   clicked, when it fills itself with the no-spam punchline and locks. */
+
+.auth-field-joke {
+  margin-bottom: 0.2rem;
+}
+
+.auth-field-joke .auth-input:disabled {
+  color: var(--text-secondary);
+  opacity: 0.6;
+  cursor: not-allowed;
 }
 
 .auth-field-label {
@@ -113,7 +138,7 @@
   flex-direction: column;
   gap: 0.6rem;
   align-items: center;
-  margin-top: 0.5rem;
+  margin-top: 0.2rem;
 }
 
 .auth-actions .btn {
@@ -150,17 +175,38 @@
    ============================================ */
 
 .auth-brand {
-  /* Scale down on narrow viewports: a fixed size can spill past the card
-     border on phones, where the card shrinks with the viewport. */
-  font-size: clamp(0.85rem, 5vw, 1.5rem);
+  /* 3vw shrinks the wordmark on phones so it never crowds the brand column;
+     1.25rem keeps it legible once 3vw drops too low. */
+  font-size: clamp(1.25rem, 3vw, 2.75rem);
   font-weight: 900;
-  letter-spacing: 0.3em;
+  letter-spacing: 0.4em;
+  margin: 0;
   text-align: center;
-  margin-bottom: 1.5rem;
+  text-shadow:
+    0 0 40px rgba(255, 34, 68, 0.3),
+    0 0 80px rgba(255, 34, 68, 0.1);
   user-select: none;
   white-space: nowrap;
 }
 
 .auth-brand .accent {
   color: var(--accent-red);
+}
+
+/* The intro sits between brand and card, sized to the card column. */
+#auth-screen .intro {
+  width: min(clamp(360px, 36vw, 560px), calc(100vw - 1.5rem));
+  margin: 0;
+}
+
+/* -- mobile / short viewports --------------------------------------------- */
+
+@media (max-width: 480px) {
+  .auth-panel {
+    gap: 0.75rem;
+  }
+
+  .auth-card {
+    padding: 1.25rem 1rem;
+  }
 }
