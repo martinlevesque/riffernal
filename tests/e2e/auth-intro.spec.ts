@@ -17,7 +17,7 @@ test.describe('Auth screen introduction', () => {
     await expect(intro).toBeVisible();
     await expect(intro).toContainText('rhythm game');
     await expect(intro).toContainText('Drop in a MIDI');
-    await expect(intro).toContainText('community songs');
+    await expect(intro).toContainText('from the community');
 
     const contentCount = await intro.locator('p, li').count();
     expect(contentCount).toBeLessThan(10);
