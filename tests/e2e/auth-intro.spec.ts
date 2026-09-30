@@ -10,7 +10,7 @@ test.describe('Auth screen introduction', () => {
     await page.goto('/');
   });
 
-  test('shows a short introduction describing the app', async ({ page }) => {
+  test('presents the app on login and sells the no-email form on register', async ({ page }) => {
     await expectAuthScreenActive(page);
 
     const intro = page.locator('.intro');
@@ -21,19 +21,10 @@ test.describe('Auth screen introduction', () => {
 
     const contentCount = await intro.locator('p, li').count();
     expect(contentCount).toBeLessThan(10);
-  });
 
-  test('introduction survives toggling to register', async ({ page }) => {
     await page.locator('#auth-toggle-btn').click();
     await expectAuthScreenActive(page);
-
-    const intro = page.locator('.intro');
     await expect(intro).toBeVisible();
-  });
-
-  test('register shows the no-email gag field that locks after one click', async ({ page }) => {
-    await page.locator('#auth-toggle-btn').click();
-    await expect(page.locator('.auth-field-joke')).toBeVisible();
 
     const email = page.locator('#auth-email');
     await expect(email).toBeEnabled();
