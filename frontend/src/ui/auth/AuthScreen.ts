@@ -27,7 +27,7 @@ const PASSWORD_AUTOCOMPLETE: Record<AuthMode, string> = {
 
 const INTRO_HTML = `
   <div class="intro">
-    <p class="intro-lead">Your favorite songs as a rhythm game. Damn right.</p>
+    <p class="intro-lead">Your favorite songs as a keyboard rhythm game. Damn right.</p>
     <ul class="intro-list">
       <li>Drop in a MIDI, kick some ass</li>
       <li>The song waits while you suck (learn)</li>
