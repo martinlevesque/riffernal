@@ -29,7 +29,7 @@ const INTRO_HTML = `
   <div class="intro">
     <p class="intro-lead">Your favorite songs, played like a rhythm game.</p>
     <ul class="intro-list">
-      <li>Drop in any MIDI file and play</li>
+      <li>Drop in any MIDI file and kick ass</li>
       <li>The song waits while you learn</li>
       <li>Practice left, right, or both</li>
       <li>Share and import community songs</li>
