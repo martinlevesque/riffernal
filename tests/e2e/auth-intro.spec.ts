@@ -31,13 +31,16 @@ test.describe('Auth screen introduction', () => {
     await expect(intro).toBeVisible();
   });
 
-  test('register shows the no-email joke field, permanently empty', async ({ page }) => {
+  test('register shows the no-email gag field that locks after one click', async ({ page }) => {
     await page.locator('#auth-toggle-btn').click();
     await expect(page.locator('.auth-field-joke')).toBeVisible();
 
     const email = page.locator('#auth-email');
-    await expect(email).toBeDisabled();
-    await expect(page.locator('.auth-field-joke .auth-field-label')).toContainText('no email needed');
+    await expect(email).toBeEnabled();
     await expect(email).toHaveValue('');
+
+    await email.click();
+    await expect(email).toBeDisabled();
+    await expect(email).toHaveValue(/Just kidding, no email needed/);
   });
 });

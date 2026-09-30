@@ -73,26 +73,16 @@
   margin-bottom: 0.6rem;
 }
 
-/* The register-only fake email field: decorative, never fillable, so it gets
-   a whisper of styling instead of a full form row. */
+/* The register-only decoy email field: it looks like the other inputs until
+   clicked, when it fills itself with the no-spam punchline and locks. */
 
 .auth-field-joke {
   margin-bottom: 0.35rem;
 }
-.auth-field-joke .auth-field-label {
-  font-size: 0.72rem;
-  text-transform: none;
-  letter-spacing: 0.02em;
-  opacity: 0.8;
-}
-
-.auth-field-joke .auth-input {
-  padding: 0.35rem 0.8rem;
-  font-size: 0.8rem;
-}
 
 .auth-field-joke .auth-input:disabled {
-  opacity: 0.5;
+  color: var(--text-secondary);
+  opacity: 0.6;
   cursor: not-allowed;
 }
 

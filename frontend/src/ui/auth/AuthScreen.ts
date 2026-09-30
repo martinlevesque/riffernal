@@ -37,6 +37,8 @@ const INTRO_HTML = `
   </div>
 `;
 
+const NO_EMAIL_PUNCHLINE = "Just kidding, no email needed! We don't want to spam you.";
+
 export class AuthScreen {
   private _screen: HTMLElement;
   private _opts: AuthScreenOptions;
@@ -92,12 +94,12 @@ export class AuthScreen {
            <button id="auth-toggle-btn">Already have an account? <span class="accent">Login</span></button>
          </div>`;
 
-    // Pure decoration right before the CTA: it looks like an email field but
-    // can never be filled in, closing the form on the no-spam punchline.
+    // Decoy field: it accepts a click only to swallow it with the no-spam
+    // punchline, then locks itself so no email ever enters the app.
     const emailField = mode === "register"
       ? `<div class="auth-field auth-field-joke">
-           <span class="auth-field-label">Just kidding, no email needed! We don't want to spam you.</span>
-           <input type="email" class="auth-input" id="auth-email" placeholder="you@nowhere.example" disabled>
+           <span class="auth-field-label">Email</span>
+           <input type="email" class="auth-input" id="auth-email" placeholder="Go on, click me.">
          </div>`
       : "";
 
@@ -146,6 +148,14 @@ export class AuthScreen {
       toggleBtn.addEventListener("click", () => {
         this._mode = this._mode === "login" ? "register" : "login";
         this._render();
+      });
+    }
+
+    const email = document.getElementById("auth-email") as HTMLInputElement | null;
+    if (email) {
+      email.addEventListener("click", () => {
+        email.value = NO_EMAIL_PUNCHLINE;
+        email.disabled = true;
       });
     }
   }
