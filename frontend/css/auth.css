@@ -36,7 +36,7 @@
   background: var(--bg-surface);
   border: 1px solid var(--border-medium);
   border-radius: 8px;
-  padding: 0.8rem 2.5rem;
+  padding: 0.6rem 2.5rem;
   width: min(clamp(360px, 36vw, 560px), calc(100vw - 1.5rem));
   box-shadow:
     0 0 40px rgba(0, 0, 0, 0.5),
@@ -70,14 +70,14 @@
   display: flex;
   flex-direction: column;
   gap: 0.25rem;
-  margin-bottom: 0.6rem;
+  margin-bottom: 0.55rem;
 }
 
 /* The register-only decoy email field: it looks like the other inputs until
    clicked, when it fills itself with the no-spam punchline and locks. */
 
 .auth-field-joke {
-  margin-bottom: 0.35rem;
+  margin-bottom: 0.2rem;
 }
 
 .auth-field-joke .auth-input:disabled {
@@ -147,7 +147,7 @@
 }
 
 .auth-toggle {
-  margin-top: 0.2rem;
+  margin-top: 1rem;
   text-align: center;
 }
 
