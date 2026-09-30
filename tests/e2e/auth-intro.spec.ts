@@ -30,4 +30,14 @@ test.describe('Auth screen introduction', () => {
     const intro = page.locator('.intro');
     await expect(intro).toBeVisible();
   });
+
+  test('register shows the no-email joke field, permanently empty', async ({ page }) => {
+    await page.locator('#auth-toggle-btn').click();
+    await expect(page.locator('.auth-field-joke')).toBeVisible();
+
+    const email = page.locator('#auth-email');
+    await expect(email).toBeDisabled();
+    await expect(page.locator('.auth-field-joke .auth-field-label')).toContainText('no email needed');
+    await expect(email).toHaveValue('');
+  });
 });

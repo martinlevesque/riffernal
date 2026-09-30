@@ -92,6 +92,15 @@ export class AuthScreen {
            <button id="auth-toggle-btn">Already have an account? <span class="accent">Login</span></button>
          </div>`;
 
+    // Pure decoration right before the CTA: it looks like an email field but
+    // can never be filled in, closing the form on the no-spam punchline.
+    const emailField = mode === "register"
+      ? `<div class="auth-field auth-field-joke">
+           <span class="auth-field-label">Just kidding, no email needed! We don't want to spam you.</span>
+           <input type="email" class="auth-input" id="auth-email" placeholder="you@nowhere.example" disabled>
+         </div>`
+      : "";
+
     this._screen.innerHTML = `
       <div class="auth-panel">
         <div class="auth-brand"><span class="accent">RIFF</span>ERNAL</div>
@@ -109,6 +118,7 @@ export class AuthScreen {
               <span class="auth-field-label">Password</span>
               <input type="password" class="auth-input" id="auth-password" placeholder="Password..." minlength="4" autocomplete="${PASSWORD_AUTOCOMPLETE[mode]}" required>
             </label>
+            ${emailField}
             <div class="auth-error" id="auth-error"></div>
             <div class="auth-actions">
               <button type="submit" class="btn btn-primary" id="auth-submit">${SUBMIT_LABEL[mode]}</button>
