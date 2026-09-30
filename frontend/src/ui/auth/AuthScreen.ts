@@ -32,7 +32,7 @@ const INTRO_HTML = `
       <li>Drop in a MIDI, kick some ass</li>
       <li>The song waits while you suck (learn)</li>
       <li>Practice left, right, or both</li>
-      <li>Steal songs from the community</li>
+      <li>Steal songs from the community, chip in if you like</li>
     </ul>
   </div>
 `;
