@@ -1,24 +1,34 @@
 import { fetchUserSettings, updateUserSettings } from "../../api/UserApi.js";
 import { reportError } from "../../utils/helpers.js";
-import { getSongListKeys, resolveSongListKeys, setSongListKeys, type SongListKeys } from "./songListKeys.js";
+import {
+  bindingId,
+  formatBinding,
+  getSongListKeys,
+  normalizeBinding,
+  resolveSongListKeys,
+  setSongListKeys,
+  type NoteBinding,
+  type ShortcutAction,
+} from "./songListKeys.js";
 import type { Menu } from "./Menu.js";
-
-type ShortcutAction = keyof SongListKeys;
 
 const ACTIONS: Array<{ id: ShortcutAction; label: string }> = [
   { id: "prev", label: "Left — previous song" },
   { id: "next", label: "Right — next song" },
-  { id: "enter", label: "Enter — start song" },
+  { id: "enter", label: "Enter" },
 ];
 
 /** Settings popup listing the song-list keyboard shortcuts. Clicking a row
- *  arms capture: the next piano note played (MIDI or computer keyboard)
- *  becomes the binding and is persisted to the user settings. */
+ *  arms capture: piano notes played (MIDI or computer keyboard) accumulate
+ *  into a chord while held; the binding is committed once all keys are
+ *  released, and persisted to the user settings. */
 export class MenuShortcutsPopup {
   private _popup: HTMLElement;
   private _listEl: HTMLElement;
   private _menu: Menu;
   private _listening: ShortcutAction | null = null;
+  /** Last non-empty held-note set; survives until the commit note-off. */
+  private _lastHeld: string[] | null = null;
 
   constructor(menu: Menu) {
     this._menu = menu;
@@ -70,15 +80,25 @@ export class MenuShortcutsPopup {
   private _startListening(action: ShortcutAction): void {
     this._listening = action;
     this._render();
-    this._menu.setNoteCapture((note) => this._onCapturedNote(action, note));
+    this._menu.setNoteCapture((notes) => this._onCapturedNotes(action, notes));
   }
 
-  private _onCapturedNote(action: ShortcutAction, note: string): void {
+  private _onCapturedNotes(action: ShortcutAction, held: string[]): void {
+    // Live feedback while keys are held; the binding commits once every
+    // key is released, so multi-key chords stay one capture.
+    if (held.length > 0) {
+      this._lastHeld = held;
+      this._showHeld(held);
+      return;
+    }
+
+    const binding = normalizeBinding(this._lastHeld ?? []);
+
     this._listening = null;
     this._menu.setNoteCapture(null);
+    this._lastHeld = null;
 
-    const keys = getSongListKeys();
-    const conflict = ACTIONS.some((a) => a.id !== action && keys[a.id] === note);
+    const conflict = this._findConflict(action, binding);
 
     if (conflict) {
       this._render();
@@ -86,12 +106,34 @@ export class MenuShortcutsPopup {
       return;
     }
 
-    setSongListKeys({ [action]: note });
-    this._render();
+    if (binding) {
+      setSongListKeys({ [action]: binding });
+      this._render();
 
-    // Settings merge is shallow, so the whole shortcuts object is re-sent.
-    updateUserSettings({ keyboard_menu_shortcuts: { ...getSongListKeys() } })
-      .catch((err) => reportError("Failed to save shortcut", err));
+      // Settings merge is shallow, so the whole shortcuts object is re-sent.
+      updateUserSettings({ keyboard_menu_shortcuts: { ...getSongListKeys() } })
+        .catch((err) => reportError("Failed to save shortcut", err));
+      return;
+    }
+
+    this._render();
+  }
+
+  private _showHeld(held: string[]): void {
+    const idx = ACTIONS.findIndex((a) => a.id === this._listening);
+    const keyEl = this._listEl.children[idx]?.querySelector(".shortcut-key");
+
+    if (keyEl) keyEl.textContent = formatBinding(normalizeBinding(held));
+  }
+
+  private _findConflict(action: ShortcutAction, binding: NoteBinding): ShortcutAction | null {
+    const id = bindingId(binding);
+
+    for (const a of ACTIONS) {
+      if (a.id !== action && bindingId(getSongListKeys()[a.id]) === id) return a.id;
+    }
+
+    return null;
   }
 
   private _flashConflict(action: ShortcutAction): void {
@@ -108,6 +150,7 @@ export class MenuShortcutsPopup {
   private _render(): void {
     this._listEl.innerHTML = "";
     const keys = getSongListKeys();
+    this._lastHeld = null;
 
     for (const action of ACTIONS) {
       const row = document.createElement("button");
@@ -119,7 +162,9 @@ export class MenuShortcutsPopup {
 
       const key = document.createElement("span");
       key.className = "shortcut-key";
-      key.textContent = this._listening === action.id ? "Play a key…" : (keys[action.id] ?? "—");
+      key.textContent = this._listening === action.id
+        ? "Play key(s)…"
+        : formatBinding(keys[action.id]);
 
       row.appendChild(label);
       row.appendChild(key);

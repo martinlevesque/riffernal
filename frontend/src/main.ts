@@ -125,6 +125,8 @@ function wireMenuNoteInput(ctx: AppContext): void {
   const { menu, midiInput, keyboardInput } = ctx;
   midiInput.onNoteOn = (note) => menu.handleNoteOn(note);
   keyboardInput.onNoteOn = (note) => menu.handleNoteOn(note);
+  midiInput.onNoteOff = (note) => menu.handleNoteOff(note);
+  keyboardInput.onNoteOff = (note) => menu.handleNoteOff(note);
   keyboardInput.start();
 }
 
@@ -331,6 +333,7 @@ async function initApp(): Promise<void> {
   _homeScreen.show();
 
   const ctx = createAppContext();
+  ctx.menu.setHomeActions((action) => _homeScreen?.cardAction(action));
   wireMenuNoteInput(ctx);
   await loadMenuData(ctx);
   setupGameCallbacks(ctx);

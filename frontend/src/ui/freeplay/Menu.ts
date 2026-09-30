@@ -6,7 +6,10 @@ import {
   fetchLibraryCategorySongs,
   type SongSummary,
 } from "../../api/SongApi.js";
-import { getSongListKeys } from "./songListKeys.js";
+import {
+  getSongListKeys,
+  matchSongListAction,
+} from "./songListKeys.js";
 
 interface GroupedItem {
   song: Song;
@@ -39,12 +42,29 @@ export class Menu {
   onPublishCommunity: ((song: Song) => void) | null = null;
   onBookmark: ((song: Song) => void) | null = null;
   onBackToHome: (() => void) | null = null;
+  /** Home main-menu action for a matched shortcut chord (home screen). */
+  private _runHomeAction: ((action: "prev" | "next" | "enter") => void) | null = null;
+
+  /** Register how a matched shortcut behaves on the home main menu. */
+  setHomeActions(run: ((action: "prev" | "next" | "enter") => void) | null): void {
+    this._runHomeAction = run;
+  }
+
+  private _runSongListAction(action: "prev" | "next" | "enter"): void {
+    if (action === "enter") {
+      this._startSelected();
+      return;
+    }
+
+    this._moveSelection(action === "next" ? 1 : -1);
+  }
   private _songListEl: HTMLElement;
   private _startBtn: HTMLButtonElement;
   private _freeplayScreen: HTMLElement;
   private _midiStatusEl: HTMLElement;
   private _controlsHintEl: HTMLElement | null;
-  private _noteCapture: ((note: string) => void) | null = null;
+  private _noteCapture: ((notes: string[]) => void) | null = null;
+  private _heldMenuNotes = new Set<string>();
 
   constructor() {
     this._songListEl = document.getElementById("song-list")!;
@@ -543,30 +563,47 @@ export class Menu {
     el.appendChild(actionsMenu);
   }
 
-  /** While rebinding, a capture callback swallows every incoming note. */
-  setNoteCapture(cb: ((note: string) => void) | null): void {
+  /** While rebinding, a capture callback swallows every incoming chord. */
+  setNoteCapture(cb: ((notes: string[]) => void) | null): void {
     this._noteCapture = cb;
   }
 
-  /** Route a piano note-on (MIDI or computer keyboard) to the song-list
-   *  shortcuts. Only active while the freeplay screen is shown on its own —
-   *  popups and overlay screens suspend navigation. */
+  /** Clear all held notes (e.g. popups closing or navigation). */
+  resetNoteHold(): void {
+    this._heldMenuNotes.clear();
+  }
+
+  /** Route a piano note-on (MIDI or computer keyboard) to navigation
+   *  shortcuts: the song list while freeplay is up, or the menu callbacks
+   *  (home main menu) otherwise. Popups and overlay screens suspend it. */
   handleNoteOn(note: string): void {
+    this._heldMenuNotes.add(note);
+
     if (this._noteCapture) {
-      this._noteCapture(note);
+      this._noteCapture([...this._heldMenuNotes]);
       return;
     }
 
-    if (!this._freeplayScreen.classList.contains("active")) return;
     if (document.querySelector(".popup:not(.hidden)")) return;
-    if (document.querySelector(".screen.active:not(#freeplay-screen)")) return;
 
-    const keys = getSongListKeys();
+    const action = matchSongListAction(getSongListKeys(), [...this._heldMenuNotes]);
 
-    if (note === keys.prev || note === keys.next) {
-      this._moveSelection(note === keys.next ? 1 : -1);
-    } else if (note === keys.enter) {
-      this._startSelected();
+    if (!action) return;
+
+    if (this._freeplayScreen.classList.contains("active")
+      && !document.querySelector(".screen.active:not(#freeplay-screen)")) {
+      this._runSongListAction(action);
+      return;
+    }
+
+    this._runHomeAction?.(action);
+  }
+
+  handleNoteOff(note: string): void {
+    this._heldMenuNotes.delete(note);
+
+    if (this._noteCapture && this._heldMenuNotes.size === 0) {
+      this._noteCapture([]);
     }
   }
 

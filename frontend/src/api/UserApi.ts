@@ -1,9 +1,11 @@
 import { parseError, apiFetch } from "./helpers.js";
 
+/** A shortcut binding: a single piano note or a chord (array of notes).
+ *  null = unbound. */
 export interface KeyboardMenuShortcuts {
-  prev?: string | null;
-  next?: string | null;
-  enter?: string | null;
+  prev?: string | string[] | null;
+  next?: string | string[] | null;
+  enter?: string | string[] | null;
 }
 
 export interface GameSettings {
