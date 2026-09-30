@@ -27,12 +27,12 @@ const PASSWORD_AUTOCOMPLETE: Record<AuthMode, string> = {
 
 const INTRO_HTML = `
   <div class="intro">
-    <p class="intro-lead">Your favorite songs, played like a rhythm game.</p>
+    <p class="intro-lead">Your favorite songs as a rhythm game. Damn right.</p>
     <ul class="intro-list">
-      <li>Drop in any MIDI file and kick ass</li>
-      <li>The song waits while you learn</li>
+      <li>Drop in a MIDI, kick some ass</li>
+      <li>The song waits while you suck</li>
       <li>Practice left, right, or both</li>
-      <li>Share and import community songs</li>
+      <li>Steal songs from the community</li>
     </ul>
   </div>
 `;
