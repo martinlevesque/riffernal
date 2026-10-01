@@ -126,13 +126,16 @@ function pixelRect(ctx: CanvasRenderingContext2D, x: number, y: number, w: numbe
   ctx.fillRect(x, y, w, h);
 }
 
-// Block with a hard offset border, drawn as two grid-snapped rects so the
-// outline is one pixel-unit thick on every side.
-function pixelBox(ctx: CanvasRenderingContext2D, x: number, y: number, w: number, h: number, unit: number, borderColor: string, fillColor: string): void {
+// Block with a hard border, drawn as two rects so the outline is
+// `borderUnit` thick on every side. Position snaps to `snapUnit`, kept
+// separate from the border thickness: failing notes carry a double-size
+// border but still snap at the fine grid — coarser snapping makes their
+// scroll movement jump irregularly and read as shaking.
+function pixelBox(ctx: CanvasRenderingContext2D, x: number, y: number, w: number, h: number, snapUnit: number, borderUnit: number, borderColor: string, fillColor: string): void {
   ctx.fillStyle = borderColor;
-  pixelRect(ctx, x - unit, y - unit, w + unit * 2, h + unit * 2, unit);
+  pixelRect(ctx, x - borderUnit, y - borderUnit, w + borderUnit * 2, h + borderUnit * 2, snapUnit);
   ctx.fillStyle = fillColor;
-  pixelRect(ctx, x, y, w, h, unit);
+  pixelRect(ctx, x, y, w, h, snapUnit);
 }
 
 // One checker tile as a reusable pattern: many failing notes can dither
@@ -422,51 +425,56 @@ export class Renderer {
     };
   }
 
-  private _drawNotePart(ctx: CanvasRenderingContext2D, drawX: number, drawY: number, w: number, h: number, unit: number, fillColor: string, borderColor: string): void {
-    pixelBox(ctx, drawX, drawY, w, h, unit, borderColor, fillColor);
+  private _drawNotePart(ctx: CanvasRenderingContext2D, drawX: number, drawY: number, w: number, h: number, snapUnit: number, borderUnit: number, fillColor: string, borderColor: string): void {
+    pixelBox(ctx, drawX, drawY, w, h, snapUnit, borderUnit, borderColor, fillColor);
   }
 
   drawNote(laneIndex: number, y: number, noteHeight: number, color: string, alpha: number, sheetBottom: number, _combo: number, noteName?: string, holding?: boolean, failing?: boolean, waiting?: boolean, visibleRange?: VisibleRange | null): void {
     const ctx = this.ctx;
     const c = themeManager.canvas;
+    const handSide = handForKey(noteName ?? '');
     const drawColor = failing && noteName
-      ? (handForKey(noteName) === HandSide.Left ? c.failColorLeft : c.failColorRight)
+      ? (handSide === HandSide.Left ? c.failColorLeft : c.failColorRight)
       : color;
     const L = this._noteLayout(laneIndex, y, noteHeight, sheetBottom, noteName, failing, visibleRange);
 
     ctx.globalAlpha = alpha;
 
-    const unit = failing ? FAIL_PIXEL : NOTE_PIXEL;
+    const blinkPhase = Math.floor(this._now / FAIL_BLINK_MS) % 2 === 0;
     const borderColor = failing
-      ? (Math.floor(this._now / FAIL_BLINK_MS) % 2 === 0
-        ? (handForKey(noteName ?? '') === HandSide.Left ? c.failParticleLeft : c.failParticleRight)
+      ? (blinkPhase
+        ? (handSide === HandSide.Left ? c.failParticleLeft : c.failParticleRight)
         : drawColor)
       : 'rgba(0, 0, 0, 0.55)';
 
-    ctx.globalAlpha = alpha;
+    // Geometry always snaps at the fine grid so scrolling stays smooth;
+    // failing notes keep their chunkier look via a double-size border
+    // and dither cells, not via coarser position snapping.
+    const snapUnit = NOTE_PIXEL;
+    const borderUnit = failing ? FAIL_PIXEL : NOTE_PIXEL;
 
     if (waiting) {
       const pulse = 0.5 + 0.5 * Math.sin(this._now / 200 * 3.2);
-      const glowUnits = Math.max(unit, pixelSnap(4 + pulse * 8, unit));
+      const glowUnits = Math.max(borderUnit, pixelSnap(4 + pulse * 8, snapUnit));
       ctx.globalAlpha = alpha * 0.25;
       ctx.fillStyle = drawColor;
-      pixelRect(ctx, L.drawX - glowUnits, L.drawY - glowUnits, L.scaledWidth + glowUnits * 2, L.scaledHeadHeight + L.scaledTailHeight + glowUnits * 2, unit);
+      pixelRect(ctx, L.drawX - glowUnits, L.drawY - glowUnits, L.scaledWidth + glowUnits * 2, L.scaledHeadHeight + L.scaledTailHeight + glowUnits * 2, snapUnit);
       ctx.globalAlpha = alpha;
     }
 
     if (L.scaledTailHeight > 0.5) {
-      this._drawNotePart(ctx, L.drawX, L.drawY, L.scaledWidth, L.scaledTailHeight, unit, drawColor, borderColor);
+      this._drawNotePart(ctx, L.drawX, L.drawY, L.scaledWidth, L.scaledTailHeight, snapUnit, borderUnit, drawColor, borderColor);
       ctx.globalAlpha = alpha * (failing ? TAIL_HIGHLIGHT_ALPHA_FAIL : TAIL_HIGHLIGHT_ALPHA);
       ctx.fillStyle = c.noteHighlight;
-      pixelRect(ctx, L.drawX, L.drawY, L.scaledWidth, L.scaledTailHeight, unit);
+      pixelRect(ctx, L.drawX, L.drawY, L.scaledWidth, L.scaledTailHeight, snapUnit);
       ctx.globalAlpha = alpha;
     }
 
     const headDrawY = L.drawY + L.scaledTailHeight;
-    this._drawNotePart(ctx, L.drawX, headDrawY, L.scaledWidth, L.scaledHeadHeight, unit, drawColor, borderColor);
+    this._drawNotePart(ctx, L.drawX, headDrawY, L.scaledWidth, L.scaledHeadHeight, snapUnit, borderUnit, drawColor, borderColor);
     ctx.globalAlpha = alpha * (failing ? HEAD_HIGHLIGHT_ALPHA_FAIL : HEAD_HIGHLIGHT_ALPHA);
     ctx.fillStyle = c.noteHighlight;
-    pixelRect(ctx, L.drawX, headDrawY, L.scaledWidth, L.scaledHeadHeight, unit);
+    pixelRect(ctx, L.drawX, headDrawY, L.scaledWidth, L.scaledHeadHeight, snapUnit);
     ctx.globalAlpha = alpha;
 
     if (holding) {
@@ -476,8 +484,8 @@ export class Renderer {
     }
 
     if (failing && noteName) {
-      const ditherColor = handForKey(noteName) === HandSide.Left ? c.failParticleLeft : c.failParticleRight;
-      ctx.globalAlpha = alpha * (Math.floor(this._now / FAIL_BLINK_MS) % 2 === 0
+      const ditherColor = handSide === HandSide.Left ? c.failParticleLeft : c.failParticleRight;
+      ctx.globalAlpha = alpha * (blinkPhase
         ? FAIL_DITHER_ALPHA_LIT
         : FAIL_DITHER_ALPHA_DIM);
       this._fillChecker(ctx, L.drawX, L.drawY, L.scaledWidth, L.scaledHeadHeight + L.scaledTailHeight, ditherColor, FAIL_PIXEL);
@@ -514,12 +522,14 @@ export class Renderer {
   }
 
   /** Dither fill via a cached pattern, anchored to the note's snapped
-   *  top-left so the checker phase matches per-note cells. */
+   *  top-left. The region snaps at the fine grid so the dither stays
+   *  inside the note while it scrolls; `cell` only sets the checker
+   *  size. */
   private _fillChecker(ctx: CanvasRenderingContext2D, x: number, y: number, w: number, h: number, color: string, cell: number): void {
-    x = pixelSnap(x, cell);
-    y = pixelSnap(y, cell);
-    w = pixelSnap(w, cell);
-    h = pixelSnap(h, cell);
+    x = pixelSnap(x, NOTE_PIXEL);
+    y = pixelSnap(y, NOTE_PIXEL);
+    w = pixelSnap(w, NOTE_PIXEL);
+    h = pixelSnap(h, NOTE_PIXEL);
     let pattern = this._checkerPatterns.get(color);
     if (!pattern) {
       pattern = checkerPattern(ctx, color, cell);
