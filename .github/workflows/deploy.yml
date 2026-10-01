@@ -17,17 +17,7 @@ jobs:
       - uses: actions/checkout@v4
 
       - name: Install Railway CLI
-        run: |
-          set -o pipefail
-          for i in 1 2 3 4 5; do
-            if curl -fsSL https://railway.com/install.sh | sh; then
-              exit 0
-            fi
-            echo "Install attempt $i failed, retrying in 15s..."
-            sleep 15
-          done
-          echo "Railway CLI install failed after 5 attempts"
-          exit 1
+        run: npm install -g @railway/cli
 
       - name: Add Railway CLI to PATH
         run: echo "$HOME/.railway/bin" >> "$GITHUB_PATH"
