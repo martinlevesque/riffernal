@@ -142,6 +142,32 @@ The full Playwright suite is slow — plan for **7–8 minutes** end-to-end
   comments, or test names — use the PR/commit title or git log for traceability
   instead of tying the code to a GitHub issue
 
+## Styling
+
+- **Pixel design language**: `frontend/css/pixel.css` holds the shared
+  primitives (`.pixel-box`, `.pixel-box-inset`, `.pixel-btn`) — reuse them
+  for new components instead of re-styling borders/shadows per component.
+- **Font sizes**: always use the type-scale tokens defined in
+  `frontend/css/base.css` — never write a raw `rem` font-size:
+
+  | Token | Value | Typical use |
+  | --- | --- | --- |
+  | `--fs-smallest` | `0.8rem` | dense metadata (leaderboard cells, tags) |
+  | `--fs-smaller` | `0.9rem` | body/supporting text |
+  | `--fs-small` | `1rem` | default text, inputs, kbd |
+  | `--fs-medium` | `1.15rem` | HUD buttons, mono labels |
+  | `--fs-large` | `1.35rem` | lead paragraphs, emphasis |
+  | `--fs-xlarge` | `1.7rem` | section headings, big HUD numbers |
+  | `--fs-xxlarge` | `2rem` | screen-level headings, banners |
+
+  Pick the nearest token; only add a new one to `base.css` if no existing
+  token fits, and keep the naming (`--fs-*`) and single-step increments.
+  Exemptions: hero/display one-offs (`.title`, `.home-title`,
+  `#result-grade`) and `clamp()`-responsive titles.
+- **Canvas rendering** follows the same pixel language: notes are drawn
+  grid-snapped square blocks (`NOTE_PIXEL` unit, `pixelRect`/`pixelBox`
+  helpers in `frontend/src/game/rendering/Renderer.ts`), never rounded.
+
 ## Architecture
 
 The backend follows a Rails-MVC-inspired layering with a strict call

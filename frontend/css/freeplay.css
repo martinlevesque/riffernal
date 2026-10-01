@@ -6,7 +6,7 @@
   position: absolute;
   top: 1rem;
   left: 1.5rem;
-  font-size: 0.9rem;
+  font-size: var(--fs-smaller);
   font-weight: 700;
   letter-spacing: 0.25em;
   color: var(--text-secondary);
@@ -89,7 +89,7 @@
   border-radius: 4px;
   color: var(--text-secondary);
   font-family: var(--font-ui);
-  font-size: 0.9rem;
+  font-size: var(--fs-smaller);
   text-align: left;
   cursor: pointer;
   transition: all 0.12s;
@@ -201,7 +201,7 @@
   margin-left: 0.5rem;
   padding: 0.1rem 0.5rem;
   border-radius: 3px;
-  font-size: 0.75rem;
+  font-size: var(--fs-smallest);
   font-weight: 500;
   text-transform: uppercase;
   letter-spacing: 0.1em;
@@ -211,13 +211,13 @@
 }
 
 .song-artist {
-  font-size: 0.8rem;
+  font-size: var(--fs-smaller);
   color: var(--text-secondary);
   margin-top: 0.15rem;
 }
 
 .song-origin-user {
-  font-size: 0.75rem;
+  font-size: var(--fs-smallest);
   color: var(--text-secondary);
   margin-top: 0.15rem;
   font-style: italic;
@@ -229,7 +229,7 @@
   margin-top: 0.4rem;
   padding: 0.1rem 0.5rem;
   border-radius: 3px;
-  font-size: 0.75rem;
+  font-size: var(--fs-smallest);
   text-transform: uppercase;
   letter-spacing: 0.1em;
 }
@@ -239,7 +239,7 @@
 .difficulty-hard { background: #4a1a1a; color: var(--accent-red); }
 
 .song-last-played {
-  font-size: 0.7rem;
+  font-size: var(--fs-smallest);
   color: var(--text-secondary);
   margin-top: 0.2rem;
   letter-spacing: 0.05em;
@@ -247,7 +247,7 @@
 }
 
 .song-scores {
-  font-size: 0.7rem;
+  font-size: var(--fs-smallest);
   color: var(--accent-yellow);
   margin-top: 0.1rem;
   letter-spacing: 0.05em;
@@ -261,7 +261,7 @@
   background: transparent;
   border: none;
   color: var(--text-secondary);
-  font-size: 1.2rem;
+  font-size: var(--fs-medium);
   cursor: pointer;
   opacity: 0.4;
   transition: opacity 0.15s;
@@ -305,7 +305,7 @@
   border-radius: 4px;
   color: var(--text-secondary);
   font-family: var(--font-ui);
-  font-size: 0.9rem;
+  font-size: var(--fs-smaller);
   text-align: left;
   cursor: pointer;
   transition: all 0.12s;
@@ -336,7 +336,7 @@
   padding: 0.5rem 1rem;
   cursor: pointer;
   color: var(--accent-purple);
-  font-size: 0.9rem;
+  font-size: var(--fs-smaller);
   letter-spacing: 0.15em;
   text-transform: uppercase;
   border-bottom: 1px solid var(--border-medium);
@@ -349,13 +349,13 @@
 }
 
 .category-header .category-count {
-  font-size: 0.7rem;
+  font-size: var(--fs-smallest);
   color: var(--text-secondary);
   letter-spacing: 0.1em;
 }
 
 .category-header .category-collapse-icon {
-  font-size: 0.8rem;
+  font-size: var(--fs-smaller);
   color: var(--text-secondary);
   margin-left: 0.4rem;
 }
@@ -383,7 +383,7 @@
   text-align: center;
   color: var(--text-secondary);
   padding: 3rem 1rem;
-  font-size: 0.85rem;
+  font-size: var(--fs-smaller);
   opacity: 0.6;
 }
 
@@ -393,7 +393,7 @@
 
 .controls-hint {
   margin-top: 2rem;
-  font-size: 0.75rem;
+  font-size: var(--fs-smallest);
   color: var(--text-secondary);
   opacity: 0.5;
   letter-spacing: 0.05em;
@@ -476,7 +476,7 @@
   background: transparent;
   border: none;
   color: var(--text-secondary);
-  font-size: 1.1rem;
+  font-size: var(--fs-medium);
   cursor: pointer;
   opacity: 0;
   transition: opacity 0.15s, color 0.15s;
@@ -499,7 +499,7 @@
 }
 
 .song-bookmark-count {
-  font-size: 0.7rem;
+  font-size: var(--fs-smallest);
   color: var(--accent-yellow);
   margin-top: 0.1rem;
   letter-spacing: 0.05em;
