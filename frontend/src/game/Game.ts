@@ -339,10 +339,6 @@ export class Game {
   }
 
   private _checkLoopWrap(): void {
-    // Cache the chain once: the per-frame read checks below would each
-    // recompute it (filter + sort) via the `chain`/`current`/`active`
-    // getters. `advance()` recomputes it too, but only runs when a wrap
-    // actually fires (~once at the boundary, not every frame).
     const chain = this.loop.chain;
     const idx = this.loop.currentIndex;
     if (chain.length === 0 || idx === null || idx >= chain.length) return;

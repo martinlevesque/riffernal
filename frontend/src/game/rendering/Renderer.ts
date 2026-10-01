@@ -530,10 +530,10 @@ export class Renderer {
     y = pixelSnap(y, NOTE_PIXEL);
     w = pixelSnap(w, NOTE_PIXEL);
     h = pixelSnap(h, NOTE_PIXEL);
-    let pattern = this._checkerPatterns.get(color);
+    let pattern = this._checkerPatterns.get(`${color}|${cell}`);
     if (!pattern) {
       pattern = checkerPattern(ctx, color, cell);
-      this._checkerPatterns.set(color, pattern);
+      this._checkerPatterns.set(`${color}|${cell}`, pattern);
     }
     ctx.save();
     ctx.translate(x, y);
@@ -545,11 +545,12 @@ export class Renderer {
   /** The two flame layers as pre-rendered sprites: dense chords keep many
    *  holds lit at once, and building two radial gradients per held note per
    *  frame is measurably slower than blitting scaled sprites. Each sprite
-   *  spans a 64px square with the gradient's full extent reaching the edge
-   *  (outer stops at alpha 0), so uniform scaling reproduces the gradient. */
+   *  spans a 128px square (large enough to stay crisp when upscaled to wide
+   *  notes) with the gradient's full extent reaching the edge (outer stops
+   *  at alpha 0), so uniform scaling reproduces the gradient. */
   private _ensureFlameSprites(): void {
     if (this._flameSprites) return;
-    const R = 32;
+    const R = 64;
     const make = (stops: readonly { stop: number; color: string }[]): HTMLCanvasElement => {
       const sprite = document.createElement('canvas');
       sprite.width = R * 2;
@@ -834,7 +835,7 @@ export class Renderer {
     currentTime: number,
     songDuration: number,
     loop?: {
-      chain: Array<{ startTime: number; endTime: number }>;
+      chain: ReadonlyArray<{ startTime: number; endTime: number }>;
       currentIndex: number | null;
       draftStart: number | null;
       draftEnd: number | null;
@@ -1019,7 +1020,7 @@ export class Renderer {
   private _drawLoopRegion(
     L: SheetLayout,
     loop: {
-      chain: Array<{ startTime: number; endTime: number }>;
+      chain: ReadonlyArray<{ startTime: number; endTime: number }>;
       currentIndex: number | null;
       draftStart: number | null;
       draftEnd: number | null;

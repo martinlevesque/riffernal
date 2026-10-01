@@ -46,7 +46,7 @@ export class PianoRenderer {
     if (this._cache) {
       ctx.drawImage(this._cache, 0, 0, width, INDICATOR_REGION_H, 0, offsetY, width, INDICATOR_REGION_H);
     }
-    this._drawPressedIndicators(ctx, pressedLanes, hitZoneY, offsetY, width, height, visibleRange);
+    this._drawPressedIndicators(ctx, pressedLanes, hitZoneY, width, height, visibleRange);
   }
 
   drawPiano(ctx: CanvasRenderingContext2D, width: number, height: number, pressedLanes: Map<number, number>, visibleRange?: VisibleRange | null): void {
@@ -63,6 +63,9 @@ export class PianoRenderer {
       }
     }
 
+    this._drawPressedKeys(ctx, pressedLanes, width, height, visibleRange);
+
+    // Octave labels stay on top of pressed-key fills.
     const c = themeManager.canvas;
     const pianoTop = height - height * PIANO_HEIGHT_RATIO;
     const OCTAVE_NOTES = ['C1', 'C2', 'C3', 'C4', 'C5', 'C6', 'C7', 'C8'];
@@ -75,8 +78,6 @@ export class PianoRenderer {
       if (layout.width === 0) continue;
       ctx.fillText(noteName, layout.x + layout.width / 2, pianoTop + 14);
     }
-
-    this._drawPressedKeys(ctx, pressedLanes, width, height, visibleRange);
   }
 
   private _ensureCache(width: number, height: number, visibleRange?: VisibleRange | null): void {
@@ -126,20 +127,23 @@ export class PianoRenderer {
   }
 
   /** Pressed-key indicator bars and their velocity glow, over the cached
-   *  idle bars. The glow is clipped above the piano body: the cached
-   *  piano background used to paint over the lower part of the glow. */
-  private _drawPressedIndicators(ctx: CanvasRenderingContext2D, pressedLanes: Map<number, number>, hitZoneY: number, offsetY: number, width: number, height: number, visibleRange?: VisibleRange | null): void {
+   *  idle bars. Live draws use screen coordinates (no `- offsetY`): the
+   *  cache blit already lands at offsetY. The glow clips above the piano
+   *  body, matching the old cache layering where the piano background
+   *  painted over its lower part. */
+  private _drawPressedIndicators(ctx: CanvasRenderingContext2D, pressedLanes: Map<number, number>, hitZoneY: number, width: number, height: number, visibleRange?: VisibleRange | null): void {
+    if (pressedLanes.size === 0) return;
+
     const c = themeManager.canvas;
     const indicatorBarOffset = 4;
     const indicatorBarHeight = 8;
     const basePressedGlowHeight = 60;
     const pianoTop = height - height * PIANO_HEIGHT_RATIO;
-    const glowClipH = pianoTop - 2 - offsetY;
-    if (glowClipH <= 0) return;
+    if (pianoTop <= 2) return;
 
     ctx.save();
     ctx.beginPath();
-    ctx.rect(0, 0, width, glowClipH);
+    ctx.rect(0, 0, width, pianoTop - 2);
     ctx.clip();
     for (const [lane, velocity] of pressedLanes) {
       if (!this._inRange(lane, visibleRange)) continue;
@@ -151,13 +155,13 @@ export class PianoRenderer {
 
       ctx.globalAlpha = 1;
       ctx.fillStyle = c.hitLine || color;
-      ctx.fillRect(layout.x, hitZoneY - indicatorBarOffset - offsetY, layout.width, indicatorBarHeight);
+      ctx.fillRect(layout.x, hitZoneY - indicatorBarOffset, layout.width, indicatorBarHeight);
 
       const intensity = velocityIntensity(velocity);
       ctx.globalAlpha = 0.05 + 0.6 * intensity;
       ctx.fillStyle = color;
       const pressedGlowHeight = basePressedGlowHeight * (0.25 + 1.6 * intensity);
-      ctx.fillRect(layout.x, hitZoneY - PIANO_REGION_OFFSET - offsetY, layout.width, pressedGlowHeight);
+      ctx.fillRect(layout.x, hitZoneY - PIANO_REGION_OFFSET, layout.width, pressedGlowHeight);
     }
     ctx.restore();
     ctx.globalAlpha = 1;
@@ -235,13 +239,11 @@ export class PianoRenderer {
   }
 
   /** Live pressed-key feedback: fills, glow strokes, and pressed label
-   *  colors for just the held lanes. */
+   *  colors for just the held lanes. Drawn in screen coordinates. */
   private _drawPressedKeys(ctx: CanvasRenderingContext2D, pressedLanes: Map<number, number>, width: number, height: number, visibleRange?: VisibleRange | null): void {
     if (pressedLanes.size === 0) return;
 
     const c = themeManager.canvas;
-    const hitZoneY = height * HIT_ZONE_Y_RATIO;
-    const offsetY = hitZoneY - PIANO_REGION_OFFSET;
     const pianoTop = height - height * PIANO_HEIGHT_RATIO;
     const pianoH = height * PIANO_HEIGHT_RATIO;
     const wKeyWidth = whiteKeyWidth(width, visibleRange);
@@ -249,6 +251,12 @@ export class PianoRenderer {
     const blackKeyHeight = pianoH * BLACK_KEY_HEIGHT_RATIO;
     const keyInset = 1;
     const labelBottomOffset = 16;
+    // Constant for a given geometry/theme: hoisted so the font shorthand
+    // isn't re-parsed per pressed key per frame.
+    const whiteLabelFont = `bold ${Math.max(14, wKeyWidth * 0.42)}px ${themeManager.fonts.mono}`;
+    const blackLabelFont = `bold ${Math.max(10, blackKeyWidth * 0.5)}px ${themeManager.fonts.mono}`;
+    const whiteCkFontSize = `${Math.max(12, wKeyWidth * 0.35)}px`;
+    const blackCkFontSize = `${Math.max(10, blackKeyWidth * 0.45)}px`;
 
     for (const [lane, velocity] of pressedLanes) {
       if (!this._inRange(lane, visibleRange)) continue;
@@ -263,51 +271,51 @@ export class PianoRenderer {
 
       if (isBlack) {
         ctx.fillStyle = c.blackKeyBgPressed;
-        roundRect(ctxR, layout.x, pianoTop - offsetY, blackKeyWidth, blackKeyHeight, 2);
+        roundRect(ctxR, layout.x, pianoTop, blackKeyWidth, blackKeyHeight, 2);
         ctx.fill();
 
         ctx.save();
         ctx.beginPath();
-        ctx.rect(layout.x, pianoTop - offsetY, blackKeyWidth, blackKeyHeight);
+        ctx.rect(layout.x, pianoTop, blackKeyWidth, blackKeyHeight);
         ctx.clip();
         ctx.strokeStyle = color;
         ctx.lineWidth = 1 + 5 * intensity;
-        roundRect(ctxR, layout.x + keyInset, pianoTop + keyInset - offsetY, blackKeyWidth - keyInset * 2, blackKeyHeight - keyInset * 2, 1);
+        roundRect(ctxR, layout.x + keyInset, pianoTop + keyInset, blackKeyWidth - keyInset * 2, blackKeyHeight - keyInset * 2, 1);
         ctx.stroke();
         ctx.restore();
 
         ctx.strokeStyle = c.blackKeyBorder;
         ctx.lineWidth = 1;
-        roundRect(ctxR, layout.x, pianoTop - offsetY, blackKeyWidth, blackKeyHeight, 2);
+        roundRect(ctxR, layout.x, pianoTop, blackKeyWidth, blackKeyHeight, 2);
         ctx.stroke();
 
-        const blkLabelY = pianoTop - offsetY + blackKeyHeight - labelBottomOffset;
+        const blkLabelY = pianoTop + blackKeyHeight - labelBottomOffset;
         ctx.fillStyle = c.keyLabelPressedBlack;
-        ctx.font = `bold ${Math.max(10, blackKeyWidth * 0.5)}px ${themeManager.fonts.mono}`;
+        ctx.font = blackLabelFont;
         ctx.textAlign = 'center';
         ctx.fillText(NOTE_SHORT_NAMES[noteName] ?? noteName, layout.x + blackKeyWidth / 2, blkLabelY);
-        this._drawComputerKeyLabel(ctx, noteName, layout.x + blackKeyWidth / 2, blkLabelY - blackKeyWidth * 0.9, `${Math.max(10, blackKeyWidth * 0.45)}px`);
+        this._drawComputerKeyLabel(ctx, noteName, layout.x + blackKeyWidth / 2, blkLabelY - blackKeyWidth * 0.9, blackCkFontSize);
       } else {
         ctx.fillStyle = c.whiteKeyBgPressed;
-        ctx.fillRect(layout.x + keyInset, pianoTop + keyInset - offsetY, wKeyWidth - keyInset * 2, pianoH - keyInset * 2);
+        ctx.fillRect(layout.x + keyInset, pianoTop + keyInset, wKeyWidth - keyInset * 2, pianoH - keyInset * 2);
 
         ctx.save();
         ctx.beginPath();
-        ctx.rect(layout.x, pianoTop - offsetY, wKeyWidth, pianoH);
+        ctx.rect(layout.x, pianoTop, wKeyWidth, pianoH);
         ctx.clip();
         ctx.strokeStyle = color;
         ctx.lineWidth = 1 + 6 * intensity;
-        ctx.strokeRect(layout.x + keyInset, pianoTop + keyInset - offsetY, wKeyWidth - keyInset * 2, pianoH - keyInset * 2);
+        ctx.strokeRect(layout.x + keyInset, pianoTop + keyInset, wKeyWidth - keyInset * 2, pianoH - keyInset * 2);
         ctx.restore();
 
-        const labelY = pianoTop - offsetY + pianoH * 0.82;
+        const labelY = pianoTop + pianoH * 0.82;
         ctx.fillStyle = c.keyLabelPressedWhite;
-        ctx.font = `bold ${Math.max(14, wKeyWidth * 0.42)}px ${themeManager.fonts.mono}`;
+        ctx.font = whiteLabelFont;
         ctx.textAlign = 'center';
         ctx.textBaseline = 'middle';
         ctx.fillText(NOTE_SHORT_NAMES[noteName] ?? noteName, layout.x + wKeyWidth / 2, labelY);
         ctx.textBaseline = 'alphabetic';
-        this._drawComputerKeyLabel(ctx, noteName, layout.x + wKeyWidth / 2, pianoTop - offsetY + pianoH * 0.65, `${Math.max(12, wKeyWidth * 0.35)}px`);
+        this._drawComputerKeyLabel(ctx, noteName, layout.x + wKeyWidth / 2, pianoTop + pianoH * 0.65, whiteCkFontSize);
       }
     }
   }

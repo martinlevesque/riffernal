@@ -30,12 +30,12 @@ export class LoopService {
   definitionState: LoopDefinitionState = LoopDefinitionState.Off;
 
   /** Enabled loops, sorted by startTime. Derived from `loops`.
-   *  Cached and rebuilt lazily on mutation: the game loop reads this
+   *  Cached and rebuilt on each mutation: the game loop reads this
    *  getter several times per frame, so it must not filter+sort each
-   *  time. */
+   *  time. Consumers must treat the result as read-only. */
   private _chainCache: SavedLoop[] = [];
 
-  get chain(): SavedLoop[] {
+  get chain(): readonly SavedLoop[] {
     return this._chainCache;
   }
 
@@ -186,7 +186,7 @@ export class LoopService {
 
   /** Snapshot of chain + draft state for rendering. */
   snapshot(): {
-    chain: SavedLoop[];
+    chain: readonly SavedLoop[];
     currentIndex: number | null;
     draftStart: number | null;
     draftEnd: number | null;
