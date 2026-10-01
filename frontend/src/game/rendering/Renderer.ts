@@ -111,6 +111,8 @@ const SHEET_BEATS_PER_MEASURE = 4;
 const NOTE_PIXEL = 3;
 const FAIL_PIXEL = NOTE_PIXEL * 2;
 const FAIL_BLINK_MS = 250;
+const FAIL_DITHER_ALPHA_LIT = 0.55;
+const FAIL_DITHER_ALPHA_DIM = 0.2;
 
 function pixelSnap(v: number, unit: number): number {
   return Math.round(v / unit) * unit;
@@ -131,6 +133,22 @@ function pixelBox(ctx: CanvasRenderingContext2D, x: number, y: number, w: number
   pixelRect(ctx, x - unit, y - unit, w + unit * 2, h + unit * 2, unit);
   ctx.fillStyle = fillColor;
   pixelRect(ctx, x, y, w, h, unit);
+}
+
+// Alternating cells of `cell` size, offset by one cell on the diagonal —
+// the classic dither that reads as "blocky pixels" inside a shape.
+function pixelChecker(ctx: CanvasRenderingContext2D, x: number, y: number, w: number, h: number, cell: number): void {
+  x = pixelSnap(x, cell);
+  y = pixelSnap(y, cell);
+  w = pixelSnap(w, cell);
+  h = pixelSnap(h, cell);
+
+  for (let py = y; py < y + h; py += cell * 2) {
+    for (let px = x; px < x + w; px += cell * 2) {
+      ctx.fillRect(px, py, cell, cell);
+      ctx.fillRect(px + cell, py + cell, cell, cell);
+    }
+  }
 }
 
 const SHEET_NOTE_POSITIONS: Record<string, number> = Object.assign(
@@ -362,7 +380,7 @@ export class Renderer {
     return { x, y };
   }
 
-  private _noteLayout(laneIndex: number, y: number, noteHeight: number, sheetBottom: number, noteName?: string, visibleRange?: VisibleRange | null): NoteLayout {
+  private _noteLayout(laneIndex: number, y: number, noteHeight: number, sheetBottom: number, noteName?: string, failing?: boolean, visibleRange?: VisibleRange | null): NoteLayout {
     const layout = getPianoKeyLayout(noteName ?? NOTE_NAMES[laneIndex] ?? 'C4', this.width, visibleRange);
     const x = layout.x;
     const keyWidth = layout.width;
@@ -372,7 +390,9 @@ export class Renderer {
     const scaleRange = hitZoneY - sheetBottom;
     const headBottom = y + noteHeight;
     const clampedY = Math.max(sheetBottom, Math.min(headBottom, hitZoneY));
-    const scale = 0.45 + 0.55 * ((clampedY - sheetBottom) / scaleRange);
+    // Failing notes render 25% larger so the warning shape is unmistakable
+    const scaleBase = failing ? 0.5625 : 0.45;
+    const scale = scaleBase + 0.55 * ((clampedY - sheetBottom) / scaleRange);
 
     const HEAD_HEIGHT = 14;
     const scaledHeadHeight = HEAD_HEIGHT * scale;
@@ -400,7 +420,7 @@ export class Renderer {
     const drawColor = failing && noteName
       ? (handForKey(noteName) === HandSide.Left ? c.failColorLeft : c.failColorRight)
       : color;
-    const L = this._noteLayout(laneIndex, y, noteHeight, sheetBottom, noteName, visibleRange);
+    const L = this._noteLayout(laneIndex, y, noteHeight, sheetBottom, noteName, failing, visibleRange);
 
     ctx.globalAlpha = alpha;
 
@@ -441,6 +461,16 @@ export class Renderer {
       const cx = L.drawX + L.scaledWidth / 2;
       const baseY = headDrawY + L.scaledHeadHeight / 2;
       this._drawFlame(ctx, cx, baseY, L.scaledWidth);
+    }
+
+    if (failing && noteName) {
+      const ditherColor = handForKey(noteName) === HandSide.Left ? c.failParticleLeft : c.failParticleRight;
+      ctx.fillStyle = ditherColor;
+      ctx.globalAlpha = alpha * (Math.floor(this._now / FAIL_BLINK_MS) % 2 === 0
+        ? FAIL_DITHER_ALPHA_LIT
+        : FAIL_DITHER_ALPHA_DIM);
+      pixelChecker(ctx, L.drawX, L.drawY, L.scaledWidth, L.scaledHeadHeight + L.scaledTailHeight, FAIL_PIXEL);
+      ctx.globalAlpha = alpha;
     }
 
     if (noteName) {
@@ -821,7 +851,8 @@ export class Renderer {
     const SHEET_PIXEL = 2;
     const headX = pixelSnap(x, SHEET_PIXEL);
     const headY = pixelSnap(noteY, SHEET_PIXEL);
-    const side = Math.max(SHEET_PIXEL * 2, pixelSnap(r * 2, SHEET_PIXEL));
+    // Failing heads are ~40% larger with a thick outline so they stand out
+    const side = Math.max(SHEET_PIXEL * 2, pixelSnap(r * 2, SHEET_PIXEL) * (note.failing ? 1.4 : 1));
     const half = side / 2;
 
     if (note.failing) {
@@ -835,7 +866,7 @@ export class Renderer {
       ctx.fillStyle = color;
       ctx.strokeStyle = color;
     }
-    ctx.lineWidth = 2;
+    ctx.lineWidth = note.failing ? 4 : 2;
     if (filled) {
       ctx.fillRect(headX - half, headY - half, side, side);
       if (note.failing) {

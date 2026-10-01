@@ -12,14 +12,12 @@
   font-size: var(--fs-xxlarge);
   letter-spacing: 0.3em;
   margin-bottom: 1rem;
-  text-shadow: 0 0 30px rgba(255, 255, 255, 0.1);
 }
 
 #result-grade {
   font-size: 6rem;
   font-weight: 900;
   margin: 1rem 0;
-  text-shadow: 0 0 40px currentColor, 0 0 80px currentColor;
   position: relative;
 }
 
@@ -35,14 +33,7 @@
   font-size: var(--fs-xxlarge);
   font-weight: 900;
   letter-spacing: 0.2em;
-  text-shadow: 0 0 20px var(--accent-yellow), 0 0 40px var(--accent-yellow);
   margin: 0.5rem 0 1rem;
-  animation: pulse-glow 0.6s ease-in-out infinite alternate;
-}
-
-@keyframes pulse-glow {
-  from { opacity: 0.8; text-shadow: 0 0 20px var(--accent-yellow); }
-  to   { opacity: 1;   text-shadow: 0 0 35px var(--accent-yellow), 0 0 50px var(--accent-yellow); }
 }
 
 #result-stats {
@@ -71,7 +62,7 @@
   color: var(--text-primary);
   font-weight: 900;
   font-family: var(--font-mono);
-  text-shadow: 0 0 20px currentColor;
+  text-shadow: 2px 2px 0 var(--pixel-shadow-color);
 }
 
 .stat-secondary {

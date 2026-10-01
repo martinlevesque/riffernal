@@ -7,7 +7,6 @@
   font-size: var(--fs-smaller);
   line-height: 1;
   background: rgba(20, 20, 20, 0.85);
-  backdrop-filter: blur(6px);
   border: 1px solid var(--border-strong);
   color: var(--text-secondary);
   padding: 0.15rem 0.45rem;
@@ -51,7 +50,6 @@
   gap: 0.6rem;
   padding: 0.6rem 1rem;
   background: rgba(20, 20, 20, 0.95);
-  backdrop-filter: blur(8px);
   border-bottom: 1px solid var(--border-medium);
   z-index: 12;
 }

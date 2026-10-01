@@ -38,9 +38,6 @@
   border-radius: 8px;
   padding: 0.6rem 2.5rem;
   width: min(clamp(360px, 36vw, 560px), calc(100vw - 1.5rem));
-  box-shadow:
-    0 0 40px rgba(0, 0, 0, 0.5),
-    0 0 1px rgba(255, 255, 255, 0.05);
 }
 
 .auth-card h2 {
@@ -182,15 +179,8 @@
   letter-spacing: 0.4em;
   margin: 0;
   text-align: center;
-  text-shadow:
-    0 0 40px rgba(255, 34, 68, 0.3),
-    0 0 80px rgba(255, 34, 68, 0.1);
   user-select: none;
   white-space: nowrap;
-}
-
-.auth-brand .accent {
-  color: var(--accent-red);
 }
 
 /* The intro sits between brand and card, sized to the card column. */

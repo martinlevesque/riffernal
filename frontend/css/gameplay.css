@@ -33,7 +33,6 @@
   white-space: nowrap;
   padding: 0.25rem 0.8rem;
   background: rgba(14, 14, 14, 0.7);
-  backdrop-filter: blur(8px);
   border: 1px solid var(--border-medium);
   border-radius: 8px;
   font-family: var(--font-mono);
@@ -55,7 +54,6 @@
   row-gap: 0.1em;
   padding: 0.3rem 0.9rem;
   background: rgba(14, 14, 14, 0.85);
-  backdrop-filter: blur(8px);
   border: 1px solid var(--border-medium);
   border-radius: 8px;
   font-family: var(--font-mono);
@@ -71,7 +69,6 @@
 
 #score-value {
   font-size: var(--fs-xlarge);
-  text-shadow: 0 0 10px rgba(255, 255, 255, 0.25);
 }
 
 #combo-display {
@@ -113,7 +110,6 @@
   align-items: center;
   gap: 0.5rem;
   background: rgba(20, 20, 20, 0.85);
-  backdrop-filter: blur(8px);
   padding: 0.4rem 0.8rem;
   border-radius: 6px;
   border: 1px solid var(--border-medium);
@@ -127,7 +123,6 @@
   align-items: center;
   gap: 0.4rem;
   background: rgba(20, 20, 20, 0.85);
-  backdrop-filter: blur(8px);
   padding: 0.4rem 0.8rem;
   border-radius: 6px;
   border: 1px solid var(--border-medium);
@@ -234,7 +229,6 @@
   pointer-events: none;
   opacity: 0;
   transition: opacity 0.1s;
-  text-shadow: 0 0 20px currentColor, 0 0 40px currentColor;
   white-space: pre-line;
   text-align: center;
 }
@@ -289,7 +283,7 @@
   border-color: var(--accent-purple);
   color: var(--accent-purple);
   background: rgba(170, 102, 255, 0.25);
-  box-shadow: 0 0 8px rgba(170, 102, 255, 0.4);
+  box-shadow: var(--pixel-shadow-offset-sm) var(--pixel-shadow-offset-sm) 0 rgba(170, 102, 255, 0.5);
 }
 
 #btn-define-loop.loop-stored {
