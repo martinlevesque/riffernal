@@ -6,7 +6,7 @@ const ROOT = join(import.meta.dir, "..");
 const SRC = join(ROOT, "frontend");
 const DIST = join(ROOT, "dist");
 
-const STATIC_ASSETS = ["index.html", "css"];
+const STATIC_ASSETS = ["index.html", "css", "assets"];
 const httpOnly = process.argv.includes("--http");
 
 // Ensure dist/ exists and copy static assets (JS is transpiled on the fly)

@@ -15,8 +15,8 @@
   background: var(--bg-surface);
   border: 1px solid var(--border-medium);
   border-radius: 8px;
-  padding: 2rem;
-  max-width: clamp(500px, 44vw, 680px);
+  padding: 1.25rem 1.5rem;
+  max-width: clamp(420px, 34vw, 560px);
   width: 90%;
   max-height: 80vh;
   display: flex;
@@ -25,14 +25,14 @@
 }
 
 #track-select-title {
-  font-size: 1.5rem;
+  font-size: var(--fs-medium);
   letter-spacing: 0.2em;
   text-align: center;
   margin-bottom: 0.3rem;
 }
 
 #track-select-hint {
-  font-size: 0.8rem;
+  font-size: var(--fs-smaller);
   color: var(--text-secondary);
   text-align: center;
   margin-bottom: 1rem;
@@ -70,7 +70,7 @@
 
 .track-select-btn {
   font-family: var(--font-ui);
-  font-size: 0.9rem;
+  font-size: var(--fs-smaller);
   background: transparent;
   border: 1px solid var(--border-strong);
   color: var(--text-primary);
@@ -88,7 +88,7 @@
 }
 
 .track-info {
-  font-size: 0.75rem;
+  font-size: var(--fs-smallest);
   color: var(--text-secondary);
   font-family: var(--font-mono);
   min-width: 5em;
@@ -96,7 +96,7 @@
 
 .track-hand-btn {
   font-family: var(--font-ui);
-  font-size: 0.75rem;
+  font-size: var(--fs-smallest);
   background: transparent;
   border: 1px solid var(--border-strong);
   color: var(--text-secondary);
@@ -130,7 +130,7 @@
 
 .track-bg-btn {
   font-family: var(--font-ui);
-  font-size: 0.85rem;
+  font-size: var(--fs-smaller);
   background: transparent;
   border: 1px solid var(--border-strong);
   color: var(--text-secondary);
@@ -177,7 +177,7 @@
 }
 
 .bg-panel-title {
-  font-size: 0.75rem;
+  font-size: var(--fs-smallest);
   color: var(--text-secondary);
   letter-spacing: 0.1em;
   margin-bottom: 0.4rem;
@@ -204,7 +204,7 @@
 }
 
 .bg-track-label {
-  font-size: 0.85rem;
+  font-size: var(--fs-smaller);
   color: var(--text-primary);
   overflow: hidden;
   text-overflow: ellipsis;
@@ -213,7 +213,7 @@
 
 .bg-track-toggle {
   font-family: var(--font-ui);
-  font-size: 0.85rem;
+  font-size: var(--fs-smaller);
   background: transparent;
   border: 1px solid var(--border-strong);
   color: var(--text-secondary);
@@ -246,8 +246,8 @@
   background: var(--bg-surface);
   border: 1px solid var(--border-medium);
   border-radius: 8px;
-  padding: 2rem;
-  max-width: clamp(460px, 42vw, 660px);
+  padding: 1.25rem 1.5rem;
+  max-width: clamp(400px, 34vw, 520px);
   width: 90%;
   max-height: 80vh;
   display: flex;
@@ -256,14 +256,14 @@
 }
 
 #category-select-card h2 {
-  font-size: 1.5rem;
+  font-size: var(--fs-medium);
   letter-spacing: 0.2em;
   text-align: center;
   margin-bottom: 0.3rem;
 }
 
 #category-select-count {
-  font-size: 0.8rem;
+  font-size: var(--fs-smaller);
   color: var(--text-secondary);
   text-align: center;
   margin-bottom: 1rem;
@@ -286,7 +286,7 @@
   cursor: pointer;
   transition: all 0.15s;
   color: var(--text-primary);
-  font-size: 1rem;
+  font-size: var(--fs-small);
 }
 
 .category-item:hover {
@@ -308,12 +308,13 @@
 
 #new-category-name {
   flex: 1;
+  min-width: 0;
 }
 
 #category-create .btn {
   margin: 0;
   padding: 0.5rem 0.9rem;
-  font-size: 0.85rem;
+  font-size: var(--fs-smallest);
   white-space: nowrap;
 }
 
@@ -326,6 +327,10 @@
 #category-select-actions .btn {
   margin: 0;
   flex: 1;
+  padding: 0.5rem 0.7rem;
+  font-size: var(--fs-smallest);
+  letter-spacing: 0.1em;
+  white-space: nowrap;
 }
 
 .field-label {
@@ -336,7 +341,7 @@
 }
 
 .field-label span {
-  font-size: 0.75rem;
+  font-size: var(--fs-smallest);
   color: var(--text-secondary);
   letter-spacing: 0.1em;
   text-transform: uppercase;
@@ -392,7 +397,7 @@
 }
 
 .popup-card h2 {
-  font-size: 1rem;
+  font-size: var(--fs-small);
   letter-spacing: 0.25em;
   text-align: center;
   margin-bottom: 1.5rem;

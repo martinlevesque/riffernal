@@ -28,6 +28,15 @@
   --text-on-accent: #fff;
   --font-ui: 'Press Start 2P', 'Courier New', monospace;
   --font-mono: 'VT323', 'Press Start 2P', 'Courier New', monospace;
+  /* Type scale — every text size on every page uses one of these.
+     One-off hero/display sizes (page titles, grade) are exempt. */
+  --fs-smallest: 0.8rem;
+  --fs-smaller: 0.9rem;
+  --fs-small: 1rem;
+  --fs-medium: 1.15rem;
+  --fs-large: 1.35rem;
+  --fs-xlarge: 1.7rem;
+  --fs-xxlarge: 2rem;
 }
 
 /* ============================================
@@ -37,7 +46,7 @@
 /* Scale the rem base with viewport width so text grows on large screens
    instead of staying pinned at 16px (Press Start 2P is hard to read small). */
 html {
-  font-size: clamp(16px, 13px + 0.4vw, 19px);
+  font-size: clamp(17px, 13.5px + 0.5vw, 20px);
 }
 
 body {

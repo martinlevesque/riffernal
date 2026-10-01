@@ -106,18 +106,31 @@ const SHEET_NOTE_RADIUS = 4.5;
 export const SHEET_BEATS_VISIBLE = 18;
 const SHEET_BEATS_PER_MEASURE = 4;
 
-function roundRect(ctx: CanvasRenderingContext2D, x: number, y: number, w: number, h: number, r: number): void {
-  ctx.beginPath();
-  ctx.moveTo(x + r, y);
-  ctx.lineTo(x + w - r, y);
-  ctx.arcTo(x + w, y, x + w, y + r, r);
-  ctx.lineTo(x + w, y + h - r);
-  ctx.arcTo(x + w, y + h, x + w - r, y + h, r);
-  ctx.lineTo(x + r, y + h);
-  ctx.arcTo(x, y + h, x, y + h - r, r);
-  ctx.lineTo(x, y + r);
-  ctx.arcTo(x, y, x + r, y, r);
-  ctx.closePath();
+// Size of one "big pixel" on the highway. All note rects snap to this grid,
+// which is what makes notes read as chunky blocks instead of smooth shapes.
+const NOTE_PIXEL = 3;
+const FAIL_PIXEL = NOTE_PIXEL * 2;
+const FAIL_BLINK_MS = 250;
+
+function pixelSnap(v: number, unit: number): number {
+  return Math.round(v / unit) * unit;
+}
+
+function pixelRect(ctx: CanvasRenderingContext2D, x: number, y: number, w: number, h: number, unit: number): void {
+  x = pixelSnap(x, unit);
+  y = pixelSnap(y, unit);
+  w = Math.max(unit, pixelSnap(w, unit));
+  h = Math.max(unit, pixelSnap(h, unit));
+  ctx.fillRect(x, y, w, h);
+}
+
+// Block with a hard offset border, drawn as two grid-snapped rects so the
+// outline is one pixel-unit thick on every side.
+function pixelBox(ctx: CanvasRenderingContext2D, x: number, y: number, w: number, h: number, unit: number, borderColor: string, fillColor: string): void {
+  ctx.fillStyle = borderColor;
+  pixelRect(ctx, x - unit, y - unit, w + unit * 2, h + unit * 2, unit);
+  ctx.fillStyle = fillColor;
+  pixelRect(ctx, x, y, w, h, unit);
 }
 
 const SHEET_NOTE_POSITIONS: Record<string, number> = Object.assign(
@@ -161,7 +174,6 @@ interface NoteLayout {
   scaledWidth: number;
   scaledHeadHeight: number;
   scaledTailHeight: number;
-  cornerRadius: number;
   scale: number;
 }
 
@@ -374,15 +386,12 @@ export class Renderer {
       scaledWidth,
       scaledHeadHeight,
       scaledTailHeight,
-      cornerRadius: 3 * scale,
       scale,
     };
   }
 
-  private _drawNotePart(ctx: CanvasRenderingContext2D, drawX: number, drawY: number, w: number, h: number, r: number, color: string | CanvasGradient): void {
-    ctx.fillStyle = color;
-    roundRect(ctx, drawX, drawY, w, h, r);
-    ctx.fill();
+  private _drawNotePart(ctx: CanvasRenderingContext2D, drawX: number, drawY: number, w: number, h: number, unit: number, fillColor: string, borderColor: string): void {
+    pixelBox(ctx, drawX, drawY, w, h, unit, borderColor, fillColor);
   }
 
   drawNote(laneIndex: number, y: number, noteHeight: number, color: string, alpha: number, sheetBottom: number, _combo: number, noteName?: string, holding?: boolean, failing?: boolean, waiting?: boolean, visibleRange?: VisibleRange | null): void {
@@ -395,35 +404,37 @@ export class Renderer {
 
     ctx.globalAlpha = alpha;
 
-    let waitingGlowWidth = 0;
+    const unit = failing ? FAIL_PIXEL : NOTE_PIXEL;
+    const borderColor = failing
+      ? (Math.floor(this._now / FAIL_BLINK_MS) % 2 === 0
+        ? (handForKey(noteName ?? '') === HandSide.Left ? c.failParticleLeft : c.failParticleRight)
+        : drawColor)
+      : 'rgba(0, 0, 0, 0.55)';
+
+    ctx.globalAlpha = alpha;
+
     if (waiting) {
       const pulse = 0.5 + 0.5 * Math.sin(this._now / 200 * 3.2);
-      waitingGlowWidth = 4 + pulse * 8;
-    }
-
-    if (waitingGlowWidth > 0) {
+      const glowUnits = Math.max(unit, pixelSnap(4 + pulse * 8, unit));
       ctx.globalAlpha = alpha * 0.25;
       ctx.fillStyle = drawColor;
-      roundRect(ctx, L.drawX - waitingGlowWidth, L.drawY - waitingGlowWidth, L.scaledWidth + waitingGlowWidth * 2, L.scaledHeadHeight + L.scaledTailHeight + waitingGlowWidth * 2, L.cornerRadius + waitingGlowWidth);
-      ctx.fill();
+      pixelRect(ctx, L.drawX - glowUnits, L.drawY - glowUnits, L.scaledWidth + glowUnits * 2, L.scaledHeadHeight + L.scaledTailHeight + glowUnits * 2, unit);
       ctx.globalAlpha = alpha;
     }
 
     if (L.scaledTailHeight > 0.5) {
-      this._drawNotePart(ctx, L.drawX, L.drawY, L.scaledWidth, L.scaledTailHeight, L.cornerRadius, drawColor);
+      this._drawNotePart(ctx, L.drawX, L.drawY, L.scaledWidth, L.scaledTailHeight, unit, drawColor, borderColor);
       ctx.globalAlpha = alpha * (failing ? TAIL_HIGHLIGHT_ALPHA_FAIL : TAIL_HIGHLIGHT_ALPHA);
       ctx.fillStyle = c.noteHighlight;
-      roundRect(ctx, L.drawX, L.drawY, L.scaledWidth, L.scaledTailHeight, L.cornerRadius);
-      ctx.fill();
+      pixelRect(ctx, L.drawX, L.drawY, L.scaledWidth, L.scaledTailHeight, unit);
       ctx.globalAlpha = alpha;
     }
 
     const headDrawY = L.drawY + L.scaledTailHeight;
-    this._drawNotePart(ctx, L.drawX, headDrawY, L.scaledWidth, L.scaledHeadHeight, L.cornerRadius, drawColor);
+    this._drawNotePart(ctx, L.drawX, headDrawY, L.scaledWidth, L.scaledHeadHeight, unit, drawColor, borderColor);
     ctx.globalAlpha = alpha * (failing ? HEAD_HIGHLIGHT_ALPHA_FAIL : HEAD_HIGHLIGHT_ALPHA);
     ctx.fillStyle = c.noteHighlight;
-    roundRect(ctx, L.drawX, headDrawY, L.scaledWidth, L.scaledHeadHeight, L.cornerRadius);
-    ctx.fill();
+    pixelRect(ctx, L.drawX, headDrawY, L.scaledWidth, L.scaledHeadHeight, unit);
     ctx.globalAlpha = alpha;
 
     if (holding) {
@@ -806,6 +817,13 @@ export class Renderer {
     const color = note.selected ? handColor(note.key) : c.backingNote;
     const filled = note.duration < 0.75;
 
+    // Square, grid-snapped heads keep the sheet in the pixel language
+    const SHEET_PIXEL = 2;
+    const headX = pixelSnap(x, SHEET_PIXEL);
+    const headY = pixelSnap(noteY, SHEET_PIXEL);
+    const side = Math.max(SHEET_PIXEL * 2, pixelSnap(r * 2, SHEET_PIXEL));
+    const half = side / 2;
+
     if (note.failing) {
       const sheetColor = handForKey(note.key) === HandSide.Left ? c.failColorSheetLeft : c.failColorSheetRight;
       ctx.fillStyle = sheetColor;
@@ -817,14 +835,15 @@ export class Renderer {
       ctx.fillStyle = color;
       ctx.strokeStyle = color;
     }
-    ctx.lineWidth = 1;
-    ctx.beginPath();
-    ctx.ellipse(x, noteY, r + 0.5, r, -0.2, 0, Math.PI * 2);
+    ctx.lineWidth = 2;
     if (filled) {
-      ctx.fill();
+      ctx.fillRect(headX - half, headY - half, side, side);
+      if (note.failing) {
+        ctx.strokeStyle = c.noteHighlight;
+        ctx.strokeRect(headX - half, headY - half, side, side);
+      }
     } else {
-      ctx.lineWidth = 1.5;
-      ctx.stroke();
+      ctx.strokeRect(headX - half, headY - half, side, side);
     }
 
     const stemLen = staffLineSpacing * 2.5;

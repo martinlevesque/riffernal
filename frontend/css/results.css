@@ -9,7 +9,7 @@
 }
 
 #result-title {
-  font-size: 2rem;
+  font-size: var(--fs-xxlarge);
   letter-spacing: 0.3em;
   margin-bottom: 1rem;
   text-shadow: 0 0 30px rgba(255, 255, 255, 0.1);
@@ -32,7 +32,7 @@
 
 .new-best-banner {
   color: var(--accent-yellow);
-  font-size: 2rem;
+  font-size: var(--fs-xxlarge);
   font-weight: 900;
   letter-spacing: 0.2em;
   text-shadow: 0 0 20px var(--accent-yellow), 0 0 40px var(--accent-yellow);
@@ -46,7 +46,7 @@
 }
 
 #result-stats {
-  font-size: 0.9rem;
+  font-size: var(--fs-smaller);
   color: var(--text-secondary);
   margin: 1.5rem 0;
   line-height: 1.8;
@@ -63,11 +63,11 @@
 }
 
 .stats-practice-highlight .stat-large {
-  font-size: 1.4rem;
+  font-size: var(--fs-large);
 }
 
 .stats-practice-highlight .stat-xlarge {
-  font-size: 2rem;
+  font-size: var(--fs-xxlarge);
   color: var(--text-primary);
   font-weight: 900;
   font-family: var(--font-mono);
@@ -76,7 +76,7 @@
 
 .stat-secondary {
   color: var(--text-secondary);
-  font-size: 0.8rem;
+  font-size: var(--fs-smaller);
 }
 
 .stats-row {
@@ -95,7 +95,7 @@
 
 .stat-label {
   color: var(--text-secondary);
-  font-size: 0.75rem;
+  font-size: var(--fs-smallest);
   text-transform: uppercase;
   letter-spacing: 0.1em;
   margin-bottom: 0.1rem;
