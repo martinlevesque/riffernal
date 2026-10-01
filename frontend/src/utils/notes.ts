@@ -75,14 +75,20 @@ export function pitchClassForLane(lane: number): string {
   return _LANE_TO_PITCH_CLASS[lane] ?? '';
 }
 
+const _handColorCache = new Map<string, string>();
+
 export function handColor(noteKey: string): string {
+  const cached = _handColorCache.get(noteKey);
+  if (cached) return cached;
+
   const match = noteKey.match(/^([A-G]#?)(\d)$/);
   if (!match) return '#ffffff';
   const chromatic = _chromaticMap[match[1]];
-  if (handForKey(noteKey) === HandSide.Left) {
-    return LEFT_HAND_COLORS[chromatic % LEFT_HAND_COLORS.length];
-  }
-  return RIGHT_HAND_COLORS[chromatic % RIGHT_HAND_COLORS.length];
+  const side = handForKey(noteKey);
+  const palette = side === HandSide.Left ? LEFT_HAND_COLORS : RIGHT_HAND_COLORS;
+  const color = palette[chromatic % palette.length];
+  _handColorCache.set(noteKey, color);
+  return color;
 }
 
 const WHITE_KEY_INDEX: Record<string, number> = {};

@@ -135,20 +135,18 @@ function pixelBox(ctx: CanvasRenderingContext2D, x: number, y: number, w: number
   pixelRect(ctx, x, y, w, h, unit);
 }
 
-// Alternating cells of `cell` size, offset by one cell on the diagonal —
-// the classic dither that reads as "blocky pixels" inside a shape.
-function pixelChecker(ctx: CanvasRenderingContext2D, x: number, y: number, w: number, h: number, cell: number): void {
-  x = pixelSnap(x, cell);
-  y = pixelSnap(y, cell);
-  w = pixelSnap(w, cell);
-  h = pixelSnap(h, cell);
-
-  for (let py = y; py < y + h; py += cell * 2) {
-    for (let px = x; px < x + w; px += cell * 2) {
-      ctx.fillRect(px, py, cell, cell);
-      ctx.fillRect(px + cell, py + cell, cell, cell);
-    }
-  }
+// One checker tile as a reusable pattern: many failing notes can dither
+// on screen at once, and a pattern fill costs one draw call where the
+// per-cell loop cost dozens.
+function checkerPattern(ctx: CanvasRenderingContext2D, color: string, cell: number): CanvasPattern {
+  const tile = document.createElement('canvas');
+  tile.width = cell * 2;
+  tile.height = cell * 2;
+  const tctx = tile.getContext('2d')!;
+  tctx.fillStyle = color;
+  tctx.fillRect(0, 0, cell, cell);
+  tctx.fillRect(cell, cell, cell, cell);
+  return ctx.createPattern(tile, 'repeat')!;
 }
 
 const SHEET_NOTE_POSITIONS: Record<string, number> = Object.assign(
@@ -230,6 +228,12 @@ export class Renderer {
   private _staffCache: HTMLCanvasElement | null = null;
   private _cachedStaffScale = -1;
   private _cachedStaffWidth = -1;
+  private _checkerPatterns = new Map<string, CanvasPattern>();
+  private _labelFontCache = new Map<number, string>();
+  private _labelFontMono = '';
+  private _flameSprites: { outer: HTMLCanvasElement; core: HTMLCanvasElement } | null = null;
+  private _haloGrad: CanvasGradient | null = null;
+  private _haloKey = '';
 
   private _isLowEnd: boolean;
   private _now = 0;
@@ -252,6 +256,7 @@ export class Renderer {
     this.width = cssW;
     this.height = cssH;
     this._glowGradCache.clear();
+    this._haloGrad = null;
   }
 
   clear(): void {
@@ -306,11 +311,18 @@ export class Renderer {
       }
     }
 
-    const haloGrad = ctx.createLinearGradient(0, hitZoneY - 10, 0, hitZoneY + 10);
-    haloGrad.addColorStop(0, 'rgba(0,0,0,0)');
-    haloGrad.addColorStop(0.5, this._withAlpha(c.hitLine, 0.5));
-    haloGrad.addColorStop(1, 'rgba(0,0,0,0)');
-    ctx.fillStyle = haloGrad;
+    // The halo only moves when the hit zone moves (resize) or the theme
+    // hit-line color changes, so build the gradient once for each state.
+    const haloKey = `${hitZoneY}|${c.hitLine}`;
+    if (!this._haloGrad || this._haloKey !== haloKey) {
+      const grad = ctx.createLinearGradient(0, hitZoneY - 10, 0, hitZoneY + 10);
+      grad.addColorStop(0, 'rgba(0,0,0,0)');
+      grad.addColorStop(0.5, this._withAlpha(c.hitLine, 0.5));
+      grad.addColorStop(1, 'rgba(0,0,0,0)');
+      this._haloGrad = grad;
+      this._haloKey = haloKey;
+    }
+    ctx.fillStyle = this._haloGrad;
     ctx.fillRect(0, hitZoneY - 10, this.width, 20);
 
     ctx.strokeStyle = c.hitLine;
@@ -465,11 +477,10 @@ export class Renderer {
 
     if (failing && noteName) {
       const ditherColor = handForKey(noteName) === HandSide.Left ? c.failParticleLeft : c.failParticleRight;
-      ctx.fillStyle = ditherColor;
       ctx.globalAlpha = alpha * (Math.floor(this._now / FAIL_BLINK_MS) % 2 === 0
         ? FAIL_DITHER_ALPHA_LIT
         : FAIL_DITHER_ALPHA_DIM);
-      pixelChecker(ctx, L.drawX, L.drawY, L.scaledWidth, L.scaledHeadHeight + L.scaledTailHeight, FAIL_PIXEL);
+      this._fillChecker(ctx, L.drawX, L.drawY, L.scaledWidth, L.scaledHeadHeight + L.scaledTailHeight, ditherColor, FAIL_PIXEL);
       ctx.globalAlpha = alpha;
     }
 
@@ -482,33 +493,79 @@ export class Renderer {
 
   private _drawNoteLabel(ctx: CanvasRenderingContext2D, noteName: string, drawX: number, drawY: number, width: number, height: number): void {
     const shortName = NOTE_SHORT_NAMES[noteName] ?? noteName;
-    const fontSize = Math.max(11, width * 0.6);
-    ctx.font = `bold ${fontSize}px ${themeManager.fonts.mono}`;
+    const fontSize = Math.round(Math.max(11, width * 0.6));
+    // Rounded size bucketed into a cached font string: rebuilding it per
+    // note per frame makes the browser re-parse the font shorthand.
+    const mono = themeManager.fonts.mono;
+    if (mono !== this._labelFontMono) {
+      this._labelFontMono = mono;
+      this._labelFontCache.clear();
+    }
+    let font = this._labelFontCache.get(fontSize);
+    if (!font) {
+      font = `bold ${fontSize}px ${mono}`;
+      this._labelFontCache.set(fontSize, font);
+    }
+    ctx.font = font;
     ctx.textAlign = 'center';
     ctx.textBaseline = 'bottom';
     ctx.fillStyle = themeManager.canvas.noteHeadLabel;
     ctx.fillText(shortName, drawX + width / 2, drawY + height);
   }
 
+  /** Dither fill via a cached pattern, anchored to the note's snapped
+   *  top-left so the checker phase matches per-note cells. */
+  private _fillChecker(ctx: CanvasRenderingContext2D, x: number, y: number, w: number, h: number, color: string, cell: number): void {
+    x = pixelSnap(x, cell);
+    y = pixelSnap(y, cell);
+    w = pixelSnap(w, cell);
+    h = pixelSnap(h, cell);
+    let pattern = this._checkerPatterns.get(color);
+    if (!pattern) {
+      pattern = checkerPattern(ctx, color, cell);
+      this._checkerPatterns.set(color, pattern);
+    }
+    ctx.save();
+    ctx.translate(x, y);
+    ctx.fillStyle = pattern;
+    ctx.fillRect(0, 0, w, h);
+    ctx.restore();
+  }
+
+  /** The two flame layers as pre-rendered sprites: dense chords keep many
+   *  holds lit at once, and building two radial gradients per held note per
+   *  frame is measurably slower than blitting scaled sprites. Each sprite
+   *  spans a 64px square with the gradient's full extent reaching the edge
+   *  (outer stops at alpha 0), so uniform scaling reproduces the gradient. */
+  private _ensureFlameSprites(): void {
+    if (this._flameSprites) return;
+    const R = 32;
+    const make = (stops: readonly { stop: number; color: string }[]): HTMLCanvasElement => {
+      const sprite = document.createElement('canvas');
+      sprite.width = R * 2;
+      sprite.height = R * 2;
+      const sctx = sprite.getContext('2d')!;
+      const grad = sctx.createRadialGradient(R, R, 0, R, R, R);
+      for (const { stop, color } of stops) {
+        grad.addColorStop(stop, color);
+      }
+      sctx.fillStyle = grad;
+      sctx.fillRect(0, 0, R * 2, R * 2);
+      return sprite;
+    };
+    this._flameSprites = { outer: make(FLAME_COLORS), core: make(FLAME_CORE_COLORS) };
+  }
+
   private _drawFlame(ctx: CanvasRenderingContext2D, cx: number, baseY: number, width: number): void {
+    this._ensureFlameSprites();
     const t = this._now / 1000;
     const pulse = 0.8 + 0.2 * Math.sin(t * 5);
-    const r = width * 2.0 * pulse;
 
-    const grad = ctx.createRadialGradient(cx, baseY, 0, cx, baseY, r);
-    for (const { stop, color } of FLAME_COLORS) {
-      grad.addColorStop(stop, color);
-    }
-    ctx.fillStyle = grad;
-    ctx.fillRect(cx - r, baseY - r, r * 2, r * 2);
+    const r = width * 2.0 * pulse;
+    ctx.drawImage(this._flameSprites!.outer, cx - r, baseY - r, r * 2, r * 2);
 
     const r2 = width * 0.7;
-    const grad2 = ctx.createRadialGradient(cx, baseY, 0, cx, baseY, r2);
-    for (const { stop, color } of FLAME_CORE_COLORS) {
-      grad2.addColorStop(stop, color);
-    }
-    ctx.fillStyle = grad2;
-    ctx.fillRect(cx - r2, baseY - r2, r2 * 2, r2 * 2);
+    ctx.drawImage(this._flameSprites!.core, cx - r2, baseY - r2, r2 * 2, r2 * 2);
   }
 
   // -- Grind effect (Guitar-Hero-style electric trail) --------------------
@@ -701,6 +758,26 @@ export class Renderer {
       }
     }
     return lo;
+  }
+
+  /** Time-sorted note closest to `t` across two sorted staff arrays.
+   *  Binary search instead of a linear scan: the loop overlay calls this
+   *  for every visible marker on every frame. */
+  private _nearestNoteAtTime(t: number, trebleNotes: SongNote[], bassNotes: SongNote[]): SongNote | null {
+    let best: SongNote | null = null;
+    let bestDiff = Infinity;
+    for (const list of [trebleNotes, bassNotes]) {
+      const idx = this._findFirstIndex(list, t);
+      for (const n of [list[idx - 1], list[idx]]) {
+        if (!n) continue;
+        const d = Math.abs(n.time - t);
+        if (d < bestDiff) {
+          bestDiff = d;
+          best = n;
+        }
+      }
+    }
+    return best;
   }
 
   private _renderStaffCache(sheetTop: number, trebleTop: number, bassTop: number, staffLineSpacing: number, _clefW: number, margin: number, sheetBottom: number): void {
@@ -962,16 +1039,7 @@ export class Renderer {
 
     const highlightAt = (t: number, color: string, alpha: number): void => {
       if (t < viewStart || t > viewEnd) return;
-      let best: SongNote | null = null;
-      let bestDiff = Infinity;
-      for (const n of trebleNotes) {
-        const d = Math.abs(n.time - t);
-        if (d < bestDiff) { bestDiff = d; best = n; }
-      }
-      for (const n of bassNotes) {
-        const d = Math.abs(n.time - t);
-        if (d < bestDiff) { bestDiff = d; best = n; }
-      }
+      const best = this._nearestNoteAtTime(t, trebleNotes, bassNotes);
       if (!best) return;
       const pixelPos = this.notePixelPosition(best);
       if (!pixelPos) return;
@@ -1067,9 +1135,14 @@ export class Renderer {
       ctx.restore();
     };
 
-    for (const n of trebleNotes) highlightNote(n);
-
-    for (const n of bassNotes) highlightNote(n);
+    for (const list of [trebleNotes, bassNotes]) {
+      const startIdx = this._findFirstIndex(list, selectedLoop.startTime);
+      for (let i = startIdx; i < list.length; i++) {
+        const n = list[i];
+        if (n.time > selectedLoop.endTime) break;
+        highlightNote(n);
+      }
+    }
   }
 
   drawParticles(): void {

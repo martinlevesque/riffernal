@@ -100,6 +100,10 @@ export class NoteManager {
   private _laneHand = new Map<number, HandSide>();
   backgroundTracks = new Set<number>();
   private _notePool: ActiveNoteRender[] = [];
+  /** `_noteEndMax[i]` = max `time + duration` over `notes[0..i]`; lets
+   *  `getLoopEffectiveEnd` answer with a binary search instead of a
+   *  scan from note 0 on every frame of an engaged loop. */
+  private _noteEndMax: number[] = [];
 
   loadSong(songData: Song): void {
     const selectedIndices = songData.selectedTrackIndices ?? [];
@@ -139,6 +143,13 @@ export class NoteManager {
         hitOffsetMs: 0,
       };
     }).sort((a, b) => a.time - b.time);
+    this._noteEndMax = new Array(this.notes.length);
+    let maxEnd = 0;
+    for (let i = 0; i < this.notes.length; i++) {
+      const n = this.notes[i];
+      if (n.time + n.duration > maxEnd) maxEnd = n.time + n.duration;
+      this._noteEndMax[i] = maxEnd;
+    }
     this.activeNotes = [];
     this._nextNoteIndex = 0;
     this._selectedNoteCount = this.notes.filter((n) => n.selected).length;
@@ -698,13 +709,21 @@ export class NoteManager {
    *  in the loop finish playing before rewinding. Returns `end` if no
    *  matching note is found. */
   getLoopEffectiveEnd(end: number): number {
-    let effective = end;
-    for (const note of this.notes) {
-      if (note.time > end) break;
-      const noteEnd = note.time + note.duration;
-      if (noteEnd > effective) effective = noteEnd;
+    // Binary search the last note starting at or before `end`; the
+    // prefix-max array then yields the furthest note end in one lookup.
+    let lo = 0;
+    let hi = this.notes.length - 1;
+    let last = -1;
+    while (lo <= hi) {
+      const mid = (lo + hi) >>> 1;
+      if (this.notes[mid].time <= end) {
+        last = mid;
+        lo = mid + 1;
+      } else {
+        hi = mid - 1;
+      }
     }
-    return effective;
+    return last >= 0 ? Math.max(end, this._noteEndMax[last]) : end;
   }
 
   /** Find the note closest to a click position in pixel space.
@@ -727,7 +746,6 @@ export class NoteManager {
     let bestDist = maxRadius * maxRadius;
 
     const checkNote = (note: SongNote): void => {
-      if (note.time < clickTime - timeWindow || note.time > clickTime + timeWindow) return;
       const pos = renderer.notePixelPosition(note);
       if (!pos) return;
       const dx = pos.x - clickX;
@@ -739,8 +757,22 @@ export class NoteManager {
       }
     };
 
-    for (const note of this.trebleNotes) checkNote(note);
-    for (const note of this.bassNotes) checkNote(note);
+    // Notes are sorted by time: binary-search the window start instead of
+    // scanning every note on each mousemove.
+    for (const list of [this.trebleNotes, this.bassNotes]) {
+      let lo = 0;
+      let hi = list.length;
+      while (lo < hi) {
+        const mid = (lo + hi) >>> 1;
+        if (list[mid].time < clickTime - timeWindow) lo = mid + 1;
+        else hi = mid;
+      }
+      for (let i = lo; i < list.length; i++) {
+        const note = list[i];
+        if (note.time > clickTime + timeWindow) break;
+        checkNote(note);
+      }
+    }
 
     return bestNote;
   }
