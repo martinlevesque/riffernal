@@ -167,6 +167,8 @@ The full Playwright suite is slow — plan for **7–8 minutes** end-to-end
 - **Canvas rendering** follows the same pixel language: notes are drawn
   grid-snapped square blocks (`NOTE_PIXEL` unit, `pixelRect`/`pixelBox`
   helpers in `frontend/src/game/rendering/Renderer.ts`), never rounded.
+  Failing notes run a coarser grid with a blinking bright border and a
+  pixel-dither fill (`pixelChecker`), so they must stay unmistakable.
 
 ## Architecture
 

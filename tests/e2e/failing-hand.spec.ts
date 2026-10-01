@@ -1,5 +1,5 @@
-import { test, expect } from '@playwright/test';
-import { CANVAS_WIDTH, CANVAS_HEIGHT, makeSong, type NoteSpec } from '../helpers/index.js';
+import { expect, test } from '@playwright/test';
+import { CANVAS_HEIGHT, CANVAS_WIDTH, makeSong, type NoteSpec } from '../helpers/index.js';
 
 interface SampleResult {
   activeCount: number;
@@ -11,7 +11,10 @@ interface SampleResult {
 function indent(code: string, spaces: number): string {
   if (!code) return code;
   const pad = ' '.repeat(spaces);
-  return code.split('\n').map((l) => l ? pad + l : l).join('\n');
+  return code
+    .split('\n')
+    .map((l) => (l ? pad + l : l))
+    .join('\n');
 }
 
 // -- shared evaluate builder -------------------------------------------------
@@ -23,40 +26,37 @@ interface TestArg {
   sampleKey: string;
 }
 
+// Shared in-browser scaffold: both evaluate bodies import these modules and
+// reuse createRenderer/sampleNote to inspect rendered canvas pixels.
+const RENDERER_SCAFFOLD = `
+function createRenderer(canvas) {
+  canvas.width = ${CANVAS_WIDTH}; canvas.height = ${CANVAS_HEIGHT};
+  const r = new Renderer(canvas);
+  r.width = ${CANVAS_WIDTH}; r.height = ${CANVAS_HEIGHT};
+  r.canvas.width = ${CANVAS_WIDTH}; r.canvas.height = ${CANVAS_HEIGHT};
+  r.ctx.setTransform(1, 0, 0, 1, 0, 0);
+  r.sheetBottom = 120;
+  return r;
+}
+function sampleNote(renderer, noteKey, visit) {
+  const layout = getPianoKeyLayout(noteKey, ${CANVAS_WIDTH});
+  const pixels = renderer.ctx.getImageData(0, 0, ${CANVAS_WIDTH}, ${CANVAS_HEIGHT}).data;
+  const xs = Math.floor(layout.x + 1), xe = Math.floor(layout.x + layout.width - 1);
+  for (let y = 0; y < ${CANVAS_HEIGHT}; y++)
+    for (let x = xs; x < xe; x++) {
+      const i = (y * ${CANVAS_WIDTH} + x) * 4;
+      if (pixels[i + 3] <= 10 || pixels[i] <= 40) continue;
+      visit(pixels, i);
+    }
+}`;
+
 function evaluateTest(page: import('@playwright/test').Page, arg: TestArg): Promise<SampleResult> {
   const songJson = JSON.stringify(makeSong(arg.notes));
   const body = `(async () => {
     const { Renderer } = await import('/js/game/rendering/Renderer.js');
     const { NoteManager } = await import('/js/game/NoteManager.js');
     const { getPianoKeyLayout } = await import('/js/utils/notes.js');
-
-    function createRenderer(canvas) {
-      canvas.width = ${CANVAS_WIDTH}; canvas.height = ${CANVAS_HEIGHT};
-      const r = new Renderer(canvas);
-      r.width = ${CANVAS_WIDTH}; r.height = ${CANVAS_HEIGHT};
-      r.canvas.width = ${CANVAS_WIDTH}; r.canvas.height = ${CANVAS_HEIGHT};
-      r.ctx.setTransform(1, 0, 0, 1, 0, 0);
-      r.sheetBottom = 120;
-      return r;
-    }
-    function renderNotes(renderer, active) {
-      renderer.clear();
-      for (const n of active) {
-        renderer.drawNote(n.lane, n.y, n.height, n.color, n.alpha, renderer.sheetBottom, 0, n.key, n.holding, n.failing);
-      }
-    }
-    function sampleLane(renderer, noteKey) {
-      const layout = getPianoKeyLayout(noteKey, ${CANVAS_WIDTH});
-      const pixels = renderer.ctx.getImageData(0, 0, ${CANVAS_WIDTH}, ${CANVAS_HEIGHT}).data;
-      const xs = Math.floor(layout.x + 1), xe = Math.floor(layout.x + layout.width - 1);
-      let n = 0, rs = 0, bs = 0;
-      for (let y = 0; y < ${CANVAS_HEIGHT}; y++)
-        for (let x = xs; x < xe; x++) {
-          const i = (y * ${CANVAS_WIDTH} + x) * 4;
-          if (pixels[i + 3] > 10 && pixels[i] > 40) { n++; rs += pixels[i]; bs += pixels[i + 2]; }
-        }
-      return { n, rs, bs };
-    }
+${indent(RENDERER_SCAFFOLD, 4)}
 
     const nm = new NoteManager();
     nm.loadSong(${songJson});
@@ -67,9 +67,14 @@ ${indent(arg.setup, 4)}
 
     const c = document.createElement('canvas');
     const r = createRenderer(c);
-    renderNotes(r, active);
-    const s = sampleLane(r, ${JSON.stringify(arg.sampleKey)});
-    return { activeCount: active.length, count: s.n, avgRed: s.n ? s.rs / s.n : 0, avgBlue: s.n ? s.bs / s.n : 0 };
+    r.clear();
+    for (const n of active) {
+      r.drawNote(n.lane, n.y, n.height, n.color, n.alpha, r.sheetBottom, 0, n.key, n.holding, n.failing);
+    }
+
+    let n = 0, rs = 0, bs = 0;
+    sampleNote(r, ${JSON.stringify(arg.sampleKey)}, (p, i) => { n++; rs += p[i]; bs += p[i + 2]; });
+    return { activeCount: active.length, count: n, avgRed: n ? rs / n : 0, avgBlue: n ? bs / n : 0 };
   })()`;
 
   return page.evaluate(body) as Promise<SampleResult>;
@@ -156,5 +161,60 @@ test.describe('failing note hand-color', () => {
     expect(r.activeCount).toBeGreaterThan(0);
     expect(r.count).toBeGreaterThan(0);
     expect(r.avgBlue).toBeLessThan(50);
+  });
+});
+
+// -- failing-note pixel visibility --------------------------------------------
+// Draws the same geometry twice through drawNote, toggling only `failing`,
+// to assert the failing treatment is bigger and visibly dithered.
+
+interface DrawArg {
+  key: string;
+  failing: boolean;
+}
+
+interface DrawResult {
+  count: number;
+  brightCount: number;
+}
+
+function evaluateDraw(page: import('@playwright/test').Page, arg: DrawArg): Promise<DrawResult> {
+  const body = `(async () => {
+    const { Renderer } = await import('/js/game/rendering/Renderer.js');
+    const { getPianoKeyLayout } = await import('/js/utils/notes.js');
+${indent(RENDERER_SCAFFOLD, 4)}
+
+    const r = createRenderer(document.createElement('canvas'));
+    r.drawNote(0, 600, 200, '#2288ff', 1, r.sheetBottom, 0, ${JSON.stringify(arg.key)}, false, ${JSON.stringify(arg.failing)});
+
+    let count = 0, bright = 0;
+    sampleNote(r, ${JSON.stringify(arg.key)}, (p, i) => {
+      count++;
+      // Dither/border pixels blend toward the bright particle color,
+      // which carries far more green than the base fail fill
+      if (p[i + 1] > 75) bright++;
+    });
+    return { count, brightCount: bright };
+  })()`;
+
+  return page.evaluate(body) as Promise<DrawResult>;
+}
+
+test.describe('failing note pixel visibility', () => {
+  test('failing notes are drawn bigger than normal notes', async ({ page }) => {
+    await page.goto('/');
+    const normal = await evaluateDraw(page, { key: 'C5', failing: false });
+    const failing = await evaluateDraw(page, { key: 'C5', failing: true });
+
+    expect(normal.count).toBeGreaterThan(0);
+    expect(failing.count).toBeGreaterThan(normal.count * 1.1);
+  });
+
+  test('failing notes carry bright pixel dither inside them', async ({ page }) => {
+    await page.goto('/');
+    const failing = await evaluateDraw(page, { key: 'C5', failing: true });
+
+    expect(failing.brightCount).toBeGreaterThan(0);
+    expect(failing.brightCount / failing.count).toBeGreaterThan(0.05);
   });
 });

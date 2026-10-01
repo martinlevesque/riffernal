@@ -42,13 +42,6 @@
   font-weight: 900;
   letter-spacing: 0.4em;
   margin-bottom: 0.6rem;
-  text-shadow:
-    0 0 40px rgba(255, 34, 68, 0.3),
-    0 0 80px rgba(255, 34, 68, 0.1);
-}
-
-.title .accent {
-  color: var(--accent-red);
 }
 
 .freeplay-toolbar {
@@ -164,13 +157,11 @@
 .song-item:hover {
   border-left-color: var(--accent-red);
   background: rgba(255, 255, 255, 0.04);
-  box-shadow: 0 0 12px rgba(255, 34, 68, 0.08);
 }
 
 .song-item.selected {
   border-left-color: var(--accent-red);
   background: rgba(255, 34, 68, 0.08);
-  box-shadow: 0 0 16px rgba(255, 34, 68, 0.12);
 }
 
 .song-item.imported {
@@ -180,13 +171,11 @@
 .song-item.imported:hover {
   border-left-color: var(--accent-blue);
   background: rgba(34, 136, 255, 0.05);
-  box-shadow: 0 0 12px rgba(34, 136, 255, 0.08);
 }
 
 .song-item.imported.selected {
   border-left-color: var(--accent-blue);
   background: rgba(34, 136, 255, 0.08);
-  box-shadow: 0 0 16px rgba(34, 136, 255, 0.12);
 }
 
 .song-title {
@@ -423,10 +412,6 @@
 .btn-start:hover {
   background: var(--accent-red);
   color: var(--text-on-accent);
-  box-shadow:
-    0 0 30px rgba(255, 34, 68, 0.3),
-    0 0 60px rgba(255, 34, 68, 0.15);
-  transform: translateY(-1px);
 }
 
 .btn-start:disabled {
@@ -460,13 +445,11 @@
 .community-song:hover {
   border-left-color: var(--accent-purple);
   background: rgba(180, 100, 255, 0.05);
-  box-shadow: 0 0 12px rgba(180, 100, 255, 0.08);
 }
 
 .community-song.selected {
   border-left-color: var(--accent-purple);
   background: rgba(180, 100, 255, 0.08);
-  box-shadow: 0 0 16px rgba(180, 100, 255, 0.12);
 }
 
 .bookmark-btn {

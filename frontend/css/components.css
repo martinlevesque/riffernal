@@ -24,7 +24,6 @@
 
 .btn-primary:hover {
   background: #cc1133;
-  box-shadow: 0 0 20px rgba(255, 34, 68, 0.3);
 }
 
 .btn-secondary {
@@ -74,7 +73,6 @@
 .btn-icon:hover {
   border-color: var(--accent-red);
   color: var(--text-primary);
-  box-shadow: 0 0 10px rgba(255, 34, 68, 0.15);
 }
 
 /* ============================================

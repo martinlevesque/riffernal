@@ -46,14 +46,7 @@
   font-size: 4rem;
   font-weight: 900;
   letter-spacing: 0.4em;
-  text-shadow:
-    0 0 40px rgba(255, 34, 68, 0.3),
-    0 0 80px rgba(255, 34, 68, 0.1);
   user-select: none;
-}
-
-.home-title .accent {
-  color: var(--accent-red);
 }
 
 .home-modes {
@@ -92,9 +85,6 @@
   border-color: var(--accent-red);
   color: var(--accent-red);
   background: rgba(255, 34, 68, 0.08);
-  box-shadow:
-    0 0 24px rgba(255, 34, 68, 0.15),
-    0 0 4px rgba(255, 34, 68, 0.3);
 }
 
 .home-mode-card:disabled {
@@ -135,7 +125,6 @@
   background: rgba(10, 10, 10, 0.72);
   border: 1px solid var(--border-medium);
   border-radius: 6px;
-  backdrop-filter: blur(4px);
   pointer-events: auto;
   user-select: none;
 }
