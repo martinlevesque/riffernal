@@ -54,7 +54,6 @@ export interface ActiveNoteRender {
   duration: number;
   key: string;
   holding: boolean;
-  failing: boolean;
   waiting: boolean;
   selected: boolean;
 }
@@ -806,7 +805,7 @@ export class NoteManager {
       const color = handColor(note.key);
 
       if (writeIdx >= this._notePool.length) {
-        this._notePool.push({ lane: 0, y: 0, height: 0, color: '', alpha: 0, duration: 0, key: '', holding: false, failing: false, waiting: false, selected: false });
+        this._notePool.push({ lane: 0, y: 0, height: 0, color: '', alpha: 0, duration: 0, key: '', holding: false, waiting: false, selected: false });
       }
       const r = this._notePool[writeIdx];
 
@@ -821,7 +820,6 @@ export class NoteManager {
         r.duration = note.duration;
         r.key = note.key;
         r.holding = true;
-        r.failing = false;
         r.waiting = false;
         r.selected = note.selected;
       } else {
@@ -836,7 +834,6 @@ export class NoteManager {
         r.duration = note.duration;
         r.key = note.key;
         r.holding = false;
-        r.failing = note.failing;
         r.waiting = learningMode && timeDiff <= 0;
         r.selected = note.selected;
       }

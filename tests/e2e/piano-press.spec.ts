@@ -145,3 +145,140 @@ test('pressed-key feedback matches the falling note hand color', async ({ page }
   expect(result.midnight.handYellow).toBeGreaterThan(0);
   expect(result.midnight.hitLineCyan).toBe(0);
 });
+
+// -- wrong-key flash (learn-mode incorrect-press feedback) --------------------
+// A wrong press lights the exact pressed key red on the piano — the falling
+// note never recolors. The flash paints the key body (white or black) plus
+// the key's indicator bar at the hit zone, then fades out.
+
+interface KeyRegionRed {
+  redInKey: number;
+  redInNeighbor: number;
+  redOnIndicator: number;
+}
+
+interface FlashRegions {
+  whiteKey: KeyRegionRed;
+  blackKey: KeyRegionRed;
+}
+
+test('wrong-key flash lights the exact key red, neighbors untouched', async ({ page }) => {
+  await page.goto('/');
+  const result = await page.evaluate(async ({ W, H }): Promise<FlashRegions> => {
+    // @ts-expect-error browser-side dynamic import
+    const { PianoRenderer } = await import('/js/game/rendering/PianoRenderer.js');
+    // @ts-expect-error browser-side dynamic import
+    const { NOTE_NAMES, getPianoKeyLayout } = await import('/js/utils/notes.js');
+    // @ts-expect-error browser-side dynamic import
+    const { themeManager } = await import('/js/themes/ThemeManager.js');
+    // @ts-expect-error browser-side dynamic import
+    const { ironTheme } = await import('/js/themes/iron.js');
+
+    const hitZoneY = H * 0.82;
+    const pianoTop = H - H * 0.16;
+    const now = 1000;
+
+    // Iron's accentRed — the same red as the "Wrong" text feedback.
+    const countRed = (px: Uint8ClampedArray, x0: number, x1: number, y0: number, y1: number): number => {
+      let n = 0;
+      for (let y = Math.floor(y0); y < Math.ceil(y1); y++) {
+        for (let x = Math.floor(x0); x < Math.ceil(x1); x++) {
+          const i = (y * W + x) * 4;
+          if (px[i] === 255 && px[i + 1] === 34 && px[i + 2] === 68 && px[i + 3] === 255) n++;
+        }
+      }
+      return n;
+    };
+
+    const flash = (key: string, neighbor: string): KeyRegionRed => {
+      const canvas = document.createElement('canvas');
+      canvas.width = W;
+      canvas.height = H;
+      const ctx = canvas.getContext('2d')!;
+      const piano = new PianoRenderer();
+      piano.flashWrongKey(NOTE_NAMES.indexOf(key), now);
+      piano.drawPiano(ctx, W, H, new Map(), null, now);
+      piano.drawHitZone(ctx, W, H, new Map(), null, now);
+      const px = ctx.getImageData(0, 0, W, H).data;
+
+      const keyLayout = getPianoKeyLayout(key, W);
+      const nbLayout = getPianoKeyLayout(neighbor, W);
+      return {
+        redInKey: countRed(px, keyLayout.x + 1, keyLayout.x + keyLayout.width - 1, pianoTop, H),
+        redInNeighbor: countRed(px, nbLayout.x + 1, nbLayout.x + nbLayout.width - 1, pianoTop, H),
+        redOnIndicator: countRed(px, keyLayout.x, keyLayout.x + keyLayout.width, hitZoneY - 6, hitZoneY + 6),
+      };
+    };
+
+    themeManager.apply(ironTheme);
+    return {
+      whiteKey: flash('A5', 'G5'),
+      blackKey: flash('C#5', 'D5'),
+    };
+  }, { W: CANVAS_WIDTH, H: CANVAS_HEIGHT });
+
+  for (const region of [result.whiteKey, result.blackKey]) {
+    expect(region.redInKey).toBeGreaterThan(0);
+    expect(region.redInNeighbor).toBe(0);
+    expect(region.redOnIndicator).toBeGreaterThan(0);
+  }
+});
+
+test('wrong-key flash fades out and disappears', async ({ page }) => {
+  await page.goto('/');
+  const result = await page.evaluate(async ({ W, H }): Promise<{ strong: number; fading: number; gone: number }> => {
+    // @ts-expect-error browser-side dynamic import
+    const { PianoRenderer } = await import('/js/game/rendering/PianoRenderer.js');
+    // @ts-expect-error browser-side dynamic import
+    const { NOTE_NAMES, getPianoKeyLayout } = await import('/js/utils/notes.js');
+    // @ts-expect-error browser-side dynamic import
+    const { themeManager } = await import('/js/themes/ThemeManager.js');
+    // @ts-expect-error browser-side dynamic import
+    const { ironTheme } = await import('/js/themes/iron.js');
+
+    themeManager.apply(ironTheme);
+
+    const key = 'C#5';
+    const layout = getPianoKeyLayout(key, W);
+    const pianoTop = H - H * 0.16;
+
+    const drawAt = (nowMs: number): Uint8ClampedArray => {
+      const canvas = document.createElement('canvas');
+      canvas.width = W;
+      canvas.height = H;
+      const ctx = canvas.getContext('2d')!;
+      const piano = new PianoRenderer();
+      piano.flashWrongKey(NOTE_NAMES.indexOf(key), 1000);
+      piano.drawPiano(ctx, W, H, new Map(), null, nowMs);
+      return ctx.getImageData(0, 0, W, H).data;
+    };
+
+    // Full-alpha accentRed right at the press, reddish blends while the
+    // flash decays over the dark black-key bg, nothing once expired. The
+    // interior black-key bg is near-black, so "reddish" is unambiguous.
+    const countIf = (px: Uint8ClampedArray, pred: (p: Uint8ClampedArray, i: number) => boolean): number => {
+      let n = 0;
+      for (let y = Math.floor(pianoTop); y < H; y++) {
+        for (let x = Math.floor(layout.x); x < Math.ceil(layout.x + layout.width); x++) {
+          const i = (y * W + x) * 4;
+          if (pred(px, i)) n++;
+        }
+      }
+      return n;
+    };
+
+    const isStrong = (p: Uint8ClampedArray, i: number) => p[i] === 255 && p[i + 1] === 34 && p[i + 2] === 68 && p[i + 3] === 255;
+    const isReddish = (p: Uint8ClampedArray, i: number) => p[i] > 100 && p[i] > p[i + 1] + 40 && p[i] > p[i + 2] + 40;
+
+    const strong = countIf(drawAt(1000), isStrong);
+    const fading = countIf(drawAt(1250), isReddish);
+    const gone = countIf(drawAt(1600), isReddish);
+
+    return { strong, fading, gone };
+  }, { W: CANVAS_WIDTH, H: CANVAS_HEIGHT });
+
+  expect(result.strong).toBeGreaterThan(0);
+  expect(result.fading).toBeGreaterThan(0);
+  expect(result.gone).toBe(0);
+});
+

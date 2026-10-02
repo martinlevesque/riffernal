@@ -38,7 +38,7 @@ test('chord notes have heads at same vertical position', async ({ page }) => {
 
     renderer.clear();
     for (const note of active) {
-      renderer.drawNote(note.lane, note.y, note.height, note.color, note.alpha, renderer.sheetBottom, note.key);
+      renderer.drawNote(note.lane, note.y, note.height, note.color, note.alpha, note.key);
     }
 
     const ctx = renderer.ctx;
@@ -118,7 +118,7 @@ test('notes dock flush inside their key at the hit line', async ({ page }) => {
     const measureDocked = (key: string) => {
       renderer.clear();
       // Head bottom exactly on the hit line: the note is fully docked.
-      renderer.drawNote(0, hitZoneY - 100, 100, '#ff2222', 1, renderer.sheetBottom, 0, key);
+      renderer.drawNote(0, hitZoneY - 100, 100, '#ff2222', 1, 0, key);
       const pixels = ctx.getImageData(0, 0, W, H).data;
       const layout = getPianoKeyLayout(key, W);
       // Clean tail rows only: the name badge hugs the head (top ~hitZoneY - 44
@@ -180,7 +180,7 @@ test('up-screen notes keep most of their key width', async ({ page }) => {
     const sheetBottom = renderer.sheetBottom;
 
     // Head bottom just below the sheet: t ~ 0, the smallest a note gets.
-    renderer.drawNote(0, 130 - 100, 100, '#ff2222', 1, renderer.sheetBottom, 0, 'C4');
+    renderer.drawNote(0, 130 - 100, 100, '#ff2222', 1, 0, 'C4');
     const pixels = ctx.getImageData(0, 0, W, H).data;
     const layout = getPianoKeyLayout('C4', W);
     // Clean tail rows: between the tail top (~sheetBottom - 97 with the

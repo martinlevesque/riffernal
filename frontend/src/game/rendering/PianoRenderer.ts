@@ -16,6 +16,9 @@ const BLACK_KEY_HEIGHT_RATIO = 0.56;
 const PIANO_HEIGHT_RATIO = 0.16;
 const INDICATOR_REGION_H = 34;
 
+/** How long a wrong-key flash stays lit (fading to 0) after the press. */
+const WRONG_KEY_FLASH_MS = 500;
+
 /** Gap between the indicator bar's bottom edge and the hit line. The
  *  falling note docks its visible bottom edge onto the bar's bottom edge,
  *  so the note renderer needs the same value. */
@@ -39,12 +42,33 @@ export class PianoRenderer {
   private _cache: HTMLCanvasElement | null = null;
   private _cachedKey = '';
   showComputerKeys = false;
+  /** Lane -> flash start (ms). Wrong presses (learn mode) light the key
+   *  red; entries fade out and are pruned during the draw passes. */
+  private _wrongFlashes = new Map<number, number>();
+
+  flashWrongKey(lane: number, nowMs: number = performance.now()): void {
+    this._wrongFlashes.set(lane, nowMs);
+  }
+
+  private _wrongFlashAlpha(nowMs: number, startMs: number): number {
+    const age = nowMs - startMs;
+
+    if (age < 0) return 0;
+
+    return Math.max(0, 1 - age / WRONG_KEY_FLASH_MS);
+  }
+
+  private _pruneWrongFlashes(nowMs: number): void {
+    for (const [lane, startMs] of this._wrongFlashes) {
+      if (nowMs - startMs > WRONG_KEY_FLASH_MS) this._wrongFlashes.delete(lane);
+    }
+  }
 
   private _inRange(i: number, visibleRange?: VisibleRange | null): boolean {
     return !visibleRange || (i >= visibleRange.minNoteIdx && i <= visibleRange.maxNoteIdx);
   }
 
-  drawHitZone(ctx: CanvasRenderingContext2D, width: number, height: number, pressedLanes: Map<number, number>, visibleRange?: VisibleRange | null): void {
+  drawHitZone(ctx: CanvasRenderingContext2D, width: number, height: number, pressedLanes: Map<number, number>, visibleRange?: VisibleRange | null, nowMs: number = performance.now()): void {
     const hitZoneY = height * HIT_ZONE_Y_RATIO;
     const offsetY = hitZoneY - PIANO_REGION_OFFSET;
     this._ensureCache(width, height, visibleRange);
@@ -52,9 +76,10 @@ export class PianoRenderer {
       ctx.drawImage(this._cache, 0, 0, width, INDICATOR_REGION_H, 0, offsetY, width, INDICATOR_REGION_H);
     }
     this._drawPressedIndicators(ctx, pressedLanes, hitZoneY, width, height, visibleRange);
+    this._drawWrongIndicatorFlashes(ctx, nowMs, hitZoneY, width, visibleRange);
   }
 
-  drawPiano(ctx: CanvasRenderingContext2D, width: number, height: number, pressedLanes: Map<number, number>, visibleRange?: VisibleRange | null): void {
+  drawPiano(ctx: CanvasRenderingContext2D, width: number, height: number, pressedLanes: Map<number, number>, visibleRange?: VisibleRange | null, nowMs: number = performance.now()): void {
     const hitZoneY = height * HIT_ZONE_Y_RATIO;
     const offsetY = hitZoneY - PIANO_REGION_OFFSET;
     this._ensureCache(width, height, visibleRange);
@@ -69,6 +94,7 @@ export class PianoRenderer {
     }
 
     this._drawPressedKeys(ctx, pressedLanes, width, height, visibleRange);
+    this._drawWrongKeyFlashes(ctx, nowMs, width, height, visibleRange);
 
     // Octave labels stay on top of pressed-key fills.
     const c = themeManager.canvas;
@@ -166,6 +192,127 @@ export class PianoRenderer {
       ctx.fillRect(layout.x, hitZoneY - PIANO_REGION_OFFSET, layout.width, pressedGlowHeight);
     }
     ctx.restore();
+    ctx.globalAlpha = 1;
+  }
+
+  /** Red indicator-bar flash over a wrongly pressed key's indicator
+   *  (learn mode), drawn after the pressed indicators so a wrong press
+   *  reads red at the hit zone. Screen coordinates, like the pressed
+   *  indicators. */
+  private _drawWrongIndicatorFlashes(ctx: CanvasRenderingContext2D, nowMs: number, hitZoneY: number, width: number, visibleRange?: VisibleRange | null): void {
+    if (this._wrongFlashes.size === 0) return;
+
+    const indicatorBarHeight = 8;
+
+    for (const [lane, startMs] of this._wrongFlashes) {
+      const alpha = this._wrongFlashAlpha(nowMs, startMs);
+      if (alpha <= 0) continue;
+      if (!this._inRange(lane, visibleRange)) continue;
+      const noteName = NOTE_NAMES[lane];
+      if (!noteName) continue;
+      const layout = getPianoKeyLayout(noteName, width, visibleRange);
+      if (layout.width === 0) continue;
+
+      ctx.globalAlpha = alpha;
+      ctx.fillStyle = themeManager.css.accentRed;
+      ctx.fillRect(layout.x, hitZoneY - INDICATOR_BAR_OFFSET, layout.width, indicatorBarHeight);
+    }
+    ctx.globalAlpha = 1;
+    this._pruneWrongFlashes(nowMs);
+  }
+
+  /** Red overlay on wrongly pressed keys (learn mode): solid red fill
+   *  with a hard border on the exact key — white or black — plus the
+   *  key's short name so it stays identifiable. Drawn after the
+   *  pressed-key pass so a still-held wrong key reads red; white
+   *  flashes run first and redraw their lane's black key (idle), then
+   *  black flashes, mirroring the pressed-key layering. Screen
+   *  coordinates. */
+  private _drawWrongKeyFlashes(ctx: CanvasRenderingContext2D, nowMs: number, width: number, height: number, visibleRange?: VisibleRange | null): void {
+    if (this._wrongFlashes.size === 0) return;
+
+    const c = themeManager.canvas;
+    const wrongRed = themeManager.css.accentRed;
+    const pianoTop = height - height * PIANO_HEIGHT_RATIO;
+    const pianoH = height * PIANO_HEIGHT_RATIO;
+    const wKeyWidth = whiteKeyWidth(width, visibleRange);
+    const blackKeyWidth = wKeyWidth * BLACK_KEY_WIDTH_RATIO;
+    const blackKeyHeight = pianoH * BLACK_KEY_HEIGHT_RATIO;
+    const keyInset = 1;
+    const labelBottomOffset = 16;
+    const whiteLabelFont = `bold ${Math.max(16, wKeyWidth * 0.55)}px ${themeManager.fonts.mono}`;
+    const blackLabelFont = `bold ${Math.max(11, blackKeyWidth * 0.6)}px ${themeManager.fonts.mono}`;
+
+    ctx.textAlign = 'center';
+    for (const [lane, startMs] of this._wrongFlashes) {
+      const alpha = this._wrongFlashAlpha(nowMs, startMs);
+      if (alpha <= 0) continue;
+      if (!this._inRange(lane, visibleRange)) continue;
+      const noteName = NOTE_NAMES[lane];
+      if (!noteName || noteName.includes('#')) continue;
+      const layout = getPianoKeyLayout(noteName, width, visibleRange);
+      if (layout.width === 0) continue;
+
+      ctx.globalAlpha = alpha;
+      ctx.fillStyle = wrongRed;
+      ctx.fillRect(layout.x + keyInset, pianoTop + keyInset, wKeyWidth - keyInset * 2, pianoH - keyInset * 2);
+
+      ctx.strokeStyle = wrongRed;
+      ctx.lineWidth = 2;
+      ctx.strokeRect(layout.x + keyInset, pianoTop + keyInset, wKeyWidth - keyInset * 2, pianoH - keyInset * 2);
+
+      const labelY = pianoTop + pianoH * 0.82;
+      ctx.fillStyle = '#fff';
+      ctx.font = whiteLabelFont;
+      ctx.textBaseline = 'middle';
+      ctx.save();
+      ctx.beginPath();
+      ctx.rect(layout.x, pianoTop, wKeyWidth, pianoH);
+      ctx.clip();
+      this._fillTextStrong(ctx, NOTE_SHORT_NAMES[noteName] ?? noteName, layout.x + wKeyWidth / 2, labelY);
+      ctx.restore();
+      ctx.textBaseline = 'alphabetic';
+
+      // The red fill covered this lane's black key — redraw it (idle) so
+      // its label stays visible, like the pressed-white-key pass does.
+      ctx.globalAlpha = 1;
+      const sharp = NOTE_NAMES[lane + 1];
+      if (sharp?.includes('#') && this._inRange(lane + 1, visibleRange)) {
+        this._drawBlackKey(ctx, layout.x + wKeyWidth * 0.2, pianoTop, blackKeyWidth, blackKeyHeight, sharp);
+      }
+    }
+
+    for (const [lane, startMs] of this._wrongFlashes) {
+      const alpha = this._wrongFlashAlpha(nowMs, startMs);
+      if (alpha <= 0) continue;
+      if (!this._inRange(lane, visibleRange)) continue;
+      const noteName = NOTE_NAMES[lane];
+      if (!noteName?.includes('#')) continue;
+      const layout = getPianoKeyLayout(noteName, width, visibleRange);
+      if (layout.width === 0) continue;
+
+      ctx.globalAlpha = alpha;
+      ctx.fillStyle = wrongRed;
+      roundRect(ctx, layout.x, pianoTop, blackKeyWidth, blackKeyHeight, 2);
+      ctx.fill();
+
+      ctx.strokeStyle = c.blackKeyBorder;
+      ctx.lineWidth = 1;
+      roundRect(ctx, layout.x, pianoTop, blackKeyWidth, blackKeyHeight, 2);
+      ctx.stroke();
+
+      const blkLabelY = pianoTop + blackKeyHeight - labelBottomOffset;
+      ctx.fillStyle = '#fff';
+      ctx.font = blackLabelFont;
+      ctx.textBaseline = 'middle';
+      ctx.save();
+      ctx.beginPath();
+      roundRect(ctx, layout.x, pianoTop, blackKeyWidth, blackKeyHeight, 2);
+      ctx.clip();
+      this._fillTextStrong(ctx, NOTE_SHORT_NAMES[noteName] ?? noteName, layout.x + blackKeyWidth / 2, blkLabelY);
+      ctx.restore();
+      ctx.textBaseline = 'alphabetic';
+    }
     ctx.globalAlpha = 1;
   }
 

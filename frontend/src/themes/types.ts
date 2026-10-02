@@ -46,12 +46,6 @@ export interface ThemeCanvas {
   loopOverlayActive: string;
   loopOverlayInactive: string;
   loopDefiningPreview: string;
-  failColorLeft: string;
-  failColorRight: string;
-  failColorSheetLeft: string;
-  failColorSheetRight: string;
-  failParticleLeft: string;
-  failParticleRight: string;
   noteHeadLabel: string;
   noteHighlight: string;
   hitLine: string;

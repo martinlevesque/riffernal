@@ -4,6 +4,7 @@ import {
   makeSong,
   evaluateWithNoteManager,
   buildFreezeResumeScript,
+  bootGame,
   expectMode,
   toggleLearnMode,
   togglePlayMode,
@@ -356,6 +357,85 @@ test.describe('Learning Mode - freeze resume', () => {
     expect(result.allHit).toBe(true);
     expect(result.nextFailing).toBe(false);
     expect(result.currentTime).toBeGreaterThan(result.frozenTime);
+  });
+});
+
+// -- wrong-key flash wiring ---------------------------------------------------
+
+// The incorrect-press feedback: in learn mode the wrongly pressed piano key
+// lights up red and fades; in play mode nothing flashes. Dropped holds
+// flash the dropped key too, and stay recoverable by re-pressing.
+
+test.describe('Learning Mode - wrong-key flash', () => {
+  test('wrong press in learn mode flashes the exact key, then fades out', async ({ page }) => {
+    test.setTimeout(15000);
+    const songJson = JSON.stringify(makeSong([
+      { time: 0.5, key: 'C3', duration: 0.25 },
+      { time: 5.0, key: 'E3', duration: 0.25 },
+    ], 'WrongFlash'));
+
+    await page.goto('/');
+
+    const result = await page.evaluate(buildFreezeResumeScript(songJson, `
+      const { NOTE_TO_LANE } = await import('/js/utils/notes.js');
+      const wrongLane = NOTE_TO_LANE.get('E3');
+      game._handleNoteOn('E3', 'wrong');
+      const flashedRightAfter = game.renderer.piano._wrongFlashes.has(wrongLane);
+      game._handleNoteOff('E3', 'wrong');
+      await new Promise(r => setTimeout(r, 700));
+      const prunedAfterFade = game.renderer.piano._wrongFlashes.size;
+      return { flashedRightAfter, prunedAfterFade };
+    `)) as { flashedRightAfter: boolean; prunedAfterFade: number };
+
+    expect(result.flashedRightAfter).toBe(true);
+    expect(result.prunedAfterFade).toBe(0);
+  });
+
+  test('dropped hold in learn mode flashes the key and stays recoverable', async ({ page }) => {
+    test.setTimeout(15000);
+    const songJson = JSON.stringify(makeSong([
+      { time: 0.5, key: 'C3', duration: 2.0 },
+      { time: 5.0, key: 'E3', duration: 0.25 },
+    ], 'DropFlash'));
+
+    await page.goto('/');
+
+    const result = await page.evaluate(buildFreezeResumeScript(songJson, `
+      const { NOTE_TO_LANE } = await import('/js/utils/notes.js');
+      const c3 = NOTE_TO_LANE.get('C3');
+      game._handleNoteOn('C3', 'hold');
+      await new Promise(r => setTimeout(r, 200));
+      game._handleNoteOff('C3', 'hold');
+      const flashedOnDrop = game.renderer.piano._wrongFlashes.has(c3);
+      const failingAfterDrop = game.noteManager.notes[0].failing;
+      game._handleNoteOn('C3', 'recover');
+      const recovered = game.noteManager.notes[0].holding && !game.noteManager.notes[0].failing;
+      game._handleNoteOff('C3', 'recover');
+      return { flashedOnDrop, failingAfterDrop, recovered };
+    `)) as { flashedOnDrop: boolean; failingAfterDrop: boolean; recovered: boolean };
+
+    expect(result.flashedOnDrop).toBe(true);
+    expect(result.failingAfterDrop).toBe(true);
+    expect(result.recovered).toBe(true);
+  });
+
+  test('wrong press in play mode does not flash the key', async ({ page }) => {
+    await bootGame(page, makeSong([
+      { time: 0.5, key: 'C3', duration: 0.25 },
+      { time: 5.0, key: 'E3', duration: 0.25 },
+    ], 'PlayNoFlash'));
+
+    const flashCount = await page.evaluate(async () => {
+      const game = (window as any)._testGame;
+      await new Promise((r) => setTimeout(r, 100));
+      game._handleNoteOn('E3', 'wrong');
+      const size = game.renderer.piano._wrongFlashes.size;
+      game._handleNoteOff('E3', 'wrong');
+      game.backToMenu();
+      return size;
+    });
+
+    expect(flashCount).toBe(0);
   });
 });
 

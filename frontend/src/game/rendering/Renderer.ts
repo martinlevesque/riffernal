@@ -1,7 +1,7 @@
 // Main canvas renderer: highway, notes, sheet music, particles,
 // and playback cursor. Delegates piano rendering to PianoRenderer.
 
-import { NOTE_NAMES, getPianoKeyLayout, WHITE_KEY_COUNT, handForKey, handColor, HandSide, NOTE_SHORT_NAMES, whiteKeyWidth, countWhiteKeysInRange } from '../../utils/notes.js';
+import { NOTE_NAMES, getPianoKeyLayout, WHITE_KEY_COUNT, handColor, HandSide, NOTE_SHORT_NAMES, whiteKeyWidth, countWhiteKeysInRange } from '../../utils/notes.js';
 import type { VisibleRange } from '../../utils/notes.js';
 import { HIT_ZONE_Y_RATIO } from '../NoteManager.js';
 import { LoopDefinitionState } from '../Loop.js';
@@ -109,7 +109,6 @@ const SHEET_BEATS_PER_MEASURE = 4;
 // Size of one "big pixel" on the highway. All note rects snap to this grid,
 // which is what makes notes read as chunky blocks instead of smooth shapes.
 const NOTE_PIXEL = 3;
-const FAIL_BLINK_MS = 250;
 
 function pixelSnap(v: number, unit: number): number {
   return Math.round(v / unit) * unit;
@@ -139,9 +138,7 @@ const SHEET_NOTE_POSITIONS: Record<string, number> = Object.assign(
 );
 
 const TAIL_HIGHLIGHT_ALPHA = 0.10;
-const TAIL_HIGHLIGHT_ALPHA_FAIL = 0.06;
 const HEAD_HIGHLIGHT_ALPHA = 0.28;
-const HEAD_HIGHLIGHT_ALPHA_FAIL = 0.18;
 
 const GRIND_FLASH_MS = 320;
 const GRIND_FLASH_HEIGHT = 140;
@@ -353,11 +350,17 @@ export class Renderer {
   }
 
   drawHitZone(pressedLanes: Map<number, number>, visibleRange?: VisibleRange | null): void {
-    this.piano.drawHitZone(this.ctx, this.width, this.height, pressedLanes, visibleRange);
+    this.piano.drawHitZone(this.ctx, this.width, this.height, pressedLanes, visibleRange, this._now);
   }
 
   drawPiano(pressedLanes: Map<number, number>, visibleRange?: VisibleRange | null): void {
-    this.piano.drawPiano(this.ctx, this.width, this.height, pressedLanes, visibleRange);
+    this.piano.drawPiano(this.ctx, this.width, this.height, pressedLanes, visibleRange, this._now);
+  }
+
+  /** Learn-mode teaching aid: light up the piano key the player pressed
+   *  incorrectly. The flash fades out over the next frames. */
+  flashWrongKey(lane: number): void {
+    this.piano.flashWrongKey(lane, performance.now());
   }
 
   notePixelPosition(note: SongNote): { x: number; y: number } | null {
@@ -375,14 +378,12 @@ export class Renderer {
     return { x, y };
   }
 
-  private _noteLayout(laneIndex: number, y: number, noteHeight: number, sheetBottom: number, noteName?: string, failing?: boolean, visibleRange?: VisibleRange | null): NoteLayout {
+  private _noteLayout(laneIndex: number, y: number, noteHeight: number, noteName?: string, visibleRange?: VisibleRange | null): NoteLayout {
     const layout = getPianoKeyLayout(noteName ?? NOTE_NAMES[laneIndex] ?? 'C4', this.width, visibleRange);
     const keyWidth = layout.width;
     const centerX = layout.x + keyWidth / 2;
 
-    const hitZoneY = this.height * HIT_ZONE_Y_RATIO;
     const headBottom = y + noteHeight;
-    const clampedY = Math.max(sheetBottom, Math.min(headBottom, hitZoneY));
 
     // One constant silhouette for the whole fall. The visible box (fill +
     // NOTE_PIXEL border per side) snaps DOWN to the key width's grid
@@ -398,13 +399,10 @@ export class Renderer {
     // The note docks its visible bottom edge (fill bottom + border) onto the
     // indicator bar's bottom edge, not the hit line: the bar sits
     // INDICATOR_BAR_OFFSET above the line and the border extends NOTE_PIXEL
-    // below the fill, so lift the whole note by their sum. Held and parked
-    // notes then rest flush on the bar instead of hanging below it.
-    // Failed notes park at the clamped hit-line position (blinking until
-    // resolved) so their name badge stays on screen; normal notes keep
-    // sliding past it.
+    // below the fill, so lift the whole note by their sum. Held notes then
+    // rest flush on the bar instead of hanging below it.
     const dockLift = NOTE_PIXEL + INDICATOR_BAR_OFFSET;
-    const parkedHeadBottom = (failing ? clampedY : headBottom) - dockLift;
+    const parkedHeadBottom = headBottom - dockLift;
 
     return {
       drawX,
@@ -420,25 +418,15 @@ export class Renderer {
     pixelBox(ctx, drawX, drawY, w, h, snapUnit, borderUnit, borderColor, fillColor);
   }
 
-  drawNote(laneIndex: number, y: number, noteHeight: number, color: string, alpha: number, sheetBottom: number, _combo: number, noteName?: string, holding?: boolean, failing?: boolean, waiting?: boolean, visibleRange?: VisibleRange | null): void {
+  drawNote(laneIndex: number, y: number, noteHeight: number, color: string, alpha: number, _combo: number, noteName?: string, holding?: boolean, waiting?: boolean, visibleRange?: VisibleRange | null): void {
     const ctx = this.ctx;
     const c = themeManager.canvas;
-    const handSide = handForKey(noteName ?? '');
-    const drawColor = failing && noteName
-      ? (handSide === HandSide.Left ? c.failColorLeft : c.failColorRight)
-      : color;
-    const L = this._noteLayout(laneIndex, y, noteHeight, sheetBottom, noteName, failing, visibleRange);
+    const L = this._noteLayout(laneIndex, y, noteHeight, noteName, visibleRange);
 
     ctx.globalAlpha = alpha;
 
-    const blinkPhase = Math.floor(this._now / FAIL_BLINK_MS) % 2 === 0;
-    const particleColor = handSide === HandSide.Left ? c.failParticleLeft : c.failParticleRight;
-    const borderColor = failing
-      ? (blinkPhase ? particleColor : drawColor)
-      : 'rgba(0, 0, 0, 0.55)';
+    const borderColor = 'rgba(0, 0, 0, 0.55)';
 
-    // All notes share the same geometry grid; failing notes distinguish
-    // themselves through border blink and glow, not a bulkier shape.
     const snapUnit = NOTE_PIXEL;
     const borderUnit = NOTE_PIXEL;
 
@@ -446,31 +434,22 @@ export class Renderer {
       const pulse = 0.5 + 0.5 * Math.sin(this._now / 200 * 3.2);
       const glowUnits = Math.max(borderUnit, pixelSnap(4 + pulse * 8, snapUnit));
       ctx.globalAlpha = alpha * 0.25;
-      ctx.fillStyle = drawColor;
-      pixelRect(ctx, L.drawX - glowUnits, L.drawY - glowUnits, L.scaledWidth + glowUnits * 2, L.scaledHeadHeight + L.scaledTailHeight + glowUnits * 2, snapUnit);
-      ctx.globalAlpha = alpha;
-    }
-
-    if (failing) {
-      const pulse = 0.5 + 0.5 * Math.sin(this._now / FAIL_BLINK_MS * Math.PI);
-      const glowUnits = Math.max(borderUnit, pixelSnap(4 + pulse * 6, snapUnit));
-      ctx.globalAlpha = alpha * (0.2 + 0.28 * pulse);
-      ctx.fillStyle = particleColor;
+      ctx.fillStyle = color;
       pixelRect(ctx, L.drawX - glowUnits, L.drawY - glowUnits, L.scaledWidth + glowUnits * 2, L.scaledHeadHeight + L.scaledTailHeight + glowUnits * 2, snapUnit);
       ctx.globalAlpha = alpha;
     }
 
     if (L.scaledTailHeight > 0.5) {
-      this._drawNotePart(ctx, L.drawX, L.drawY, L.scaledWidth, L.scaledTailHeight, snapUnit, borderUnit, drawColor, borderColor);
-      ctx.globalAlpha = alpha * (failing ? TAIL_HIGHLIGHT_ALPHA_FAIL : TAIL_HIGHLIGHT_ALPHA);
+      this._drawNotePart(ctx, L.drawX, L.drawY, L.scaledWidth, L.scaledTailHeight, snapUnit, borderUnit, color, borderColor);
+      ctx.globalAlpha = alpha * TAIL_HIGHLIGHT_ALPHA;
       ctx.fillStyle = c.noteHighlight;
       pixelRect(ctx, L.drawX, L.drawY, L.scaledWidth, L.scaledTailHeight, snapUnit);
       ctx.globalAlpha = alpha;
     }
 
     const headDrawY = L.drawY + L.scaledTailHeight;
-    this._drawNotePart(ctx, L.drawX, headDrawY, L.scaledWidth, L.scaledHeadHeight, snapUnit, borderUnit, drawColor, borderColor);
-    ctx.globalAlpha = alpha * (failing ? HEAD_HIGHLIGHT_ALPHA_FAIL : HEAD_HIGHLIGHT_ALPHA);
+    this._drawNotePart(ctx, L.drawX, headDrawY, L.scaledWidth, L.scaledHeadHeight, snapUnit, borderUnit, color, borderColor);
+    ctx.globalAlpha = alpha * HEAD_HIGHLIGHT_ALPHA;
     ctx.fillStyle = c.noteHighlight;
     pixelRect(ctx, L.drawX, headDrawY, L.scaledWidth, L.scaledHeadHeight, snapUnit);
     ctx.globalAlpha = alpha;
@@ -482,10 +461,7 @@ export class Renderer {
     }
 
     if (noteName) {
-      // Badge border stays visible at all times: the hand color for
-      // normal notes, the steady particle color for failing ones (the
-      // note itself blinks; a blinking badge box would read as flicker).
-      this._drawNoteBadge(ctx, noteName, L.drawX + L.scaledWidth / 2, headDrawY + L.scaledHeadHeight, failing ? particleColor : drawColor, L.baseWidth);
+      this._drawNoteBadge(ctx, noteName, L.drawX + L.scaledWidth / 2, headDrawY + L.scaledHeadHeight, color, L.baseWidth);
     }
 
     ctx.globalAlpha = 1;
@@ -496,7 +472,7 @@ export class Renderer {
    *  reads big on any window size. Press Start 2P fills its em box, so
    *  the name stays legible where the condensed VT323 would look small.
    *  The badge is its own box — dark fill, note-border color, white
-   *  text; failing notes blink via their particle-colored border. */
+   *  text. */
   private _drawNoteBadge(ctx: CanvasRenderingContext2D, noteName: string, centerX: number, bottomY: number, borderColor: string, noteWidth: number): void {
     const shortName = NOTE_SHORT_NAMES[noteName] ?? noteName;
     const fontSize = Math.round(
@@ -923,28 +899,19 @@ export class Renderer {
     const SHEET_PIXEL = 2;
     const headX = pixelSnap(x, SHEET_PIXEL);
     const headY = pixelSnap(noteY, SHEET_PIXEL);
-    // Failing heads are ~40% larger with a thick outline so they stand out
-    const side = Math.max(SHEET_PIXEL * 2, pixelSnap(r * 2, SHEET_PIXEL) * (note.failing ? 1.4 : 1));
+    const side = Math.max(SHEET_PIXEL * 2, pixelSnap(r * 2, SHEET_PIXEL));
     const half = side / 2;
 
-    if (note.failing) {
-      const sheetColor = handForKey(note.key) === HandSide.Left ? c.failColorSheetLeft : c.failColorSheetRight;
-      ctx.fillStyle = sheetColor;
-      ctx.strokeStyle = sheetColor;
-    } else if (note.hit) {
+    if (note.hit) {
       ctx.fillStyle = c.hitNote;
       ctx.strokeStyle = c.hitNote;
     } else {
       ctx.fillStyle = color;
       ctx.strokeStyle = color;
     }
-    ctx.lineWidth = note.failing ? 4 : 2;
+    ctx.lineWidth = 2;
     if (filled) {
       ctx.fillRect(headX - half, headY - half, side, side);
-      if (note.failing) {
-        ctx.strokeStyle = c.noteHighlight;
-        ctx.strokeRect(headX - half, headY - half, side, side);
-      }
     } else {
       ctx.strokeRect(headX - half, headY - half, side, side);
     }
