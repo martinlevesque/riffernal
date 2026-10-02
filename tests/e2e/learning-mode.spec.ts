@@ -397,19 +397,33 @@ test.describe('Learning Mode - wrong-key feedback', () => {
       { time: 5.0, key: 'E3', duration: 0.25 },
     ], 'DropFlash'), { learningMode: true });
 
-    // Wait for the hold note to arrive and freeze.
-    await page.waitForTimeout(1000);
+    // Note state, polled instead of fixed wall-clock offsets so slow CI
+    // environments stay deterministic.
+    const noteState = () => page.evaluate(() => {
+      const g = (window as any)._testGame;
+      const n = g.noteManager.notes[0];
+      return { holding: n.holding, failing: n.failing, resolved: n.resolved };
+    });
+
+    // Wait for the hold note to arrive and freeze, then engage it.
+    await expect
+      .poll(() => page.evaluate(() => (window as any)._testGame._learningFrozen), { timeout: 5000 })
+      .toBe(true);
     await page.keyboard.down('a'); // C3
+    await expect.poll(noteState, { timeout: 5000 }).toMatchObject({ holding: true });
     await page.waitForTimeout(250);
     await page.keyboard.up('a'); // release far before the note ends → drop
+    await expect.poll(noteState, { timeout: 5000 }).toMatchObject({ failing: true });
 
     const c3Lane = NOTE_TO_LANE.get('C3');
     await expect.poll(() => wrongFlashLanes(page), { timeout: 2000 }).toContain(c3Lane);
 
     // Re-press and hold past the note's end: the note recovers and resolves.
     await page.keyboard.down('a');
+    await expect.poll(noteState, { timeout: 5000 }).toMatchObject({ holding: true, failing: false });
     await page.waitForTimeout(2200);
     await page.keyboard.up('a');
+    await expect.poll(noteState, { timeout: 5000 }).toMatchObject({ resolved: true });
     await expect(page.locator('#hit-feedback')).toHaveText(/[0-9+]+ (Good!|Great|Perfect)/, { timeout: 3000 });
   });
 

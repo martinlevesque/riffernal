@@ -123,8 +123,13 @@ async function bootTestGame(opts: {
   const { KeyboardInput } = await import('/js/input/KeyboardInput.js');
   // @ts-expect-error browser-side dynamic import
   const { MidiInput } = await import('/js/input/MidiInput.js');
+  // @ts-expect-error browser-side dynamic import
+  const { ScoreDisplay } = await import('/js/ui/play/ScoreDisplay.js');
   const canvas = document.getElementById('gameCanvas');
   const game = new Game(canvas, new Synth(), new KeyboardInput(), new MidiInput());
+  // Mirror main.ts wiring: without a ScoreDisplay, feedback assertions on
+  // #hit-feedback see an empty element forever.
+  game.scoreDisplay = new ScoreDisplay();
   if (opts.learningMode) {
     game.setLearningMode(true);
   }
