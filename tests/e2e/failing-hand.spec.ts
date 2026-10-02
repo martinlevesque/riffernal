@@ -117,7 +117,7 @@ test.describe('non-failing note hand-color', () => {
   test('left hand uses cool palette (blue > red)', async ({ page }) => {
     await page.goto('/');
     const r = await evaluateTest(page, {
-      notes: [{ time: 0.5, key: 'A2', duration: 0.05 }],
+      notes: [{ time: 0.5, key: 'A2', duration: 0.5 }],
       currentTime: -0.2,
       setup: NON_FAILING_SETUP,
       sampleKey: 'A2',
@@ -130,7 +130,7 @@ test.describe('non-failing note hand-color', () => {
   test('right hand uses warm palette (red > blue)', async ({ page }) => {
     await page.goto('/');
     const r = await evaluateTest(page, {
-      notes: [{ time: 0.5, key: 'A4', duration: 0.05 }],
+      notes: [{ time: 0.5, key: 'A4', duration: 0.5 }],
       currentTime: -0.2,
       setup: NON_FAILING_SETUP,
       sampleKey: 'A4',
@@ -200,7 +200,10 @@ function evaluateDraw(page: import('@playwright/test').Page, arg: DrawArg): Prom
 ${indent(RENDERER_SCAFFOLD, 4)}
 
     const r = createRenderer(document.createElement('canvas'));
-    r.drawNote(0, 600, 200, '#2288ff', 1, r.sheetBottom, 0, ${JSON.stringify(arg.key)}, false, ${JSON.stringify(arg.failing)});
+    // Head bottom lands exactly on the hit zone: failing notes park
+    // there, so both variants must be drawn at the same parked position
+    // for a shape-only comparison.
+    r.drawNote(0, 456, 200, '#2288ff', 1, r.sheetBottom, 0, ${JSON.stringify(arg.key)}, false, ${JSON.stringify(arg.failing)});
 
     let count = 0, bright = 0;
     let minX = 1e9, maxX = -1, minY = 1e9;

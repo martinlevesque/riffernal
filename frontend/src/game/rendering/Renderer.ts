@@ -174,6 +174,7 @@ interface NoteLayout {
   scaledWidth: number;
   scaledHeadHeight: number;
   scaledTailHeight: number;
+  baseWidth: number;
   scale: number;
 }
 
@@ -213,7 +214,7 @@ export class Renderer {
   private _cachedStaffScale = -1;
   private _cachedStaffWidth = -1;
   private _labelFontCache = new Map<string, string>();
-  private _labelFontMono = '';
+  private _labelFontUi = '';
   private _flameSprites: { outer: HTMLCanvasElement; core: HTMLCanvasElement } | null = null;
   private _haloGrad: CanvasGradient | null = null;
   private _haloKey = '';
@@ -375,7 +376,7 @@ export class Renderer {
     return { x, y };
   }
 
-  private _noteLayout(laneIndex: number, y: number, noteHeight: number, sheetBottom: number, noteName?: string, visibleRange?: VisibleRange | null): NoteLayout {
+  private _noteLayout(laneIndex: number, y: number, noteHeight: number, sheetBottom: number, noteName?: string, failing?: boolean, visibleRange?: VisibleRange | null): NoteLayout {
     const layout = getPianoKeyLayout(noteName ?? NOTE_NAMES[laneIndex] ?? 'C4', this.width, visibleRange);
     const x = layout.x;
     const keyWidth = layout.width;
@@ -393,12 +394,18 @@ export class Renderer {
     const scaledWidth = (keyWidth - padding * 2) * scale;
     const centerX = x + keyWidth / 2;
 
+    // Failed notes park at the hit line (blinking until resolved) instead
+    // of scrolling on under the piano, which would carry their name badge
+    // off-canvas; normal notes keep sliding past it.
+    const parkedHeadBottom = failing ? clampedY : headBottom;
+
     return {
       drawX: centerX - scaledWidth / 2,
-      drawY: headBottom - scaledHeadHeight - scaledTailHeight,
+      drawY: parkedHeadBottom - scaledHeadHeight - scaledTailHeight,
       scaledWidth,
       scaledHeadHeight,
       scaledTailHeight,
+      baseWidth: keyWidth - padding * 2,
       scale,
     };
   }
@@ -414,7 +421,7 @@ export class Renderer {
     const drawColor = failing && noteName
       ? (handSide === HandSide.Left ? c.failColorLeft : c.failColorRight)
       : color;
-    const L = this._noteLayout(laneIndex, y, noteHeight, sheetBottom, noteName, visibleRange);
+    const L = this._noteLayout(laneIndex, y, noteHeight, sheetBottom, noteName, failing, visibleRange);
 
     ctx.globalAlpha = alpha;
 
@@ -468,65 +475,36 @@ export class Renderer {
       this._drawFlame(ctx, cx, baseY, L.scaledWidth);
     }
 
-    if (noteName && failing) {
-      this._drawFailBadge(ctx, noteName, L.drawX + L.scaledWidth / 2, headDrawY + L.scaledHeadHeight, particleColor, L.scaledWidth);
-    } else if (noteName) {
-      this._drawNoteLabel(ctx, noteName, L.drawX, L.drawY, L.scaledWidth, L.scaledHeadHeight + L.scaledTailHeight);
+    if (noteName) {
+      // Badge border stays visible at all times: the hand color for
+      // normal notes, the steady particle color for failing ones (the
+      // note itself blinks; a blinking badge box would read as flicker).
+      this._drawNoteBadge(ctx, noteName, L.drawX + L.scaledWidth / 2, headDrawY + L.scaledHeadHeight, failing ? particleColor : drawColor, L.baseWidth);
     }
 
     ctx.globalAlpha = 1;
   }
 
-  private _drawNoteLabel(ctx: CanvasRenderingContext2D, noteName: string, drawX: number, drawY: number, width: number, height: number): void {
+  /** Every named note carries a name badge anchored at the head's
+   *  leading edge, sized from the lane width and screen height so it
+   *  reads big on any window size. Press Start 2P fills its em box, so
+   *  the name stays legible where the condensed VT323 would look small.
+   *  The badge is its own box — dark fill, note-border color, white
+   *  text; failing notes blink via their particle-colored border. */
+  private _drawNoteBadge(ctx: CanvasRenderingContext2D, noteName: string, centerX: number, bottomY: number, borderColor: string, noteWidth: number): void {
     const shortName = NOTE_SHORT_NAMES[noteName] ?? noteName;
-    const fontSize = Math.round(Math.max(11, Math.min(width * 0.6, 18)));
-    // Rounded size bucketed into a cached font string: rebuilding it per
-    // note per frame makes the browser re-parse the font shorthand.
-    const mono = themeManager.fonts.mono;
-    if (mono !== this._labelFontMono) {
-      this._labelFontMono = mono;
-      this._labelFontCache.clear();
-    }
-    const fontFor = (size: number) => {
-      const key = `mono:${size}`;
-      let f = this._labelFontCache.get(key);
-      if (!f) {
-        f = `bold ${size}px ${mono}`;
-        this._labelFontCache.set(key, f);
-      }
-      return f;
-    };
-    ctx.font = fontFor(fontSize);
-    ctx.textAlign = 'center';
-    ctx.textBaseline = 'bottom';
-    // Labels may use the note's full box (tail + head) for height but
-    // never spill sideways, even on narrow notes.
-    ctx.save();
-    ctx.beginPath();
-    ctx.rect(drawX, drawY, width, height);
-    ctx.clip();
-    ctx.fillStyle = themeManager.canvas.noteHeadLabel;
-    ctx.fillText(shortName, drawX + width / 2, drawY + height);
-    ctx.restore();
-  }
-
-  /** Failing notes carry a name badge anchored at the head's leading
-   *  edge, sized from the lane width so it stays large on any window
-   *  size. Press Start 2P fills its em box, so the name reads big where
-   *  the condensed VT323 would look small. The badge is its own box —
-   *  dark fill, bright particle border, white text. */
-  private _drawFailBadge(ctx: CanvasRenderingContext2D, noteName: string, centerX: number, bottomY: number, borderColor: string, noteWidth: number): void {
-    const shortName = NOTE_SHORT_NAMES[noteName] ?? noteName;
-    const fontSize = Math.round(Math.min(Math.max(28, noteWidth * 1.3), 64));
-    const mono = themeManager.fonts.mono;
-    if (mono !== this._labelFontMono) {
-      this._labelFontMono = mono;
+    const fontSize = Math.round(
+      Math.min(Math.max(12, noteWidth * 0.55), 24),
+    );
+    const ui = themeManager.fonts.ui;
+    if (ui !== this._labelFontUi) {
+      this._labelFontUi = ui;
       this._labelFontCache.clear();
     }
     const badgeKey = `ui:${fontSize}`;
     let font = this._labelFontCache.get(badgeKey);
     if (!font) {
-      font = `${fontSize}px ${themeManager.fonts.ui}`;
+      font = `${fontSize}px ${ui}`;
       this._labelFontCache.set(badgeKey, font);
     }
     ctx.font = font;

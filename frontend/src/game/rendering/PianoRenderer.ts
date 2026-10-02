@@ -196,7 +196,7 @@ export class PianoRenderer {
       const labelY = pianoTop - offsetY + pianoH * labelYRatio;
       const shortName = NOTE_SHORT_NAMES[noteName] ?? noteName;
       ctx.fillStyle = c.keyLabelWhite;
-      ctx.font = `bold ${Math.max(15, whiteKeyWidth * 0.5)}px ${themeManager.fonts.mono}`;
+      ctx.font = `bold ${Math.max(11, whiteKeyWidth * 0.32)}px ${themeManager.fonts.mono}`;
       ctx.textAlign = 'center';
       ctx.textBaseline = 'middle';
       // Labels stay inside their key rectangle, even on narrow keys.
@@ -206,7 +206,7 @@ export class PianoRenderer {
       ctx.clip();
       ctx.fillText(shortName, layout.x + whiteKeyWidth / 2, labelY);
       ctx.textBaseline = 'alphabetic';
-      this._drawComputerKeyLabel(ctx, noteName, layout.x + whiteKeyWidth / 2, pianoTop - offsetY + pianoH * 0.65, `${Math.max(12, whiteKeyWidth * 0.35)}px`, c.keyLabelWhite);
+      this._drawComputerKeyLabel(ctx, noteName, layout.x + whiteKeyWidth / 2, pianoTop - offsetY + pianoH * 0.65, `${Math.max(9, whiteKeyWidth * 0.24)}px`, c.keyLabelWhite);
       ctx.restore();
     }
   }
@@ -242,14 +242,14 @@ export class PianoRenderer {
 
     const blkLabelY = y + h - 16;
     ctx.fillStyle = c.keyLabelBlack;
-    ctx.font = `bold ${Math.max(12, w * 0.6)}px ${themeManager.fonts.mono}`;
+    ctx.font = `bold ${Math.max(9, w * 0.4)}px ${themeManager.fonts.mono}`;
     ctx.textAlign = 'center';
     ctx.save();
     ctx.beginPath();
     roundRect(ctxR, x, y, w, h, 2);
     ctx.clip();
     ctx.fillText(NOTE_SHORT_NAMES[noteName] ?? noteName, x + w / 2, blkLabelY);
-    this._drawComputerKeyLabel(ctx, noteName, x + w / 2, blkLabelY - w * 0.9, `${Math.max(10, w * 0.45)}px`, c.keyLabelBlack);
+    this._drawComputerKeyLabel(ctx, noteName, x + w / 2, blkLabelY - w * 0.9, `${Math.max(8, w * 0.3)}px`, c.keyLabelBlack);
     ctx.restore();
   }
 
@@ -268,10 +268,10 @@ export class PianoRenderer {
     const labelBottomOffset = 16;
     // Constant for a given geometry/theme: hoisted so the font shorthand
     // isn't re-parsed per pressed key per frame.
-    const whiteLabelFont = `bold ${Math.max(15, wKeyWidth * 0.5)}px ${themeManager.fonts.mono}`;
-    const blackLabelFont = `bold ${Math.max(12, blackKeyWidth * 0.6)}px ${themeManager.fonts.mono}`;
-    const whiteCkFontSize = `${Math.max(12, wKeyWidth * 0.35)}px`;
-    const blackCkFontSize = `${Math.max(10, blackKeyWidth * 0.45)}px`;
+    const whiteLabelFont = `bold ${Math.max(11, wKeyWidth * 0.32)}px ${themeManager.fonts.mono}`;
+    const blackLabelFont = `bold ${Math.max(9, blackKeyWidth * 0.4)}px ${themeManager.fonts.mono}`;
+    const whiteCkFontSize = `${Math.max(9, wKeyWidth * 0.24)}px`;
+    const blackCkFontSize = `${Math.max(8, blackKeyWidth * 0.3)}px`;
 
     for (const [lane, velocity] of pressedLanes) {
       if (!this._inRange(lane, visibleRange)) continue;
