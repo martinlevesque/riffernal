@@ -60,6 +60,7 @@ export {
   bootGame,
   bootNoteManager,
   gameState,
+  wrongFlashLanes,
   type GameSnapshot,
   type TestLoop,
   buildFreezeResumeScript,

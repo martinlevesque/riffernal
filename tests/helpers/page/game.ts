@@ -219,3 +219,12 @@ export function buildFreezeResumeScript(songJson: string, action: string): strin
     return { frozenTime, ...after };
   })()`;
 }
+
+/** Lanes currently flashing red from a wrong press (learn-mode teaching
+ *  aid), from the booted game's PianoRenderer flash map. */
+export async function wrongFlashLanes(page: Page): Promise<number[]> {
+  return page.evaluate(() => {
+    const g = (window as any)._testGame;
+    return g ? [...g.renderer.piano._wrongFlashes.keys()] : [];
+  });
+}
