@@ -109,10 +109,7 @@ const SHEET_BEATS_PER_MEASURE = 4;
 // Size of one "big pixel" on the highway. All note rects snap to this grid,
 // which is what makes notes read as chunky blocks instead of smooth shapes.
 const NOTE_PIXEL = 3;
-const FAIL_PIXEL = NOTE_PIXEL * 2;
 const FAIL_BLINK_MS = 250;
-const FAIL_DITHER_ALPHA_LIT = 0.55;
-const FAIL_DITHER_ALPHA_DIM = 0.2;
 
 function pixelSnap(v: number, unit: number): number {
   return Math.round(v / unit) * unit;
@@ -128,28 +125,12 @@ function pixelRect(ctx: CanvasRenderingContext2D, x: number, y: number, w: numbe
 
 // Block with a hard border, drawn as two rects so the outline is
 // `borderUnit` thick on every side. Position snaps to `snapUnit`, kept
-// separate from the border thickness: failing notes carry a double-size
-// border but still snap at the fine grid — coarser snapping makes their
-// scroll movement jump irregularly and read as shaking.
+// separate from the border thickness.
 function pixelBox(ctx: CanvasRenderingContext2D, x: number, y: number, w: number, h: number, snapUnit: number, borderUnit: number, borderColor: string, fillColor: string): void {
   ctx.fillStyle = borderColor;
   pixelRect(ctx, x - borderUnit, y - borderUnit, w + borderUnit * 2, h + borderUnit * 2, snapUnit);
   ctx.fillStyle = fillColor;
   pixelRect(ctx, x, y, w, h, snapUnit);
-}
-
-// One checker tile as a reusable pattern: many failing notes can dither
-// on screen at once, and a pattern fill costs one draw call where the
-// per-cell loop cost dozens.
-function checkerPattern(ctx: CanvasRenderingContext2D, color: string, cell: number): CanvasPattern {
-  const tile = document.createElement('canvas');
-  tile.width = cell * 2;
-  tile.height = cell * 2;
-  const tctx = tile.getContext('2d')!;
-  tctx.fillStyle = color;
-  tctx.fillRect(0, 0, cell, cell);
-  tctx.fillRect(cell, cell, cell, cell);
-  return ctx.createPattern(tile, 'repeat')!;
 }
 
 const SHEET_NOTE_POSITIONS: Record<string, number> = Object.assign(
@@ -231,8 +212,7 @@ export class Renderer {
   private _staffCache: HTMLCanvasElement | null = null;
   private _cachedStaffScale = -1;
   private _cachedStaffWidth = -1;
-  private _checkerPatterns = new Map<string, CanvasPattern>();
-  private _labelFontCache = new Map<number, string>();
+  private _labelFontCache = new Map<string, string>();
   private _labelFontMono = '';
   private _flameSprites: { outer: HTMLCanvasElement; core: HTMLCanvasElement } | null = null;
   private _haloGrad: CanvasGradient | null = null;
@@ -395,7 +375,7 @@ export class Renderer {
     return { x, y };
   }
 
-  private _noteLayout(laneIndex: number, y: number, noteHeight: number, sheetBottom: number, noteName?: string, failing?: boolean, visibleRange?: VisibleRange | null): NoteLayout {
+  private _noteLayout(laneIndex: number, y: number, noteHeight: number, sheetBottom: number, noteName?: string, visibleRange?: VisibleRange | null): NoteLayout {
     const layout = getPianoKeyLayout(noteName ?? NOTE_NAMES[laneIndex] ?? 'C4', this.width, visibleRange);
     const x = layout.x;
     const keyWidth = layout.width;
@@ -405,9 +385,7 @@ export class Renderer {
     const scaleRange = hitZoneY - sheetBottom;
     const headBottom = y + noteHeight;
     const clampedY = Math.max(sheetBottom, Math.min(headBottom, hitZoneY));
-    // Failing notes render 25% larger so the warning shape is unmistakable
-    const scaleBase = failing ? 0.5625 : 0.45;
-    const scale = scaleBase + 0.55 * ((clampedY - sheetBottom) / scaleRange);
+    const scale = 0.45 + 0.55 * ((clampedY - sheetBottom) / scaleRange);
 
     const HEAD_HEIGHT = 14;
     const scaledHeadHeight = HEAD_HEIGHT * scale;
@@ -436,28 +414,35 @@ export class Renderer {
     const drawColor = failing && noteName
       ? (handSide === HandSide.Left ? c.failColorLeft : c.failColorRight)
       : color;
-    const L = this._noteLayout(laneIndex, y, noteHeight, sheetBottom, noteName, failing, visibleRange);
+    const L = this._noteLayout(laneIndex, y, noteHeight, sheetBottom, noteName, visibleRange);
 
     ctx.globalAlpha = alpha;
 
     const blinkPhase = Math.floor(this._now / FAIL_BLINK_MS) % 2 === 0;
+    const particleColor = handSide === HandSide.Left ? c.failParticleLeft : c.failParticleRight;
     const borderColor = failing
-      ? (blinkPhase
-        ? (handSide === HandSide.Left ? c.failParticleLeft : c.failParticleRight)
-        : drawColor)
+      ? (blinkPhase ? particleColor : drawColor)
       : 'rgba(0, 0, 0, 0.55)';
 
-    // Geometry always snaps at the fine grid so scrolling stays smooth;
-    // failing notes keep their chunkier look via a double-size border
-    // and dither cells, not via coarser position snapping.
+    // All notes share the same geometry grid; failing notes distinguish
+    // themselves through border blink and glow, not a bulkier shape.
     const snapUnit = NOTE_PIXEL;
-    const borderUnit = failing ? FAIL_PIXEL : NOTE_PIXEL;
+    const borderUnit = NOTE_PIXEL;
 
     if (waiting) {
       const pulse = 0.5 + 0.5 * Math.sin(this._now / 200 * 3.2);
       const glowUnits = Math.max(borderUnit, pixelSnap(4 + pulse * 8, snapUnit));
       ctx.globalAlpha = alpha * 0.25;
       ctx.fillStyle = drawColor;
+      pixelRect(ctx, L.drawX - glowUnits, L.drawY - glowUnits, L.scaledWidth + glowUnits * 2, L.scaledHeadHeight + L.scaledTailHeight + glowUnits * 2, snapUnit);
+      ctx.globalAlpha = alpha;
+    }
+
+    if (failing) {
+      const pulse = 0.5 + 0.5 * Math.sin(this._now / FAIL_BLINK_MS * Math.PI);
+      const glowUnits = Math.max(borderUnit, pixelSnap(4 + pulse * 6, snapUnit));
+      ctx.globalAlpha = alpha * (0.2 + 0.28 * pulse);
+      ctx.fillStyle = particleColor;
       pixelRect(ctx, L.drawX - glowUnits, L.drawY - glowUnits, L.scaledWidth + glowUnits * 2, L.scaledHeadHeight + L.scaledTailHeight + glowUnits * 2, snapUnit);
       ctx.globalAlpha = alpha;
     }
@@ -483,17 +468,10 @@ export class Renderer {
       this._drawFlame(ctx, cx, baseY, L.scaledWidth);
     }
 
-    if (failing && noteName) {
-      const ditherColor = handSide === HandSide.Left ? c.failParticleLeft : c.failParticleRight;
-      ctx.globalAlpha = alpha * (blinkPhase
-        ? FAIL_DITHER_ALPHA_LIT
-        : FAIL_DITHER_ALPHA_DIM);
-      this._fillChecker(ctx, L.drawX, L.drawY, L.scaledWidth, L.scaledHeadHeight + L.scaledTailHeight, ditherColor, FAIL_PIXEL);
-      ctx.globalAlpha = alpha;
-    }
-
-    if (noteName) {
-      this._drawNoteLabel(ctx, noteName, L.drawX, headDrawY, L.scaledWidth, L.scaledHeadHeight);
+    if (noteName && failing) {
+      this._drawFailBadge(ctx, noteName, L.drawX + L.scaledWidth / 2, headDrawY + L.scaledHeadHeight, particleColor, L.scaledWidth);
+    } else if (noteName) {
+      this._drawNoteLabel(ctx, noteName, L.drawX, L.drawY, L.scaledWidth, L.scaledHeadHeight + L.scaledTailHeight);
     }
 
     ctx.globalAlpha = 1;
@@ -501,7 +479,7 @@ export class Renderer {
 
   private _drawNoteLabel(ctx: CanvasRenderingContext2D, noteName: string, drawX: number, drawY: number, width: number, height: number): void {
     const shortName = NOTE_SHORT_NAMES[noteName] ?? noteName;
-    const fontSize = Math.round(Math.max(11, width * 0.6));
+    const fontSize = Math.round(Math.max(11, Math.min(width * 0.6, 18)));
     // Rounded size bucketed into a cached font string: rebuilding it per
     // note per frame makes the browser re-parse the font shorthand.
     const mono = themeManager.fonts.mono;
@@ -509,37 +487,59 @@ export class Renderer {
       this._labelFontMono = mono;
       this._labelFontCache.clear();
     }
-    let font = this._labelFontCache.get(fontSize);
+    const fontFor = (size: number) => {
+      const key = `mono:${size}`;
+      let f = this._labelFontCache.get(key);
+      if (!f) {
+        f = `bold ${size}px ${mono}`;
+        this._labelFontCache.set(key, f);
+      }
+      return f;
+    };
+    ctx.font = fontFor(fontSize);
+    ctx.textAlign = 'center';
+    ctx.textBaseline = 'bottom';
+    // Labels may use the note's full box (tail + head) for height but
+    // never spill sideways, even on narrow notes.
+    ctx.save();
+    ctx.beginPath();
+    ctx.rect(drawX, drawY, width, height);
+    ctx.clip();
+    ctx.fillStyle = themeManager.canvas.noteHeadLabel;
+    ctx.fillText(shortName, drawX + width / 2, drawY + height);
+    ctx.restore();
+  }
+
+  /** Failing notes carry a name badge anchored at the head's leading
+   *  edge, sized from the lane width so it stays large on any window
+   *  size. Press Start 2P fills its em box, so the name reads big where
+   *  the condensed VT323 would look small. The badge is its own box —
+   *  dark fill, bright particle border, white text. */
+  private _drawFailBadge(ctx: CanvasRenderingContext2D, noteName: string, centerX: number, bottomY: number, borderColor: string, noteWidth: number): void {
+    const shortName = NOTE_SHORT_NAMES[noteName] ?? noteName;
+    const fontSize = Math.round(Math.min(Math.max(28, noteWidth * 1.3), 64));
+    const mono = themeManager.fonts.mono;
+    if (mono !== this._labelFontMono) {
+      this._labelFontMono = mono;
+      this._labelFontCache.clear();
+    }
+    const badgeKey = `ui:${fontSize}`;
+    let font = this._labelFontCache.get(badgeKey);
     if (!font) {
-      font = `bold ${fontSize}px ${mono}`;
-      this._labelFontCache.set(fontSize, font);
+      font = `${fontSize}px ${themeManager.fonts.ui}`;
+      this._labelFontCache.set(badgeKey, font);
     }
     ctx.font = font;
     ctx.textAlign = 'center';
-    ctx.textBaseline = 'bottom';
-    ctx.fillStyle = themeManager.canvas.noteHeadLabel;
-    ctx.fillText(shortName, drawX + width / 2, drawY + height);
-  }
-
-  /** Dither fill via a cached pattern, anchored to the note's snapped
-   *  top-left. The region snaps at the fine grid so the dither stays
-   *  inside the note while it scrolls; `cell` only sets the checker
-   *  size. */
-  private _fillChecker(ctx: CanvasRenderingContext2D, x: number, y: number, w: number, h: number, color: string, cell: number): void {
-    x = pixelSnap(x, NOTE_PIXEL);
-    y = pixelSnap(y, NOTE_PIXEL);
-    w = pixelSnap(w, NOTE_PIXEL);
-    h = pixelSnap(h, NOTE_PIXEL);
-    let pattern = this._checkerPatterns.get(`${color}|${cell}`);
-    if (!pattern) {
-      pattern = checkerPattern(ctx, color, cell);
-      this._checkerPatterns.set(`${color}|${cell}`, pattern);
-    }
-    ctx.save();
-    ctx.translate(x, y);
-    ctx.fillStyle = pattern;
-    ctx.fillRect(0, 0, w, h);
-    ctx.restore();
+    ctx.textBaseline = 'middle';
+    const textW = ctx.measureText(shortName).width;
+    const bw = pixelSnap(textW + fontSize * 0.45, NOTE_PIXEL);
+    const bh = pixelSnap(fontSize + 18, NOTE_PIXEL);
+    const bx = pixelSnap(centerX - bw / 2, NOTE_PIXEL);
+    const by = pixelSnap(bottomY - bh, NOTE_PIXEL);
+    pixelBox(ctx, bx, by, bw, bh, NOTE_PIXEL, NOTE_PIXEL, borderColor, 'rgba(0, 0, 0, 0.88)');
+    ctx.fillStyle = '#fff';
+    ctx.fillText(shortName, bx + bw / 2, by + bh / 2 + 1);
   }
 
   /** The two flame layers as pre-rendered sprites: dense chords keep many

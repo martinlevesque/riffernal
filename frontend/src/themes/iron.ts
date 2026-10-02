@@ -34,6 +34,8 @@ export const ironTheme: Theme = {
     blackKeyBorder: '#000',
     keyIndicatorUnpressed: '#222',
     keyLabel: '#555',
+    keyLabelWhite: '#1a1a1a',
+    keyLabelBlack: '#e0e0e0',
     keyLabelPressedWhite: '#222',
     keyLabelPressedBlack: '#ddd',
     noteFallbackColor: '#ffffff',

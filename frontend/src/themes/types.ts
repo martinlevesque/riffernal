@@ -30,6 +30,8 @@ export interface ThemeCanvas {
   blackKeyBorder: string;
   keyIndicatorUnpressed: string;
   keyLabel: string;
+  keyLabelWhite: string;
+  keyLabelBlack: string;
   keyLabelPressedWhite: string;
   keyLabelPressedBlack: string;
   noteFallbackColor: string;

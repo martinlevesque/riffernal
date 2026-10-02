@@ -73,7 +73,12 @@ ${indent(arg.setup, 4)}
     }
 
     let n = 0, rs = 0, bs = 0;
-    sampleNote(r, ${JSON.stringify(arg.sampleKey)}, (p, i) => { n++; rs += p[i]; bs += p[i + 2]; });
+    sampleNote(r, ${JSON.stringify(arg.sampleKey)}, (p, i) => {
+      // Skip near-white pixels: the failing note's name badge draws white
+      // text over the fill and would skew the hue average
+      if (p[i] > 200 && p[i + 1] > 200 && p[i + 2] > 200) return;
+      n++; rs += p[i]; bs += p[i + 2];
+    });
     return { activeCount: active.length, count: n, avgRed: n ? rs / n : 0, avgBlue: n ? bs / n : 0 };
   })()`;
 
@@ -166,7 +171,9 @@ test.describe('failing note hand-color', () => {
 
 // -- failing-note pixel visibility --------------------------------------------
 // Draws the same geometry twice through drawNote, toggling only `failing`,
-// to assert the failing treatment is bigger and visibly dithered.
+// to assert the failing treatment keeps the note's fill silhouette and
+// signals with a blinking bright border + fixed-size name badge, not a
+// bulkier box or noisy fill.
 
 interface DrawArg {
   key: string;
@@ -176,9 +183,17 @@ interface DrawArg {
 interface DrawResult {
   count: number;
   brightCount: number;
+  fillW: number;
+  topY: number;
 }
 
+// Base fill colors: normal notes keep the passed color; failing C5 maps to
+// the right-hand fail color (midnight theme).
+const NORMAL_FILL = [34, 136, 255];
+const FAIL_FILL = [170, 51, 68];
+
 function evaluateDraw(page: import('@playwright/test').Page, arg: DrawArg): Promise<DrawResult> {
+  const fill = arg.failing ? FAIL_FILL : NORMAL_FILL;
   const body = `(async () => {
     const { Renderer } = await import('/js/game/rendering/Renderer.js');
     const { getPianoKeyLayout } = await import('/js/utils/notes.js');
@@ -188,33 +203,48 @@ ${indent(RENDERER_SCAFFOLD, 4)}
     r.drawNote(0, 600, 200, '#2288ff', 1, r.sheetBottom, 0, ${JSON.stringify(arg.key)}, false, ${JSON.stringify(arg.failing)});
 
     let count = 0, bright = 0;
+    let minX = 1e9, maxX = -1, minY = 1e9;
+    const [fr, fg, fb] = ${JSON.stringify(fill)};
     sampleNote(r, ${JSON.stringify(arg.key)}, (p, i) => {
       count++;
-      // Dither/border pixels blend toward the bright particle color,
-      // which carries far more green than the base fail fill
+      const x = (i / 4) % ${CANVAS_WIDTH}, y = Math.floor(i / 4 / ${CANVAS_WIDTH});
+      // Bright particle border/label pixels carry far more green than
+      // the base fail fill
       if (p[i + 1] > 75) bright++;
+      // Only pixels close to the fill color: excludes the glow ring,
+      // blinking border, and name badge
+      if (Math.abs(p[i] - fr) <= 65 && Math.abs(p[i + 1] - fg) <= 65 && Math.abs(p[i + 2] - fb) <= 65) {
+        if (x < minX) minX = x; if (x > maxX) maxX = x;
+        if (y < minY) minY = y;
+      }
     });
-    return { count, brightCount: bright };
+    return { count, brightCount: bright, fillW: maxX - minX + 1, topY: minY };
   })()`;
 
   return page.evaluate(body) as Promise<DrawResult>;
 }
 
 test.describe('failing note pixel visibility', () => {
-  test('failing notes are drawn bigger than normal notes', async ({ page }) => {
+  test('failing notes keep the normal note silhouette', async ({ page }) => {
     await page.goto('/');
     const normal = await evaluateDraw(page, { key: 'C5', failing: false });
     const failing = await evaluateDraw(page, { key: 'C5', failing: true });
 
     expect(normal.count).toBeGreaterThan(0);
-    expect(failing.count).toBeGreaterThan(normal.count * 1.1);
+    expect(failing.fillW).toBeGreaterThan(0);
+    // Snap-grid slack only: a bulkier failing shape would exceed it. The
+    // badge covers the head's lower rows, so height is compared at the
+    // note's top edge instead.
+    expect(Math.abs(failing.fillW - normal.fillW)).toBeLessThanOrEqual(6);
+    expect(Math.abs(failing.topY - normal.topY)).toBeLessThanOrEqual(6);
   });
 
-  test('failing notes carry bright pixel dither inside them', async ({ page }) => {
+  test('failing notes signal with a bright border, not a noisy fill', async ({ page }) => {
     await page.goto('/');
     const failing = await evaluateDraw(page, { key: 'C5', failing: true });
 
     expect(failing.brightCount).toBeGreaterThan(0);
-    expect(failing.brightCount / failing.count).toBeGreaterThan(0.05);
+    // Border ring + badge accents only: the interior stays solid hand color
+    expect(failing.brightCount / failing.count).toBeLessThan(0.35);
   });
 });
