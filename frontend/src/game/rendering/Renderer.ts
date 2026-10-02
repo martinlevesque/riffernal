@@ -210,6 +210,7 @@ export class Renderer {
   private _cachedStaffScale = -1;
   private _cachedStaffWidth = -1;
   private _labelFontCache = new Map<string, string>();
+  private _labelTextWidth = new Map<string, number>();
   private _labelFontUi = '';
   private _flameSprites: { outer: HTMLCanvasElement; core: HTMLCanvasElement } | null = null;
   private _haloGrad: CanvasGradient | null = null;
@@ -482,6 +483,7 @@ export class Renderer {
     if (ui !== this._labelFontUi) {
       this._labelFontUi = ui;
       this._labelFontCache.clear();
+      this._labelTextWidth.clear();
     }
     const badgeKey = `ui:${fontSize}`;
     let font = this._labelFontCache.get(badgeKey);
@@ -492,7 +494,14 @@ export class Renderer {
     ctx.font = font;
     ctx.textAlign = 'center';
     ctx.textBaseline = 'middle';
-    const textW = ctx.measureText(shortName).width;
+    // measureText per named note per frame adds up in chords; the width
+    // only varies with font + text, so memoize both.
+    const textKey = `${fontSize}|${shortName}`;
+    let textW = this._labelTextWidth.get(textKey);
+    if (textW === undefined) {
+      textW = ctx.measureText(shortName).width;
+      this._labelTextWidth.set(textKey, textW);
+    }
     const bw = pixelSnap(textW + fontSize * 0.45, NOTE_PIXEL);
     const bh = pixelSnap(fontSize + 18, NOTE_PIXEL);
     const bx = pixelSnap(centerX - bw / 2, NOTE_PIXEL);
