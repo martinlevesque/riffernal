@@ -14,6 +14,17 @@ interface PressDiff {
   hitZoneY: number;
 }
 
+interface ThemeColorCounts {
+  handYellow: number;
+  rainbowBlue: number;
+  hitLineCyan: number;
+}
+
+interface PressedColorResult {
+  iron: ThemeColorCounts;
+  midnight: ThemeColorCounts;
+}
+
 test('pressed-key feedback renders on the piano region only', async ({ page }) => {
   await page.goto('/');
   const result = await page.evaluate(async ({ W, H }): Promise<PressDiff> => {
@@ -70,4 +81,67 @@ test('pressed-key feedback renders on the piano region only', async ({ page }) =
   expect(result.minDiffY).toBeGreaterThanOrEqual(result.hitZoneY - 32);
   // The pressed key body must repaint on the piano, below the hit zone.
   expect(result.maxDiffY).toBeGreaterThan(result.hitZoneY);
+});
+
+// Pressed-key feedback must use the falling notes' hand palette. A5 falls
+// yellow (#ffdd22) in the hand palette but was blue (#2288ff) in the old
+// per-pitch rainbow palette, and the pressed indicator bar was the theme's
+// hit-line color (cyan in midnight) instead of the note's color.
+test('pressed-key feedback matches the falling note hand color', async ({ page }) => {
+  await page.goto('/');
+  const result = await page.evaluate(async ({ W, H }): Promise<PressedColorResult> => {
+    // @ts-expect-error browser-side dynamic import
+    const { PianoRenderer } = await import('/js/game/rendering/PianoRenderer.js');
+    // @ts-expect-error browser-side dynamic import
+    const { NOTE_NAMES } = await import('/js/utils/notes.js');
+    // @ts-expect-error browser-side dynamic import
+    const { themeManager } = await import('/js/themes/ThemeManager.js');
+    // @ts-expect-error browser-side dynamic import
+    const { ironTheme } = await import('/js/themes/iron.js');
+    // @ts-expect-error browser-side dynamic import
+    const { midnightTheme } = await import('/js/themes/midnight.js');
+
+    const renderCounts = (): ThemeColorCounts => {
+      const canvas = document.createElement('canvas');
+      canvas.width = W;
+      canvas.height = H;
+      const ctx = canvas.getContext('2d')!;
+      const piano = new PianoRenderer();
+      const pressed = new Map<number, number>([[NOTE_NAMES.indexOf('A5'), 100]]);
+      piano.drawPiano(ctx, W, H, pressed, null);
+      piano.drawHitZone(ctx, W, H, pressed, null);
+      const px = ctx.getImageData(0, 0, W, H).data;
+
+      // Full-alpha pixels only: the velocity glow blends the same color at
+      // partial alpha and must not count.
+      const exact = (r: number, g: number, b: number): number => {
+        let n = 0;
+        for (let i = 0; i < px.length; i += 4) {
+          if (px[i] === r && px[i + 1] === g && px[i + 2] === b && px[i + 3] === 255) n++;
+        }
+        return n;
+      };
+
+      return {
+        handYellow: exact(255, 221, 34),
+        rainbowBlue: exact(34, 136, 255),
+        hitLineCyan: exact(0, 204, 255),
+      };
+    };
+
+    themeManager.apply(ironTheme);
+    const iron = renderCounts();
+    themeManager.apply(midnightTheme);
+    const midnight = renderCounts();
+    return { iron, midnight };
+  }, { W: CANVAS_WIDTH, H: CANVAS_HEIGHT });
+
+  // Iron: the pressed A5 key border and indicator bar render in A5's hand
+  // yellow, never in the old rainbow blue.
+  expect(result.iron.handYellow).toBeGreaterThan(0);
+  expect(result.iron.rainbowBlue).toBe(0);
+  // Midnight: the indicator bar follows the note's hand color too, not the
+  // theme hit-line cyan.
+  expect(result.midnight.handYellow).toBeGreaterThan(0);
+  expect(result.midnight.hitLineCyan).toBe(0);
 });

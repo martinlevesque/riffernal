@@ -38,7 +38,6 @@ export const midnightTheme: Theme = {
     keyLabelBlack: '#c8d4ea',
     keyLabelPressedWhite: '#0a1020',
     keyLabelPressedBlack: '#c0d0e8',
-    noteFallbackColor: '#ffffff',
     backingNote: '#445566',
     staffLine: '#2a3a50',
     clef: '#5a7090',

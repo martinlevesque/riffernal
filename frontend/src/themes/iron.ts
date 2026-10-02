@@ -38,7 +38,6 @@ export const ironTheme: Theme = {
     keyLabelBlack: '#e0e0e0',
     keyLabelPressedWhite: '#222',
     keyLabelPressedBlack: '#ddd',
-    noteFallbackColor: '#ffffff',
     backingNote: '#555566',
     staffLine: '#444',
     clef: '#888',

@@ -14,15 +14,6 @@ export const NOTE_TO_LANE: Map<string, number> = new Map(
   NOTE_NAMES.map((name, i) => [name, i])
 );
 
-const BASE_NOTE_COLORS = [
-  '#ff2244', '#ff4466', '#ff6622', '#ff8844', '#ffaa22', '#ffdd22',
-  '#ddff22', '#22ff66', '#22ddaa', '#2288ff', '#4466ff', '#aa44ff',
-];
-
-export const NOTE_COLORS: Record<string, string> = Object.fromEntries(
-  NOTE_NAMES.map((name, i) => [name, BASE_NOTE_COLORS[i % 12]])
-);
-
 export const WHITE_KEY_COUNT = 52;
 export const BLACK_KEY_WIDTH_RATIO = 0.6;
 

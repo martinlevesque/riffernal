@@ -247,7 +247,10 @@ test.describe('failing note pixel visibility', () => {
     const failing = await evaluateDraw(page, { key: 'C5', failing: true });
 
     expect(failing.brightCount).toBeGreaterThan(0);
-    // Border ring + badge accents only: the interior stays solid hand color
-    expect(failing.brightCount / failing.count).toBeLessThan(0.35);
+    // Border ring + badge accents only: the interior stays solid hand color.
+    // The lane-docked fill is narrower than the border-flush silhouette, so
+    // the ring is a larger share of the note's pixels; a noisy fill would
+    // brighten the whole interior and push this ratio toward 1.
+    expect(failing.brightCount / failing.count).toBeLessThan(0.45);
   });
 });

@@ -1,11 +1,11 @@
 // Main canvas renderer: highway, notes, sheet music, particles,
 // and playback cursor. Delegates piano rendering to PianoRenderer.
 
-import { NOTE_NAMES, getPianoKeyLayout, NOTE_COLORS, WHITE_KEY_COUNT, handForKey, handColor, HandSide, NOTE_SHORT_NAMES, whiteKeyWidth, countWhiteKeysInRange } from '../../utils/notes.js';
+import { NOTE_NAMES, getPianoKeyLayout, WHITE_KEY_COUNT, handForKey, handColor, HandSide, NOTE_SHORT_NAMES, whiteKeyWidth, countWhiteKeysInRange } from '../../utils/notes.js';
 import type { VisibleRange } from '../../utils/notes.js';
 import { HIT_ZONE_Y_RATIO } from '../NoteManager.js';
 import { LoopDefinitionState } from '../Loop.js';
-import { PianoRenderer } from './PianoRenderer.js';
+import { PianoRenderer, INDICATOR_BAR_OFFSET } from './PianoRenderer.js';
 import type { SongNote } from '../NoteManager.js';
 import { isLowEndDevice } from '../../utils/device.js';
 import { themeManager } from '../../themes/ThemeManager.js';
@@ -175,7 +175,6 @@ interface NoteLayout {
   scaledHeadHeight: number;
   scaledTailHeight: number;
   baseWidth: number;
-  scale: number;
 }
 
 interface SheetLayout {
@@ -286,7 +285,7 @@ export class Renderer {
         const layout = getPianoKeyLayout(noteName, this.width, visibleRange);
         if (layout.width === 0) continue;
         const intensity = velocityIntensity(velocity);
-        const color = NOTE_COLORS[noteName] || c.noteFallbackColor;
+        const color = handColor(noteName);
         const cx = layout.x + layout.width / 2;
         const colW = layout.width * (0.55 + 0.45 * intensity);
         const grad = this._laneGlowGrad(lane, color, glowTop, hitZoneY, intensity);
@@ -378,35 +377,42 @@ export class Renderer {
 
   private _noteLayout(laneIndex: number, y: number, noteHeight: number, sheetBottom: number, noteName?: string, failing?: boolean, visibleRange?: VisibleRange | null): NoteLayout {
     const layout = getPianoKeyLayout(noteName ?? NOTE_NAMES[laneIndex] ?? 'C4', this.width, visibleRange);
-    const x = layout.x;
     const keyWidth = layout.width;
-    const padding = Math.max(1, keyWidth * 0.06);
+    const centerX = layout.x + keyWidth / 2;
 
     const hitZoneY = this.height * HIT_ZONE_Y_RATIO;
-    const scaleRange = hitZoneY - sheetBottom;
     const headBottom = y + noteHeight;
     const clampedY = Math.max(sheetBottom, Math.min(headBottom, hitZoneY));
-    const scale = 0.45 + 0.55 * ((clampedY - sheetBottom) / scaleRange);
 
-    const HEAD_HEIGHT = 14;
-    const scaledHeadHeight = HEAD_HEIGHT * scale;
-    const scaledTailHeight = Math.max(0, noteHeight * scale - scaledHeadHeight);
-    const scaledWidth = (keyWidth - padding * 2) * scale;
-    const centerX = x + keyWidth / 2;
+    // One constant silhouette for the whole fall. The visible box (fill +
+    // NOTE_PIXEL border per side) snaps DOWN to the key width's grid
+    // multiple, so it always fits inside its key — black-key notes included,
+    // proportionally narrower than white-key notes, like the keys themselves.
+    const HEAD_HEIGHT = 15;
+    const scaledHeadHeight = HEAD_HEIGHT;
+    const scaledTailHeight = Math.max(0, noteHeight - scaledHeadHeight);
+    const outerWidth = Math.floor(keyWidth / NOTE_PIXEL) * NOTE_PIXEL;
+    const scaledWidth = Math.max(0, outerWidth - NOTE_PIXEL * 2);
+    const drawX = centerX - outerWidth / 2 + NOTE_PIXEL;
 
-    // Failed notes park at the hit line (blinking until resolved) instead
-    // of scrolling on under the piano, which would carry their name badge
-    // off-canvas; normal notes keep sliding past it.
-    const parkedHeadBottom = failing ? clampedY : headBottom;
+    // The note docks its visible bottom edge (fill bottom + border) onto the
+    // indicator bar's bottom edge, not the hit line: the bar sits
+    // INDICATOR_BAR_OFFSET above the line and the border extends NOTE_PIXEL
+    // below the fill, so lift the whole note by their sum. Held and parked
+    // notes then rest flush on the bar instead of hanging below it.
+    // Failed notes park at the clamped hit-line position (blinking until
+    // resolved) so their name badge stays on screen; normal notes keep
+    // sliding past it.
+    const dockLift = NOTE_PIXEL + INDICATOR_BAR_OFFSET;
+    const parkedHeadBottom = (failing ? clampedY : headBottom) - dockLift;
 
     return {
-      drawX: centerX - scaledWidth / 2,
+      drawX,
       drawY: parkedHeadBottom - scaledHeadHeight - scaledTailHeight,
       scaledWidth,
       scaledHeadHeight,
       scaledTailHeight,
-      baseWidth: keyWidth - padding * 2,
-      scale,
+      baseWidth: keyWidth,
     };
   }
 

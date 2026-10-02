@@ -34,7 +34,6 @@ export interface ThemeCanvas {
   keyLabelBlack: string;
   keyLabelPressedWhite: string;
   keyLabelPressedBlack: string;
-  noteFallbackColor: string;
   backingNote: string;
   staffLine: string;
   clef: string;

@@ -4,7 +4,7 @@
 // feedback is drawn live per frame over it, so key presses cost a few
 // rects instead of a full piano repaint.
 
-import { NOTE_NAMES, NOTE_COLORS, getPianoKeyLayout, BLACK_KEY_WIDTH_RATIO, NOTE_SHORT_NAMES, whiteKeyWidth } from '../../utils/notes.js';
+import { NOTE_NAMES, handColor, getPianoKeyLayout, BLACK_KEY_WIDTH_RATIO, NOTE_SHORT_NAMES, whiteKeyWidth } from '../../utils/notes.js';
 import type { VisibleRange } from '../../utils/notes.js';
 import { HIT_ZONE_Y_RATIO } from '../NoteManager.js';
 import { themeManager } from '../../themes/ThemeManager.js';
@@ -15,6 +15,11 @@ const PIANO_REGION_OFFSET = 30;
 const BLACK_KEY_HEIGHT_RATIO = 0.56;
 const PIANO_HEIGHT_RATIO = 0.16;
 const INDICATOR_REGION_H = 34;
+
+/** Gap between the indicator bar's bottom edge and the hit line. The
+ *  falling note docks its visible bottom edge onto the bar's bottom edge,
+ *  so the note renderer needs the same value. */
+export const INDICATOR_BAR_OFFSET = 4;
 
 function roundRect(ctx: CanvasRenderingContext2D, x: number, y: number, w: number, h: number, r: number): void {
   ctx.beginPath();
@@ -111,7 +116,6 @@ export class PianoRenderer {
 
   private _drawIdleIndicators(ctx: CanvasRenderingContext2D, hitZoneY: number, offsetY: number, width: number, visibleRange?: VisibleRange | null): void {
     const c = themeManager.canvas;
-    const indicatorBarOffset = 4;
     const indicatorBarHeight = 8;
 
     for (let i = 0; i < NOTE_NAMES.length; i++) {
@@ -121,7 +125,7 @@ export class PianoRenderer {
 
       ctx.globalAlpha = 0.8;
       ctx.fillStyle = c.keyIndicatorUnpressed;
-      ctx.fillRect(layout.x, hitZoneY - indicatorBarOffset - offsetY, layout.width, indicatorBarHeight);
+      ctx.fillRect(layout.x, hitZoneY - INDICATOR_BAR_OFFSET - offsetY, layout.width, indicatorBarHeight);
     }
     ctx.globalAlpha = 1;
   }
@@ -134,8 +138,6 @@ export class PianoRenderer {
   private _drawPressedIndicators(ctx: CanvasRenderingContext2D, pressedLanes: Map<number, number>, hitZoneY: number, width: number, height: number, visibleRange?: VisibleRange | null): void {
     if (pressedLanes.size === 0) return;
 
-    const c = themeManager.canvas;
-    const indicatorBarOffset = 4;
     const indicatorBarHeight = 8;
     const basePressedGlowHeight = 60;
     const pianoTop = height - height * PIANO_HEIGHT_RATIO;
@@ -151,11 +153,11 @@ export class PianoRenderer {
       if (!noteName) continue;
       const layout = getPianoKeyLayout(noteName, width, visibleRange);
       if (layout.width === 0) continue;
-      const color = NOTE_COLORS[noteName] || c.noteFallbackColor;
+      const color = handColor(noteName);
 
       ctx.globalAlpha = 1;
-      ctx.fillStyle = c.hitLine || color;
-      ctx.fillRect(layout.x, hitZoneY - indicatorBarOffset, layout.width, indicatorBarHeight);
+      ctx.fillStyle = color;
+      ctx.fillRect(layout.x, hitZoneY - INDICATOR_BAR_OFFSET, layout.width, indicatorBarHeight);
 
       const intensity = velocityIntensity(velocity);
       ctx.globalAlpha = 0.05 + 0.6 * intensity;
@@ -196,7 +198,7 @@ export class PianoRenderer {
       const labelY = pianoTop - offsetY + pianoH * labelYRatio;
       const shortName = NOTE_SHORT_NAMES[noteName] ?? noteName;
       ctx.fillStyle = c.keyLabelWhite;
-      ctx.font = `bold ${Math.max(11, whiteKeyWidth * 0.32)}px ${themeManager.fonts.mono}`;
+      ctx.font = `bold ${Math.max(16, whiteKeyWidth * 0.55)}px ${themeManager.fonts.mono}`;
       ctx.textAlign = 'center';
       ctx.textBaseline = 'middle';
       // Labels stay inside their key rectangle, even on narrow keys.
@@ -204,9 +206,9 @@ export class PianoRenderer {
       ctx.beginPath();
       ctx.rect(layout.x, pianoTop - offsetY, whiteKeyWidth, pianoH);
       ctx.clip();
-      ctx.fillText(shortName, layout.x + whiteKeyWidth / 2, labelY);
+      this._fillTextStrong(ctx, shortName, layout.x + whiteKeyWidth / 2, labelY);
       ctx.textBaseline = 'alphabetic';
-      this._drawComputerKeyLabel(ctx, noteName, layout.x + whiteKeyWidth / 2, pianoTop - offsetY + pianoH * 0.65, `${Math.max(9, whiteKeyWidth * 0.24)}px`, c.keyLabelWhite);
+      this._drawComputerKeyLabel(ctx, noteName, layout.x + whiteKeyWidth / 2, pianoTop - offsetY + pianoH * 0.65, `${Math.max(13, whiteKeyWidth * 0.45)}px`, c.keyLabelWhite);
       ctx.restore();
     }
   }
@@ -242,14 +244,14 @@ export class PianoRenderer {
 
     const blkLabelY = y + h - 16;
     ctx.fillStyle = c.keyLabelBlack;
-    ctx.font = `bold ${Math.max(9, w * 0.4)}px ${themeManager.fonts.mono}`;
+    ctx.font = `bold ${Math.max(11, w * 0.6)}px ${themeManager.fonts.mono}`;
     ctx.textAlign = 'center';
     ctx.save();
     ctx.beginPath();
     roundRect(ctxR, x, y, w, h, 2);
     ctx.clip();
-    ctx.fillText(NOTE_SHORT_NAMES[noteName] ?? noteName, x + w / 2, blkLabelY);
-    this._drawComputerKeyLabel(ctx, noteName, x + w / 2, blkLabelY - w * 0.9, `${Math.max(8, w * 0.3)}px`, c.keyLabelBlack);
+    this._fillTextStrong(ctx, NOTE_SHORT_NAMES[noteName] ?? noteName, x + w / 2, blkLabelY);
+    this._drawComputerKeyLabel(ctx, noteName, x + w / 2, blkLabelY - w * 0.9, `${Math.max(10, w * 0.5)}px`, c.keyLabelBlack);
     ctx.restore();
   }
 
@@ -268,10 +270,10 @@ export class PianoRenderer {
     const labelBottomOffset = 16;
     // Constant for a given geometry/theme: hoisted so the font shorthand
     // isn't re-parsed per pressed key per frame.
-    const whiteLabelFont = `bold ${Math.max(11, wKeyWidth * 0.32)}px ${themeManager.fonts.mono}`;
-    const blackLabelFont = `bold ${Math.max(9, blackKeyWidth * 0.4)}px ${themeManager.fonts.mono}`;
-    const whiteCkFontSize = `${Math.max(9, wKeyWidth * 0.24)}px`;
-    const blackCkFontSize = `${Math.max(8, blackKeyWidth * 0.3)}px`;
+    const whiteLabelFont = `bold ${Math.max(16, wKeyWidth * 0.55)}px ${themeManager.fonts.mono}`;
+    const blackLabelFont = `bold ${Math.max(11, blackKeyWidth * 0.6)}px ${themeManager.fonts.mono}`;
+    const whiteCkFontSize = `${Math.max(13, wKeyWidth * 0.45)}px`;
+    const blackCkFontSize = `${Math.max(10, blackKeyWidth * 0.5)}px`;
 
     for (const [lane, velocity] of pressedLanes) {
       if (!this._inRange(lane, visibleRange)) continue;
@@ -279,7 +281,7 @@ export class PianoRenderer {
       if (!noteName || noteName.includes('#')) continue;
       const layout = getPianoKeyLayout(noteName, width, visibleRange);
       if (layout.width === 0) continue;
-      const color = NOTE_COLORS[noteName] || c.noteFallbackColor;
+      const color = handColor(noteName);
       const intensity = velocityIntensity(velocity);
 
       ctx.fillStyle = c.whiteKeyBgPressed;
@@ -303,7 +305,7 @@ export class PianoRenderer {
       ctx.beginPath();
       ctx.rect(layout.x, pianoTop, wKeyWidth, pianoH);
       ctx.clip();
-      ctx.fillText(NOTE_SHORT_NAMES[noteName] ?? noteName, layout.x + wKeyWidth / 2, labelY);
+      this._fillTextStrong(ctx, NOTE_SHORT_NAMES[noteName] ?? noteName, layout.x + wKeyWidth / 2, labelY);
       ctx.textBaseline = 'alphabetic';
       this._drawComputerKeyLabel(ctx, noteName, layout.x + wKeyWidth / 2, pianoTop + pianoH * 0.65, whiteCkFontSize, c.keyLabelWhite);
       ctx.restore();
@@ -322,7 +324,7 @@ export class PianoRenderer {
       if (!noteName?.includes('#')) continue;
       const layout = getPianoKeyLayout(noteName, width, visibleRange);
       if (layout.width === 0) continue;
-      const color = NOTE_COLORS[noteName] || c.noteFallbackColor;
+      const color = handColor(noteName);
       const intensity = velocityIntensity(velocity);
       const ctxR = ctx as CanvasRenderingContext2D;
 
@@ -353,10 +355,17 @@ export class PianoRenderer {
       ctx.beginPath();
       roundRect(ctxR, layout.x, pianoTop, blackKeyWidth, blackKeyHeight, 2);
       ctx.clip();
-      ctx.fillText(NOTE_SHORT_NAMES[noteName] ?? noteName, layout.x + blackKeyWidth / 2, blkLabelY);
+      this._fillTextStrong(ctx, NOTE_SHORT_NAMES[noteName] ?? noteName, layout.x + blackKeyWidth / 2, blkLabelY);
       this._drawComputerKeyLabel(ctx, noteName, layout.x + blackKeyWidth / 2, blkLabelY - blackKeyWidth * 0.9, blackCkFontSize, c.keyLabelBlack);
       ctx.restore();
     }
+  }
+
+  /** VT323's synthesized bold renders thin at canvas scale; a 1px-offset
+   *  second pass thickens the glyphs into the pixel look. */
+  private _fillTextStrong(ctx: CanvasRenderingContext2D, text: string, x: number, y: number): void {
+    ctx.fillText(text, x, y);
+    ctx.fillText(text, x + 1, y);
   }
 
   private _drawComputerKeyLabel(
