@@ -1,9 +1,12 @@
 import { test, expect } from '@playwright/test';
+import { NOTE_TO_LANE } from '../../frontend/src/utils/notes.js';
 import {
   startGame,
   makeSong,
   evaluateWithNoteManager,
   buildFreezeResumeScript,
+  bootGame,
+  wrongFlashLanes,
   expectMode,
   toggleLearnMode,
   togglePlayMode,
@@ -356,6 +359,85 @@ test.describe('Learning Mode - freeze resume', () => {
     expect(result.allHit).toBe(true);
     expect(result.nextFailing).toBe(false);
     expect(result.currentTime).toBeGreaterThan(result.frozenTime);
+  });
+});
+
+// -- wrong-key feedback -------------------------------------------------------
+
+// The incorrect-press feedback: in learn mode the wrongly pressed piano key
+// lights up red and fades; in play mode nothing flashes. Dropped holds flash
+// the dropped key too, and stay recoverable by re-pressing. The flash's pixel
+// rendering is asserted in piano-press.spec.ts; these tests cover the game
+// wiring through real keyboard input and the visible feedback layer.
+
+test.describe('Learning Mode - wrong-key feedback', () => {
+  test('wrong press in learn mode flashes the key, shows Wrong, then fades', async ({ page }) => {
+    await bootGame(page, makeSong([
+      { time: 0.5, key: 'C3', duration: 0.25 },
+      { time: 5.0, key: 'E3', duration: 0.25 },
+    ], 'WrongFlash'), { learningMode: true });
+
+    // The first note arrives and freezes the game before the wrong press.
+    await page.waitForTimeout(1000);
+    await page.keyboard.down('s'); // D3 — not in the song
+
+    const wrongLane = NOTE_TO_LANE.get('D3');
+    await expect.poll(() => wrongFlashLanes(page), { timeout: 2000 }).toContain(wrongLane);
+    await expect(page.locator('#hit-feedback')).toHaveText('Wrong');
+
+    await page.keyboard.up('s');
+    // The flash fades over ~500 ms and is pruned; feedback hides after 300 ms.
+    await expect.poll(() => wrongFlashLanes(page), { timeout: 2000 }).toEqual([]);
+    await expect(page.locator('#hit-feedback')).not.toHaveClass(/show/, { timeout: 2000 });
+  });
+
+  test('dropped hold in learn mode flashes the key and stays recoverable', async ({ page }) => {
+    await bootGame(page, makeSong([
+      { time: 0.5, key: 'C3', duration: 2.0 },
+      { time: 5.0, key: 'E3', duration: 0.25 },
+    ], 'DropFlash'), { learningMode: true });
+
+    // Note state, polled instead of fixed wall-clock offsets so slow CI
+    // environments stay deterministic.
+    const noteState = () => page.evaluate(() => {
+      const g = (window as any)._testGame;
+      const n = g.noteManager.notes[0];
+      return { holding: n.holding, failing: n.failing, resolved: n.resolved };
+    });
+
+    // Wait for the hold note to arrive and freeze, then engage it.
+    await expect
+      .poll(() => page.evaluate(() => (window as any)._testGame._learningFrozen), { timeout: 5000 })
+      .toBe(true);
+    await page.keyboard.down('a'); // C3
+    await expect.poll(noteState, { timeout: 5000 }).toMatchObject({ holding: true });
+    await page.waitForTimeout(250);
+    await page.keyboard.up('a'); // release far before the note ends → drop
+    await expect.poll(noteState, { timeout: 5000 }).toMatchObject({ failing: true });
+
+    const c3Lane = NOTE_TO_LANE.get('C3');
+    await expect.poll(() => wrongFlashLanes(page), { timeout: 2000 }).toContain(c3Lane);
+
+    // Re-press and hold past the note's end: the note recovers and resolves.
+    await page.keyboard.down('a');
+    await expect.poll(noteState, { timeout: 5000 }).toMatchObject({ holding: true, failing: false });
+    await page.waitForTimeout(2200);
+    await page.keyboard.up('a');
+    await expect.poll(noteState, { timeout: 5000 }).toMatchObject({ resolved: true });
+    await expect(page.locator('#hit-feedback')).toHaveText(/[0-9+]+ (Good!|Great|Perfect)/, { timeout: 3000 });
+  });
+
+  test('wrong press in play mode shows Wrong but does not flash the key', async ({ page }) => {
+    await bootGame(page, makeSong([
+      { time: 0.5, key: 'C3', duration: 0.25 },
+      { time: 5.0, key: 'E3', duration: 0.25 },
+    ], 'PlayNoFlash'));
+
+    await page.waitForTimeout(500);
+    await page.keyboard.down('s'); // D3 — not in the song
+    await expect(page.locator('#hit-feedback')).toHaveText('Wrong');
+    expect(await wrongFlashLanes(page)).toEqual([]);
+    await page.keyboard.up('s');
   });
 });
 

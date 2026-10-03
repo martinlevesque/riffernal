@@ -29,11 +29,14 @@ export class LoopService {
   draftEnd: number | null = null;
   definitionState: LoopDefinitionState = LoopDefinitionState.Off;
 
-  /** Enabled loops, sorted by startTime. Derived from `loops`. */
-  get chain(): SavedLoop[] {
-    return this.loops
-      .filter((l) => l.enabled)
-      .sort((a, b) => a.startTime - b.startTime);
+  /** Enabled loops, sorted by startTime. Derived from `loops`.
+   *  Cached and rebuilt on each mutation: the game loop reads this
+   *  getter several times per frame, so it must not filter+sort each
+   *  time. Consumers must treat the result as read-only. */
+  private _chainCache: SavedLoop[] = [];
+
+  get chain(): readonly SavedLoop[] {
+    return this._chainCache;
   }
 
   /** True when the chain has at least one loop and a currentIndex set. */
@@ -100,11 +103,13 @@ export class LoopService {
   /** Replace the saved-loop set (used on game start after fetching). */
   setLoops(loops: SavedLoop[]): void {
     this.loops = loops;
+    this._rebuildChain();
   }
 
   /** Add a freshly-persisted saved loop to the local set. */
   addLoop(loop: SavedLoop): void {
     this.loops.push(loop);
+    if (loop.enabled) this._rebuildChain();
   }
 
   /** Update a saved loop's enabled flag. The chain and currentIndex are
@@ -113,12 +118,14 @@ export class LoopService {
     const loop = this.loops.find((l) => l.id === id);
     if (!loop) return;
     loop.enabled = enabled;
+    this._rebuildChain();
   }
 
   /** Remove a saved loop from the local set. The caller (Game) handles
    *  chain/currentIndex revalidation. */
   remove(id: number): void {
     this.loops = this.loops.filter((l) => l.id !== id);
+    this._rebuildChain();
   }
 
   /** Update a saved loop's end time. */
@@ -126,6 +133,7 @@ export class LoopService {
     const loop = this.loops.find((l) => l.id === id);
     if (!loop) return;
     loop.endTime = endTime;
+    this._rebuildChain();
   }
 
   /** Reset all state (fresh game start). */
@@ -135,6 +143,13 @@ export class LoopService {
     this.draftStart = null;
     this.draftEnd = null;
     this.definitionState = LoopDefinitionState.Off;
+    this._rebuildChain();
+  }
+
+  private _rebuildChain(): void {
+    this._chainCache = this.loops
+      .filter((l) => l.enabled)
+      .sort((a, b) => a.startTime - b.startTime);
   }
 
   /** Advance to the next loop in the chain, wrapping to 0 at the end.
@@ -171,7 +186,7 @@ export class LoopService {
 
   /** Snapshot of chain + draft state for rendering. */
   snapshot(): {
-    chain: SavedLoop[];
+    chain: readonly SavedLoop[];
     currentIndex: number | null;
     draftStart: number | null;
     draftEnd: number | null;

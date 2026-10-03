@@ -30,9 +30,10 @@ export interface ThemeCanvas {
   blackKeyBorder: string;
   keyIndicatorUnpressed: string;
   keyLabel: string;
+  keyLabelWhite: string;
+  keyLabelBlack: string;
   keyLabelPressedWhite: string;
   keyLabelPressedBlack: string;
-  noteFallbackColor: string;
   backingNote: string;
   staffLine: string;
   clef: string;
@@ -45,12 +46,6 @@ export interface ThemeCanvas {
   loopOverlayActive: string;
   loopOverlayInactive: string;
   loopDefiningPreview: string;
-  failColorLeft: string;
-  failColorRight: string;
-  failColorSheetLeft: string;
-  failColorSheetRight: string;
-  failParticleLeft: string;
-  failParticleRight: string;
   noteHeadLabel: string;
   noteHighlight: string;
   hitLine: string;

@@ -123,8 +123,13 @@ async function bootTestGame(opts: {
   const { KeyboardInput } = await import('/js/input/KeyboardInput.js');
   // @ts-expect-error browser-side dynamic import
   const { MidiInput } = await import('/js/input/MidiInput.js');
+  // @ts-expect-error browser-side dynamic import
+  const { ScoreDisplay } = await import('/js/ui/play/ScoreDisplay.js');
   const canvas = document.getElementById('gameCanvas');
   const game = new Game(canvas, new Synth(), new KeyboardInput(), new MidiInput());
+  // Mirror main.ts wiring: without a ScoreDisplay, feedback assertions on
+  // #hit-feedback see an empty element forever.
+  game.scoreDisplay = new ScoreDisplay();
   if (opts.learningMode) {
     game.setLearningMode(true);
   }
@@ -218,4 +223,13 @@ export function buildFreezeResumeScript(songJson: string, action: string): strin
     game.backToMenu();
     return { frozenTime, ...after };
   })()`;
+}
+
+/** Lanes currently flashing red from a wrong press (learn-mode teaching
+ *  aid), from the booted game's PianoRenderer flash map. */
+export async function wrongFlashLanes(page: Page): Promise<number[]> {
+  return page.evaluate(() => {
+    const g = (window as any)._testGame;
+    return g ? [...g.renderer.piano._wrongFlashes.keys()] : [];
+  });
 }

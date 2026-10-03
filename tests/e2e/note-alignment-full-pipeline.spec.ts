@@ -43,7 +43,7 @@ test('game renders chord notes at same center Y', async ({ page }) => {
 
     renderer.clear();
     for (const note of chordNotes) {
-      renderer.drawNote(note.lane, note.y, note.height, note.color, note.alpha, renderer.sheetBottom, note.key);
+      renderer.drawNote(note.lane, note.y, note.height, note.color, note.alpha, note.key);
     }
 
     const ctx = renderer.ctx;
