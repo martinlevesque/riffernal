@@ -109,6 +109,23 @@ The full Playwright suite is slow — plan for **7–8 minutes** end-to-end
 - If a prior `bun run dev` is holding port 3000, stop it first
   (`bun run dev:stop`) so Playwright's `webServer` can boot cleanly.
 
+### Concurrent runs (multiple bb threads)
+
+The suite is safe to run from several threads at once — no coordination
+needed:
+
+- The test port is picked automatically: 3100, then the first free port
+  above it (up to +24). The resolved port is shared with test workers
+  through `RIFFERNAL_TEST_PORT`, so specs' raw `node:http` helpers and
+  the webServer always agree. Don't hardcode 3100 anywhere.
+- The Playwright test server is `scripts/test-server.ts` — deliberately
+  a separate entry point from `scripts/dev.ts`, because `dev:stop` kills
+  the listener on port 3000 and must never take down other threads'
+  test servers.
+- For manual `bun run dev` while another thread is working, pass
+  `--port <n>` (or `PORT=<n>`) so you don't contend for port 3000;
+  `dev:stop` only ever kills the port-3000 listener.
+
 ## TypeScript
 
 - Source code in `frontend/src/` (`.ts` files, imports use `.js` extensions)

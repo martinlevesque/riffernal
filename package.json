@@ -28,7 +28,7 @@
   "scripts": {
     "dev": "bun run scripts/dev.ts",
     "dev:http": "bun run scripts/dev.ts --http",
-    "dev:stop": "pkill -f 'scripts/dev.ts' 2>/dev/null || true",
+    "dev:stop": "fuser -k ${PORT:-3000}/tcp 2>/dev/null || true",
     "start": "bun run scripts/serve.ts",
     "start:http": "bun run scripts/serve.ts --http",
     "build": "bun run scripts/build.ts",
