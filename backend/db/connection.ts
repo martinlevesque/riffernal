@@ -1,19 +1,13 @@
 import { Database } from "bun:sqlite";
-import { mkdirSync, existsSync, rmSync } from "node:fs";
-import { join } from "node:path";
+import { mkdirSync } from "node:fs";
+import { DATA_DIR, DB_PATH, removeDatabaseFiles } from "./paths.ts";
 
-const ROOT = join(import.meta.dir, "../..");
-const DATA_DIR = join(ROOT, "data");
+export { DB_PATH };
 
 mkdirSync(DATA_DIR, { recursive: true });
 
-export const DB_PATH = join(DATA_DIR, process.env.RIFFERNAL_DB ?? "riffernal.db");
-
 if (process.env.RIFFERNAL_DB_RESET === "1") {
-  for (const ext of ["", "-wal", "-shm"]) {
-    const p = `${DB_PATH}${ext}`;
-    if (existsSync(p)) rmSync(p);
-  }
+  removeDatabaseFiles(DB_PATH);
 }
 
 export const db = new Database(DB_PATH);

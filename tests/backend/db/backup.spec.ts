@@ -1,12 +1,12 @@
 import { test, expect } from 'bun:test';
 import { Database } from 'bun:sqlite';
-import { existsSync, mkdtempSync, writeFileSync } from 'node:fs';
+import { existsSync, mkdtempSync, readFileSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
-import { backupDatabase, backupFileName, restoreDatabase } from '../../../backend/db/backup.ts';
+import { backupDatabase, restoreDatabase } from '../../../backend/db/backup.ts';
 
 function tempDir(): string {
-  return mkdtempSync(join(tmpdir(), 'riffernal-backup-'));
+  return mkdtempSync(join(tmpdir(), 'riffernal-backup-test-'));
 }
 
 function openDbWithRows(path: string): Database {
@@ -17,31 +17,40 @@ function openDbWithRows(path: string): Database {
   return db;
 }
 
-function rows(db: Database): Array<{ id: number; value: string }> {
-  return db.query('SELECT id, value FROM t').all() as Array<{ id: number; value: string }>;
-}
-
-test('backupFileName uses the YYYYMMDD-HHMMSS timestamp format', () => {
-  expect(backupFileName(new Date('2026-09-28T07:05:03'))).toBe('riffernal-20260928-070503.db');
-});
-
-test('backupDatabase captures uncheckpointed WAL writes into a consistent file', () => {
-  const dir = tempDir();
-  const source = openDbWithRows(join(dir, 'source.db'));
-  const outPath = join(dir, 'snapshot.db');
+function expectHelloRow(path: string): void {
+  const db = new Database(path);
 
   try {
-    expect(existsSync(outPath)).toBe(false);
-    expect(backupDatabase(source, outPath)).toBe(outPath);
-    expect(backupDatabase(source, outPath)).toBe(outPath);
-    expect(existsSync(outPath)).toBe(true);
+    expect(db.query('SELECT id, value FROM t').all()).toEqual([{ id: 1, value: 'hello' }]);
+  } finally {
+    db.close();
+  }
+}
 
-    const restored = new Database(outPath);
-    try {
-      expect(rows(restored)).toEqual([{ id: 1, value: 'hello' }]);
-    } finally {
-      restored.close();
-    }
+function snapshotOf(dir: string): Uint8Array {
+  const source = openDbWithRows(join(dir, 'source.db'));
+
+  try {
+    return backupDatabase(source);
+  } finally {
+    source.close();
+  }
+}
+
+test('backupDatabase captures uncheckpointed WAL writes into a consistent snapshot', () => {
+  const dir = tempDir();
+  const snapshot = join(dir, 'snapshot.db');
+  writeFileSync(snapshot, snapshotOf(dir));
+
+  expectHelloRow(snapshot);
+});
+
+test('backupDatabase can be called repeatedly on the same database', () => {
+  const dir = tempDir();
+  const source = openDbWithRows(join(dir, 'source.db'));
+
+  try {
+    expect(backupDatabase(source)).toEqual(backupDatabase(source));
   } finally {
     source.close();
   }
@@ -49,41 +58,33 @@ test('backupDatabase captures uncheckpointed WAL writes into a consistent file',
 
 test('restoreDatabase drops stale WAL sidecars of the replaced database', () => {
   const dir = tempDir();
-  const source = openDbWithRows(join(dir, 'source.db'));
-  const backup = backupDatabase(source, join(dir, 'snapshot.db'));
-  source.close();
-
   const target = join(dir, 'target.db');
   writeFileSync(target, 'old database');
   writeFileSync(`${target}-wal`, 'stale wal');
   writeFileSync(`${target}-shm`, 'stale shm');
 
-  restoreDatabase(target, backup);
+  restoreDatabase(target, snapshotOf(dir));
 
   expect(existsSync(`${target}-wal`)).toBe(false);
   expect(existsSync(`${target}-shm`)).toBe(false);
-
-  const restored = new Database(target);
-  try {
-    expect(rows(restored)).toEqual([{ id: 1, value: 'hello' }]);
-  } finally {
-    restored.close();
-  }
+  expectHelloRow(target);
 });
 
 test('restoreDatabase works when the target does not exist yet', () => {
   const dir = tempDir();
-  const source = openDbWithRows(join(dir, 'source.db'));
-  const backup = backupDatabase(source, join(dir, 'snapshot.db'));
-  source.close();
-
   const target = join(dir, 'missing.db');
-  restoreDatabase(target, backup);
 
-  const restored = new Database(target);
-  try {
-    expect(rows(restored)).toEqual([{ id: 1, value: 'hello' }]);
-  } finally {
-    restored.close();
-  }
+  restoreDatabase(target, snapshotOf(dir));
+
+  expectHelloRow(target);
+});
+
+test('restoreDatabase rejects data that is not a SQLite database and keeps the target', () => {
+  const dir = tempDir();
+  const target = join(dir, 'target.db');
+  writeFileSync(target, 'precious');
+
+  expect(() => restoreDatabase(target, new Uint8Array())).toThrow('Not a SQLite database');
+  expect(() => restoreDatabase(target, Buffer.from('garbage garbage garbage'))).toThrow();
+  expect(readFileSync(target, 'utf8')).toBe('precious');
 });

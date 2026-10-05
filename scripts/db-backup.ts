@@ -1,5 +1,5 @@
+// Writes a consistent snapshot of the database to stdout.
 import { db } from '../backend/db/connection.ts';
-import { BACKUPS_DIR, backupDatabase, backupFileName } from '../backend/db/backup.ts';
+import { backupDatabase } from '../backend/db/backup.ts';
 
-const outPath = backupDatabase(db, `${BACKUPS_DIR}/${backupFileName(new Date())}`);
-console.log(`Backed up ${db.filename} -> ${outPath}`);
+await Bun.write(Bun.stdout, backupDatabase(db));

@@ -1,39 +1,35 @@
-import { copyFileSync, mkdirSync, rmSync } from 'node:fs';
-import { dirname, join } from 'node:path';
+import { mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
+import { tmpdir } from 'node:os';
+import { join } from 'node:path';
 import type { Database } from 'bun:sqlite';
+import { removeDatabaseFiles } from './paths.ts';
 
-const pad = (n: number) => String(n).padStart(2, '0');
-
-export const BACKUPS_DIR = join(import.meta.dir, '../../backups');
-
-export function backupFileName(now: Date): string {
-  const day = `${now.getFullYear()}${pad(now.getMonth() + 1)}${pad(now.getDate())}`;
-  const time = `${pad(now.getHours())}${pad(now.getMinutes())}${pad(now.getSeconds())}`;
-  return `riffernal-${day}-${time}.db`;
-}
+const SQLITE_MAGIC = 'SQLite format 3\0';
 
 /** Snapshot the database with SQLite's `VACUUM INTO`, which reads a
  *  consistent copy including uncheckpointed WAL frames while the server
  *  keeps running. */
-export function backupDatabase(db: Database, outPath: string): string {
-  mkdirSync(dirname(outPath), { recursive: true });
+export function backupDatabase(db: Database): Uint8Array {
+  const dir = mkdtempSync(join(tmpdir(), 'riffernal-backup-'));
+  const snapshot = join(dir, 'snapshot.db');
 
-  // VACUUM INTO refuses to overwrite, so a second backup within the same
-  // second (same timestamped name) needs the stale file removed first
-  rmSync(outPath, { force: true });
-
-  // SQLite has no parameter binding for VACUUM INTO, so escape literal quotes
-  db.exec(`VACUUM INTO '${outPath.replaceAll("'", "''")}'`);
-  return outPath;
+  try {
+    // VACUUM INTO has no parameter binding, so escape literal quotes
+    db.exec(`VACUUM INTO '${snapshot.replaceAll("'", "''")}'`);
+    return readFileSync(snapshot);
+  } finally {
+    rmSync(dir, { recursive: true, force: true });
+  }
 }
 
-/** Replace the database at `targetPath` with the snapshot at `sourcePath`.
- *  Stale `-wal`/`-shm` sidecars of the old database are removed first —
- *  replaying them onto the restored file would corrupt it. */
-export function restoreDatabase(targetPath: string, sourcePath: string): void {
-  for (const ext of ['', '-wal', '-shm']) {
-    rmSync(`${targetPath}${ext}`, { force: true });
+/** Replace the database at `targetPath` with a snapshot. Stale `-wal`/`-shm`
+ *  sidecars of the old database are removed first — replaying them onto the
+ *  restored file would corrupt it. */
+export function restoreDatabase(targetPath: string, snapshot: Uint8Array): void {
+  if (Buffer.from(snapshot.subarray(0, SQLITE_MAGIC.length)).toString('latin1') !== SQLITE_MAGIC) {
+    throw new Error('Not a SQLite database');
   }
 
-  copyFileSync(sourcePath, targetPath);
+  removeDatabaseFiles(targetPath);
+  writeFileSync(targetPath, snapshot);
 }

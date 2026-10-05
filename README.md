@@ -56,23 +56,57 @@ bun run typecheck
 
 ## Backup & restore
 
-All state lives in `data/riffernal.db` on the server volume. Snapshot it with
-SQLite's online backup — safe to run while the server is up:
+All state lives in a single SQLite file, `data/riffernal.db`. A backup is a
+consistent snapshot of it taken with SQLite's `VACUUM INTO`, so it includes
+recent writes still in the WAL and is safe to take while the server is running.
+Snapshots are saved as `backups/riffernal-YYYYMMDD-HHMMSS.db` (gitignored).
+
+| | Local | Railway |
+| --- | --- | --- |
+| Backup | `make backup` | `make backup-railway` |
+| Restore | `make restore FILE=backups/<name>.db` | `make restore-railway FILE=backups/<name>.db` |
+
+### Local
 
 ```bash
-make backup    # writes backups/riffernal-YYYYMMDD-HHMMSS.db (gitignored)
+make backup
+# Backup written to backups/riffernal-20261005-193208.db
+
+make restore FILE=backups/riffernal-20261005-193208.db
+# restore: replace the database with backups/riffernal-20261005-193208.db? [y/N]
 ```
 
-Restore a snapshot (stops nothing for you — shut the server down first):
+Stop the local server before restoring: it keeps the old file open and would
+not see the restored data.
+
+### Railway
+
+The `*-railway` targets run the same scripts inside the deployed service over
+`railway ssh`, so they need the [Railway CLI](https://docs.railway.com/guides/cli)
+installed and the repository linked to the project (`railway link`).
 
 ```bash
-make restore FILE=backups/riffernal-YYYYMMDD-HHMMSS.db
+make backup-railway
+# pulls a snapshot of the live volume into backups/
+
+make restore-railway FILE=backups/riffernal-20261005-193208.db
+# uploads the file, replaces the live database, then restarts the service
 ```
 
-On Railway, pull the file off the service volume into your local `backups/`
-directory:
+The service is restarted automatically after a Railway restore so it reopens
+the restored file; expect a short downtime.
 
-```bash
-railway ssh <service> -- bun run scripts/db-backup.ts
-railway ssh <service> -- cat backups/<name>.db > backups/<name>.db
-```
+### Notes
+
+- Every restore asks for a `y/N` confirmation and replaces the current
+  database. Take a fresh `make backup` / `make backup-railway` first if you
+  might want to go back.
+- Restore rejects files that are not SQLite databases and leaves the current
+  database untouched.
+- A restore also deletes the old database's `-wal` / `-shm` files; replaying
+  them onto the restored file would corrupt it.
+- To restore a Railway snapshot locally (or the other way round), use the
+  matching target with the same `FILE`, e.g. `make restore FILE=backups/<name>.db`.
+- The scripts behind the targets are `scripts/db-backup.ts` (snapshot to
+  stdout) and `scripts/db-restore.ts` (snapshot from stdin).
+- `make backup-railway` needs a deployment that includes these scripts.
