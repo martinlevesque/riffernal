@@ -46,14 +46,7 @@
   font-size: 4rem;
   font-weight: 900;
   letter-spacing: 0.4em;
-  text-shadow:
-    0 0 40px rgba(255, 34, 68, 0.3),
-    0 0 80px rgba(255, 34, 68, 0.1);
   user-select: none;
-}
-
-.home-title .accent {
-  color: var(--accent-red);
 }
 
 .home-modes {
@@ -92,9 +85,6 @@
   border-color: var(--accent-red);
   color: var(--accent-red);
   background: rgba(255, 34, 68, 0.08);
-  box-shadow:
-    0 0 24px rgba(255, 34, 68, 0.15),
-    0 0 4px rgba(255, 34, 68, 0.3);
 }
 
 .home-mode-card:disabled {
@@ -114,7 +104,7 @@
 .home-mode-hint {
   color: var(--text-secondary);
   opacity: 0.5;
-  font-size: 0.75rem;
+  font-size: var(--fs-smallest);
   letter-spacing: 0.1em;
   text-align: center;
   user-select: none;
@@ -135,13 +125,12 @@
   background: rgba(10, 10, 10, 0.72);
   border: 1px solid var(--border-medium);
   border-radius: 6px;
-  backdrop-filter: blur(4px);
   pointer-events: auto;
   user-select: none;
 }
 
 .home-leaderboard-title {
-  font-size: 0.6rem;
+  font-size: var(--fs-smallest);
   font-weight: 700;
   letter-spacing: 0.18em;
   color: var(--text-secondary);
@@ -150,7 +139,7 @@
 }
 
 .home-leaderboard-empty {
-  font-size: 0.7rem;
+  font-size: var(--fs-smallest);
   color: var(--text-secondary);
   opacity: 0.6;
 }
@@ -159,7 +148,7 @@
   width: 100%;
   table-layout: fixed;
   border-collapse: collapse;
-  font-size: 0.72rem;
+  font-size: var(--fs-smallest);
 }
 
 .home-leaderboard-table td {
@@ -204,7 +193,7 @@
 }
 
 .home-leaderboard-you {
-  font-size: 0.55rem;
+  font-size: var(--fs-smallest);
   font-weight: 700;
   letter-spacing: 0.1em;
   color: var(--accent-red);
@@ -236,13 +225,13 @@
   }
 
   .home-leaderboard-title {
-    font-size: 0.52rem;
+    font-size: var(--fs-smallest);
     letter-spacing: 0.12em;
     margin-bottom: 0.25rem;
   }
 
   .home-leaderboard-table {
-    font-size: 0.6rem;
+    font-size: var(--fs-smallest);
   }
 
   .home-leaderboard-table td {

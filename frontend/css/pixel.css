@@ -14,6 +14,8 @@
 :root {
   --pixel-border: 3px;
   --pixel-shadow-color: rgba(0, 0, 0, 0.85);
+  --pixel-shadow-offset: 4px;
+  --pixel-shadow-offset-sm: 3px;
 }
 
 /* ============================================
@@ -23,24 +25,24 @@
 .pixel-box {
   background: var(--bg-surface);
   border: var(--pixel-border) solid var(--border-strong);
-  box-shadow: 4px 4px 0 var(--pixel-shadow-color);
+  box-shadow: var(--pixel-shadow-offset) var(--pixel-shadow-offset) 0 var(--pixel-shadow-color);
 }
 
 .pixel-box-inset {
   background: var(--bg-dark);
   border: var(--pixel-border) solid var(--border-medium);
-  box-shadow: inset 3px 3px 0 rgba(0, 0, 0, 0.55);
+  box-shadow: inset var(--pixel-shadow-offset-sm) var(--pixel-shadow-offset-sm) 0 rgba(0, 0, 0, 0.55);
 }
 
 .pixel-btn {
   border: var(--pixel-border) solid var(--border-strong);
-  box-shadow: 3px 3px 0 var(--pixel-shadow-color);
+  box-shadow: var(--pixel-shadow-offset-sm) var(--pixel-shadow-offset-sm) 0 var(--pixel-shadow-color);
   transition: transform 0.08s steps(1), box-shadow 0.08s steps(1),
     background-color 0.12s, color 0.12s, border-color 0.12s;
 }
 
 .pixel-btn:active:not(:disabled) {
-  transform: translate(3px, 3px);
+  transform: translate(var(--pixel-shadow-offset-sm), var(--pixel-shadow-offset-sm));
   box-shadow: 0 0 0 var(--pixel-shadow-color);
 }
 
@@ -68,7 +70,7 @@ body {
 .title,
 #result-title,
 .auth-brand {
-  text-shadow: 4px 4px 0 var(--pixel-shadow-color);
+  text-shadow: 6px 6px 0 var(--pixel-shadow-color);
 }
 
 #result-grade {
@@ -76,7 +78,7 @@ body {
 }
 
 .new-best-banner {
-  text-shadow: 3px 3px 0 var(--pixel-shadow-color);
+  text-shadow: var(--pixel-shadow-offset-sm) var(--pixel-shadow-offset-sm) 0 var(--pixel-shadow-color);
   animation: pixel-blink 0.8s steps(2, jump-none) infinite;
 }
 
@@ -87,12 +89,31 @@ body {
 }
 
 #hit-feedback {
-  text-shadow: 3px 3px 0 var(--pixel-shadow-color);
+  text-shadow: var(--pixel-shadow-offset-sm) var(--pixel-shadow-offset-sm) 0 var(--pixel-shadow-color);
 }
 
 #score-value {
   text-shadow: 2px 2px 0 var(--pixel-shadow-color);
 }
+
+/* Accent half of the wordmark: same-color halo thickens the glyphs into
+   chunky blocks, then a hard black drop — replaces the soft rgba glows
+   from home/auth/freeplay css (loaded earlier, so this wins). */
+.home-title .accent,
+.title .accent,
+.auth-brand .accent {
+  color: var(--accent-red);
+  text-shadow:
+    -3px -3px 0 var(--accent-red),
+    3px -3px 0 var(--accent-red),
+    -3px 3px 0 var(--accent-red),
+    3px 3px 0 var(--accent-red),
+    var(--pixel-shadow-offset) var(--pixel-shadow-offset) 0 var(--pixel-shadow-color);
+}
+
+/* ============================================
+   PIXEL-CUT SELECTION & FORM CONTROLS
+   ============================================ */
 
 /* Small supporting text reads better in the terminal pixel font */
 .home-mode-hint,
@@ -123,7 +144,7 @@ body {
 .setting-theme-label,
 .song-info-label {
   font-family: var(--font-mono);
-  font-size: 1.15rem;
+  font-size: var(--fs-medium);
   letter-spacing: 0.04em;
 }
 
@@ -157,14 +178,12 @@ body {
 #speed-control,
 #mode-control {
   background: var(--bg-surface);
-  backdrop-filter: none;
   border: var(--pixel-border) solid var(--border-strong);
-  box-shadow: 4px 4px 0 var(--pixel-shadow-color);
+  box-shadow: var(--pixel-shadow-offset) var(--pixel-shadow-offset) 0 var(--pixel-shadow-color);
 }
 
 .loops-panel,
 #sheet-toolbar {
-  backdrop-filter: none;
   border-bottom: var(--pixel-border) solid var(--border-strong);
 }
 
@@ -201,7 +220,7 @@ body {
 .loop-row-save,
 .loop-row-cancel {
   border-width: var(--pixel-border);
-  box-shadow: 3px 3px 0 var(--pixel-shadow-color);
+  box-shadow: var(--pixel-shadow-offset-sm) var(--pixel-shadow-offset-sm) 0 var(--pixel-shadow-color);
   transition: transform 0.08s steps(1), box-shadow 0.08s steps(1),
     background-color 0.12s, color 0.12s, border-color 0.12s;
 }
@@ -226,7 +245,7 @@ body {
 .loop-row-delete:active:not(:disabled),
 .loop-row-save:active:not(:disabled),
 .loop-row-cancel:active:not(:disabled) {
-  transform: translate(3px, 3px);
+  transform: translate(var(--pixel-shadow-offset-sm), var(--pixel-shadow-offset-sm));
   box-shadow: 0 0 0 var(--pixel-shadow-color);
 }
 
@@ -234,26 +253,26 @@ body {
 .btn-primary:hover {
   background: var(--accent-orange);
   border-color: var(--accent-orange);
-  box-shadow: 3px 3px 0 var(--pixel-shadow-color);
+  box-shadow: var(--pixel-shadow-offset-sm) var(--pixel-shadow-offset-sm) 0 var(--pixel-shadow-color);
 }
 
 .btn-icon:hover {
-  box-shadow: 3px 3px 0 var(--pixel-shadow-color);
+  box-shadow: var(--pixel-shadow-offset-sm) var(--pixel-shadow-offset-sm) 0 var(--pixel-shadow-color);
 }
 
 .btn-start {
-  box-shadow: 4px 4px 0 var(--pixel-shadow-color);
+  box-shadow: var(--pixel-shadow-offset) var(--pixel-shadow-offset) 0 var(--pixel-shadow-color);
 }
 
 .btn-start:hover {
   background: var(--accent-red);
   color: var(--text-on-accent);
   transform: none;
-  box-shadow: 4px 4px 0 var(--pixel-shadow-color);
+  box-shadow: var(--pixel-shadow-offset) var(--pixel-shadow-offset) 0 var(--pixel-shadow-color);
 }
 
 .btn-start:active:not(:disabled) {
-  transform: translate(4px, 4px);
+  transform: translate(var(--pixel-shadow-offset), var(--pixel-shadow-offset));
   box-shadow: 0 0 0 var(--pixel-shadow-color);
 }
 
@@ -266,7 +285,7 @@ kbd {
   border: 2px solid var(--border-strong);
   border-bottom-width: 5px;
   box-shadow: none;
-  font-size: 1rem;
+  font-size: var(--fs-small);
   padding: 0.05rem 0.35rem 0;
 }
 
@@ -274,24 +293,25 @@ kbd {
    HOME SCREEN
    ============================================ */
 
+/* Wordmark dominates the home screen; clamp keeps phones two lines at most */
 .home-title {
-  font-size: clamp(1.4rem, 5vw, 5rem);
-  letter-spacing: 0.1em;
+  font-size: clamp(2rem, 7vw, 6.5rem);
+  letter-spacing: 0.08em;
 }
 
 .home-mode-card {
   letter-spacing: 0.15em;
   border-width: var(--pixel-border);
-  box-shadow: 4px 4px 0 var(--pixel-shadow-color);
+  box-shadow: var(--pixel-shadow-offset) var(--pixel-shadow-offset) 0 var(--pixel-shadow-color);
   background: var(--bg-card);
 }
 
 .home-mode-card.focused {
-  box-shadow: 4px 4px 0 var(--accent-red);
+  box-shadow: var(--pixel-shadow-offset) var(--pixel-shadow-offset) 0 var(--accent-red);
 }
 
 .home-mode-card:disabled.focused {
-  box-shadow: 4px 4px 0 var(--pixel-shadow-color);
+  box-shadow: var(--pixel-shadow-offset) var(--pixel-shadow-offset) 0 var(--pixel-shadow-color);
 }
 
 /* ============================================
@@ -301,38 +321,38 @@ kbd {
 .song-item {
   border: 2px solid var(--border-medium);
   border-left-width: 6px;
-  box-shadow: 3px 3px 0 var(--pixel-shadow-color);
+  box-shadow: var(--pixel-shadow-offset-sm) var(--pixel-shadow-offset-sm) 0 var(--pixel-shadow-color);
 }
 
 .song-item:hover {
-  box-shadow: 3px 3px 0 var(--accent-red);
+  box-shadow: var(--pixel-shadow-offset-sm) var(--pixel-shadow-offset-sm) 0 var(--accent-red);
 }
 
 .song-item.imported:hover {
-  box-shadow: 3px 3px 0 var(--accent-blue);
+  box-shadow: var(--pixel-shadow-offset-sm) var(--pixel-shadow-offset-sm) 0 var(--accent-blue);
 }
 
 .song-item.imported.selected,
 .song-item.selected {
   border-color: var(--accent-red);
   border-left-color: var(--accent-red);
-  box-shadow: 3px 3px 0 var(--accent-red);
+  box-shadow: var(--pixel-shadow-offset-sm) var(--pixel-shadow-offset-sm) 0 var(--accent-red);
 }
 
 .song-item.imported.selected {
   border-color: var(--accent-blue);
   border-left-color: var(--accent-blue);
-  box-shadow: 3px 3px 0 var(--accent-blue);
+  box-shadow: var(--pixel-shadow-offset-sm) var(--pixel-shadow-offset-sm) 0 var(--accent-blue);
 }
 
 .community-song:hover {
-  box-shadow: 3px 3px 0 var(--accent-purple);
+  box-shadow: var(--pixel-shadow-offset-sm) var(--pixel-shadow-offset-sm) 0 var(--accent-purple);
 }
 
 .community-song.selected {
   border-color: var(--accent-purple);
   border-left-color: var(--accent-purple);
-  box-shadow: 3px 3px 0 var(--accent-purple);
+  box-shadow: var(--pixel-shadow-offset-sm) var(--pixel-shadow-offset-sm) 0 var(--accent-purple);
 }
 
 .song-difficulty,
@@ -363,14 +383,14 @@ kbd {
 .loop-row-save,
 .loop-row-cancel {
   font-family: var(--font-mono);
-  font-size: 1.05rem;
+  font-size: var(--fs-small);
 }
 
 #loop-status,
 #speed-value,
 #sheet-page-info,
 .track-info {
-  font-size: 1rem;
+  font-size: var(--fs-small);
 }
 
 /* ============================================
@@ -385,12 +405,12 @@ kbd {
 input[type="text"],
 .auth-input {
   border: var(--pixel-border) solid var(--border-medium);
-  font-size: 0.95rem;
+  font-size: var(--fs-smaller);
 }
 
 input[type="text"]:focus,
 .auth-input:focus {
-  box-shadow: 3px 3px 0 rgba(51, 187, 255, 0.45);
+  box-shadow: var(--pixel-shadow-offset-sm) var(--pixel-shadow-offset-sm) 0 rgba(51, 187, 255, 0.45);
 }
 
 .track-item,

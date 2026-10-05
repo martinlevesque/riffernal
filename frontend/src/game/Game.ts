@@ -339,10 +339,6 @@ export class Game {
   }
 
   private _checkLoopWrap(): void {
-    // Cache the chain once: the per-frame read checks below would each
-    // recompute it (filter + sort) via the `chain`/`current`/`active`
-    // getters. `advance()` recomputes it too, but only runs when a wrap
-    // actually fires (~once at the boundary, not every frame).
     const chain = this.loop.chain;
     const idx = this.loop.currentIndex;
     if (chain.length === 0 || idx === null || idx >= chain.length) return;
@@ -402,7 +398,7 @@ export class Game {
     const activeNotes = this.noteManager.getActiveNotes(this.currentTime, this.renderer.height, this.learningMode);
     const combo = this.noteManager.scoring.combo;
     for (const note of activeNotes) {
-      this.renderer.drawNote(note.lane, note.y, note.height, note.selected ? note.color : themeManager.canvas.backingNote, note.alpha, this.renderer.sheetBottom, combo, note.key, note.holding, note.failing, note.waiting, this.usedNoteRange);
+      this.renderer.drawNote(note.lane, note.y, note.height, note.selected ? note.color : themeManager.canvas.backingNote, note.alpha, combo, note.key, note.holding, note.waiting, this.usedNoteRange);
     }
 
     this.renderer.drawGrind(this.currentTime, this.usedNoteRange);
@@ -591,7 +587,10 @@ export class Game {
       }
 
       const outcome = this.noteManager.checkLearningHit(this.currentTime, lane, performance.now(), this.octaveAgnostic, pressOffsetMs);
-      if (outcome.wrong) this.scoreDisplay?.showFeedback('Wrong', getFeedbackColors().MISS);
+      if (outcome.wrong) {
+        this.renderer.flashWrongKey(lane);
+        this.scoreDisplay?.showFeedback('Wrong', getFeedbackColors().MISS);
+      }
       return outcome.results;
     }
     const r = this.noteManager.checkHit(this.currentTime, lane, this.octaveAgnostic);
@@ -640,7 +639,13 @@ export class Game {
     this.renderer.endGrindBeam(lane);
 
     if (this.state === GameState.Playing) {
-      this.noteManager.checkRelease(this.currentTime, lane, this.octaveAgnostic);
+      const release = this.noteManager.checkRelease(this.currentTime, lane, this.octaveAgnostic);
+
+      // Learn-mode teaching aid: a hold released too early flashes the key
+      // red; the note itself stays normal-looking and can be re-pressed.
+      if (this.learningMode && release?.note.failing) {
+        this.renderer.flashWrongKey(lane);
+      }
     }
   }
 

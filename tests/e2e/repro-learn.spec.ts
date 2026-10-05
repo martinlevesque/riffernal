@@ -33,7 +33,9 @@ test('learn mode: pressing correct key while frozen scores and unfreezes', async
   await expect(page.locator('#mode-learn')).toHaveClass(/active/);
 
   // Wait for first note to arrive & freeze
-  await page.waitForTimeout(3000);
+  await expect
+    .poll(() => page.evaluate(() => (window as any)._game._learningFrozen), { timeout: 10000 })
+    .toBe(true);
 
   // Press C4 = KeyK briefly (Perfect hit expected; game should unfreeze)
   await page.keyboard.press('KeyK');
@@ -43,7 +45,9 @@ test('learn mode: pressing correct key while frozen scores and unfreezes', async
   console.log('FEEDBACK after first press:', feedback);
 
   // Press once more — E4 = KeyO should hit second note
-  await page.waitForTimeout(1500);
+  await expect
+    .poll(() => page.evaluate(() => (window as any)._game._learningFrozen), { timeout: 10000 })
+    .toBe(true);
   await page.keyboard.press('KeyO');
   await page.waitForTimeout(500);
 

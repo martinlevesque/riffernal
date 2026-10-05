@@ -4,9 +4,18 @@ export interface CurrentUser {
   id: number;
 }
 
+/** A shortcut binding: one piano note ("C3") after key-by-key capture, or a
+ *  chord after multi-key capture ("C3" + "D3" together). null = unbound. */
+export interface KeyboardMenuShortcuts {
+  prev?: string | string[] | null;
+  next?: string | string[] | null;
+  enter?: string | string[] | null;
+}
+
 export interface GameSettings {
   piano_show_used_keys_only?: boolean;
   octave_agnostic?: boolean;
+  keyboard_menu_shortcuts?: KeyboardMenuShortcuts;
 }
 
 /** Parse the user's persisted game settings JSON. Corrupt or missing JSON

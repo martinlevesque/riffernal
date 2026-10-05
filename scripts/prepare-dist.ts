@@ -5,7 +5,7 @@ const ROOT = join(import.meta.dir, "..");
 const SRC = join(ROOT, "frontend");
 const DIST = join(ROOT, "dist");
 
-const STATIC_ASSETS = ["index.html", "css"];
+const STATIC_ASSETS = ["index.html", "css", "assets"];
 
 /** Drop stale build output from dist/js so the dev server's on-the-fly
  *  /js/*.js transpiler serves current source instead of a stale build. */

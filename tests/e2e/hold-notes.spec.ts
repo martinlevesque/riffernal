@@ -256,9 +256,7 @@ test.describe('Hold notes', () => {
 
       return {
         c3Visible: !!c3Note,
-        c3Failing: c3Note ? c3Note.failing : null,
         e3Visible: !!e3Note,
-        e3Failing: e3Note ? e3Note.failing : null,
         c3Missed: nm.notes[0].missed,
         c3FailingFlag: nm.notes[0].failing,
         e3Missed: nm.notes[1].missed,
@@ -267,9 +265,7 @@ test.describe('Hold notes', () => {
     }, { song: songData, H: CANVAS_HEIGHT });
 
     expect(result.c3Visible).toBe(true);
-    expect(result.c3Failing).toBe(true);
     expect(result.e3Visible).toBe(true);
-    expect(result.e3Failing).toBe(true);
     expect(result.c3FailingFlag).toBe(true);
     expect(result.e3FailingFlag).toBe(true);
     expect(result.c3Missed).toBe(false);

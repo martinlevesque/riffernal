@@ -1,8 +1,17 @@
 import { parseError, apiFetch } from "./helpers.js";
 
+/** A shortcut binding: a single piano note or a chord (array of notes).
+ *  null = unbound. */
+export interface KeyboardMenuShortcuts {
+  prev?: string | string[] | null;
+  next?: string | string[] | null;
+  enter?: string | string[] | null;
+}
+
 export interface GameSettings {
   piano_show_used_keys_only?: boolean;
   octave_agnostic?: boolean;
+  keyboard_menu_shortcuts?: KeyboardMenuShortcuts;
 }
 
 export async function fetchUserSettings(): Promise<GameSettings> {
