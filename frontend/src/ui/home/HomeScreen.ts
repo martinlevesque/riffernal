@@ -95,6 +95,17 @@ export class HomeScreen {
     this._leaderboard.refresh();
   }
 
+  /** Drive the main-menu cards with a bound note shortcut: prev moves the
+   *  focus up one card, next moves it down, enter acts on the focused card. */
+  cardAction(action: 'prev' | 'next' | 'enter'): void {
+    if (action === 'enter') {
+      this._cards[this._focusedIndex].click();
+      return;
+    }
+
+    this._focus((this._focusedIndex + (action === 'next' ? 1 : -1) + this._cards.length) % this._cards.length);
+  }
+
   // --- internals: wiring -----------------------------------------------------
 
   private _wireButtons(): void {

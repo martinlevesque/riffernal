@@ -6,10 +6,17 @@ on:
   pull_request:
     branches: [main, master]
 
+# A new push to the same branch cancels the superseded run instead of
+# finishing a stale 10-minute suite.
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
 jobs:
   test:
     runs-on: ubuntu-latest
-    timeout-minutes: 20
+    # Suite takes ~11 min; leave room for retries on a slow run.
+    timeout-minutes: 30
     steps:
       - uses: actions/checkout@v4
 

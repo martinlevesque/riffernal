@@ -109,6 +109,23 @@ The full Playwright suite is slow — plan for **7–8 minutes** end-to-end
 - If a prior `bun run dev` is holding port 3000, stop it first
   (`bun run dev:stop`) so Playwright's `webServer` can boot cleanly.
 
+### Concurrent runs (multiple bb threads)
+
+The suite is safe to run from several threads at once — no coordination
+needed:
+
+- The test port is picked automatically: 3100, then the first free port
+  above it (up to +24). The resolved port is shared with test workers
+  through `RIFFERNAL_TEST_PORT`, so specs' raw `node:http` helpers and
+  the webServer always agree. Don't hardcode 3100 anywhere.
+- The Playwright test server is `scripts/test-server.ts` — deliberately
+  a separate entry point from `scripts/dev.ts`, because `dev:stop` kills
+  the listener on port 3000 and must never take down other threads'
+  test servers.
+- For manual `bun run dev` while another thread is working, pass
+  `--port <n>` (or `PORT=<n>`) so you don't contend for port 3000;
+  `dev:stop` only ever kills the port-3000 listener.
+
 ## TypeScript
 
 - Source code in `frontend/src/` (`.ts` files, imports use `.js` extensions)
@@ -141,6 +158,29 @@ The full Playwright suite is slow — plan for **7–8 minutes** end-to-end
 - Do not reference issue numbers (e.g., `#86`, `issue #88`) in source code,
   comments, or test names — use the PR/commit title or git log for traceability
   instead of tying the code to a GitHub issue
+
+## Styling
+
+- **Pixel design language**: `frontend/css/pixel.css` holds the shared
+  primitives (`.pixel-box`, `.pixel-box-inset`, `.pixel-btn`) — reuse them
+  for new components instead of re-styling borders/shadows per component.
+- **Font sizes**: always use the type-scale tokens defined in
+  `frontend/css/base.css` — never write a raw `rem` font-size:
+
+  | Token | Value | Typical use |
+  | --- | --- | --- |
+  | `--fs-smallest` | `0.8rem` | dense metadata (leaderboard cells, tags) |
+  | `--fs-smaller` | `0.9rem` | body/supporting text |
+  | `--fs-small` | `1rem` | default text, inputs, kbd |
+  | `--fs-medium` | `1.15rem` | HUD buttons, mono labels |
+  | `--fs-large` | `1.35rem` | lead paragraphs, emphasis |
+  | `--fs-xlarge` | `1.7rem` | section headings, big HUD numbers |
+  | `--fs-xxlarge` | `2rem` | screen-level headings, banners |
+
+  Pick the nearest token; only add a new one to `base.css` if no existing
+  token fits, and keep the naming (`--fs-*`) and single-step increments.
+  Exemptions: hero/display one-offs (`.title`, `.home-title`,
+  `#result-grade`) and `clamp()`-responsive titles.
 
 ## Architecture
 

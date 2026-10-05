@@ -6,6 +6,10 @@ import {
   fetchLibraryCategorySongs,
   type SongSummary,
 } from "../../api/SongApi.js";
+import {
+  getSongListKeys,
+  matchSongListAction,
+} from "./songListKeys.js";
 
 interface GroupedItem {
   song: Song;
@@ -38,11 +42,29 @@ export class Menu {
   onPublishCommunity: ((song: Song) => void) | null = null;
   onBookmark: ((song: Song) => void) | null = null;
   onBackToHome: (() => void) | null = null;
+  /** Home main-menu action for a matched shortcut chord (home screen). */
+  private _runHomeAction: ((action: "prev" | "next" | "enter") => void) | null = null;
+
+  /** Register how a matched shortcut behaves on the home main menu. */
+  setHomeActions(run: ((action: "prev" | "next" | "enter") => void) | null): void {
+    this._runHomeAction = run;
+  }
+
+  private _runSongListAction(action: "prev" | "next" | "enter"): void {
+    if (action === "enter") {
+      this._startSelected();
+      return;
+    }
+
+    this._moveSelection(action === "next" ? 1 : -1);
+  }
   private _songListEl: HTMLElement;
   private _startBtn: HTMLButtonElement;
   private _freeplayScreen: HTMLElement;
   private _midiStatusEl: HTMLElement;
   private _controlsHintEl: HTMLElement | null;
+  private _noteCapture: ((notes: string[]) => void) | null = null;
+  private _heldMenuNotes = new Set<string>();
 
   constructor() {
     this._songListEl = document.getElementById("song-list")!;
@@ -411,16 +433,8 @@ export class Menu {
     this._renderSongStats(song, el);
     this._renderBookmarkButton(song, el);
 
-    el.addEventListener("click", () => {
-      this._selectedSong = song;
-      this._songListEl.querySelectorAll(".song-item").forEach((s) => { s.classList.remove("selected"); });
-      el.classList.add("selected");
-      this._startBtn.disabled = false;
-    });
-
-    el.addEventListener("dblclick", () => {
-      if (this.onCommunityStart) this.onCommunityStart(song);
-    });
+    el.addEventListener("click", () => this._selectSong(song, el));
+    el.addEventListener("dblclick", () => this._startSong(song, true));
 
     return el;
   }
@@ -448,16 +462,8 @@ export class Menu {
     this._renderSongStats(song, el);
     this._renderSongActions(song, el);
 
-    el.addEventListener("click", () => {
-      this._selectedSong = song;
-      this._songListEl.querySelectorAll(".song-item").forEach((s) => { s.classList.remove("selected"); });
-      el.classList.add("selected");
-      this._startBtn.disabled = false;
-    });
-
-    el.addEventListener("dblclick", () => {
-      if (this.onStart) this.onStart(song);
-    });
+    el.addEventListener("click", () => this._selectSong(song, el));
+    el.addEventListener("dblclick", () => this._startSong(song, false));
 
     return el;
   }
@@ -555,6 +561,107 @@ export class Menu {
 
     el.appendChild(actionsBtn);
     el.appendChild(actionsMenu);
+  }
+
+  /** While rebinding, a capture callback swallows every incoming chord. */
+  setNoteCapture(cb: ((notes: string[]) => void) | null): void {
+    this._noteCapture = cb;
+  }
+
+  /** Clear all held notes (e.g. popups closing or navigation). */
+  resetNoteHold(): void {
+    this._heldMenuNotes.clear();
+  }
+
+  /** Route a piano note-on (MIDI or computer keyboard) to navigation
+   *  shortcuts: the song list while freeplay is up, or the menu callbacks
+   *  (home main menu) otherwise. Popups and overlay screens suspend it. */
+  handleNoteOn(note: string): void {
+    this._heldMenuNotes.add(note);
+
+    if (this._noteCapture) {
+      this._noteCapture([...this._heldMenuNotes]);
+      return;
+    }
+
+    if (document.querySelector(".popup:not(.hidden)")) return;
+
+    const action = matchSongListAction(getSongListKeys(), [...this._heldMenuNotes]);
+
+    if (!action) return;
+
+    if (this._freeplayScreen.classList.contains("active")
+      && !document.querySelector(".screen.active:not(#freeplay-screen)")) {
+      this._runSongListAction(action);
+      return;
+    }
+
+    this._runHomeAction?.(action);
+  }
+
+  handleNoteOff(note: string): void {
+    this._heldMenuNotes.delete(note);
+
+    if (this._noteCapture && this._heldMenuNotes.size === 0) {
+      this._noteCapture([]);
+    }
+  }
+
+  private _selectSong(song: Song, el: HTMLElement): void {
+    this._selectedSong = song;
+    this._songListEl.querySelectorAll(".song-item").forEach((s) => { s.classList.remove("selected"); });
+    el.classList.add("selected");
+    this._startBtn.disabled = false;
+  }
+
+  private _startSong(song: Song, isCommunity: boolean): void {
+    if (isCommunity) {
+      this.onCommunityStart?.(song);
+    } else {
+      this.onStart?.(song);
+    }
+  }
+
+  private _visibleItems(): HTMLElement[] {
+    return Array.from(this._songListEl.querySelectorAll(".song-item"))
+      .filter((el): el is HTMLElement => el instanceof HTMLElement && el.offsetParent !== null);
+  }
+
+  private _moveSelection(delta: number): void {
+    const items = this._visibleItems();
+
+    if (items.length === 0) return;
+
+    const current = items.findIndex((el) => el.classList.contains("selected"));
+    const next = (current + delta + items.length) % items.length;
+    const el = items[next];
+    const song = this._findSong(Number(el.dataset.songId));
+
+    if (!song) return;
+
+    this._selectSong(song, el);
+    el.scrollIntoView({ block: "nearest" });
+  }
+
+  private _startSelected(): void {
+    const el = this._visibleItems().find((item) => item.classList.contains("selected"));
+
+    if (!el) return;
+
+    const song = this._findSong(Number(el.dataset.songId));
+
+    if (!song) return;
+
+    this._startSong(song, el.classList.contains("community-song"));
+  }
+
+  private _findSong(id: number): Song | null {
+    for (const group of this._groups) {
+      const item = group.items.find((i) => i.song.id === id);
+
+      if (item) return item.song;
+    }
+    return this._communitySongs.find((s) => s.id === id) ?? null;
   }
 
   private _autoSelect(song: Song): void {

@@ -25,6 +25,20 @@ const PASSWORD_AUTOCOMPLETE: Record<AuthMode, string> = {
   register: "new-password",
 };
 
+const INTRO_HTML = `
+  <div class="intro">
+    <p class="intro-lead">Your favorite songs as a keyboard rhythm game. Damn right.</p>
+    <ul class="intro-list">
+      <li>Drop in a MIDI, kick some ass</li>
+      <li>The song waits while you suck (learn)</li>
+      <li>Practice left, right, or both</li>
+      <li>Steal songs from the community, chip in if you like</li>
+    </ul>
+  </div>
+`;
+
+const NO_EMAIL_PUNCHLINE = "Just kidding, no email needed! We don't want to spam you.";
+
 export class AuthScreen {
   private _screen: HTMLElement;
   private _opts: AuthScreenOptions;
@@ -66,6 +80,8 @@ export class AuthScreen {
          </label>`
       : "";
 
+    const intro = mode === "setup" ? "" : INTRO_HTML;
+
     const subtitle = mode === "setup"
       ? `<p class="auth-subtitle">Create your admin account to get started</p>`
       : "";
@@ -78,27 +94,40 @@ export class AuthScreen {
            <button id="auth-toggle-btn">Already have an account? <span class="accent">Login</span></button>
          </div>`;
 
+    // Decoy field: it accepts a click only to swallow it with the no-spam
+    // punchline, then locks itself so no email ever enters the app.
+    const emailField = mode === "register"
+      ? `<div class="auth-field auth-field-joke">
+           <span class="auth-field-label">Email</span>
+           <input type="email" class="auth-input" id="auth-email" placeholder="Go on, click me.">
+         </div>`
+      : "";
+
     this._screen.innerHTML = `
-      <div class="auth-card">
+      <div class="auth-panel">
         <div class="auth-brand"><span class="accent">RIFF</span>ERNAL</div>
-        <h2>${MODE_LABEL[mode]}</h2>
-        ${subtitle}
-        <form class="auth-form" id="auth-form">
-          <label class="auth-field">
-            <span class="auth-field-label">Username</span>
-            <input type="text" class="auth-input" id="auth-username" placeholder="Username..." maxlength="32" autocomplete="username" required>
-          </label>
-          ${taglineField}
-          <label class="auth-field">
-            <span class="auth-field-label">Password</span>
-            <input type="password" class="auth-input" id="auth-password" placeholder="Password..." minlength="4" autocomplete="${PASSWORD_AUTOCOMPLETE[mode]}" required>
-          </label>
-          <div class="auth-error" id="auth-error"></div>
-          <div class="auth-actions">
-            <button type="submit" class="btn btn-primary" id="auth-submit">${SUBMIT_LABEL[mode]}</button>
-          </div>
-        </form>
-        ${toggleHtml}
+        ${intro}
+        <div class="auth-card">
+          <h2>${MODE_LABEL[mode]}</h2>
+          ${subtitle}
+          <form class="auth-form" id="auth-form">
+            <label class="auth-field">
+              <span class="auth-field-label">Username</span>
+              <input type="text" class="auth-input" id="auth-username" placeholder="Username..." maxlength="32" autocomplete="username" required>
+            </label>
+            ${taglineField}
+            <label class="auth-field">
+              <span class="auth-field-label">Password</span>
+              <input type="password" class="auth-input" id="auth-password" placeholder="Password..." minlength="4" autocomplete="${PASSWORD_AUTOCOMPLETE[mode]}" required>
+            </label>
+            ${emailField}
+            <div class="auth-error" id="auth-error"></div>
+            <div class="auth-actions">
+              <button type="submit" class="btn btn-primary" id="auth-submit">${SUBMIT_LABEL[mode]}</button>
+            </div>
+          </form>
+          ${toggleHtml}
+        </div>
       </div>
     `;
 
@@ -119,6 +148,14 @@ export class AuthScreen {
       toggleBtn.addEventListener("click", () => {
         this._mode = this._mode === "login" ? "register" : "login";
         this._render();
+      });
+    }
+
+    const email = document.getElementById("auth-email") as HTMLInputElement | null;
+    if (email) {
+      email.addEventListener("click", () => {
+        email.value = NO_EMAIL_PUNCHLINE;
+        email.disabled = true;
       });
     }
   }

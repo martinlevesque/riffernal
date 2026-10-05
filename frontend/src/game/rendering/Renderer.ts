@@ -1,11 +1,11 @@
 // Main canvas renderer: highway, notes, sheet music, particles,
 // and playback cursor. Delegates piano rendering to PianoRenderer.
 
-import { NOTE_NAMES, getPianoKeyLayout, NOTE_COLORS, WHITE_KEY_COUNT, handForKey, handColor, HandSide, NOTE_SHORT_NAMES, whiteKeyWidth, countWhiteKeysInRange } from '../../utils/notes.js';
+import { NOTE_NAMES, getPianoKeyLayout, WHITE_KEY_COUNT, handColor, HandSide, NOTE_SHORT_NAMES, whiteKeyWidth, countWhiteKeysInRange } from '../../utils/notes.js';
 import type { VisibleRange } from '../../utils/notes.js';
 import { HIT_ZONE_Y_RATIO } from '../NoteManager.js';
 import { LoopDefinitionState } from '../Loop.js';
-import { PianoRenderer } from './PianoRenderer.js';
+import { PianoRenderer, INDICATOR_BAR_OFFSET } from './PianoRenderer.js';
 import type { SongNote } from '../NoteManager.js';
 import { isLowEndDevice } from '../../utils/device.js';
 import { themeManager } from '../../themes/ThemeManager.js';
@@ -106,18 +106,30 @@ const SHEET_NOTE_RADIUS = 4.5;
 export const SHEET_BEATS_VISIBLE = 18;
 const SHEET_BEATS_PER_MEASURE = 4;
 
-function roundRect(ctx: CanvasRenderingContext2D, x: number, y: number, w: number, h: number, r: number): void {
-  ctx.beginPath();
-  ctx.moveTo(x + r, y);
-  ctx.lineTo(x + w - r, y);
-  ctx.arcTo(x + w, y, x + w, y + r, r);
-  ctx.lineTo(x + w, y + h - r);
-  ctx.arcTo(x + w, y + h, x + w - r, y + h, r);
-  ctx.lineTo(x + r, y + h);
-  ctx.arcTo(x, y + h, x, y + h - r, r);
-  ctx.lineTo(x, y + r);
-  ctx.arcTo(x, y, x + r, y, r);
-  ctx.closePath();
+// Size of one "big pixel" on the highway. All note rects snap to this grid,
+// which is what makes notes read as chunky blocks instead of smooth shapes.
+const NOTE_PIXEL = 3;
+
+function pixelSnap(v: number, unit: number): number {
+  return Math.round(v / unit) * unit;
+}
+
+function pixelRect(ctx: CanvasRenderingContext2D, x: number, y: number, w: number, h: number, unit: number): void {
+  x = pixelSnap(x, unit);
+  y = pixelSnap(y, unit);
+  w = Math.max(unit, pixelSnap(w, unit));
+  h = Math.max(unit, pixelSnap(h, unit));
+  ctx.fillRect(x, y, w, h);
+}
+
+// Block with a hard border, drawn as two rects so the outline is
+// `borderUnit` thick on every side. Position snaps to `snapUnit`, kept
+// separate from the border thickness.
+function pixelBox(ctx: CanvasRenderingContext2D, x: number, y: number, w: number, h: number, snapUnit: number, borderUnit: number, borderColor: string, fillColor: string): void {
+  ctx.fillStyle = borderColor;
+  pixelRect(ctx, x - borderUnit, y - borderUnit, w + borderUnit * 2, h + borderUnit * 2, snapUnit);
+  ctx.fillStyle = fillColor;
+  pixelRect(ctx, x, y, w, h, snapUnit);
 }
 
 const SHEET_NOTE_POSITIONS: Record<string, number> = Object.assign(
@@ -126,9 +138,7 @@ const SHEET_NOTE_POSITIONS: Record<string, number> = Object.assign(
 );
 
 const TAIL_HIGHLIGHT_ALPHA = 0.10;
-const TAIL_HIGHLIGHT_ALPHA_FAIL = 0.06;
 const HEAD_HIGHLIGHT_ALPHA = 0.28;
-const HEAD_HIGHLIGHT_ALPHA_FAIL = 0.18;
 
 const GRIND_FLASH_MS = 320;
 const GRIND_FLASH_HEIGHT = 140;
@@ -161,8 +171,7 @@ interface NoteLayout {
   scaledWidth: number;
   scaledHeadHeight: number;
   scaledTailHeight: number;
-  cornerRadius: number;
-  scale: number;
+  baseWidth: number;
 }
 
 interface SheetLayout {
@@ -200,6 +209,12 @@ export class Renderer {
   private _staffCache: HTMLCanvasElement | null = null;
   private _cachedStaffScale = -1;
   private _cachedStaffWidth = -1;
+  private _labelFontCache = new Map<string, string>();
+  private _labelTextWidth = new Map<string, number>();
+  private _labelFontUi = '';
+  private _flameSprites: { outer: HTMLCanvasElement; core: HTMLCanvasElement } | null = null;
+  private _haloGrad: CanvasGradient | null = null;
+  private _haloKey = '';
 
   private _isLowEnd: boolean;
   private _now = 0;
@@ -222,6 +237,7 @@ export class Renderer {
     this.width = cssW;
     this.height = cssH;
     this._glowGradCache.clear();
+    this._haloGrad = null;
   }
 
   clear(): void {
@@ -267,7 +283,7 @@ export class Renderer {
         const layout = getPianoKeyLayout(noteName, this.width, visibleRange);
         if (layout.width === 0) continue;
         const intensity = velocityIntensity(velocity);
-        const color = NOTE_COLORS[noteName] || c.noteFallbackColor;
+        const color = handColor(noteName);
         const cx = layout.x + layout.width / 2;
         const colW = layout.width * (0.55 + 0.45 * intensity);
         const grad = this._laneGlowGrad(lane, color, glowTop, hitZoneY, intensity);
@@ -276,11 +292,18 @@ export class Renderer {
       }
     }
 
-    const haloGrad = ctx.createLinearGradient(0, hitZoneY - 10, 0, hitZoneY + 10);
-    haloGrad.addColorStop(0, 'rgba(0,0,0,0)');
-    haloGrad.addColorStop(0.5, this._withAlpha(c.hitLine, 0.5));
-    haloGrad.addColorStop(1, 'rgba(0,0,0,0)');
-    ctx.fillStyle = haloGrad;
+    // The halo only moves when the hit zone moves (resize) or the theme
+    // hit-line color changes, so build the gradient once for each state.
+    const haloKey = `${hitZoneY}|${c.hitLine}`;
+    if (!this._haloGrad || this._haloKey !== haloKey) {
+      const grad = ctx.createLinearGradient(0, hitZoneY - 10, 0, hitZoneY + 10);
+      grad.addColorStop(0, 'rgba(0,0,0,0)');
+      grad.addColorStop(0.5, this._withAlpha(c.hitLine, 0.5));
+      grad.addColorStop(1, 'rgba(0,0,0,0)');
+      this._haloGrad = grad;
+      this._haloKey = haloKey;
+    }
+    ctx.fillStyle = this._haloGrad;
     ctx.fillRect(0, hitZoneY - 10, this.width, 20);
 
     ctx.strokeStyle = c.hitLine;
@@ -328,11 +351,17 @@ export class Renderer {
   }
 
   drawHitZone(pressedLanes: Map<number, number>, visibleRange?: VisibleRange | null): void {
-    this.piano.drawHitZone(this.ctx, this.width, this.height, pressedLanes, visibleRange);
+    this.piano.drawHitZone(this.ctx, this.width, this.height, pressedLanes, visibleRange, this._now);
   }
 
   drawPiano(pressedLanes: Map<number, number>, visibleRange?: VisibleRange | null): void {
-    this.piano.drawPiano(this.ctx, this.width, this.height, pressedLanes, visibleRange);
+    this.piano.drawPiano(this.ctx, this.width, this.height, pressedLanes, visibleRange, this._now);
+  }
+
+  /** Learn-mode teaching aid: light up the piano key the player pressed
+   *  incorrectly. The flash fades out over the next frames. */
+  flashWrongKey(lane: number): void {
+    this.piano.flashWrongKey(lane, performance.now());
   }
 
   notePixelPosition(note: SongNote): { x: number; y: number } | null {
@@ -350,80 +379,80 @@ export class Renderer {
     return { x, y };
   }
 
-  private _noteLayout(laneIndex: number, y: number, noteHeight: number, sheetBottom: number, noteName?: string, visibleRange?: VisibleRange | null): NoteLayout {
+  private _noteLayout(laneIndex: number, y: number, noteHeight: number, noteName?: string, visibleRange?: VisibleRange | null): NoteLayout {
     const layout = getPianoKeyLayout(noteName ?? NOTE_NAMES[laneIndex] ?? 'C4', this.width, visibleRange);
-    const x = layout.x;
     const keyWidth = layout.width;
-    const padding = Math.max(1, keyWidth * 0.06);
+    const centerX = layout.x + keyWidth / 2;
 
-    const hitZoneY = this.height * HIT_ZONE_Y_RATIO;
-    const scaleRange = hitZoneY - sheetBottom;
     const headBottom = y + noteHeight;
-    const clampedY = Math.max(sheetBottom, Math.min(headBottom, hitZoneY));
-    const scale = 0.45 + 0.55 * ((clampedY - sheetBottom) / scaleRange);
 
-    const HEAD_HEIGHT = 14;
-    const scaledHeadHeight = HEAD_HEIGHT * scale;
-    const scaledTailHeight = Math.max(0, noteHeight * scale - scaledHeadHeight);
-    const scaledWidth = (keyWidth - padding * 2) * scale;
-    const centerX = x + keyWidth / 2;
+    // One constant silhouette for the whole fall. The visible box (fill +
+    // NOTE_PIXEL border per side) snaps DOWN to the key width's grid
+    // multiple, so it always fits inside its key — black-key notes included,
+    // proportionally narrower than white-key notes, like the keys themselves.
+    const HEAD_HEIGHT = 15;
+    const scaledHeadHeight = HEAD_HEIGHT;
+    const scaledTailHeight = Math.max(0, noteHeight - scaledHeadHeight);
+    const outerWidth = Math.floor(keyWidth / NOTE_PIXEL) * NOTE_PIXEL;
+    const scaledWidth = Math.max(0, outerWidth - NOTE_PIXEL * 2);
+    const drawX = centerX - outerWidth / 2 + NOTE_PIXEL;
+
+    // The note docks its visible bottom edge (fill bottom + border) onto the
+    // indicator bar's bottom edge, not the hit line: the bar sits
+    // INDICATOR_BAR_OFFSET above the line and the border extends NOTE_PIXEL
+    // below the fill, so lift the whole note by their sum. Held notes then
+    // rest flush on the bar instead of hanging below it.
+    const dockLift = NOTE_PIXEL + INDICATOR_BAR_OFFSET;
+    const parkedHeadBottom = headBottom - dockLift;
 
     return {
-      drawX: centerX - scaledWidth / 2,
-      drawY: headBottom - scaledHeadHeight - scaledTailHeight,
+      drawX,
+      drawY: parkedHeadBottom - scaledHeadHeight - scaledTailHeight,
       scaledWidth,
       scaledHeadHeight,
       scaledTailHeight,
-      cornerRadius: 3 * scale,
-      scale,
+      baseWidth: keyWidth,
     };
   }
 
-  private _drawNotePart(ctx: CanvasRenderingContext2D, drawX: number, drawY: number, w: number, h: number, r: number, color: string | CanvasGradient): void {
-    ctx.fillStyle = color;
-    roundRect(ctx, drawX, drawY, w, h, r);
-    ctx.fill();
+  private _drawNotePart(ctx: CanvasRenderingContext2D, drawX: number, drawY: number, w: number, h: number, snapUnit: number, borderUnit: number, fillColor: string, borderColor: string): void {
+    pixelBox(ctx, drawX, drawY, w, h, snapUnit, borderUnit, borderColor, fillColor);
   }
 
-  drawNote(laneIndex: number, y: number, noteHeight: number, color: string, alpha: number, sheetBottom: number, _combo: number, noteName?: string, holding?: boolean, failing?: boolean, waiting?: boolean, visibleRange?: VisibleRange | null): void {
+  drawNote(laneIndex: number, y: number, noteHeight: number, color: string, alpha: number, _combo: number, noteName?: string, holding?: boolean, waiting?: boolean, visibleRange?: VisibleRange | null): void {
     const ctx = this.ctx;
     const c = themeManager.canvas;
-    const drawColor = failing && noteName
-      ? (handForKey(noteName) === HandSide.Left ? c.failColorLeft : c.failColorRight)
-      : color;
-    const L = this._noteLayout(laneIndex, y, noteHeight, sheetBottom, noteName, visibleRange);
+    const L = this._noteLayout(laneIndex, y, noteHeight, noteName, visibleRange);
 
     ctx.globalAlpha = alpha;
 
-    let waitingGlowWidth = 0;
+    const borderColor = 'rgba(0, 0, 0, 0.55)';
+
+    const snapUnit = NOTE_PIXEL;
+    const borderUnit = NOTE_PIXEL;
+
     if (waiting) {
       const pulse = 0.5 + 0.5 * Math.sin(this._now / 200 * 3.2);
-      waitingGlowWidth = 4 + pulse * 8;
-    }
-
-    if (waitingGlowWidth > 0) {
+      const glowUnits = Math.max(borderUnit, pixelSnap(4 + pulse * 8, snapUnit));
       ctx.globalAlpha = alpha * 0.25;
-      ctx.fillStyle = drawColor;
-      roundRect(ctx, L.drawX - waitingGlowWidth, L.drawY - waitingGlowWidth, L.scaledWidth + waitingGlowWidth * 2, L.scaledHeadHeight + L.scaledTailHeight + waitingGlowWidth * 2, L.cornerRadius + waitingGlowWidth);
-      ctx.fill();
+      ctx.fillStyle = color;
+      pixelRect(ctx, L.drawX - glowUnits, L.drawY - glowUnits, L.scaledWidth + glowUnits * 2, L.scaledHeadHeight + L.scaledTailHeight + glowUnits * 2, snapUnit);
       ctx.globalAlpha = alpha;
     }
 
     if (L.scaledTailHeight > 0.5) {
-      this._drawNotePart(ctx, L.drawX, L.drawY, L.scaledWidth, L.scaledTailHeight, L.cornerRadius, drawColor);
-      ctx.globalAlpha = alpha * (failing ? TAIL_HIGHLIGHT_ALPHA_FAIL : TAIL_HIGHLIGHT_ALPHA);
+      this._drawNotePart(ctx, L.drawX, L.drawY, L.scaledWidth, L.scaledTailHeight, snapUnit, borderUnit, color, borderColor);
+      ctx.globalAlpha = alpha * TAIL_HIGHLIGHT_ALPHA;
       ctx.fillStyle = c.noteHighlight;
-      roundRect(ctx, L.drawX, L.drawY, L.scaledWidth, L.scaledTailHeight, L.cornerRadius);
-      ctx.fill();
+      pixelRect(ctx, L.drawX, L.drawY, L.scaledWidth, L.scaledTailHeight, snapUnit);
       ctx.globalAlpha = alpha;
     }
 
     const headDrawY = L.drawY + L.scaledTailHeight;
-    this._drawNotePart(ctx, L.drawX, headDrawY, L.scaledWidth, L.scaledHeadHeight, L.cornerRadius, drawColor);
-    ctx.globalAlpha = alpha * (failing ? HEAD_HIGHLIGHT_ALPHA_FAIL : HEAD_HIGHLIGHT_ALPHA);
+    this._drawNotePart(ctx, L.drawX, headDrawY, L.scaledWidth, L.scaledHeadHeight, snapUnit, borderUnit, color, borderColor);
+    ctx.globalAlpha = alpha * HEAD_HIGHLIGHT_ALPHA;
     ctx.fillStyle = c.noteHighlight;
-    roundRect(ctx, L.drawX, headDrawY, L.scaledWidth, L.scaledHeadHeight, L.cornerRadius);
-    ctx.fill();
+    pixelRect(ctx, L.drawX, headDrawY, L.scaledWidth, L.scaledHeadHeight, snapUnit);
     ctx.globalAlpha = alpha;
 
     if (holding) {
@@ -433,41 +462,90 @@ export class Renderer {
     }
 
     if (noteName) {
-      this._drawNoteLabel(ctx, noteName, L.drawX, headDrawY, L.scaledWidth, L.scaledHeadHeight);
+      this._drawNoteBadge(ctx, noteName, L.drawX + L.scaledWidth / 2, headDrawY + L.scaledHeadHeight, color, L.baseWidth);
     }
 
     ctx.globalAlpha = 1;
   }
 
-  private _drawNoteLabel(ctx: CanvasRenderingContext2D, noteName: string, drawX: number, drawY: number, width: number, height: number): void {
+  /** Every named note carries a name badge anchored at the head's
+   *  leading edge, sized from the lane width and screen height so it
+   *  reads big on any window size. Press Start 2P fills its em box, so
+   *  the name stays legible where the condensed VT323 would look small.
+   *  The badge is its own box — dark fill, note-border color, white
+   *  text. */
+  private _drawNoteBadge(ctx: CanvasRenderingContext2D, noteName: string, centerX: number, bottomY: number, borderColor: string, noteWidth: number): void {
     const shortName = NOTE_SHORT_NAMES[noteName] ?? noteName;
-    const fontSize = Math.max(11, width * 0.6);
-    ctx.font = `bold ${fontSize}px ${themeManager.fonts.mono}`;
+    const fontSize = Math.round(
+      Math.min(Math.max(12, noteWidth * 0.55), 24),
+    );
+    const ui = themeManager.fonts.ui;
+    if (ui !== this._labelFontUi) {
+      this._labelFontUi = ui;
+      this._labelFontCache.clear();
+      this._labelTextWidth.clear();
+    }
+    const badgeKey = `ui:${fontSize}`;
+    let font = this._labelFontCache.get(badgeKey);
+    if (!font) {
+      font = `${fontSize}px ${ui}`;
+      this._labelFontCache.set(badgeKey, font);
+    }
+    ctx.font = font;
     ctx.textAlign = 'center';
-    ctx.textBaseline = 'bottom';
-    ctx.fillStyle = themeManager.canvas.noteHeadLabel;
-    ctx.fillText(shortName, drawX + width / 2, drawY + height);
+    ctx.textBaseline = 'middle';
+    // measureText per named note per frame adds up in chords; the width
+    // only varies with font + text, so memoize both.
+    const textKey = `${fontSize}|${shortName}`;
+    let textW = this._labelTextWidth.get(textKey);
+    if (textW === undefined) {
+      textW = ctx.measureText(shortName).width;
+      this._labelTextWidth.set(textKey, textW);
+    }
+    const bw = pixelSnap(textW + fontSize * 0.45, NOTE_PIXEL);
+    const bh = pixelSnap(fontSize + 18, NOTE_PIXEL);
+    const bx = pixelSnap(centerX - bw / 2, NOTE_PIXEL);
+    const by = pixelSnap(bottomY - bh, NOTE_PIXEL);
+    pixelBox(ctx, bx, by, bw, bh, NOTE_PIXEL, NOTE_PIXEL, borderColor, 'rgba(0, 0, 0, 0.88)');
+    ctx.fillStyle = '#fff';
+    ctx.fillText(shortName, bx + bw / 2, by + bh / 2 + 1);
+  }
+
+  /** The two flame layers as pre-rendered sprites: dense chords keep many
+   *  holds lit at once, and building two radial gradients per held note per
+   *  frame is measurably slower than blitting scaled sprites. Each sprite
+   *  spans a 128px square (large enough to stay crisp when upscaled to wide
+   *  notes) with the gradient's full extent reaching the edge (outer stops
+   *  at alpha 0), so uniform scaling reproduces the gradient. */
+  private _ensureFlameSprites(): void {
+    if (this._flameSprites) return;
+    const R = 64;
+    const make = (stops: readonly { stop: number; color: string }[]): HTMLCanvasElement => {
+      const sprite = document.createElement('canvas');
+      sprite.width = R * 2;
+      sprite.height = R * 2;
+      const sctx = sprite.getContext('2d')!;
+      const grad = sctx.createRadialGradient(R, R, 0, R, R, R);
+      for (const { stop, color } of stops) {
+        grad.addColorStop(stop, color);
+      }
+      sctx.fillStyle = grad;
+      sctx.fillRect(0, 0, R * 2, R * 2);
+      return sprite;
+    };
+    this._flameSprites = { outer: make(FLAME_COLORS), core: make(FLAME_CORE_COLORS) };
   }
 
   private _drawFlame(ctx: CanvasRenderingContext2D, cx: number, baseY: number, width: number): void {
+    this._ensureFlameSprites();
     const t = this._now / 1000;
     const pulse = 0.8 + 0.2 * Math.sin(t * 5);
-    const r = width * 2.0 * pulse;
 
-    const grad = ctx.createRadialGradient(cx, baseY, 0, cx, baseY, r);
-    for (const { stop, color } of FLAME_COLORS) {
-      grad.addColorStop(stop, color);
-    }
-    ctx.fillStyle = grad;
-    ctx.fillRect(cx - r, baseY - r, r * 2, r * 2);
+    const r = width * 2.0 * pulse;
+    ctx.drawImage(this._flameSprites!.outer, cx - r, baseY - r, r * 2, r * 2);
 
     const r2 = width * 0.7;
-    const grad2 = ctx.createRadialGradient(cx, baseY, 0, cx, baseY, r2);
-    for (const { stop, color } of FLAME_CORE_COLORS) {
-      grad2.addColorStop(stop, color);
-    }
-    ctx.fillStyle = grad2;
-    ctx.fillRect(cx - r2, baseY - r2, r2 * 2, r2 * 2);
+    ctx.drawImage(this._flameSprites!.core, cx - r2, baseY - r2, r2 * 2, r2 * 2);
   }
 
   // -- Grind effect (Guitar-Hero-style electric trail) --------------------
@@ -662,6 +740,26 @@ export class Renderer {
     return lo;
   }
 
+  /** Time-sorted note closest to `t` across two sorted staff arrays.
+   *  Binary search instead of a linear scan: the loop overlay calls this
+   *  for every visible marker on every frame. */
+  private _nearestNoteAtTime(t: number, trebleNotes: SongNote[], bassNotes: SongNote[]): SongNote | null {
+    let best: SongNote | null = null;
+    let bestDiff = Infinity;
+    for (const list of [trebleNotes, bassNotes]) {
+      const idx = this._findFirstIndex(list, t);
+      for (const n of [list[idx - 1], list[idx]]) {
+        if (!n) continue;
+        const d = Math.abs(n.time - t);
+        if (d < bestDiff) {
+          bestDiff = d;
+          best = n;
+        }
+      }
+    }
+    return best;
+  }
+
   private _renderStaffCache(sheetTop: number, trebleTop: number, bassTop: number, staffLineSpacing: number, _clefW: number, margin: number, sheetBottom: number): void {
     const c = themeManager.canvas;
     const w = this.canvas.width;
@@ -706,7 +804,7 @@ export class Renderer {
     currentTime: number,
     songDuration: number,
     loop?: {
-      chain: Array<{ startTime: number; endTime: number }>;
+      chain: ReadonlyArray<{ startTime: number; endTime: number }>;
       currentIndex: number | null;
       draftStart: number | null;
       draftEnd: number | null;
@@ -806,25 +904,25 @@ export class Renderer {
     const color = note.selected ? handColor(note.key) : c.backingNote;
     const filled = note.duration < 0.75;
 
-    if (note.failing) {
-      const sheetColor = handForKey(note.key) === HandSide.Left ? c.failColorSheetLeft : c.failColorSheetRight;
-      ctx.fillStyle = sheetColor;
-      ctx.strokeStyle = sheetColor;
-    } else if (note.hit) {
+    // Square, grid-snapped heads keep the sheet in the pixel language
+    const SHEET_PIXEL = 2;
+    const headX = pixelSnap(x, SHEET_PIXEL);
+    const headY = pixelSnap(noteY, SHEET_PIXEL);
+    const side = Math.max(SHEET_PIXEL * 2, pixelSnap(r * 2, SHEET_PIXEL));
+    const half = side / 2;
+
+    if (note.hit) {
       ctx.fillStyle = c.hitNote;
       ctx.strokeStyle = c.hitNote;
     } else {
       ctx.fillStyle = color;
       ctx.strokeStyle = color;
     }
-    ctx.lineWidth = 1;
-    ctx.beginPath();
-    ctx.ellipse(x, noteY, r + 0.5, r, -0.2, 0, Math.PI * 2);
+    ctx.lineWidth = 2;
     if (filled) {
-      ctx.fill();
+      ctx.fillRect(headX - half, headY - half, side, side);
     } else {
-      ctx.lineWidth = 1.5;
-      ctx.stroke();
+      ctx.strokeRect(headX - half, headY - half, side, side);
     }
 
     const stemLen = staffLineSpacing * 2.5;
@@ -882,7 +980,7 @@ export class Renderer {
   private _drawLoopRegion(
     L: SheetLayout,
     loop: {
-      chain: Array<{ startTime: number; endTime: number }>;
+      chain: ReadonlyArray<{ startTime: number; endTime: number }>;
       currentIndex: number | null;
       draftStart: number | null;
       draftEnd: number | null;
@@ -912,16 +1010,7 @@ export class Renderer {
 
     const highlightAt = (t: number, color: string, alpha: number): void => {
       if (t < viewStart || t > viewEnd) return;
-      let best: SongNote | null = null;
-      let bestDiff = Infinity;
-      for (const n of trebleNotes) {
-        const d = Math.abs(n.time - t);
-        if (d < bestDiff) { bestDiff = d; best = n; }
-      }
-      for (const n of bassNotes) {
-        const d = Math.abs(n.time - t);
-        if (d < bestDiff) { bestDiff = d; best = n; }
-      }
+      const best = this._nearestNoteAtTime(t, trebleNotes, bassNotes);
       if (!best) return;
       const pixelPos = this.notePixelPosition(best);
       if (!pixelPos) return;
@@ -1017,9 +1106,14 @@ export class Renderer {
       ctx.restore();
     };
 
-    for (const n of trebleNotes) highlightNote(n);
-
-    for (const n of bassNotes) highlightNote(n);
+    for (const list of [trebleNotes, bassNotes]) {
+      const startIdx = this._findFirstIndex(list, selectedLoop.startTime);
+      for (let i = startIdx; i < list.length; i++) {
+        const n = list[i];
+        if (n.time > selectedLoop.endTime) break;
+        highlightNote(n);
+      }
+    }
   }
 
   drawParticles(): void {

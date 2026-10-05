@@ -1,22 +1,14 @@
-import { cpSync, existsSync, mkdirSync, rmSync, watch } from "node:fs";
+import { watch } from "node:fs";
 import { join } from "node:path";
 import { startServer } from "./https-serve.ts";
+import { copyStaticAssets, resetTranspiledJs, STATIC_ASSETS } from "./prepare-dist.ts";
 
-const ROOT = join(import.meta.dir, "..");
-const SRC = join(ROOT, "frontend");
-const DIST = join(ROOT, "dist");
+const SRC = join(import.meta.dir, "..", "frontend");
 
-const STATIC_ASSETS = ["index.html", "css"];
 const httpOnly = process.argv.includes("--http");
 
-// Ensure dist/ exists and copy static assets (JS is transpiled on the fly)
-if (!existsSync(DIST)) mkdirSync(DIST, { recursive: true });
-// Remove stale compiled JS so dev always transpiles from source
-const distJs = join(DIST, "js");
-if (existsSync(distJs)) rmSync(distJs, { recursive: true, force: true });
-for (const item of STATIC_ASSETS) {
-  cpSync(join(SRC, item), join(DIST, item), { recursive: true });
-}
+resetTranspiledJs();
+copyStaticAssets();
 console.log("Static assets copied → dist/");
 
 startServer(httpOnly);
@@ -28,9 +20,7 @@ watch(SRC, { recursive: true }, (_event, filename) => {
   if (!top || !STATIC_ASSETS.includes(top)) return;
   if (copyTimer) clearTimeout(copyTimer);
   copyTimer = setTimeout(() => {
-    for (const item of STATIC_ASSETS) {
-      cpSync(join(SRC, item), join(DIST, item), { recursive: true });
-    }
+    copyStaticAssets();
     console.log("Static assets re-copied → dist/");
     copyTimer = null;
   }, 100);
