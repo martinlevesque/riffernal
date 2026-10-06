@@ -4,20 +4,13 @@ import {
   FailureLockout,
   clientIp,
   withRateLimit,
-  type RateLimitDeps,
+  type ApiDispatch,
 } from "../../../../backend/api/middleware/rateLimit.ts";
+import { RATE_LIMIT_CONFIG, type RateLimitConfig } from "../../../../backend/configs/rateLimit.ts";
 import { UnauthorizedError } from "../../../../backend/models/validation.ts";
 
 const MINUTE = 60_000;
 const HOUR = 3_600_000;
-
-function loginRequest(body: unknown): Request {
-  return new Request("http://localhost/api/auth/login", {
-    method: "POST",
-    headers: { "content-type": "application/json" },
-    body: JSON.stringify(body),
-  });
-}
 
 describe("FixedWindowLimiter", () => {
   test("allows up to max requests, then blocks with a Retry-After", () => {
@@ -202,169 +195,274 @@ describe("clientIp", () => {
   });
 });
 
+const SMALL_CONFIG: RateLimitConfig = {
+  rules: [
+    {
+      id: "login",
+      method: "POST",
+      path: "/api/auth/login",
+      windowMs: HOUR,
+      max: 100,
+      failureLockout: { maxFailures: 2, lockoutMs: MINUTE, bodyField: "username" },
+    },
+    { id: "register", method: "POST", path: "/api/auth/register", windowMs: MINUTE, max: 1 },
+    { id: "songs", path: "/api/songs/*", windowMs: MINUTE, max: 2 },
+    { id: "song-by-id", method: "GET", path: "/api/loops/:id", windowMs: MINUTE, max: 1 },
+  ],
+  fallback: { windowMs: MINUTE, max: 3 },
+};
+
+function apiRequest(path: string, method = "GET", ip?: string): Request {
+  return new Request(`http://localhost${path}`, {
+    method,
+    headers: ip ? { "x-forwarded-for": ip } : {},
+  });
+}
+
+function limited(config: RateLimitConfig = SMALL_CONFIG, dispatch?: ApiDispatch): ApiDispatch {
+  return withRateLimit(dispatch ?? (async () => new Response("ok")), { config });
+}
+
+async function call(dispatch: ApiDispatch, path: string, method = "GET", ip?: string): Promise<number> {
+  const res = await dispatch(apiRequest(path, method, ip), path);
+
+  return res?.status ?? 0;
+}
+
 describe("withRateLimit", () => {
-  describe("budget", () => {
-    test("passes the request up to max, then 429s without reaching the handler", async () => {
-      const deps: RateLimitDeps = {
-        limiters: new Map([["setup", new FixedWindowLimiter({ windowMs: HOUR, max: 1 })]]),
-      };
+  describe("path matching", () => {
+    test("applies the matching rule's budget, then 429s without reaching dispatch", async () => {
+      let dispatched = 0;
+      const dispatch = limited(SMALL_CONFIG, async () => {
+        dispatched += 1;
 
-      let handlerCalls = 0;
-      const handler = withRateLimit("setup", async () => {
-        handlerCalls += 1;
         return new Response("ok");
-      }, deps);
+      });
 
-      const first = await handler(new Request("http://localhost/api/auth/setup", { method: "POST" }), {});
-      expect(first.status).toBe(200);
-      expect(handlerCalls).toBe(1);
-
-      const second = await handler(new Request("http://localhost/api/auth/setup", { method: "POST" }), {});
-      expect(second.status).toBe(429);
-      expect(handlerCalls).toBe(1);
+      expect(await call(dispatch, "/api/auth/register", "POST")).toBe(200);
+      expect(await call(dispatch, "/api/auth/register", "POST")).toBe(429);
+      expect(dispatched).toBe(1);
     });
 
-    test("the 429 response is JSON with a positive integer Retry-After", async () => {
-      const deps: RateLimitDeps = {
-        limiters: new Map([["register", new FixedWindowLimiter({ windowMs: MINUTE, max: 1 })]]),
+    test("a rule with a method only matches that method", async () => {
+      const dispatch = limited();
+
+      expect(await call(dispatch, "/api/auth/register", "POST")).toBe(200);
+      expect(await call(dispatch, "/api/auth/register", "POST")).toBe(429);
+
+      // GET on the same path falls to the fallback budget instead.
+      expect(await call(dispatch, "/api/auth/register", "GET")).toBe(200);
+    });
+
+    test("a rule without a method matches any method", async () => {
+      const dispatch = limited();
+
+      expect(await call(dispatch, "/api/songs/list", "GET")).toBe(200);
+      expect(await call(dispatch, "/api/songs/list", "POST")).toBe(200);
+      expect(await call(dispatch, "/api/songs/list", "DELETE")).toBe(429);
+    });
+
+    test("trailing /* matches the base path and everything beneath it", async () => {
+      const dispatch = limited();
+
+      expect(await call(dispatch, "/api/songs")).toBe(200);
+      expect(await call(dispatch, "/api/songs/1/notes")).toBe(200);
+      expect(await call(dispatch, "/api/songs/2")).toBe(429);
+    });
+
+    test("/* does not match a path that merely shares the prefix", async () => {
+      const dispatch = limited();
+
+      for (let i = 0; i < 3; i++) {
+        expect(await call(dispatch, "/api/songsfoo")).toBe(200);
+      }
+
+      expect(await call(dispatch, "/api/songsfoo")).toBe(429);
+    });
+
+    test(":param segments share one bucket across ids", async () => {
+      const dispatch = limited();
+
+      expect(await call(dispatch, "/api/loops/1")).toBe(200);
+      expect(await call(dispatch, "/api/loops/2")).toBe(429);
+    });
+
+    test("the first matching rule wins", async () => {
+      const config: RateLimitConfig = {
+        rules: [
+          { id: "specific", path: "/api/a/b", windowMs: MINUTE, max: 1 },
+          { id: "broad", path: "/api/a/*", windowMs: MINUTE, max: 100 },
+        ],
+        fallback: { windowMs: MINUTE, max: 100 },
       };
+      const dispatch = limited(config);
 
-      const handler = withRateLimit("register", async () => new Response("ok"), deps);
+      expect(await call(dispatch, "/api/a/b")).toBe(200);
+      expect(await call(dispatch, "/api/a/b")).toBe(429);
+      expect(await call(dispatch, "/api/a/c")).toBe(200);
+    });
 
-      // Spend the one allowed request, then the next is throttled.
-      await handler(new Request("http://localhost/api/auth/register", { method: "POST" }), {});
+    test("rule budgets are tracked per client IP", async () => {
+      const dispatch = limited();
 
-      const res = await handler(new Request("http://localhost/api/auth/register", { method: "POST" }), {});
-      expect(res.status).toBe(429);
+      expect(await call(dispatch, "/api/auth/register", "POST", "1.1.1.1")).toBe(200);
+      expect(await call(dispatch, "/api/auth/register", "POST", "1.1.1.1")).toBe(429);
+      expect(await call(dispatch, "/api/auth/register", "POST", "2.2.2.2")).toBe(200);
+    });
 
-      const retryAfter = Number(res.headers.get("Retry-After"));
+    test("the 429 is JSON with a positive integer Retry-After", async () => {
+      const dispatch = limited();
+
+      await call(dispatch, "/api/auth/register", "POST");
+
+      const res = await dispatch(apiRequest("/api/auth/register", "POST"), "/api/auth/register");
+      expect(res?.status).toBe(429);
+
+      const retryAfter = Number(res?.headers.get("Retry-After"));
       expect(retryAfter).toBeGreaterThan(0);
       expect(retryAfter).toBeLessThanOrEqual(60);
-      expect((await res.json()).error).toContain("Too many requests");
+      expect(((await res!.json()) as { error: string }).error).toContain("Too many requests");
     });
   });
 
-  describe("login failure lockout", () => {
-    function loginDeps(maxFailures = 5): RateLimitDeps {
-      return {
-        limiters: new Map([["login", new FixedWindowLimiter({ windowMs: HOUR, max: 100 })]]),
-        loginFailures: new FailureLockout(maxFailures, MINUTE),
-      };
+  describe("fallback rule", () => {
+    test("applies to paths no rule matches, one shared bucket per IP", async () => {
+      const dispatch = limited();
+
+      expect(await call(dispatch, "/api/categories")).toBe(200);
+      expect(await call(dispatch, "/api/users")).toBe(200);
+      expect(await call(dispatch, "/api/leaderboard", "POST")).toBe(200);
+      expect(await call(dispatch, "/api/anything")).toBe(429);
+    });
+
+    test("does not consume or share budget with matched rules", async () => {
+      const dispatch = limited();
+
+      expect(await call(dispatch, "/api/auth/register", "POST")).toBe(200);
+
+      for (let i = 0; i < 3; i++) {
+        expect(await call(dispatch, "/api/categories")).toBe(200);
+      }
+    });
+
+    test("is tracked per client IP", async () => {
+      const dispatch = limited();
+
+      for (let i = 0; i < 3; i++) {
+        await call(dispatch, "/api/categories", "GET", "1.1.1.1");
+      }
+
+      expect(await call(dispatch, "/api/categories", "GET", "1.1.1.1")).toBe(429);
+      expect(await call(dispatch, "/api/categories", "GET", "2.2.2.2")).toBe(200);
+    });
+
+    test("also covers unknown API paths that dispatch resolves to null", async () => {
+      const dispatch = limited(SMALL_CONFIG, async () => null);
+
+      for (let i = 0; i < 3; i++) {
+        expect(await call(dispatch, "/api/nope")).toBe(0);
+      }
+
+      expect(await call(dispatch, "/api/nope")).toBe(429);
+    });
+  });
+
+  describe("failure lockout", () => {
+    function login(username: string): Request {
+      return new Request("http://localhost/api/auth/login", {
+        method: "POST",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({ username, password: "x" }),
+      });
     }
 
-    test("non-401 failures do not feed the lockout", async () => {
-      const deps = loginDeps(2);
+    const run = (dispatch: ApiDispatch, username: string) =>
+      dispatch(login(username), "/api/auth/login").then((res) => res?.status);
 
-      let handlerCalls = 0;
-      const handler = withRateLimit("login", async () => {
-        handlerCalls += 1;
-        return new Response("", { status: 400 });
-      }, deps);
+    test("locks out after repeated 401s for the same username, even for a correct password", async () => {
+      let succeed = false;
+      const dispatch = limited(SMALL_CONFIG, async () => new Response("", { status: succeed ? 200 : 401 }));
 
-      for (let i = 0; i < 10; i++) {
-        const res = await handler(loginRequest({ username: "victim", password: "" }), {});
-        expect(res.status).toBe(400);
-      }
+      expect(await run(dispatch, "victim")).toBe(401);
+      expect(await run(dispatch, "victim")).toBe(401);
 
-      expect(handlerCalls).toBe(10);
+      succeed = true;
+      expect(await run(dispatch, "victim")).toBe(429);
     });
 
-    test("locks out after repeated failed logins for the same username", async () => {
-      const deps = loginDeps(5);
-
-      const failing = withRateLimit("login", async () => {
+    test("a thrown UnauthorizedError counts as a failure", async () => {
+      const dispatch = limited(SMALL_CONFIG, async () => {
         throw new UnauthorizedError("Invalid username or password");
-      }, deps);
-
-      for (let i = 0; i < 5; i++) {
-        await expect(failing(loginRequest({ username: "victim", password: "wrong" }), {})).rejects.toThrow(
-          UnauthorizedError,
-        );
-      }
-
-      // Locked before the handler runs, so a correct password is refused too.
-      let handlerCalls = 0;
-      const succeeding = withRateLimit("login", async () => {
-        handlerCalls += 1;
-        return new Response("ok");
-      }, deps);
-
-      const blocked = await succeeding(loginRequest({ username: "victim", password: "right" }), {});
-      expect(blocked.status).toBe(429);
-      expect(handlerCalls).toBe(0);
-    });
-
-    test("a successful login clears the accumulated failure streak", async () => {
-      const deps = loginDeps(5);
-
-      const failing = withRateLimit("login", async () => {
-        throw new UnauthorizedError("Invalid username or password");
-      }, deps);
-      const succeeding = withRateLimit("login", async () => new Response("ok"), deps);
-
-      for (let i = 0; i < 4; i++) {
-        await expect(failing(loginRequest({ username: "user", password: "wrong" }), {})).rejects.toThrow(
-          UnauthorizedError,
-        );
-      }
-
-      const success1 = await succeeding(loginRequest({ username: "user", password: "right" }), {});
-      expect(success1.status).toBe(200);
-
-      for (let i = 0; i < 4; i++) {
-        await expect(failing(loginRequest({ username: "user", password: "wrong" }), {})).rejects.toThrow(
-          UnauthorizedError,
-        );
-      }
-
-      const success2 = await succeeding(loginRequest({ username: "user", password: "right" }), {});
-      expect(success2.status).toBe(200);
-    });
-
-    test("reads the failure key from a returned 401 response too", async () => {
-      const deps = loginDeps(2);
-
-      const handler = withRateLimit("login", async () => new Response("", { status: 401 }), deps);
+      });
 
       for (let i = 0; i < 2; i++) {
-        const res = await handler(loginRequest({ username: "victim", password: "wrong" }), {});
-        expect(res.status).toBe(401);
+        await expect(run(dispatch, "victim")).rejects.toThrow(UnauthorizedError);
       }
 
-      const locked = await handler(loginRequest({ username: "victim", password: "right" }), {});
-      expect(locked.status).toBe(429);
+      expect(await run(dispatch, "victim")).toBe(429);
+    });
+
+    test("non-401 failures do not feed the lockout", async () => {
+      const dispatch = limited(SMALL_CONFIG, async () => new Response("", { status: 400 }));
+
+      for (let i = 0; i < 10; i++) {
+        expect(await run(dispatch, "victim")).toBe(400);
+      }
+    });
+
+    test("a success clears the accumulated failure streak", async () => {
+      let status = 401;
+      const dispatch = limited(SMALL_CONFIG, async () => new Response("", { status }));
+
+      await run(dispatch, "user");
+
+      status = 200;
+      await run(dispatch, "user");
+
+      status = 401;
+      expect(await run(dispatch, "user")).toBe(401);
     });
 
     test("keys the lockout per username, so another user is unaffected", async () => {
-      const deps = loginDeps(1);
+      let status = 401;
+      const dispatch = limited(SMALL_CONFIG, async () => new Response("", { status }));
 
-      const failing = withRateLimit("login", async () => {
-        throw new UnauthorizedError("Invalid username or password");
-      }, deps);
-      const succeeding = withRateLimit("login", async () => new Response("ok"), deps);
+      await run(dispatch, "victim");
+      await run(dispatch, "victim");
 
-      await expect(failing(loginRequest({ username: "victim", password: "wrong" }), {})).rejects.toThrow(
-        UnauthorizedError,
-      );
-
-      const other = await succeeding(loginRequest({ username: "other", password: "right" }), {});
-      expect(other.status).toBe(200);
+      status = 200;
+      expect(await run(dispatch, "other")).toBe(200);
     });
 
-    test("a malformed login body still passes through to the handler", async () => {
-      const deps = loginDeps();
-
-      const handler = withRateLimit("login", async () => new Response("parsed downstream"), deps);
-
-      const malformed = await handler(
+    test("a malformed body still passes through to dispatch", async () => {
+      const dispatch = limited();
+      const res = await dispatch(
         new Request("http://localhost/api/auth/login", {
           method: "POST",
           headers: { "content-type": "application/json" },
           body: "not json",
         }),
-        {},
+        "/api/auth/login",
       );
-      expect(malformed.status).toBe(200);
+
+      expect(res?.status).toBe(200);
+    });
+  });
+
+  describe("production config", () => {
+    test("keeps the original auth budgets and a catchall", async () => {
+      const dispatch = withRateLimit(async () => new Response("ok"), { config: RATE_LIMIT_CONFIG });
+
+      for (let i = 0; i < 5; i++) {
+        expect(await call(dispatch, "/api/auth/register", "POST")).toBe(200);
+      }
+
+      expect(await call(dispatch, "/api/auth/register", "POST")).toBe(429);
+
+      // Login and the setup probe are separate buckets from register.
+      expect(await call(dispatch, "/api/auth/login", "POST")).toBe(200);
+      expect(await call(dispatch, "/api/auth/setup", "GET")).toBe(200);
+      expect(RATE_LIMIT_CONFIG.fallback.max).toBeGreaterThan(0);
     });
   });
 
@@ -384,24 +482,30 @@ describe("withRateLimit", () => {
       }
     });
 
-    test("bypasses the budget entirely", async () => {
-      const handler = withRateLimit("register", async () => new Response("ok", { status: 201 }));
+    test("bypasses matched budgets and the fallback", async () => {
+      const dispatch = limited();
 
       for (let i = 0; i < 10; i++) {
-        const res = await handler(new Request("http://localhost/api/auth/register", { method: "POST" }), {});
-        expect(res.status).toBe(201);
+        expect(await call(dispatch, "/api/auth/register", "POST")).toBe(200);
+        expect(await call(dispatch, "/api/categories")).toBe(200);
       }
     });
 
     test("bypasses the login failure lockout", async () => {
-      const handler = withRateLimit("login", async () => {
+      const dispatch = limited(SMALL_CONFIG, async () => {
         throw new UnauthorizedError("Invalid username or password");
       });
 
       for (let i = 0; i < 15; i++) {
-        await expect(handler(loginRequest({ username: "victim", password: "wrong" }), {})).rejects.toThrow(
-          UnauthorizedError,
-        );
+        await expect(
+          dispatch(
+            new Request("http://localhost/api/auth/login", {
+              method: "POST",
+              body: JSON.stringify({ username: "victim" }),
+            }),
+            "/api/auth/login",
+          ),
+        ).rejects.toThrow(UnauthorizedError);
       }
     });
   });

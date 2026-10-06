@@ -1,6 +1,11 @@
 import { UnauthorizedError } from "../../models/validation.ts";
 import { errDetails, logger } from "../helpers/logger.ts";
-import type { Handler } from "../router.ts";
+import {
+  RATE_LIMIT_CONFIG,
+  type FailureLockoutConfig,
+  type PathRateLimitRule,
+  type RateLimitConfig,
+} from "../../configs/rateLimit.ts";
 
 export interface RateLimitRule {
   windowMs: number;
@@ -140,45 +145,51 @@ export class FailureLockout {
   }
 }
 
-export type AuthRateLimitRoute = "login" | "register" | "setup" | "setupProbe";
+/** Resolves an API request to a response, or null when no route matched. */
+export type ApiDispatch = (req: Request, pathname: string) => Promise<Response | null>;
 
-const RULES: Record<AuthRateLimitRoute, RateLimitRule> = {
-  // Brute-force target: tightest budget, plus failure lockout below.
-  login: { windowMs: 60_000, max: 5 },
-  register: { windowMs: 3_600_000, max: 5 },
-  setup: { windowMs: 3_600_000, max: 5 },
-  // Setup is first-come-first-served on a fresh DB, so the read that leaks
-  // whether it's still open gets a probing bound too.
-  setupProbe: { windowMs: 300_000, max: 30 },
-};
-
-const LOGIN_MAX_FAILURES = 10;
-const LOGIN_LOCKOUT_MS = 600_000;
-
-const loginFailures = new FailureLockout(LOGIN_MAX_FAILURES, LOGIN_LOCKOUT_MS);
-const limiters = new Map<AuthRateLimitRoute, FixedWindowLimiter>();
-
-/** Optional injection point for tests: fresh limiter/lockout instances
- *  instead of the module singletons. */
 export interface RateLimitDeps {
-  limiters?: Map<AuthRateLimitRoute, FixedWindowLimiter>;
-  loginFailures?: FailureLockout;
+  config?: RateLimitConfig;
 }
 
-function limiterIn(
-  map: Map<AuthRateLimitRoute, FixedWindowLimiter>,
-  route: AuthRateLimitRoute,
-): FixedWindowLimiter {
-  const existing = map.get(route);
+interface CompiledRule {
+  rule: PathRateLimitRule;
+  pattern: RegExp;
+}
 
-  if (existing) {
-    return existing;
+const FALLBACK_BUCKET = "__fallback__";
+
+function escapeRegExp(text: string): string {
+  return text.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+}
+
+function compilePath(path: string): RegExp {
+  const wildcard = path.endsWith("/*");
+  const base = wildcard ? path.slice(0, -2) : path;
+  const source = base
+    .split("/")
+    .map((segment) => (segment.startsWith(":") ? "[^/]+" : escapeRegExp(segment)))
+    .join("/");
+
+  return new RegExp(`^${source}${wildcard ? "(?:/.*)?" : ""}$`);
+}
+
+function compileRules(rules: PathRateLimitRule[]): CompiledRule[] {
+  return rules.map((rule) => ({ rule, pattern: compilePath(rule.path) }));
+}
+
+function findRule(rules: CompiledRule[], method: string, pathname: string): PathRateLimitRule | null {
+  for (const { rule, pattern } of rules) {
+    if (rule.method && rule.method.toUpperCase() !== method) {
+      continue;
+    }
+
+    if (pattern.test(pathname)) {
+      return rule;
+    }
   }
 
-  const limiter = new FixedWindowLimiter(RULES[route]);
-  map.set(route, limiter);
-
-  return limiter;
+  return null;
 }
 
 /** First hop of X-Forwarded-For (set by the reverse proxy), falling back to
@@ -210,14 +221,34 @@ function tooManyRequests(retryAfterSeconds: number): Response {
   });
 }
 
-async function loginWithFailureTracking(
+/** Peek a JSON body field for the failure-tracking key. Body is read from a
+ *  clone so the downstream handler can still parse it; a malformed body
+ *  still reaches the model layer, which rejects it normally. */
+async function readBodyField(req: Request, field: string): Promise<string> {
+  try {
+    const body = (await req.clone().json()) as Record<string, unknown>;
+    const value = body[field];
+
+    if (typeof value === "string") {
+      return value.trim();
+    }
+
+    return "";
+  } catch (err) {
+    logger.debug(`rate limit: unreadable request body: ${errDetails(err)}`);
+    return "";
+  }
+}
+
+async function dispatchWithFailureTracking(
   req: Request,
-  params: Record<string, string>,
+  pathname: string,
   ip: string,
   failures: FailureLockout,
-  handler: Handler,
-): Promise<Response> {
-  const failureKey = `${await readLoginUsername(req)}:${ip}`;
+  bodyField: string,
+  dispatch: ApiDispatch,
+): Promise<Response | null> {
+  const failureKey = `${await readBodyField(req, bodyField)}:${ip}`;
 
   const lockoutDecision = failures.allow(failureKey);
 
@@ -226,11 +257,11 @@ async function loginWithFailureTracking(
   }
 
   try {
-    const res = await handler(req, params);
+    const res = await dispatch(req, pathname);
 
-    if (res.status >= 200 && res.status < 300) {
+    if (res && res.status >= 200 && res.status < 300) {
       failures.recordSuccess(failureKey);
-    } else if (res.status === 401) {
+    } else if (res?.status === 401) {
       failures.recordFailure(failureKey);
     }
 
@@ -244,51 +275,70 @@ async function loginWithFailureTracking(
   }
 }
 
-/** Peek the login username for the failure-tracking key. Body is read from a
- *  clone so the downstream handler can still parse it; a malformed body
- *  still reaches the model layer, which rejects it normally. */
-async function readLoginUsername(req: Request): Promise<string> {
-  try {
-    const body = (await req.clone().json()) as { username?: unknown };
+function lockoutFor(
+  map: Map<string, FailureLockout>,
+  id: string,
+  config: FailureLockoutConfig,
+): FailureLockout {
+  const existing = map.get(id);
 
-    if (typeof body.username === "string") {
-      return body.username.trim();
-    }
-
-    return "";
-  } catch (err) {
-    logger.debug(`rate limit: unreadable login body: ${errDetails(err)}`);
-    return "";
+  if (existing) {
+    return existing;
   }
+
+  const lockout = new FailureLockout(config.maxFailures, config.lockoutMs);
+  map.set(id, lockout);
+
+  return lockout;
 }
 
-/** Wrap an auth-route handler with its route's per-IP fixed-window budget;
- *  login additionally locks out username+IP pairs after repeated failures.
- *  Both limits respond 429 with a Retry-After header. */
-export function withRateLimit(
-  route: AuthRateLimitRoute,
-  handler: Handler,
-  deps: RateLimitDeps = {},
-): Handler {
-  const windows = deps.limiters ?? limiters;
-  const failureLock = deps.loginFailures ?? loginFailures;
+function limiterFor(
+  map: Map<string, FixedWindowLimiter>,
+  id: string,
+  budget: RateLimitRule,
+): FixedWindowLimiter {
+  const existing = map.get(id);
 
-  return (req: Request, params: Record<string, string>) => {
+  if (existing) {
+    return existing;
+  }
+
+  const limiter = new FixedWindowLimiter({ windowMs: budget.windowMs, max: budget.max });
+  map.set(id, limiter);
+
+  return limiter;
+}
+
+/** Path-based per-IP rate limiting around the API dispatcher. The first
+ *  matching rule in the config picks the budget; requests that match no rule
+ *  share the config's fallback budget. Rules with a `failureLockout` also
+ *  lock out key+IP pairs after repeated 401s. Both limits respond 429 with a
+ *  Retry-After header. Limiter state lives inside the returned function. */
+export function withRateLimit(dispatch: ApiDispatch, deps: RateLimitDeps = {}): ApiDispatch {
+  const config = deps.config ?? RATE_LIMIT_CONFIG;
+  const compiled = compileRules(config.rules);
+  const windows = new Map<string, FixedWindowLimiter>();
+  const lockouts = new Map<string, FailureLockout>();
+
+  return async (req, pathname) => {
     if (rateLimitDisabled()) {
-      return handler(req, params);
+      return dispatch(req, pathname);
     }
 
+    const rule = findRule(compiled, req.method, pathname);
     const ip = clientIp(req);
-    const decision = limiterIn(windows, route).allow(ip);
+    const decision = limiterFor(windows, rule?.id ?? FALLBACK_BUCKET, rule ?? config.fallback).allow(ip);
 
     if (!decision.allowed) {
       return tooManyRequests(decision.retryAfterSeconds);
     }
 
-    if (route === "login") {
-      return loginWithFailureTracking(req, params, ip, failureLock, handler);
+    if (rule?.failureLockout) {
+      const failures = lockoutFor(lockouts, rule.id, rule.failureLockout);
+
+      return dispatchWithFailureTracking(req, pathname, ip, failures, rule.failureLockout.bodyField, dispatch);
     }
 
-    return handler(req, params);
+    return dispatch(req, pathname);
   };
 }

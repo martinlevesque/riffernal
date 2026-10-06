@@ -8,5 +8,5 @@ export {
   FailureLockout,
   SWEEP_THRESHOLD,
 } from "./rateLimit.ts";
-export type { AuthRateLimitRoute, RateLimitDecision, RateLimitRule, RateLimitDeps } from "./rateLimit.ts";
+export type { ApiDispatch, RateLimitDecision, RateLimitRule, RateLimitDeps } from "./rateLimit.ts";
 export type { RequestHandler } from "./types.ts";

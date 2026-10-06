@@ -9,6 +9,7 @@ import { userRoutes } from "./user.ts";
 import { loopRoutes } from "./loop.ts";
 import { authRoutes } from "./auth.ts";
 import { leaderboardRoutes } from "./leaderboard.ts";
+import { withRateLimit } from "./middleware/rateLimit.ts";
 
 const routes: Route[] = defineRoutes([
   ...authRoutes,
@@ -25,7 +26,7 @@ const routes: Route[] = defineRoutes([
  *  maps it to the error's own `status`, so controllers don't need to wrap
  *  every call in try/catch just for status-code mapping. Non-domain errors
  *  fall through to `handleErr` (generic 500 unless message-matched). */
-export async function handleApi(req: Request, pathname: string): Promise<Response | null> {
+async function dispatchApi(req: Request, pathname: string): Promise<Response | null> {
   for (const route of routes) {
     if (route.method !== req.method) {
       continue;
@@ -55,3 +56,5 @@ export async function handleApi(req: Request, pathname: string): Promise<Respons
   }
   return null;
 }
+
+export const handleApi = withRateLimit(dispatchApi);
