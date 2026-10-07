@@ -300,14 +300,11 @@ kbd {
 }
 
 .home-mode-card {
+  --focus-shadow-offset: var(--pixel-shadow-offset);
   letter-spacing: 0.15em;
   border-width: var(--pixel-border);
   box-shadow: var(--pixel-shadow-offset) var(--pixel-shadow-offset) 0 var(--pixel-shadow-color);
   background: var(--bg-card);
-}
-
-.home-mode-card.focused {
-  box-shadow: var(--pixel-shadow-offset) var(--pixel-shadow-offset) 0 var(--accent-red);
 }
 
 .home-mode-card:disabled.focused {
@@ -332,26 +329,7 @@ kbd {
   box-shadow: var(--pixel-shadow-offset-sm) var(--pixel-shadow-offset-sm) 0 var(--accent-blue);
 }
 
-.song-item.imported.selected,
-.song-item.selected {
-  border-color: var(--accent-red);
-  border-left-color: var(--accent-red);
-  box-shadow: var(--pixel-shadow-offset-sm) var(--pixel-shadow-offset-sm) 0 var(--accent-red);
-}
-
-.song-item.imported.selected {
-  border-color: var(--accent-blue);
-  border-left-color: var(--accent-blue);
-  box-shadow: var(--pixel-shadow-offset-sm) var(--pixel-shadow-offset-sm) 0 var(--accent-blue);
-}
-
 .community-song:hover {
-  box-shadow: var(--pixel-shadow-offset-sm) var(--pixel-shadow-offset-sm) 0 var(--accent-purple);
-}
-
-.community-song.selected {
-  border-color: var(--accent-purple);
-  border-left-color: var(--accent-purple);
   box-shadow: var(--pixel-shadow-offset-sm) var(--pixel-shadow-offset-sm) 0 var(--accent-purple);
 }
 
@@ -429,4 +407,37 @@ input[type="text"]:focus,
 
 #results-screen.active {
   background: rgba(5, 5, 10, 0.94);
+}
+
+/* ============================================
+   NAV FOCUS — shared by home cards, song list
+   items and results buttons (see ui/navFocus.ts)
+   ============================================ */
+
+.nav-item {
+  --focus-color: var(--accent-red);
+  --focus-bg: rgba(255, 34, 68, 0.08);
+  --focus-shadow-offset: var(--pixel-shadow-offset-sm);
+}
+
+.nav-item.imported {
+  --focus-color: var(--accent-blue);
+  --focus-bg: rgba(34, 136, 255, 0.08);
+}
+
+.nav-item.community-song {
+  --focus-color: var(--accent-purple);
+  --focus-bg: rgba(180, 100, 255, 0.08);
+}
+
+.nav-item.focused,
+.nav-item.focused:hover {
+  border-color: var(--focus-color);
+  background: var(--focus-bg);
+  box-shadow: var(--focus-shadow-offset) var(--focus-shadow-offset) 0 var(--focus-color);
+}
+
+button.nav-item.focused,
+button.nav-item.focused:hover {
+  color: var(--focus-color);
 }

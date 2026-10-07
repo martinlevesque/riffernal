@@ -48,7 +48,7 @@ test.describe('Song list keyboard shortcuts', () => {
       await bindShortcuts(request, { prev: 'C3', next: 'D3', enter: 'E3' });
       await goToSongList(page);
 
-      const selected = page.locator('.song-item.selected');
+      const selected = page.locator('.song-item.focused');
       await expect(selected).toHaveCount(1, { timeout: 5000 });
       const initialTitle = await selected.textContent();
 
@@ -97,7 +97,7 @@ test.describe('Song list keyboard shortcuts', () => {
 
       // the new binding drives the song list
       await page.locator('[data-mode="freeplay"]').click();
-      const selected = page.locator('.song-item.selected');
+      const selected = page.locator('.song-item.focused');
       await expect(selected).toHaveCount(1, { timeout: 5000 });
       const initialTitle = await selected.textContent();
       await page.keyboard.press('k');
@@ -138,7 +138,7 @@ test.describe('Song list keyboard shortcuts', () => {
       await bindShortcuts(request, { next: ['C3', 'D3'] });
       await goToSongList(page);
 
-      const selected = page.locator('.song-item.selected');
+      const selected = page.locator('.song-item.focused');
       await expect(selected).toHaveCount(1, { timeout: 5000 });
       const initialTitle = await selected.textContent();
 
@@ -180,7 +180,7 @@ test.describe('Song list keyboard shortcuts', () => {
     await page.locator('#btn-close-shortcuts').click();
     await page.locator('#btn-close-settings').click();
     await page.locator('[data-mode="freeplay"]').click();
-    await page.locator('.song-item.selected').waitFor({ timeout: 5000 });
+    await page.locator('.song-item.focused').waitFor({ timeout: 5000 });
 
     // the chord starts the selected song
     await page.keyboard.down('s');

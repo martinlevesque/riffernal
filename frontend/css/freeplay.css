@@ -159,11 +159,6 @@
   background: rgba(255, 255, 255, 0.04);
 }
 
-.song-item.selected {
-  border-left-color: var(--accent-red);
-  background: rgba(255, 34, 68, 0.08);
-}
-
 .song-item.imported {
   border-left-color: var(--accent-blue);
 }
@@ -171,11 +166,6 @@
 .song-item.imported:hover {
   border-left-color: var(--accent-blue);
   background: rgba(34, 136, 255, 0.05);
-}
-
-.song-item.imported.selected {
-  border-left-color: var(--accent-blue);
-  background: rgba(34, 136, 255, 0.08);
 }
 
 .song-title {
@@ -445,11 +435,6 @@
 .community-song:hover {
   border-left-color: var(--accent-purple);
   background: rgba(180, 100, 255, 0.05);
-}
-
-.community-song.selected {
-  border-left-color: var(--accent-purple);
-  background: rgba(180, 100, 255, 0.08);
 }
 
 .bookmark-btn {

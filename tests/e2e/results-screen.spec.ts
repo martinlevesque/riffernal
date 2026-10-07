@@ -1,5 +1,6 @@
-import { test, expect } from '@playwright/test';
+import { test, expect, type APIRequestContext } from '@playwright/test';
 import {
+  authJsonHeaders,
   startGame,
   makeSong,
   CANVAS_HEIGHT,
@@ -232,5 +233,93 @@ test.describe('Results Screen', () => {
     await waitForResults(page);
 
     await expect(page.locator('.new-best-banner')).not.toBeVisible();
+  });
+
+  test.describe('piano key shortcuts', () => {
+    // Computer-keyboard stand-ins for piano notes (see KEYBOARD_MAP):
+    // 'a' -> C3 (prev), 's' -> D3 (next), 'd' -> E3 (enter).
+    const setShortcuts = async (request: APIRequestContext, shortcuts: object) => {
+      await request.put('/api/user/settings', {
+        data: { keyboard_menu_shortcuts: shortcuts },
+        headers: await authJsonHeaders(request),
+      });
+    };
+
+    test.beforeEach(async ({ request }) => {
+      await setShortcuts(request, { prev: 'C3', next: 'D3', enter: 'E3' });
+    });
+
+    test.afterEach(async ({ request }) => {
+      await setShortcuts(request, { prev: null, next: null, enter: null });
+    });
+
+    test('navigate and press RETRY with bound keys after a PLAY game', async ({ page }) => {
+      await startGame(page);
+      await expectPlayScreenActive(page);
+      await speedUp(page);
+      await waitForResults(page);
+
+      await expect(page.locator('#btn-retry')).toHaveClass(/focused/);
+
+      await page.keyboard.press('s');
+      await expect(page.locator('#btn-menu')).toHaveClass(/focused/);
+      await expect(page.locator('#btn-retry')).not.toHaveClass(/focused/);
+
+      await page.keyboard.press('a');
+      await expect(page.locator('#btn-retry')).toHaveClass(/focused/);
+
+      await page.keyboard.press('d');
+      await expectPlayScreenActive(page);
+      await expect(page.locator('#results-screen')).not.toHaveClass(/active/);
+    });
+
+    test('bound keys reach MENU from the results screen', async ({ page }) => {
+      await startGame(page);
+      await expectPlayScreenActive(page);
+      await speedUp(page);
+      await waitForResults(page);
+
+      await page.keyboard.press('s');
+      await page.keyboard.press('d');
+      await expect(page.locator('#results-screen')).not.toHaveClass(/active/);
+      await expect(page.locator('#play-screen')).not.toHaveClass(/active/);
+    });
+
+    test('PLAY button is focused first after practice and switches to PLAY mode', async ({ page }) => {
+      await startGame(page);
+      await expectPlayScreenActive(page);
+      await toggleLearnMode(page);
+      await expect(page.locator('#mode-learn')).toHaveClass(/active/);
+      await togglePlayMode(page);
+      await expect(page.locator('#mode-play')).toHaveClass(/active/);
+      await speedUp(page);
+      await waitForResults(page);
+
+      await expect(page.locator('#btn-play')).toHaveClass(/focused/);
+
+      await page.keyboard.press('d');
+      await expectPlayScreenActive(page);
+      await expect(page.locator('#mode-play')).toHaveClass(/active/);
+      await expect(page.locator('#mode-learn')).not.toHaveClass(/active/);
+    });
+
+    test('Tab, Shift+Tab and Enter on the computer keyboard navigate the buttons', async ({ page }) => {
+      await startGame(page);
+      await expectPlayScreenActive(page);
+      await speedUp(page);
+      await waitForResults(page);
+
+      await expect(page.locator('#btn-retry')).toHaveClass(/focused/);
+
+      await page.keyboard.press('Tab');
+      await expect(page.locator('#btn-menu')).toHaveClass(/focused/);
+
+      await page.keyboard.press('Shift+Tab');
+      await expect(page.locator('#btn-retry')).toHaveClass(/focused/);
+
+      await page.keyboard.press('Enter');
+      await expectPlayScreenActive(page);
+      await expect(page.locator('#results-screen')).not.toHaveClass(/active/);
+    });
   });
 });

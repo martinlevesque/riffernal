@@ -10,6 +10,8 @@ import {
   getSongListKeys,
   matchSongListAction,
 } from "./songListKeys.js";
+import { RESULTS_SCREEN_ID } from "../../game/rendering/resultsScreenElementIds.js";
+import { FOCUS_CLASS, NAV_ITEM_CLASS, setFocused, stepFocus } from "../navFocus.js";
 
 interface GroupedItem {
   song: Song;
@@ -48,6 +50,13 @@ export class Menu {
   /** Register how a matched shortcut behaves on the home main menu. */
   setHomeActions(run: ((action: "prev" | "next" | "enter") => void) | null): void {
     this._runHomeAction = run;
+  }
+
+  private _runResultsAction: ((action: "prev" | "next" | "enter") => void) | null = null;
+
+  /** Register how a matched shortcut behaves on the end-of-game results screen. */
+  setResultsActions(run: ((action: "prev" | "next" | "enter") => void) | null): void {
+    this._runResultsAction = run;
   }
 
   private _runSongListAction(action: "prev" | "next" | "enter"): void {
@@ -421,7 +430,7 @@ export class Menu {
   }
 
   private _renderCommunitySong(song: Song, showCommunityLabel = false): HTMLElement {
-    const el = this._el("div", "song-item community-song");
+    const el = this._el("div", `song-item community-song ${NAV_ITEM_CLASS}`);
     el.dataset.songId = song.id !== undefined ? String(song.id) : "";
 
     this._renderSongMeta(song, el, showCommunityLabel);
@@ -455,7 +464,7 @@ export class Menu {
   }
 
   private _renderSong(song: Song): HTMLElement {
-    const el = this._el("div", `song-item${song.imported ? " imported" : ""}`);
+    const el = this._el("div", `song-item ${NAV_ITEM_CLASS}${song.imported ? " imported" : ""}`);
     el.dataset.songId = song.id !== undefined ? String(song.id) : "";
 
     this._renderSongMeta(song, el);
@@ -574,8 +583,8 @@ export class Menu {
   }
 
   /** Route a piano note-on (MIDI or computer keyboard) to navigation
-   *  shortcuts: the song list while freeplay is up, or the menu callbacks
-   *  (home main menu) otherwise. Popups and overlay screens suspend it. */
+   *  shortcuts: the results screen buttons after a game, the song list while
+   *  freeplay is up, or the menu callbacks (home main menu) otherwise. Popups and overlay screens suspend it. */
   handleNoteOn(note: string): void {
     this._heldMenuNotes.add(note);
 
@@ -589,6 +598,11 @@ export class Menu {
     const action = matchSongListAction(getSongListKeys(), [...this._heldMenuNotes]);
 
     if (!action) return;
+
+    if (document.getElementById(RESULTS_SCREEN_ID)?.classList.contains("active")) {
+      this._runResultsAction?.(action);
+      return;
+    }
 
     if (this._freeplayScreen.classList.contains("active")
       && !document.querySelector(".screen.active:not(#freeplay-screen)")) {
@@ -609,8 +623,7 @@ export class Menu {
 
   private _selectSong(song: Song, el: HTMLElement): void {
     this._selectedSong = song;
-    this._songListEl.querySelectorAll(".song-item").forEach((s) => { s.classList.remove("selected"); });
-    el.classList.add("selected");
+    setFocused(this._songItems(), el);
     this._startBtn.disabled = false;
   }
 
@@ -622,19 +635,19 @@ export class Menu {
     }
   }
 
+  private _songItems(): HTMLElement[] {
+    return Array.from(this._songListEl.querySelectorAll<HTMLElement>(".song-item"));
+  }
+
   private _visibleItems(): HTMLElement[] {
-    return Array.from(this._songListEl.querySelectorAll(".song-item"))
-      .filter((el): el is HTMLElement => el instanceof HTMLElement && el.offsetParent !== null);
+    return this._songItems().filter((el) => el.offsetParent !== null);
   }
 
   private _moveSelection(delta: number): void {
-    const items = this._visibleItems();
+    const el = stepFocus(this._visibleItems(), delta);
 
-    if (items.length === 0) return;
+    if (!el) return;
 
-    const current = items.findIndex((el) => el.classList.contains("selected"));
-    const next = (current + delta + items.length) % items.length;
-    const el = items[next];
     const song = this._findSong(Number(el.dataset.songId));
 
     if (!song) return;
@@ -644,7 +657,7 @@ export class Menu {
   }
 
   private _startSelected(): void {
-    const el = this._visibleItems().find((item) => item.classList.contains("selected"));
+    const el = this._visibleItems().find((item) => item.classList.contains(FOCUS_CLASS));
 
     if (!el) return;
 
@@ -669,7 +682,7 @@ export class Menu {
     const firstItem = this._songListEl.querySelector(
       ".song-item",
     ) as HTMLElement | null;
-    firstItem?.classList.add("selected");
+    firstItem?.classList.add(FOCUS_CLASS);
     this._startBtn.disabled = false;
   }
 
@@ -680,7 +693,7 @@ export class Menu {
       const el = item as HTMLElement;
 
       if (el.dataset.songId === String(this._selectedSong?.id ?? "")) {
-        el.classList.add("selected");
+        el.classList.add(FOCUS_CLASS);
         return;
       }
     }
