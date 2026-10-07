@@ -8,6 +8,7 @@
    .pixel-box        raised panel (border + hard offset shadow)
    .pixel-box-inset  sunken panel
    .pixel-btn        chunky pressable button
+   .pixel-tooltip    floating label; JS sets left/top, toggles `hidden`
    Custom properties below control the shared look.
    ============================================ */
 
@@ -44,6 +45,24 @@
 .pixel-btn:active:not(:disabled) {
   transform: translate(var(--pixel-shadow-offset-sm), var(--pixel-shadow-offset-sm));
   box-shadow: 0 0 0 var(--pixel-shadow-color);
+}
+
+.pixel-tooltip {
+  position: fixed;
+  z-index: 1000;
+  pointer-events: none;
+  white-space: nowrap;
+  padding: 0.15rem 0.45rem;
+  font-family: var(--font-mono);
+  font-size: var(--fs-smaller);
+  color: var(--text-primary);
+  background: var(--bg-dark);
+  border: var(--pixel-border) solid var(--accent-purple);
+  box-shadow: var(--pixel-shadow-offset-sm) var(--pixel-shadow-offset-sm) 0 var(--pixel-shadow-color);
+}
+
+.pixel-tooltip[hidden] {
+  display: none;
 }
 
 /* ============================================
