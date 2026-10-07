@@ -81,12 +81,6 @@
   background: rgba(255, 255, 255, 0.06);
 }
 
-.home-mode-card.focused {
-  border-color: var(--accent-red);
-  color: var(--accent-red);
-  background: rgba(255, 34, 68, 0.08);
-}
-
 .home-mode-card:disabled {
   opacity: 0.22;
   cursor: default;

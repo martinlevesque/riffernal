@@ -2,6 +2,9 @@ import { themeManager } from '../../themes/ThemeManager.js';
 import type { ThemeCss } from '../../themes/types.js';
 import type { AppMode } from '../../main.js';
 import { LeaderboardPanel } from './LeaderboardPanel.js';
+import { type NavAction, runNavAction, setFocused } from '../navFocus.js';
+
+const KEY_TO_NAV_ACTION: Record<string, NavAction> = { ArrowUp: 'prev', ArrowDown: 'next', Enter: 'enter' };
 
 interface Ember {
   x: number;
@@ -49,7 +52,6 @@ export class HomeScreen {
   private _animId: number | null = null;
   private _lastTime: number = 0;
   private _sparkAccum = 0;
-  private _focusedIndex = 0;
   private _cards: HTMLElement[] = [];
   private _midiStatusEl: HTMLElement;
   private _leaderboard: LeaderboardPanel;
@@ -97,13 +99,8 @@ export class HomeScreen {
 
   /** Drive the main-menu cards with a bound note shortcut: prev moves the
    *  focus up one card, next moves it down, enter acts on the focused card. */
-  cardAction(action: 'prev' | 'next' | 'enter'): void {
-    if (action === 'enter') {
-      this._cards[this._focusedIndex].click();
-      return;
-    }
-
-    this._focus((this._focusedIndex + (action === 'next' ? 1 : -1) + this._cards.length) % this._cards.length);
+  cardAction(action: NavAction): void {
+    runNavAction(this._cards, action);
   }
 
   // --- internals: wiring -----------------------------------------------------
@@ -132,8 +129,8 @@ export class HomeScreen {
       this._opts.onLogout?.();
     });
 
-    for (let i = 0; i < this._cards.length; i++) {
-      this._cards[i].addEventListener('click', () => this._focus(i));
+    for (const card of this._cards) {
+      card.addEventListener('click', () => setFocused(this._cards, card));
     }
   }
 
@@ -141,23 +138,13 @@ export class HomeScreen {
     document.addEventListener('keydown', (e) => {
       if (!this._screen.classList.contains('active')) return;
 
-      if (e.key === 'ArrowUp') {
+      const action = KEY_TO_NAV_ACTION[e.key];
+
+      if (action) {
         e.preventDefault();
-        this._focus((this._focusedIndex - 1 + this._cards.length) % this._cards.length);
-      } else if (e.key === 'ArrowDown') {
-        e.preventDefault();
-        this._focus((this._focusedIndex + 1) % this._cards.length);
-      } else if (e.key === 'Enter') {
-        e.preventDefault();
-        this._cards[this._focusedIndex].click();
+        runNavAction(this._cards, action);
       }
     });
-  }
-
-  private _focus(index: number): void {
-    this._cards[this._focusedIndex].classList.remove('focused');
-    this._focusedIndex = index;
-    this._cards[this._focusedIndex].classList.add('focused');
   }
 
   private _resize(): void {

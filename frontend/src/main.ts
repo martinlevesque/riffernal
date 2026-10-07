@@ -123,6 +123,7 @@ async function loadMenuData(ctx: AppContext): Promise<void> {
  *  leaving gameplay, so this must re-run on every return to the menu. */
 function wireMenuNoteInput(ctx: AppContext): void {
   const { menu, midiInput, keyboardInput } = ctx;
+  menu.resetNoteHold();
   midiInput.onNoteOn = (note) => menu.handleNoteOn(note);
   keyboardInput.onNoteOn = (note) => menu.handleNoteOn(note);
   midiInput.onNoteOff = (note) => menu.handleNoteOff(note);
@@ -151,6 +152,8 @@ function setupGameCallbacks(ctx: AppContext): void {
     wireMenuNoteInput(ctx);
     loadMenuData(ctx).catch((e) => console.error('Failed to refresh menu:', e));
   };
+
+  game.onResultsShown = () => wireMenuNoteInput(ctx);
 
   game.onResults = (scoring, song) => {
     if (!song.id || game.usedLearningMode) return;
@@ -334,6 +337,7 @@ async function initApp(): Promise<void> {
 
   const ctx = createAppContext();
   ctx.menu.setHomeActions((action) => _homeScreen?.cardAction(action));
+  ctx.menu.setResultsActions((action) => ctx.game.runResultsAction(action));
   wireMenuNoteInput(ctx);
   await loadMenuData(ctx);
   setupGameCallbacks(ctx);

@@ -26,6 +26,7 @@ import type { ScoreDisplay } from '../ui/play/ScoreDisplay.js';
 import type { Song } from '../utils/MidiParser.js';
 import { LoopService, type SavedLoop } from './LoopService.js';
 import { ResultsScreen } from './rendering/ResultsScreen.js';
+import type { NavAction } from '../ui/navFocus.js';
 import { themeManager } from '../themes/ThemeManager.js';
 
 export enum GameState {
@@ -74,6 +75,8 @@ export class Game {
    *  the audible source. Persisted per user-song. */
   mainTrackMuted = false;
   onResults: ((scoring: Scoring, song: Song) => void) | null = null;
+  /** Fired once the results screen is up and gameplay input is released. */
+  onResultsShown: (() => void) | null = null;
   /** Fired when the user navigates back to the menu from gameplay. */
   onBackToMenu: (() => void) | null = null;
   /** Fired (debounced externally) when the user changes the in-game Tracks
@@ -679,6 +682,11 @@ export class Game {
     this._midiInput.onNoteOn = null;
     this._midiInput.onNoteOff = null;
     this._synth.releaseAll();
+    this.onResultsShown?.();
+  }
+
+  runResultsAction(action: NavAction): void {
+    this._resultsScreen.runAction(action);
   }
 
   retry(): void {
