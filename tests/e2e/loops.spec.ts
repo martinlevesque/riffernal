@@ -869,6 +869,48 @@ test.describe('Loops - UI', () => {
     expect(state.currentTime).toBeGreaterThanOrEqual(target.time);
   });
 
+  test('hovering a note on the game-screen sheet shows its time and hides it off-note', async ({ page }) => {
+    await startGame(page);
+    await closeSongInfoPopup(page);
+    await page.waitForFunction(() => {
+      const g = (window as any)._game;
+      return g && g.renderer.sheetBarW > 0;
+    });
+    const target = await page.evaluate(() => {
+      const g = (window as any)._game;
+      g.pause();
+      const note = g.noteManager.notes[0];
+      const pos = g.renderer.notePixelPosition(note);
+      const rect = document.getElementById('gameCanvas')!.getBoundingClientRect();
+      return { x: rect.left + pos.x, y: rect.top + pos.y, time: note.time };
+    });
+    const tooltip = page.locator('.pixel-tooltip');
+    const m = Math.floor(target.time / 60);
+    const sec = Math.floor(target.time % 60).toString().padStart(2, '0');
+    const ms = Math.round((target.time % 1) * 1000).toString().padStart(3, '0');
+
+    await page.mouse.move(target.x, target.y);
+    await expect(tooltip).toBeVisible();
+    await expect(tooltip).toHaveText(`${m}:${sec}.${ms}`);
+
+    const rect = await page.locator('#gameCanvas').boundingBox();
+    await page.mouse.move(rect!.x + rect!.width * 0.5, rect!.y + rect!.height * 0.95);
+    await expect(tooltip).toBeHidden();
+  });
+
+  test('hovering a note in the full sheet view shows its time', async ({ page }) => {
+    await startGame(page);
+    await closeSongInfoPopup(page);
+    await openSheet(page);
+    await page.locator('#btn-sheet-next').click();
+    await expect(page.locator('#sheet-page-info')).toContainText('2 /');
+
+    const rect = await page.locator('#sheet-canvas').boundingBox();
+    await page.mouse.move(rect!.x + rect!.width * 0.40, rect!.y + 120);
+    await expect(page.locator('.pixel-tooltip')).toBeVisible();
+    await expect(page.locator('.pixel-tooltip')).toHaveText(/^\d+:\d{2}\.\d{3}$/);
+  });
+
   test('clicking outside the sheet notes does not seek the game', async ({ page }) => {
     await startGame(page);
     await closeSongInfoPopup(page);

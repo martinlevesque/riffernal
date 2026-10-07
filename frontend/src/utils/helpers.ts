@@ -21,6 +21,14 @@ export function formatTime(seconds: number): string {
   return `${m}:${s.toString().padStart(2, '0')}`;
 }
 
+export function formatTimePrecise(seconds: number): string {
+  const totalMs = Math.round(Math.max(0, seconds) * 1000);
+  const m = Math.floor(totalMs / 60000);
+  const s = Math.floor((totalMs % 60000) / 1000);
+  const ms = totalMs % 1000;
+  return `${m}:${s.toString().padStart(2, '0')}.${ms.toString().padStart(3, '0')}`;
+}
+
 export function formatScore(score: number): string {
   return score.toString().replace(/\B(?=(\d{3})+(?!\d))/g, ',');
 }
