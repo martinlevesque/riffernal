@@ -1,7 +1,7 @@
 import { type Game, GameState, LoopDefinitionState } from '../../game/Game.js';
 import { SHEET_TOP_OFFSET, Renderer, SHEET_BEATS_VISIBLE } from '../../game/rendering/Renderer.js';
 import type { SongNote } from '../../game/NoteManager.js';
-import { createLoop } from '../../api/LoopApi.js';
+import { createLoop, deleteLoop } from '../../api/LoopApi.js';
 import { setupHoverCursor } from '../play/HoverCursor.js';
 import { LoopsPanel } from './LoopsPanel.js';
 import { reportError } from '../../utils/helpers.js';
@@ -113,11 +113,23 @@ export class SheetView {
       if (this._sheetOpen) this.renderSheetPage();
     });
 
-    clearLoopBtn.addEventListener('click', () => {
+    clearLoopBtn.addEventListener('click', async () => {
       if (this._game.loopDefinitionState !== LoopDefinitionState.Off || this._game.loop.hasDraft) {
         this._game.cancelLoopDraft();
       }
 
+      const saved = [...this._game.loop.loops];
+      const results = await Promise.allSettled(saved.map((l) => deleteLoop(l.id)));
+
+      results.forEach((result, i) => {
+        if (result.status === 'fulfilled') {
+          this._game.deleteSavedLoop(saved[i].id);
+        } else {
+          reportError('Failed to delete loop', result.reason);
+        }
+      });
+
+      this._loopsPanel.selectedId = null;
       this._deps.updateLoopUI();
       this._loopsPanel.render();
 
