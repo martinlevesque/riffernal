@@ -418,6 +418,10 @@
   animation: sound-hint-blink 1s steps(1) infinite;
 }
 
+.song-info-sound-hint.hidden {
+  display: none;
+}
+
 @keyframes sound-hint-blink {
   50% {
     border-color: transparent;

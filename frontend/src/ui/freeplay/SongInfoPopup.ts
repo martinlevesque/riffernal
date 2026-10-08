@@ -1,6 +1,7 @@
 import { type Game, GameState } from '../../game/Game.js';
 import type { Song } from '../../utils/MidiParser.js';
 import { formatTime, formatScore } from '../../utils/helpers.js';
+import { hasUserGestured } from '../../audio/userGesture.js';
 
 const GESTURE_EVENTS = ['pointerdown', 'pointerup', 'keydown', 'touchend'] as const;
 
@@ -14,6 +15,9 @@ export class SongInfoPopup {
   private _unlockToken = 0;
   private _game: Game;
   private _updatePauseBtn: () => void;
+  /** True while the popup holds because the browser still blocks audio. */
+  private _holdingForAudio = false;
+  private _removeGestureListeners: () => void = () => {};
 
   constructor(game: Game, updatePauseBtn: () => void) {
     this._game = game;
@@ -42,18 +46,39 @@ export class SongInfoPopup {
   private async _holdUntilAudioUnlocked(): Promise<void> {
     const token = ++this._unlockToken;
 
-    if (await this._game.tryResumeAudio()) return;
+    // Arm the dismissal listeners before the probe so a gesture landing
+    // during it is never missed; the handler stays inert until hold mode
+    // engages below.
+    this._armGestureListeners();
+
+    if (await this._game.tryResumeAudio()) {
+      this._disarmGestureListeners();
+      return;
+    }
 
     if (token !== this._unlockToken) return;
+
+    // The user gestured while the probe ran without the context ever
+    // reporting running: treat the popup like the normal (non-blocked)
+    // flow instead of holding with a stale warning.
+    if (hasUserGestured()) {
+      this._disarmGestureListeners();
+      return;
+    }
 
     if (this._songInfoTimer !== null) {
       clearTimeout(this._songInfoTimer);
       this._songInfoTimer = null;
     }
 
+    this._holdingForAudio = true;
     this._soundHint.classList.remove('hidden');
+  }
 
+  private _armGestureListeners(): void {
     const onGesture = async () => {
+      if (!this._holdingForAudio) return;
+
       if (!(await this._game.tryResumeAudio())) return;
 
       this.hide();
@@ -70,7 +95,10 @@ export class SongInfoPopup {
     };
   }
 
-  private _removeGestureListeners: () => void = () => {};
+  private _disarmGestureListeners(): void {
+    this._removeGestureListeners();
+    this._removeGestureListeners = () => {};
+  }
 
   hide(): void {
     if (this._songInfoTimer !== null) {
@@ -79,8 +107,8 @@ export class SongInfoPopup {
     }
 
     this._unlockToken++;
-    this._removeGestureListeners();
-    this._removeGestureListeners = () => {};
+    this._holdingForAudio = false;
+    this._disarmGestureListeners();
     this._soundHint.classList.add('hidden');
     this._songInfoPopup.classList.add('hidden');
 
