@@ -3,6 +3,7 @@ import {
   startGame,
   makeSong,
   CANVAS_HEIGHT,
+  CLEAR_LOOP_BTN,
   closeSongInfoPopup,
   clickRestart,
   bootGame,
@@ -14,6 +15,7 @@ import {
   openSheet,
   closeSheet,
   expectMode,
+  authHeaders,
 } from '../helpers/index.js';
 import { LoopDefinitionState } from '../../frontend/src/game/Loop.js';
 
@@ -808,8 +810,43 @@ test.describe('Loops - UI', () => {
     await page.locator('#btn-add-loop').click();
     await expect(page.locator('#loop-status')).not.toHaveText('No loops');
     await page.locator('#btn-close-sheet').click();
-    await page.locator('#btn-clear-loop').click();
+    await page.locator(CLEAR_LOOP_BTN).click();
     await expectLoopStatus(page, 'No loops');
+  });
+
+  test('clear loop button removes saved loops from the UI and the database', async ({ page }) => {
+    await startGame(page, {
+      keepSong: true,
+      notes: [
+        { time: 0.5, key: 'C3', duration: 0.25 },
+        { time: 3.0, key: 'E3', duration: 0.25 },
+        { time: 8.0, key: 'G3', duration: 0.25 },
+        { time: 12.0, key: 'A3', duration: 0.25 },
+      ],
+      loops: [
+        { startTime: 3.0, endTime: 7.0, enabled: true },
+        { startTime: 8.0, endTime: 12.0, enabled: true },
+      ],
+    });
+    await closeSongInfoPopup(page);
+
+    await openSheet(page);
+    await expect(page.locator('#loops-list .loop-row')).toHaveCount(2);
+    await closeSheet(page);
+
+    await page.locator(CLEAR_LOOP_BTN).click();
+    await expectLoopStatus(page, 'No loops');
+
+    await openSheet(page);
+    await expect(page.locator('#loops-list .loop-row')).toHaveCount(0);
+    await closeSheet(page);
+
+    const request = page.context().request;
+    const headers = await authHeaders(request);
+    const songs = await (await request.get('/api/songs', { headers })).json();
+    const songId = (Array.isArray(songs) ? songs : songs.songs)[0].id;
+    const loops = await (await request.get(`/api/songs/${songId}/loops`, { headers })).json();
+    expect(loops).toEqual([]);
   });
 
   test('open-sheet button toggles the full sheet view', async ({ page }) => {
