@@ -1,3 +1,4 @@
+import { playMenuSound } from "../../audio/MenuSounds.js";
 import { checkSetup, setupAdmin, register, login, type AuthUser } from "../../api/AuthApi.js";
 
 export interface AuthScreenOptions {
@@ -141,6 +142,7 @@ export class AuthScreen {
 
     form.addEventListener("submit", (e) => {
       e.preventDefault();
+      playMenuSound("enter");
       this._handleSubmit();
     });
 
