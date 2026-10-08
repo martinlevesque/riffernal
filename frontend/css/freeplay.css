@@ -437,6 +437,15 @@
   background: rgba(180, 100, 255, 0.05);
 }
 
+/* The star is absolutely positioned over the row's top-right area
+   (right: 2.2rem + its own width). Reserve that gutter on the title so long
+   titles can't render underneath it; wrap unbreakable words (imported
+   filenames) for the same reason. */
+.community-song .song-title {
+  padding-right: 3.6rem;
+  overflow-wrap: break-word;
+}
+
 .bookmark-btn {
   position: absolute;
   top: 0.4rem;
