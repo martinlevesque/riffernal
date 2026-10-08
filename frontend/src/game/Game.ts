@@ -466,6 +466,11 @@ export class Game {
     this._mainLoop();
   }
 
+  /** False while the browser blocks audio until a click or key press. */
+  tryResumeAudio(): Promise<boolean> {
+    return this._synth.tryResume();
+  }
+
   /** Pause the game loop. Used by main.ts to freeze the game while the
    *  pre-game info popup is visible. */
   pause(): void {

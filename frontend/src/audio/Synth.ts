@@ -51,6 +51,23 @@ export class Synth {
     }
   }
 
+  /** Resolves true once the context is running, false if the browser still
+   *  blocks audio (no user gesture since page load) after `timeoutMs`. */
+  async tryResume(timeoutMs = 100): Promise<boolean> {
+    this.init();
+
+    const ctx = this._ctx!;
+
+    if (ctx.state !== 'running') {
+      await Promise.race([
+        ctx.resume().catch((err) => console.error(err)),
+        new Promise((resolve) => setTimeout(resolve, timeoutMs)),
+      ]);
+    }
+
+    return ctx.state === 'running';
+  }
+
   setPatch(patch: Patch): void {
     this._patch = patch;
   }

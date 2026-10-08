@@ -408,6 +408,22 @@
   justify-content: center;
 }
 
+.song-info-sound-hint {
+  margin-bottom: 1rem;
+  padding: 0.5rem 0.75rem;
+  text-align: center;
+  font-size: var(--fs-smaller);
+  color: var(--accent-yellow);
+  border: var(--pixel-border) solid var(--accent-yellow);
+  animation: sound-hint-blink 1s steps(1) infinite;
+}
+
+@keyframes sound-hint-blink {
+  50% {
+    border-color: transparent;
+  }
+}
+
 .song-info-row {
   display: flex;
   justify-content: space-between;
