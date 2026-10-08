@@ -1,5 +1,6 @@
 import { Game } from './game/Game.js';
 import { Synth } from './audio/Synth.js';
+import { installUserGestureTracking } from './audio/userGesture.js';
 import { KeyboardInput } from './input/KeyboardInput.js';
 import { MidiInput } from './input/MidiInput.js';
 import { Menu } from './ui/freeplay/Menu.js';
@@ -58,6 +59,7 @@ async function handleLogout(): Promise<void> {
 
 async function init(): Promise<void> {
   themeManager.init();
+  installUserGestureTracking();
 
   const authScreen = new AuthScreen({
     onAuth: () => {

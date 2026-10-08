@@ -1,6 +1,7 @@
 import { noteNameToMidi } from '../utils/helpers.js';
 import { metalPatch } from './patches/metalPatch.js';
 import type { Patch, PatchNote } from './patches/Patch.js';
+import { hasUserGestured } from './userGesture.js';
 import { isLowEndDevice } from '../utils/device.js';
 
 const PRIO_FOREGROUND = 0;
@@ -49,6 +50,27 @@ export class Synth {
     if (this._ctx && this._ctx.state === 'suspended') {
       this._ctx.resume();
     }
+  }
+
+  /** Resolves true when audio is running or allowed to start, false if the
+   *  browser still blocks it (no mouse key, keyboard key or touch since the
+   *  page loaded). */
+  async tryResume(timeoutMs = 500): Promise<boolean> {
+    this.init();
+
+    const ctx = this._ctx!;
+
+    if (ctx.state === 'running') return true;
+
+    const resumed = ctx.resume().catch((err) => console.error(err));
+
+    // The context can take a while to report "running" after a gesture, so a
+    // slow start must not be mistaken for a block.
+    if (hasUserGestured()) return true;
+
+    await Promise.race([resumed, new Promise((resolve) => setTimeout(resolve, timeoutMs))]);
+
+    return (ctx.state as AudioContextState) === 'running';
   }
 
   setPatch(patch: Patch): void {
