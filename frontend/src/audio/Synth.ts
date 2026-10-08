@@ -51,21 +51,24 @@ export class Synth {
     }
   }
 
-  /** Resolves true once the context is running, false if the browser still
-   *  blocks audio (no user gesture since page load) after `timeoutMs`. */
-  async tryResume(timeoutMs = 100): Promise<boolean> {
+  /** Resolves true when audio is running or allowed to start, false if the
+   *  browser still blocks it (no click/key press since the page loaded). */
+  async tryResume(timeoutMs = 500): Promise<boolean> {
     this.init();
 
     const ctx = this._ctx!;
 
-    if (ctx.state !== 'running') {
-      await Promise.race([
-        ctx.resume().catch((err) => console.error(err)),
-        new Promise((resolve) => setTimeout(resolve, timeoutMs)),
-      ]);
-    }
+    if (ctx.state === 'running') return true;
 
-    return ctx.state === 'running';
+    const resumed = ctx.resume().catch((err) => console.error(err));
+
+    // The context can take a while to report "running" after a gesture, so a
+    // slow start must not be mistaken for a block.
+    if (navigator.userActivation?.hasBeenActive) return true;
+
+    await Promise.race([resumed, new Promise((resolve) => setTimeout(resolve, timeoutMs))]);
+
+    return (ctx.state as AudioContextState) === 'running';
   }
 
   setPatch(patch: Patch): void {
