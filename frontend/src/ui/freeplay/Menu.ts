@@ -11,6 +11,7 @@ import {
   matchSongListAction,
 } from "./songListKeys.js";
 import { RESULTS_SCREEN_ID } from "../../game/rendering/resultsScreenElementIds.js";
+import { playMenuSound } from "../../audio/MenuSounds.js";
 import { FOCUS_CLASS, NAV_ITEM_CLASS, setFocused, stepFocus } from "../navFocus.js";
 
 interface GroupedItem {
@@ -84,6 +85,7 @@ export class Menu {
     this._render();
     this._startBtn.addEventListener("click", () => {
       if (this._selectedSong && this.onStart) {
+        playMenuSound("enter");
         this.onStart(this._selectedSong);
       }
     });
@@ -442,7 +444,7 @@ export class Menu {
     this._renderSongStats(song, el);
     this._renderBookmarkButton(song, el);
 
-    el.addEventListener("click", () => this._selectSong(song, el));
+    el.addEventListener("click", () => this._onSongClick(song, el));
     el.addEventListener("dblclick", () => this._startSong(song, true));
 
     return el;
@@ -471,7 +473,7 @@ export class Menu {
     this._renderSongStats(song, el);
     this._renderSongActions(song, el);
 
-    el.addEventListener("click", () => this._selectSong(song, el));
+    el.addEventListener("click", () => this._onSongClick(song, el));
     el.addEventListener("dblclick", () => this._startSong(song, false));
 
     return el;
@@ -621,6 +623,14 @@ export class Menu {
     }
   }
 
+  private _onSongClick(song: Song, el: HTMLElement): void {
+    if (!el.classList.contains(FOCUS_CLASS)) {
+      playMenuSound("next");
+    }
+
+    this._selectSong(song, el);
+  }
+
   private _selectSong(song: Song, el: HTMLElement): void {
     this._selectedSong = song;
     setFocused(this._songItems(), el);
@@ -628,6 +638,8 @@ export class Menu {
   }
 
   private _startSong(song: Song, isCommunity: boolean): void {
+    playMenuSound("enter");
+
     if (isCommunity) {
       this.onCommunityStart?.(song);
     } else {
