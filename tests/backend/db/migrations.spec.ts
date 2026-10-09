@@ -25,6 +25,33 @@ function seededCategories(db: Database): Array<{ id: number; name: string }> {
   }>;
 }
 
+test("runMigrations creates the schema and seeds the initial categories", () => {
+  const path = tempPath();
+  const db = openFreshDb(path);
+
+  try {
+    runMigrations(db);
+
+    expect(seededCategories(db).map((c) => c.name)).toEqual(SEEDED_CATEGORY_NAMES);
+
+    const tables = db
+      .query("SELECT name FROM sqlite_master WHERE type = 'table' ORDER BY name")
+      .all() as Array<{ name: string }>;
+    for (const table of ["users", "song_categories", "songs", "sessions", "user_songs", "user_song_loops", "user_daily_scores"]) {
+      expect(tables.some((t) => t.name === table)).toBe(true);
+    }
+
+    expect(
+      (db.query("SELECT id FROM schema_migrations ORDER BY id").all() as Array<{ id: number }>).map(
+        (row) => row.id,
+      ),
+    ).toEqual([1]);
+  } finally {
+    db.close();
+    rmSync(join(path, ".."), { recursive: true, force: true });
+  }
+});
+
 test("runMigrations is idempotent when the database is reopened", () => {
   const path = tempPath();
 
