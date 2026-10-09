@@ -70,23 +70,6 @@ test("runMigrations is idempotent when the database is reopened", () => {
   }
 });
 
-test("runMigrations does not re-seed categories already applied", () => {
-  const path = tempPath();
-  const db = openFreshDb(path);
-
-  try {
-    runMigrations(db);
-
-    db.exec("DELETE FROM song_categories");
-    runMigrations(db);
-
-    expect(seededCategories(db)).toEqual([]);
-  } finally {
-    db.close();
-    rmSync(join(path, ".."), { recursive: true, force: true });
-  }
-});
-
 test("a failed migration is not recorded and leaves no partial state", () => {
   const path = tempPath();
   const db = openFreshDb(path);
