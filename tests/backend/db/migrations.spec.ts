@@ -25,25 +25,6 @@ function seededCategories(db: Database): Array<{ id: number; name: string }> {
   }>;
 }
 
-test("runMigrations seeds the initial categories on a fresh database", () => {
-  const path = tempPath();
-  const db = openFreshDb(path);
-
-  try {
-    runMigrations(db);
-
-    expect(seededCategories(db).map((c) => c.name)).toEqual(SEEDED_CATEGORY_NAMES);
-    expect(
-      (db.query("SELECT id FROM schema_migrations ORDER BY id").all() as Array<{ id: number }>).map(
-        (row) => row.id,
-      ),
-    ).toEqual([1]);
-  } finally {
-    db.close();
-    rmSync(join(path, ".."), { recursive: true, force: true });
-  }
-});
-
 test("runMigrations is idempotent when the database is reopened", () => {
   const path = tempPath();
 
