@@ -1,6 +1,6 @@
-import { test, expect, type APIRequestContext } from "@playwright/test";
+import { test, expect, type APIRequestContext, type APIResponse } from "@playwright/test";
 import http from "node:http";
-import { wipeDatabase, cleanupSongs, cleanupCategoriesByLabel, authHeaders, authJsonHeaders } from "../../helpers/index.js";
+import { wipeDatabase, cleanupSongs, cleanupCategoriesByLabel, authHeaders, authJsonHeaders, registerUser, uniqueUsername, seedSongWithNotes } from "../../helpers/index.js";
 import { TEST_PORT } from "../../../playwright.config.js";
 
 const MIDI_HEADER = [0x4d, 0x54, 0x68, 0x64, 0x00, 0x00, 0x00, 0x06, 0x00, 0x00, 0x00, 0x01, 0x01, 0xe0];
@@ -416,5 +416,144 @@ test.describe("API: songs CRUD", () => {
       headers: jsonHeaders,
     });
     expect(res.status()).toBe(404);
+  });
+});
+
+test.describe("API: song difficulty", () => {
+  const PREFIX = /^E2E-Difficulty/;
+
+  // Sparse: one note every 2s over 7s → blends to easy.
+  const sparseNotes = [0, 2, 4, 6].map((time) => ({ time, key: "C4", duration: 1 }));
+  // Dense: one note every 0.1s for 3s → comfortably hard.
+  const denseNotes = Array.from({ length: 30 }, (_, i) => ({
+    time: i * 0.1,
+    key: "C4",
+    duration: 0.1,
+  }));
+  // Track 0 carries the sparse line, track 1 the dense burst. The thinest
+  // two-endpoint cases below already pin estimate + selection wiring.
+  const multiTrackNotes = [
+    ...sparseNotes.map((n) => ({ ...n, track: 0 })),
+    ...denseNotes.map((n) => ({ ...n, track: 1 })),
+  ];
+  const multiTrackTracks = JSON.stringify([
+    { index: 0, name: "Sparse", noteCount: 4, program: 0 },
+    { index: 1, name: "Dense", noteCount: 30, program: 0 },
+  ]);
+
+  const FORM_BASE: Record<string, string> = {
+    artist: "",
+    bpm: "120",
+    tracks: "[]",
+    track_hands: "{}",
+    background_tracks: "[]",
+    category_id: "",
+  };
+
+  type UploadBody = { difficulty?: string; id?: number };
+
+  async function upload(
+    request: APIRequestContext,
+    title: string,
+    notes: unknown[] | string,
+    extra: Record<string, string> = {},
+  ): Promise<{ res: APIResponse; body?: UploadBody }> {
+    await cleanupSongs(request, PREFIX);
+    const headers = await authHeaders(request);
+    const form = {
+      ...FORM_BASE,
+      midi: buildMidi("e2e-difficulty.mid"),
+      title,
+      notes: typeof notes === "string" ? notes : JSON.stringify(notes),
+      ...extra,
+    };
+    const res = await request.post("/api/songs", { multipart: form, headers });
+    return { res, body: res.ok() ? ((await res.json()) as UploadBody) : undefined };
+  }
+
+  test("POST /api/songs estimates difficulty from the playable notes", async ({ request }) => {
+    // Auto when difficulty is omitted; only the selected track counts on a
+    // multi-track song.
+    const sparse = await upload(request, "E2E-Difficulty-Sparse", sparseNotes);
+    expect(sparse.res.status()).toBe(201);
+    expect(sparse.body?.difficulty).toBe("easy");
+
+    const selectedSparse = await upload(request, "E2E-Difficulty-Sel0", multiTrackNotes, {
+      difficulty: "",
+      tracks: multiTrackTracks,
+      selected_track_indices: "[0]",
+    });
+    expect(selectedSparse.body?.difficulty).toBe("easy");
+
+    const selectedDense = await upload(request, "E2E-Difficulty-Sel1", multiTrackNotes, {
+      difficulty: "",
+      tracks: multiTrackTracks,
+      selected_track_indices: "[1]",
+    });
+    expect(selectedDense.body?.difficulty).toBe("hard");
+
+    const rejected = await upload(request, "E2E-Difficulty-Rejected", "[]", { difficulty: "impossible" });
+    expect(rejected.res.status()).toBe(400);
+  });
+
+  test("PUT /api/songs/:id/difficulty enforces the ownership rules", async ({ request }) => {
+    // Owner changes it, owner re-estimates via the auto sentinel.
+    const ownerSeed = await upload(request, "E2E-Difficulty-Owner", sparseNotes, { difficulty: "easy" });
+    const id = ownerSeed.body?.id as number;
+    const jsonHeaders = await authJsonHeaders(request);
+
+    const owner = await request.put(`/api/songs/${id}/difficulty`, {
+      data: { difficulty: "hard" },
+      headers: jsonHeaders,
+    });
+    expect(owner.ok()).toBeTruthy();
+    expect((await owner.json()).difficulty).toBe("hard");
+
+    const auto = await request.put(`/api/songs/${id}/difficulty`, {
+      data: { difficulty: "auto" },
+      headers: jsonHeaders,
+    });
+    expect(auto.ok()).toBeTruthy();
+    expect((await auto.json()).difficulty).toBe("easy");
+
+    // Non-owners can neither pick a level nor run the auto sentinel...
+    const other = await registerUser(request, uniqueUsername("diff_nonown"));
+    const otherHeaders = { Authorization: `Bearer ${other.token}` };
+    expect(
+      (await request.put(`/api/songs/${id}/difficulty`, { data: { difficulty: "easy" }, headers: otherHeaders })).status(),
+    ).toBe(403);
+    expect(
+      (await request.put(`/api/songs/${id}/difficulty`, { data: { difficulty: "auto" }, headers: otherHeaders })).status(),
+    ).toBe(403);
+
+    // ...and a missing song is still 404.
+    expect(
+      (await request.put(`/api/songs/98887766/difficulty`, { data: { difficulty: "easy" }, headers: jsonHeaders })).status(),
+    ).toBe(404);
+
+    // The admin (first account on the fresh test DB) may run the auto
+    // sentinel on another user's song, but not pick levels for them.
+    const foreign = await registerUser(request, uniqueUsername("diff_foreign"));
+    const foreignId = await seedSongWithNotes(
+      request,
+      "E2E-Difficulty-AdminTarget",
+      sparseNotes,
+      foreign.token,
+    );
+    const adminAuto = await request.put(`/api/songs/${foreignId}/difficulty`, {
+      data: { difficulty: "auto" },
+      headers: jsonHeaders,
+    });
+    expect(adminAuto.ok()).toBeTruthy();
+    expect((await adminAuto.json()).difficulty).toBe("easy");
+    const adminExplicit = await request.put(`/api/songs/${foreignId}/difficulty`, {
+      data: { difficulty: "hard" },
+      headers: jsonHeaders,
+    });
+    expect(adminExplicit.status()).toBe(403);
+  });
+
+  test.afterEach(async ({ request }) => {
+    await cleanupSongs(request, PREFIX);
   });
 });

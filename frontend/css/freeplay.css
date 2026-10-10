@@ -216,6 +216,7 @@
 .difficulty-easy { background: #1a4a1a; color: var(--accent-green); }
 .difficulty-medium { background: #4a4a1a; color: var(--accent-yellow); }
 .difficulty-hard { background: #4a1a1a; color: var(--accent-red); }
+.difficulty-auto { background: var(--bg-surface-2); color: var(--text-secondary); }
 
 .song-last-played {
   font-size: var(--fs-smallest);

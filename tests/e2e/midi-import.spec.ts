@@ -93,7 +93,7 @@ test.describe('MIDI Import', () => {
     const importedItem = page.locator('.song-item.imported');
     await expect(importedItem).toHaveCount(1, { timeout: 5000 });
     await expect(importedItem).toContainText('test-song');
-    await expect(importedItem.locator('.song-difficulty')).toContainText('medium');
+    await expect(importedItem.locator('.song-difficulty')).toContainText('easy');
   });
 
   test('importing multiple MIDI files adds all to the list', async ({ page }) => {
@@ -124,6 +124,23 @@ test.describe('MIDI Import', () => {
     await startBtn.click();
 
     await expect(page.locator('#play-screen')).toBeVisible({ timeout: 5000 });
+  });
+
+  test('owner can update the difficulty of an imported song', async ({ page }) => {
+    await goToSongList(page);
+
+    await importMidiFile(page, 'adjustable.mid', buildMidiBuffer());
+
+    const importedItem = page.locator('.song-item.imported');
+    await expect(importedItem).toHaveCount(1, { timeout: 5000 });
+    await expect(importedItem.locator('.song-difficulty')).toContainText('easy');
+
+    await importedItem.locator('.song-actions-btn').click();
+    await page.locator('.song-action-option', { hasText: 'Set difficulty' }).click();
+    await page.locator('#difficulty-popup .pixel-chip', { hasText: 'hard' }).click();
+    await page.locator('#btn-difficulty-save').click();
+
+    await expect(importedItem.locator('.song-difficulty')).toContainText('hard');
   });
 
   test('shows error alert for invalid file', async ({ page }) => {

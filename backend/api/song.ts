@@ -3,13 +3,17 @@ import {
   listLibrary,
   listLibraryCategorySongs,
   getSong,
+  getSongOwnerId,
   createSong,
   updateSong,
   removeSong,
   recordPlay,
   recordBestScore,
   saveTrackPreferences,
-  type InsertSongInput,
+  setSongDifficulty,
+  isAdminUser,
+  AUTO_DIFFICULTY,
+  type CreateSongInput,
   type SongUpdate,
 } from "../models/index.ts";
 import { json, parseJson, errMsg, handleErr, numOrNull, notFound, type Handler } from "./router.ts";
@@ -24,7 +28,7 @@ const MIDI_MIME_TYPES = new Set(["audio/midi", "audio/x-midi"]);
 // Largest real import is ~107 KB.
 const MAX_MIDI_FILE_BYTES = 500 * 1024;
 
-async function parseCreateSongForm(req: Request, userId: number): Promise<InsertSongInput> {
+async function parseCreateSongForm(req: Request, userId: number): Promise<CreateSongInput> {
   const form = await req.formData();
   const midiFile = form.get("midi") as File | null;
 
@@ -40,7 +44,7 @@ async function parseCreateSongForm(req: Request, userId: number): Promise<Insert
     title: String(form.get("title") ?? ""),
     artist: String(form.get("artist") ?? ""),
     bpm: Number(form.get("bpm") ?? 120),
-    difficulty: String(form.get("difficulty") ?? "medium"),
+    difficulty: String(form.get("difficulty") ?? ""),
     notes: String(form.get("notes") ?? "[]"),
     midi_data: midiFile ? new Uint8Array(await midiFile.arrayBuffer()) : null,
     category_id: numOrNull(form.get("category_id")),
@@ -137,6 +141,37 @@ export const songRoutes = [
       const body = await parseJson<SongUpdate>(req);
       const updated = updateSong(Number(id), auth.id, body);
       return updated ? json(updated) : notFound();
+    }) as Handler,
+  },
+  {
+    method: "PUT",
+    path: "/api/songs/:id/difficulty",
+    handler: (async (req: Request, { id }: Record<string, string>) => {
+      const auth = requireAuth(req);
+      if (auth instanceof Response) return auth;
+
+      const songId = Number(id);
+      const body = await parseJson<{ difficulty?: string }>(req);
+      const requested = String(body?.difficulty ?? "").trim().toLowerCase();
+
+      // Authorization lives here: owners may change their song's difficulty,
+      // admins may additionally run the auto recalculation on any song.
+      const ownerId = getSongOwnerId(songId);
+
+      if (ownerId === undefined) return notFound();
+
+      const isOwner = ownerId != null && ownerId === auth.id;
+
+      if (!isOwner && !(requested === AUTO_DIFFICULTY && isAdminUser(auth.id))) {
+        return json({ error: "Forbidden" }, 403);
+      }
+
+      try {
+        const updated = setSongDifficulty(songId, auth.id, requested);
+        return updated ? json(updated) : notFound();
+      } catch (err) {
+        return handleErr(err);
+      }
     }) as Handler,
   },
   {

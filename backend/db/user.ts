@@ -35,6 +35,15 @@ export function userNeedsSetup(): boolean {
   return !row || row.cnt === 0;
 }
 
+/** Basic admin check: the setup admin is the first account ever created
+ *  (no role column). Empty user table → nobody is admin. */
+export function isAdminUser(userId: number): boolean {
+  const row = db.query("SELECT MIN(id) AS admin_id FROM users").get() as
+    | { admin_id: number | null }
+    | undefined;
+  return row?.admin_id != null && userId === row.admin_id;
+}
+
 export function deleteSessionsForUser(userId: number): void {
   db.run("DELETE FROM sessions WHERE user_id = ?", [userId]);
 }

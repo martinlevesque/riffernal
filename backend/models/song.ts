@@ -6,6 +6,7 @@ import {
   insertSong,
   updateSongCategory,
   updateSongTitle,
+  updateSongDifficulty,
   deleteSong,
   countPublicCommunitySongs,
   getPublicCommunitySongs,
@@ -34,6 +35,15 @@ import {
   type TrackPreferences,
 } from "./trackPreferences.ts";
 import { ValidationError, ForbiddenError } from "./validation.ts";
+import {
+  estimateSongDifficulty,
+  isDifficulty,
+  AUTO_DIFFICULTY,
+  type Difficulty,
+  type NoteTiming,
+} from "../services/difficulty.ts";
+
+export { AUTO_DIFFICULTY } from "../services/difficulty.ts";
 
 export type { InsertSongInput } from "../db/song.ts";
 export type { TrackPreferences } from "./trackPreferences.ts";
@@ -167,9 +177,55 @@ export function getSong(id: number, userId: number): SongFull | null {
   return rowToFull(row, stats, prefs);
 }
 
-/** Create a song from form-like input, returning the full DTO. */
-export function createSong(input: InsertSongInput): SongFull {
-  const row = insertSong(input);
+/** Creation input for `createSong`. Difficulty is optional: empty or
+ *  "auto" means the service estimates it from the notes. */
+export interface CreateSongInput extends Omit<InsertSongInput, "difficulty"> {
+  difficulty?: string;
+}
+
+/** Resolve the create-time difficulty: a valid level passes through,
+ *  empty/"auto" is estimated from the playable notes (the tracks the
+ *  player selected, mirroring NoteManager.loadSong), anything else is
+ *  rejected. */
+function resolveDifficulty(raw: string | undefined, input: CreateSongInput): Difficulty {
+  const value = (raw ?? "").trim().toLowerCase();
+
+  if (isDifficulty(value)) {
+    return value;
+  }
+
+  if (value === "" || value === "auto") {
+    const tracks = parseJsonArray<unknown>(input.tracks);
+    return estimateSongDifficulty(
+      parseJsonArray<NoteTiming>(input.notes),
+      parseJsonArray<number>(input.selected_track_indices),
+      tracks.length > 0,
+    );
+  }
+
+  throw new ValidationError("Invalid difficulty");
+}
+
+/** Parse one of the JSON-array upload blobs. These are stored verbatim
+ *  (pre-existing behavior), so they may be malformed; difficulty
+ *  estimation then falls back to treating them as empty instead of
+ *  failing the upload because of it. */
+function parseJsonArray<T>(json: string | null): T[] {
+  if (!json) return [];
+  try {
+    const parsed = JSON.parse(json);
+    return Array.isArray(parsed) ? (parsed as T[]) : [];
+  } catch (err) {
+    console.error("Malformed JSON blob while estimating difficulty", err);
+    return [];
+  }
+}
+
+/** Create a song from form-like input, returning the full DTO. Throws a
+ *  ValidationError when an invalid difficulty is supplied. */
+export function createSong(input: CreateSongInput): SongFull {
+  const difficulty = resolveDifficulty(input.difficulty, input);
+  const row = insertSong({ ...input, difficulty });
   return rowToFull(row);
 }
 
@@ -473,6 +529,45 @@ function latestPlayInGroup(songs: LibraryMenuItem[]): string {
     }
   }
   return latest;
+}
+
+/** Owner id of a song for controller-level authorization checks: `undefined`
+ *  when the song doesn't exist, `null` when the song has no owner (preloaded
+ *  data). */
+export function getSongOwnerId(id: number): number | null | undefined {
+  return getSongSummaryById(id)?.imported_by_user_id ?? undefined;
+}
+
+/** Set a song's difficulty. Authorisation (owner, or admin for the auto
+ *  sentinel) is enforced by the controller; this function validates the
+ *  value — a level, or "auto" which re-estimates from the stored playable
+ *  notes — and persists it. Returns the updated full DTO for `userId`'s
+ *  stats, or null when the song doesn't exist. */
+export function setSongDifficulty(id: number, userId: number, difficulty: string): SongFull | null {
+  const requested = (difficulty ?? "").trim().toLowerCase();
+
+  if (!isDifficulty(requested) && requested !== AUTO_DIFFICULTY) {
+    throw new ValidationError("Invalid difficulty");
+  }
+
+  const row = getSongById(id);
+
+  if (!row) return null;
+
+  const resolved =
+    requested === AUTO_DIFFICULTY
+      ? estimateSongDifficulty(
+          parseJsonArray<NoteTiming>(row.notes),
+          parseJsonArray<number>(row.selected_track_indices),
+          parseJsonArray<unknown>(row.tracks).length > 0,
+        )
+      : requested;
+
+  updateSongDifficulty(id, resolved);
+
+  const updated = getSongById(id)!;
+  const stats = toScoreStats(findScoreStats(userId, id));
+  return rowToFull(updated, stats);
 }
 
 export function setSongPublicCommunity(id: number, userId: number, value: boolean): SongFull | null {
