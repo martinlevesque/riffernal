@@ -1,5 +1,6 @@
 import { midiToNoteName, noteNameToMidi } from '../utils/helpers.js';
 import { NOTE_NAMES, HandSide, HAND_SPLIT_MIDI, GM_DRUM_CHANNEL } from './notes.js';
+import { estimateSongDifficulty } from '../game/difficulty.js';
 
 export interface Note {
   time: number;
@@ -446,7 +447,7 @@ export function parseMidi(arrayBuffer: ArrayBuffer, filename: string): Song {
     title,
     artist,
     bpm: extractBpm(tempoMap),
-    difficulty: 'medium',
+    difficulty: estimateSongDifficulty(allNotes, selectedTrackIndices, tracks.length > 0),
     notes: allNotes,
     imported: true,
     tracks,

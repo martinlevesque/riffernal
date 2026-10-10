@@ -1,9 +1,10 @@
 import { fetchCategories, createCategory, type CategoryData } from "../../api/SongApi.js";
 import type { Song } from "../../utils/MidiParser.js";
 import { reportError } from "../../utils/helpers.js";
+import { DIFFICULTY_LEVELS, isDifficulty, DEFAULT_DIFFICULTY, type Difficulty } from "../../game/difficulty.js";
 
 export interface CategorySelectDeps {
-  onConfirm: (categoryId: number | null, title: string, artist: string) => void;
+  onConfirm: (categoryId: number | null, title: string, artist: string, difficulty: Difficulty) => void;
   onCancel: () => void;
 }
 
@@ -16,6 +17,8 @@ export class CategorySelect {
   private _skipBtn: HTMLButtonElement;
   private _titleInput: HTMLInputElement;
   private _artistInput: HTMLInputElement;
+  private _difficultyEl: HTMLElement;
+  private _selectedDifficulty: Difficulty = DEFAULT_DIFFICULTY;
   private _categories: CategoryData[] = [];
   private _selectedCategoryId: number | null = null;
   private _deps: CategorySelectDeps | null = null;
@@ -29,6 +32,7 @@ export class CategorySelect {
     this._skipBtn = document.getElementById("category-select-skip") as HTMLButtonElement;
     this._titleInput = document.getElementById("import-song-title") as HTMLInputElement;
     this._artistInput = document.getElementById("import-song-artist") as HTMLInputElement;
+    this._difficultyEl = document.getElementById("import-song-difficulty")!;
 
     this._createBtn.addEventListener("click", () => this._createNew());
     this._newCategoryInput.addEventListener("keydown", (e) => {
@@ -60,6 +64,9 @@ export class CategorySelect {
       this._titleInput.value = "";
       this._artistInput.value = "";
     }
+
+    this._selectedDifficulty = song && isDifficulty(song.difficulty) ? song.difficulty : DEFAULT_DIFFICULTY;
+    this._renderDifficultyOptions();
 
     await this._loadCategories();
     this._renderList();
@@ -125,10 +132,34 @@ export class CategorySelect {
     }
   }
 
+  private _renderDifficultyOptions(): void {
+    this._difficultyEl.innerHTML = "";
+
+    for (const level of DIFFICULTY_LEVELS) {
+      const btn = document.createElement("button");
+      btn.type = "button";
+      btn.className = `pixel-chip difficulty-${level}${level === this._selectedDifficulty ? " selected" : ""}`;
+      btn.textContent = level;
+      btn.addEventListener("click", () => {
+        this._selectedDifficulty = level;
+        this._difficultyEl.querySelectorAll(".pixel-chip").forEach((el) => {
+          el.classList.remove("selected");
+        });
+        btn.classList.add("selected");
+      });
+      this._difficultyEl.appendChild(btn);
+    }
+  }
+
   private _confirm(): void {
     this.hide();
     const deps = this._deps;
     this._deps = null;
-    deps?.onConfirm(this._selectedCategoryId, this._titleInput.value.trim(), this._artistInput.value.trim());
+    deps?.onConfirm(
+      this._selectedCategoryId,
+      this._titleInput.value.trim(),
+      this._artistInput.value.trim(),
+      this._selectedDifficulty,
+    );
   }
 }

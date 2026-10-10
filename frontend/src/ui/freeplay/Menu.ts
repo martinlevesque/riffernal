@@ -12,7 +12,12 @@ import {
 } from "./songListKeys.js";
 import { RESULTS_SCREEN_ID } from "../../game/rendering/resultsScreenElementIds.js";
 import { playMenuSound } from "../../audio/MenuSounds.js";
+import { getStoredUser } from "../../api/AuthApi.js";
 import { FOCUS_CLASS, NAV_ITEM_CLASS, setFocused, stepFocus } from "../navFocus.js";
+
+/** Mirrors the backend's isAdminUser: the setup admin is the first
+ *  account, so the frontend grants admin affordances to that user id. */
+const ADMIN_USER_ID = 1;
 
 interface GroupedItem {
   song: Song;
@@ -42,6 +47,7 @@ export class Menu {
   onCommunityStart: ((song: Song) => void) | null = null;
   onRename: ((song: Song) => void) | null = null;
   onDelete: ((song: Song) => void) | null = null;
+  onSetDifficulty: ((song: Song) => void) | null = null;
   onPublishCommunity: ((song: Song) => void) | null = null;
   onBookmark: ((song: Song) => void) | null = null;
   onBackToHome: (() => void) | null = null;
@@ -132,6 +138,7 @@ export class Menu {
           ...group.items[idx].song,
           title: updated.title,
           artist: updated.artist,
+          difficulty: updated.difficulty,
           publicCommunity: updated.publicCommunity,
         };
         break;
@@ -444,6 +451,12 @@ export class Menu {
     this._renderSongStats(song, el);
     this._renderBookmarkButton(song, el);
 
+    // Admins keep a menu on other users' songs so they can recalculate the
+    // auto difficulty there (Set difficulty is their only option).
+    if (getStoredUser()?.id === ADMIN_USER_ID && song.importedByUserId != null) {
+      this._renderSongActions(song, el, true);
+    }
+
     el.addEventListener("click", () => this._onSongClick(song, el));
     el.addEventListener("dblclick", () => this._startSong(song, true));
 
@@ -532,7 +545,9 @@ export class Menu {
     }
   }
 
-  private _renderSongActions(song: Song, el: HTMLElement): void {
+  /** `adminRecalc` renders the menu on a song the viewer doesn't own, with
+   *  only the Set difficulty option (used by admins on community songs). */
+  private _renderSongActions(song: Song, el: HTMLElement, adminRecalc = false): void {
     const actionsMenu = this._el("div", "song-actions-menu hidden");
 
     const actionsBtn = this._el("button", "song-actions-btn", "\u2026") as HTMLButtonElement;
@@ -548,12 +563,19 @@ export class Menu {
     });
     actionsBtn.addEventListener("dblclick", (e) => { e.stopPropagation(); });
 
-    actionsMenu.appendChild(this._actionOption("Edit", "song-action-option", () => {
+    actionsMenu.appendChild(this._actionOption("Set difficulty", "song-action-option", () => {
       actionsMenu.classList.add("hidden");
-      if (this.onRename) this.onRename(song);
+      if (this.onSetDifficulty) this.onSetDifficulty(song);
     }));
 
-    if (song.importedByUserId != null) {
+    if (!adminRecalc) {
+      actionsMenu.appendChild(this._actionOption("Edit", "song-action-option", () => {
+        actionsMenu.classList.add("hidden");
+        if (this.onRename) this.onRename(song);
+      }));
+    }
+
+    if (song.importedByUserId != null && !adminRecalc) {
       const isPublic = song.publicCommunity === true;
       actionsMenu.appendChild(this._actionOption(
         isPublic ? "Unpublish from community" : "Publish to community",

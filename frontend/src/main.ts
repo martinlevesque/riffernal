@@ -11,6 +11,7 @@ import { CategorySelect } from './ui/freeplay/CategorySelect.js';
 import { BackgroundPanel } from './ui/play/BackgroundPanel.js';
 import { SpeedControls } from './ui/play/SpeedControls.js';
 import { RenameSongPopup } from './ui/freeplay/RenameSongPopup.js';
+import { DifficultySelectPopup } from './ui/freeplay/DifficultySelectPopup.js';
 import { SongInfoPopup } from './ui/freeplay/SongInfoPopup.js';
 import { MidiImportDialog } from './ui/freeplay/MidiImportDialog.js';
 import { SheetView } from './ui/sheet/SheetView.js';
@@ -23,6 +24,7 @@ import type { Song } from './utils/MidiParser.js';
 import {
   fetchSong, songFullToSong, markSongPlayed,
   recordBestScore, updateSongTitle, deleteSong,
+  updateSongDifficulty,
   fetchCommunitySong, setSongPublicCommunity, toggleCommunityBookmark,
   type SongFull,
 } from './api/SongApi.js';
@@ -238,6 +240,17 @@ function setupMenuCallbacks(ctx: AppContext): void {
   menu.onRename = (song) => {
     if (song.id === undefined) return;
     renamePopup.show({ id: song.id, title: song.title, subtitle: song.artist || '' });
+  };
+
+  const difficultyPopup = new DifficultySelectPopup({
+    onSave: async (id, difficulty) => {
+      const updated = await updateSongDifficulty(id, difficulty);
+      menu.updateSong(songFullToSong(updated));
+    },
+  });
+  menu.onSetDifficulty = (song) => {
+    if (song.id === undefined) return;
+    difficultyPopup.show({ id: song.id, difficulty: song.difficulty, ownerId: song.importedByUserId ?? null });
   };
 
   menu.onDelete = (song) => {

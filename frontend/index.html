@@ -134,6 +134,10 @@
               <span>Artist</span>
               <input type="text" id="import-song-artist" placeholder="Artist name..." maxlength="128">
             </label>
+            <label class="field-label">
+              <span>Difficulty</span>
+              <div id="import-song-difficulty" class="pixel-chip-row"></div>
+            </label>
           </div>
           <p id="category-select-count">No categories yet</p>
           <ul id="category-list"></ul>
@@ -224,6 +228,19 @@
           <div class="popup-actions">
             <button id="btn-rename-cancel" class="btn btn-secondary">CANCEL</button>
             <button id="btn-rename-save" class="btn btn-primary">SAVE</button>
+          </div>
+        </div>
+      </div>
+
+      <div id="difficulty-popup" class="popup hidden">
+        <div class="popup-card">
+          <h2>SET DIFFICULTY</h2>
+          <div class="popup-body">
+            <div id="difficulty-options" class="pixel-chip-row"></div>
+          </div>
+          <div class="popup-actions">
+            <button id="btn-difficulty-cancel" class="btn btn-secondary">CANCEL</button>
+            <button id="btn-difficulty-save" class="btn btn-primary">SAVE</button>
           </div>
         </div>
       </div>

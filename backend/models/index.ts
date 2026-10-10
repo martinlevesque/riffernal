@@ -15,6 +15,7 @@ export {
   type SongUpdate,
   type RecordBestScoreResult,
   type InsertSongInput,
+  type CreateSongInput,
   type CommunitySongListResult,
   type LibraryMenu,
   type LibraryCategoryGroup,
@@ -31,6 +32,7 @@ export {
   listLibrary,
   listLibraryCategorySongs,
   setSongPublicCommunity,
+  setSongDifficulty,
   toggleCommunityBookmark,
   getCommunitySong,
 } from "./song.ts";

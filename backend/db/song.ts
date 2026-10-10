@@ -125,6 +125,10 @@ export function updateSongTitle(id: number, title: string, artist: string): void
   db.run("UPDATE songs SET title = ?, artist = ? WHERE id = ?", [title, artist, id]);
 }
 
+export function updateSongDifficulty(id: number, difficulty: string): void {
+  db.run("UPDATE songs SET difficulty = ? WHERE id = ?", [difficulty, id]);
+}
+
 export function deleteSong(id: number): void {
   db.run("DELETE FROM songs WHERE id = ?", [id]);
 }

@@ -6,6 +6,7 @@ import type { Song } from '../../utils/MidiParser.js';
 import { parseMidi } from '../../utils/MidiParser.js';
 import { uploadSong, songFullToSong } from '../../api/SongApi.js';
 import { reportError } from '../../utils/helpers.js';
+import { estimateSongDifficulty } from '../../game/difficulty.js';
 
 export class MidiImportDialog {
   private _importBtn: HTMLButtonElement;
@@ -38,8 +39,17 @@ export class MidiImportDialog {
             && (song.selectedTrackIndices?.length ?? 0) === 0;
 
           const proceed = (finalSong: Song, midiFile: File) => {
+            // TrackSelect may have narrowed the playable set: re-estimate
+            // so the picker's prefill reflects the tracks the player will
+            // actually play, not every track in the file.
+            finalSong.difficulty = estimateSongDifficulty(
+              finalSong.notes,
+              finalSong.selectedTrackIndices ?? [],
+              (finalSong.tracks?.length ?? 0) > 0,
+            );
+
             this._categorySelect.show({
-              onConfirm: async (categoryId, title, artist) => {
+              onConfirm: async (categoryId, title, artist, difficulty) => {
                 try {
                   const full = await uploadSong({
                     midiFile,
@@ -47,7 +57,7 @@ export class MidiImportDialog {
                       title: title || finalSong.title,
                       artist: artist || finalSong.artist,
                       bpm: finalSong.bpm,
-                      difficulty: finalSong.difficulty,
+                      difficulty,
                       notes: finalSong.notes,
                       tracks: finalSong.tracks ?? [],
                       selectedTrackIndices: finalSong.selectedTrackIndices ?? [],

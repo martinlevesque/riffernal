@@ -147,6 +147,20 @@ export async function updateSongTitle(id: number, title: string, artist: string)
   return res.json() as Promise<SongFull>;
 }
 
+/** Owner-only difficulty update; the backend returns the refreshed song. */
+export async function updateSongDifficulty(
+  id: number,
+  difficulty: string,
+): Promise<SongFull> {
+  const res = await apiFetch(`/api/songs/${id}/difficulty`, {
+    method: "PUT",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ difficulty }),
+  });
+  if (!res.ok) throw new Error(await parseError(res));
+  return res.json() as Promise<SongFull>;
+}
+
 export async function deleteSong(id: number): Promise<void> {
   const res = await apiFetch(`/api/songs/${id}`, { method: "DELETE" });
   if (!res.ok) throw new Error(await parseError(res));

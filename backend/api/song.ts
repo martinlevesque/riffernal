@@ -9,7 +9,8 @@ import {
   recordPlay,
   recordBestScore,
   saveTrackPreferences,
-  type InsertSongInput,
+  setSongDifficulty,
+  type CreateSongInput,
   type SongUpdate,
 } from "../models/index.ts";
 import { json, parseJson, errMsg, handleErr, numOrNull, notFound, type Handler } from "./router.ts";
@@ -24,7 +25,7 @@ const MIDI_MIME_TYPES = new Set(["audio/midi", "audio/x-midi"]);
 // Largest real import is ~107 KB.
 const MAX_MIDI_FILE_BYTES = 500 * 1024;
 
-async function parseCreateSongForm(req: Request, userId: number): Promise<InsertSongInput> {
+async function parseCreateSongForm(req: Request, userId: number): Promise<CreateSongInput> {
   const form = await req.formData();
   const midiFile = form.get("midi") as File | null;
 
@@ -40,7 +41,7 @@ async function parseCreateSongForm(req: Request, userId: number): Promise<Insert
     title: String(form.get("title") ?? ""),
     artist: String(form.get("artist") ?? ""),
     bpm: Number(form.get("bpm") ?? 120),
-    difficulty: String(form.get("difficulty") ?? "medium"),
+    difficulty: String(form.get("difficulty") ?? ""),
     notes: String(form.get("notes") ?? "[]"),
     midi_data: midiFile ? new Uint8Array(await midiFile.arrayBuffer()) : null,
     category_id: numOrNull(form.get("category_id")),
@@ -137,6 +138,21 @@ export const songRoutes = [
       const body = await parseJson<SongUpdate>(req);
       const updated = updateSong(Number(id), auth.id, body);
       return updated ? json(updated) : notFound();
+    }) as Handler,
+  },
+  {
+    method: "PUT",
+    path: "/api/songs/:id/difficulty",
+    handler: (async (req: Request, { id }: Record<string, string>) => {
+      const auth = requireAuth(req);
+      if (auth instanceof Response) return auth;
+      try {
+        const body = await parseJson<{ difficulty?: string }>(req);
+        const updated = setSongDifficulty(Number(id), auth.id, String(body?.difficulty ?? ""));
+        return updated ? json(updated) : notFound();
+      } catch (err) {
+        return handleErr(err);
+      }
     }) as Handler,
   },
   {
