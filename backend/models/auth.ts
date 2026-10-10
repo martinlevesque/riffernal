@@ -3,6 +3,7 @@ import {
   getUserByUsername,
   createUser,
   userNeedsSetup,
+  isAdminUser as dbIsAdminUser,
   createSession,
   findSession,
   deleteSession,
@@ -13,6 +14,12 @@ export interface AuthUser {
   id: number;
   username: string;
   tagline: string;
+}
+
+/** The setup admin is the first account created (no role column); wrapped
+ *  here so controllers ask the model layer, not the db. */
+export function isAdminUser(userId: number): boolean {
+  return dbIsAdminUser(userId);
 }
 
 export function hashPassword(password: string): Promise<string> {

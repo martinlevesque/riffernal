@@ -1,5 +1,9 @@
 export const DIFFICULTY_LEVELS = ["easy", "medium", "hard"] as const;
 
+/** API sentinel for "estimate instead of picking a level"; modeled here so
+ *  the controller policy and the model resolution share one definition. */
+export const AUTO_DIFFICULTY = "auto";
+
 export type Difficulty = (typeof DIFFICULTY_LEVELS)[number];
 
 export const DEFAULT_DIFFICULTY: Difficulty = "medium";

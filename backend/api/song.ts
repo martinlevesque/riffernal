@@ -3,6 +3,7 @@ import {
   listLibrary,
   listLibraryCategorySongs,
   getSong,
+  getSongOwnerId,
   createSong,
   updateSong,
   removeSong,
@@ -10,6 +11,8 @@ import {
   recordBestScore,
   saveTrackPreferences,
   setSongDifficulty,
+  isAdminUser,
+  AUTO_DIFFICULTY,
   type CreateSongInput,
   type SongUpdate,
 } from "../models/index.ts";
@@ -146,9 +149,25 @@ export const songRoutes = [
     handler: (async (req: Request, { id }: Record<string, string>) => {
       const auth = requireAuth(req);
       if (auth instanceof Response) return auth;
+
+      const songId = Number(id);
+      const body = await parseJson<{ difficulty?: string }>(req);
+      const requested = String(body?.difficulty ?? "").trim().toLowerCase();
+
+      // Authorization lives here: owners may change their song's difficulty,
+      // admins may additionally run the auto recalculation on any song.
+      const ownerId = getSongOwnerId(songId);
+
+      if (ownerId === undefined) return notFound();
+
+      const isOwner = ownerId != null && ownerId === auth.id;
+
+      if (!isOwner && !(requested === AUTO_DIFFICULTY && isAdminUser(auth.id))) {
+        return json({ error: "Forbidden" }, 403);
+      }
+
       try {
-        const body = await parseJson<{ difficulty?: string }>(req);
-        const updated = setSongDifficulty(Number(id), auth.id, String(body?.difficulty ?? ""));
+        const updated = setSongDifficulty(songId, auth.id, requested);
         return updated ? json(updated) : notFound();
       } catch (err) {
         return handleErr(err);

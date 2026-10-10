@@ -35,13 +35,15 @@ import {
   type TrackPreferences,
 } from "./trackPreferences.ts";
 import { ValidationError, ForbiddenError } from "./validation.ts";
-import { isAdminUser } from "../db/user.ts";
 import {
   estimateSongDifficulty,
   isDifficulty,
+  AUTO_DIFFICULTY,
   type Difficulty,
   type NoteTiming,
 } from "../services/difficulty.ts";
+
+export { AUTO_DIFFICULTY } from "../services/difficulty.ts";
 
 export type { InsertSongInput } from "../db/song.ts";
 export type { TrackPreferences } from "./trackPreferences.ts";
@@ -529,16 +531,18 @@ function latestPlayInGroup(songs: LibraryMenuItem[]): string {
   return latest;
 }
 
-/** The "auto" sentinel for `setSongDifficulty`: re-estimate from the
- *  stored playable notes instead of picking a level. */
-const AUTO_DIFFICULTY = "auto";
+/** Owner id of a song for controller-level authorization checks: `undefined`
+ *  when the song doesn't exist, `null` when the song has no owner (preloaded
+ *  data). */
+export function getSongOwnerId(id: number): number | null | undefined {
+  return getSongSummaryById(id)?.imported_by_user_id ?? undefined;
+}
 
-/** Set a song's difficulty. Owner-only (mirrors `removeSong` /
- *  `setSongPublicCommunity`): throws ForbiddenError for non-owners,
- *  ValidationError for a value outside the difficulty levels. The "auto"
- *  sentinel re-estimates from the stored notes; the admin may run it on
- *  any song, non-admins only on their own. Returns the updated full DTO,
- *  or null when the song doesn't exist. */
+/** Set a song's difficulty. Authorisation (owner, or admin for the auto
+ *  sentinel) is enforced by the controller; this function validates the
+ *  value — a level, or "auto" which re-estimates from the stored playable
+ *  notes — and persists it. Returns the updated full DTO for `userId`'s
+ *  stats, or null when the song doesn't exist. */
 export function setSongDifficulty(id: number, userId: number, difficulty: string): SongFull | null {
   const requested = (difficulty ?? "").trim().toLowerCase();
 
@@ -549,12 +553,6 @@ export function setSongDifficulty(id: number, userId: number, difficulty: string
   const row = getSongById(id);
 
   if (!row) return null;
-
-  const isOwner = row.imported_by_user_id != null && row.imported_by_user_id === userId;
-
-  if (!isOwner && !(requested === AUTO_DIFFICULTY && isAdminUser(userId))) {
-    throw new ForbiddenError("Forbidden");
-  }
 
   const resolved =
     requested === AUTO_DIFFICULTY
