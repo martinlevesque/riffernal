@@ -125,6 +125,9 @@ test.describe('Loops - NoteManager.resetFromTime', () => {
   });
 });
 
+// -- NoteManager.findLoopTrimEnd tests live in
+// tests/frontend/src/game/note-manager.spec.ts (bun unit tests).
+
 // -- Game method tests (constructed instance, no DOM wiring) -----------------
 
 test.describe('Loops - Game.seekTo & loop wrap', () => {
@@ -1025,6 +1028,41 @@ test.describe('Loops - UI', () => {
     });
 
     expect(maxRun).toBeLessThan(25);
+  });
+
+  test('trim button removes the last note of a loop and persists the change', async ({ page }) => {
+    await startGame(page, {
+      keepSong: true,
+      songTitle: 'TrimLoop',
+      notes: [
+        { time: 3.0, key: 'C3', duration: 0.25 },
+        { time: 5.0, key: 'E3', duration: 0.25 },
+        { time: 8.0, key: 'G3', duration: 0.25 },
+        { time: 9.0, key: 'A3', duration: 0.25 },
+      ],
+      loops: [{ startTime: 3.0, endTime: 8.0, enabled: true }],
+    });
+    await closeSongInfoPopup(page);
+
+    await openSheet(page);
+    const row = page.locator('#loops-list .loop-row').first();
+    await expect(row.locator('.loop-row-time')).toHaveText('0:03-0:08');
+
+    await row.locator('.loop-row-shrink').click();
+    await expect(row.locator('.loop-row-time')).toHaveText('0:03-0:05');
+    await closeSheet(page);
+
+    // The trimmed loop stays engaged as the current loop.
+    await expectLoopStatus(page, 'Loop 0:03-0:05');
+
+    const request = page.context().request;
+    const headers = await authHeaders(request);
+    const songs = await (await request.get('/api/songs', { headers })).json();
+    const songId = (Array.isArray(songs) ? songs : songs.songs)[0].id;
+    const loops = await (await request.get(`/api/songs/${songId}/loops`, { headers })).json();
+    expect(loops).toHaveLength(1);
+    expect(loops[0].startTime).toBeCloseTo(3.0);
+    expect(loops[0].endTime).toBeCloseTo(5.0);
   });
 });
 

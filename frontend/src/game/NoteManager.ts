@@ -195,6 +195,12 @@ export class NoteManager {
     return hand === HandSide.Left;
   }
 
+  /** True for notes the player must play: selected (not a background
+   *  track) and not auto-played for the current practice hand. */
+  private _isPlayerNote(note: SongNote): boolean {
+    return note.selected && !this._isAutoPlayNote(note);
+  }
+
   /** Mark a note as resolved and keep the selected-resolved counter in sync.
    *  Safe to call when already resolved (no-op). */
   private _markResolved(note: SongNote): void {
@@ -750,7 +756,7 @@ export class NoteManager {
       for (let i = this._nextNoteIndex; i < this.notes.length; i++) {
         const note = this.notes[i];
         if (note.time > this._learningAnchor) break;
-        if (!note.selected || this._isAutoPlayNote(note)) continue;
+        if (!this._isPlayerNote(note)) continue;
         if (note.resolved || note.holding || note.failing || note.hit) continue;
         allEngaged = false;
         break;
@@ -768,7 +774,7 @@ export class NoteManager {
     for (let i = this._nextNoteIndex; i < this.notes.length; i++) {
       const note = this.notes[i];
       if (note.resolved || note.holding || note.failing || note.hit) continue;
-      if (!note.selected || this._isAutoPlayNote(note)) continue;
+      if (!this._isPlayerNote(note)) continue;
       // With an active loop, never freeze on a note past the loop end:
       // the loop wrap will rewind once the in-loop tail finishes, so let
       // currentTime advance through that tail-out window.
@@ -782,7 +788,7 @@ export class NoteManager {
           const n = this.notes[j];
           if (n.time > this._learningAnchor) break;
           if (n.resolved || n.holding || n.failing || n.hit) continue;
-          if (!n.selected || this._isAutoPlayNote(n)) continue;
+          if (!this._isPlayerNote(n)) continue;
           this._learningChordLanes.add(n.lane);
         }
         return note.time;
@@ -888,11 +894,33 @@ export class NoteManager {
   findNextUnplayedTime(time: number): number | null {
     for (const note of this.notes) {
       if (note.time <= time) continue;
-      if (note.resolved) continue;
-      if (!note.selected) continue;
-      if (this._isAutoPlayNote(note)) continue;
+      if (note.resolved || !this._isPlayerNote(note)) continue;
       return note.time;
     }
+    return null;
+  }
+
+  /** New end boundary when removing the last note/chord from a loop
+   *  covering `[startTime, endTime]`: the start of the previous playable
+   *  note. Resolved notes still count, so trimming undoes an extension
+   *  even after the added note was learned. Returns null when the loop
+   *  covers fewer than two notes. */
+  findLoopTrimEnd(startTime: number, endTime: number): number | null {
+    let lastTime: number | null = null;
+
+    for (let i = this.notes.length - 1; i >= 0; i--) {
+      const note = this.notes[i];
+      if (note.time > endTime) continue;
+      if (note.time < startTime) break;
+      if (!this._isPlayerNote(note)) continue;
+
+      if (lastTime === null) {
+        lastTime = note.time;
+      } else if (note.time < lastTime) {
+        return note.time > startTime ? note.time : null;
+      }
+    }
+
     return null;
   }
 
