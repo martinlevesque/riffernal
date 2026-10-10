@@ -22,6 +22,7 @@ export {
   type LibraryCategoryGroup,
   type LibraryMenuItem,
   AUTO_DIFFICULTY,
+  isSongOwner,
   listSongs,
   getSong,
   getSongOwnerId,

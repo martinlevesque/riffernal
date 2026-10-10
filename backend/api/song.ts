@@ -11,6 +11,7 @@ import {
   recordBestScore,
   saveTrackPreferences,
   setSongDifficulty,
+  isSongOwner,
   isAdminUser,
   AUTO_DIFFICULTY,
   type CreateSongInput,
@@ -160,7 +161,7 @@ export const songRoutes = [
 
       if (ownerId === undefined) return notFound();
 
-      const isOwner = ownerId != null && ownerId === auth.id;
+      const isOwner = isSongOwner(ownerId, auth.id);
 
       if (!isOwner && !(requested === AUTO_DIFFICULTY && isAdminUser(auth.id))) {
         return json({ error: "Forbidden" }, 403);

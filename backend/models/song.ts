@@ -171,7 +171,7 @@ export function listSongs(userId: number): SongSummary[] {
  *  track prefs. */
 export function getSong(id: number, userId: number): SongFull | null {
   const row = getSongById(id);
-  if (!row || row.imported_by_user_id !== userId) return null;
+  if (!row || !isSongOwner(row.imported_by_user_id, userId)) return null;
   const stats = toScoreStats(findScoreStats(userId, row.id));
   const prefs = getTrackPreferences(userId, row.id);
   return rowToFull(row, stats, prefs);
@@ -274,7 +274,7 @@ export function removeSong(id: number, userId: number): { ok: boolean } {
     throw new Error("Not found");
   }
 
-  if (row.imported_by_user_id == null || row.imported_by_user_id !== userId) {
+  if (!isSongOwner(row.imported_by_user_id, userId)) {
     throw new ForbiddenError("Forbidden");
   }
 
@@ -531,6 +531,13 @@ function latestPlayInGroup(songs: LibraryMenuItem[]): string {
   return latest;
 }
 
+/** The song-ownership rule in one place: a song belongs to `userId` iff its
+ *  importer is set and matches. Callers pass the song's owner id — the
+ *  whole summary row works too, since it carries `imported_by_user_id`. */
+export function isSongOwner(songOwnerId: number | null | undefined, userId: number): boolean {
+  return songOwnerId != null && songOwnerId === userId;
+}
+
 /** Owner id of a song for controller-level authorization checks: `undefined`
  *  when the song doesn't exist, `null` when the song has no owner (preloaded
  *  data). */
@@ -575,7 +582,7 @@ export function setSongPublicCommunity(id: number, userId: number, value: boolea
 
   if (!row) return null;
 
-  if (row.imported_by_user_id == null || row.imported_by_user_id !== userId) {
+  if (!isSongOwner(row.imported_by_user_id, userId)) {
     throw new ForbiddenError("Forbidden");
   }
 
