@@ -267,7 +267,6 @@ body {
 .loop-row-shrink,
 .loop-row-extend,
 .loop-row-delete,
-.loop-row-save,
 .loop-row-cancel {
   border-width: var(--pixel-border);
   box-shadow: var(--pixel-shadow-offset-sm) var(--pixel-shadow-offset-sm) 0 var(--pixel-shadow-color);
@@ -294,7 +293,6 @@ body {
 .loop-row-shrink:active:not(:disabled),
 .loop-row-extend:active:not(:disabled),
 .loop-row-delete:active:not(:disabled),
-.loop-row-save:active:not(:disabled),
 .loop-row-cancel:active:not(:disabled) {
   transform: translate(var(--pixel-shadow-offset-sm), var(--pixel-shadow-offset-sm));
   box-shadow: 0 0 0 var(--pixel-shadow-color);
@@ -410,7 +408,6 @@ kbd {
 .loop-row-shrink,
 .loop-row-extend,
 .loop-row-delete,
-.loop-row-save,
 .loop-row-cancel {
   font-family: var(--font-mono);
   font-size: var(--fs-small);
