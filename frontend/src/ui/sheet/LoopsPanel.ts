@@ -178,7 +178,7 @@ export class LoopsPanel {
   private _buildExtendBtn(loop: LoopRow): HTMLButtonElement {
     const btn = rowBtn('loop-row-extend', '>', 'Extend loop to next note');
     btn.addEventListener('click', async () => {
-      const newEnd = this._game.noteManager.findNextUnplayedTime(loop.endTime);
+      const newEnd = this._game.findLoopExtendEnd(loop.startTime, loop.endTime);
       await this._updateLoopEnd(loop, newEnd, 'Failed to extend loop');
     });
 

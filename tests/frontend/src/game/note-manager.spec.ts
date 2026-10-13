@@ -192,3 +192,78 @@ test('findLoopTrimEnd skips auto-played notes from the other practice hand', () 
   // trim candidate: the end snaps past it, not onto it.
   expect(nm.findLoopTrimEnd(0.5, 3.0)).toBe(1.0);
 });
+
+// -- loop boundary: findNextUnplayedTime / findNextPlayerNoteTime -------------
+
+test('findNextUnplayedTime returns the next unresolved player note', () => {
+  const nm = new NoteManager();
+  load(nm, [
+    { time: 1.0, key: 'C3', duration: 0.25 },
+    { time: 4.0, key: 'E3', duration: 0.25 },
+    { time: 6.0, key: 'G3', duration: 0.25 },
+  ]);
+  expect(nm.findNextUnplayedTime(2.0)).toBe(4.0);
+  expect(nm.findNextUnplayedTime(4.0)).toBe(6.0);
+  expect(nm.findNextUnplayedTime(6.0)).toBeNull();
+});
+
+test('findNextUnplayedTime skips resolved notes', () => {
+  const nm = new NoteManager();
+  load(nm, [
+    { time: 1.0, key: 'C3', duration: 0.25 },
+    { time: 4.0, key: 'E3', duration: 0.25 },
+    { time: 6.0, key: 'G3', duration: 0.25 },
+  ]);
+  nm.update(4.0, H);
+  nm.checkHit(4.0, NOTE_TO_LANE.get('E3')!);
+  expect(nm.findNextUnplayedTime(2.0)).toBe(6.0);
+});
+
+test('findNextPlayerNoteTime counts resolved notes', () => {
+  // Loops [0-3] and [10-15]; the note at 8 sits between them and was
+  // already played. Extending the first loop must still land on it.
+  const nm = new NoteManager();
+  load(nm, [
+    { time: 5.0, key: 'C3', duration: 0.25 },
+    { time: 6.0, key: 'E3', duration: 0.25 },
+    { time: 8.0, key: 'G3', duration: 0.25 },
+    { time: 11.0, key: 'A3', duration: 0.25 },
+  ]);
+  nm.update(8.0, H);
+  nm.checkHit(8.0, NOTE_TO_LANE.get('G3')!);
+  expect(nm.findNextPlayerNoteTime(7.0)).toBe(8.0);
+  expect(nm.findNextPlayerNoteTime(8.0)).toBe(11.0);
+});
+
+test('findNextPlayerNoteTime never returns a note at or past the cap', () => {
+  const nm = new NoteManager();
+  load(nm, [
+    { time: 1.0, key: 'C3', duration: 0.25 },
+    { time: 6.0, key: 'G3', duration: 0.25 },
+  ]);
+  expect(nm.findNextPlayerNoteTime(2.0)).toBe(6.0);
+  // Cap is the next loop's start (5.0), exclusive.
+  expect(nm.findNextPlayerNoteTime(2.0, 5.0)).toBeNull();
+});
+
+test('findNextPlayerNoteTime still finds notes before the cap', () => {
+  const nm = new NoteManager();
+  load(nm, [
+    { time: 1.0, key: 'C3', duration: 0.25 },
+    { time: 4.0, key: 'E3', duration: 0.25 },
+    { time: 6.0, key: 'G3', duration: 0.25 },
+  ]);
+  expect(nm.findNextPlayerNoteTime(2.0, 5.0)).toBe(4.0);
+});
+
+test('findNextPlayerNoteTime skips auto-played notes from the other practice hand', () => {
+  const nm = new NoteManager();
+  load(nm, [
+    { time: 1.0, key: 'C3', duration: 0.25 },
+    { time: 4.0, key: 'C5', duration: 0.25 },
+    { time: 6.0, key: 'E3', duration: 0.25 },
+  ]);
+  nm.learningMode = true;
+  nm.practiceHand = PracticeHand.Left;
+  expect(nm.findNextPlayerNoteTime(2.0)).toBe(6.0);
+});

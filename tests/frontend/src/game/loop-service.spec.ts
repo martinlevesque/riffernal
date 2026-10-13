@@ -26,3 +26,34 @@ test('loop chain reflects every mutation', () => {
   svc.clear();
   expect(svc.chain).toEqual([]);
 });
+
+// -- extension bound: nextStartAfter ------------------------------------------
+
+test('nextStartAfter returns the earliest loop starting later', () => {
+  const svc = new LoopService();
+  svc.setLoops([
+    { id: 1, startTime: 5, endTime: 10, enabled: true },
+    { id: 2, startTime: 0, endTime: 3, enabled: true },
+    { id: 3, startTime: 12, endTime: 15, enabled: false },
+  ]);
+
+  expect(svc.nextStartAfter(0)).toBe(5);
+  expect(svc.nextStartAfter(5)).toBe(12);
+  expect(svc.nextStartAfter(12)).toBeNull();
+});
+
+test('nextStartAfter ignores loops that start at or before the given time', () => {
+  const svc = new LoopService();
+  svc.setLoops([
+    { id: 1, startTime: 0, endTime: 20, enabled: true },
+    { id: 2, startTime: 5, endTime: 8, enabled: true },
+  ]);
+
+  expect(svc.nextStartAfter(0)).toBe(5);
+  expect(svc.nextStartAfter(5)).toBeNull();
+});
+
+test('nextStartAfter on an empty set is null', () => {
+  const svc = new LoopService();
+  expect(svc.nextStartAfter(0)).toBeNull();
+});

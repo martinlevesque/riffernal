@@ -900,6 +900,20 @@ export class NoteManager {
     return null;
   }
 
+  /** Find the start time of the next player note after `time`, counting
+   *  already-resolved notes: growing a loop extends its span even across
+   *  notes the player has already covered. `cap` is an exclusive upper
+   *  bound (the next loop's start). Returns null when none remain. */
+  findNextPlayerNoteTime(time: number, cap: number | null = null): number | null {
+    for (const note of this.notes) {
+      if (note.time <= time) continue;
+      if (cap !== null && note.time >= cap) return null;
+      if (!this._isPlayerNote(note)) continue;
+      return note.time;
+    }
+    return null;
+  }
+
   /** New end boundary when removing the last note/chord from a loop
    *  covering `[startTime, endTime]`: the start of the previous playable
    *  note. Resolved notes still count, so trimming undoes an extension
