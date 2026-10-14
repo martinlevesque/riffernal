@@ -85,6 +85,29 @@ test.describe('MIDI Import', () => {
     await expect(page.locator('#btn-import-midi')).toContainText('Import MIDI');
   });
 
+  // Regression: a reused file input can stay wedged after its chooser is
+  // dismissed (e.g. clicking outside), so later clicks seem dead. The button
+  // must hand each request a pristine input.
+  test('import gets a fresh file input on every click', async ({ page }) => {
+    await goToSongList(page);
+
+    await page.locator('#btn-import-midi').click();
+    const first = await page.evaluateHandle(() => document.querySelector('#midi-import-input'));
+
+    const chooserPromise = page.waitForEvent('filechooser', { timeout: 5000 });
+    await page.locator('#btn-import-midi').click();
+    const chooser = await chooserPromise;
+    const second = chooser.element();
+
+    const sameNode = await page.evaluate(
+      ([a, b]) => a === b,
+      [first, second] as unknown as [Element | null, Element | null],
+    );
+
+    expect(await first.evaluate((el) => el !== null)).toBe(true);
+    expect(sameNode).toBe(false);
+  });
+
   test('importing a valid MIDI file adds a song to the list', async ({ page }) => {
     await goToSongList(page);
 
