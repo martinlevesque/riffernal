@@ -319,6 +319,18 @@ export class Game {
     this.loop.setEndTime(loopId, endTime);
   }
 
+  /** New end when extending a loop by one note: the next player note
+   *  after `endTime` (resolved notes count), or — when that note already
+   *  belongs to the following loop — the following loop's start, so the
+   *  loops sit adjacent without overlapping. null when the loop cannot
+   *  grow (no notes remain, or it already touches the next loop). */
+  findLoopExtendEnd(startTime: number, endTime: number): number | null {
+    const cap = this.loop.nextStartAfter(startTime);
+    const nextNote = this.noteManager.findNextPlayerNoteTime(endTime, cap);
+    if (nextNote !== null) return nextNote;
+    return cap !== null && cap > endTime ? cap : null;
+  }
+
   // -- Frame time & loop wrap -----------------------------------------------
 
   private _updateFrameTime(now: number, _delta: number): void {

@@ -24,6 +24,12 @@ When a GitHub URL is pasted, use `gh` CLI (e.g., `gh issue view`, `gh pr view`) 
 - **Command**: `bun run test` (full Playwright suite)
 - **Config**: `playwright.config.ts`
 - **Unit tests**: `bun run test:unit`
+- **E2E scope**: minimize the number of e2e tests — write them only to
+  test base features (the real UI → API → persistence flow of a feature,
+  happy path). Special use cases — edge cases, boundary rules, negative
+  paths, engine internals — are unit-tested (bun:test) directly against
+  the module. Default to unit tests; reach for an e2e test only when the
+  feature must be proven through the running app.
 
 ### Test folder structure
 
@@ -50,9 +56,14 @@ tests/
 ```
 
 **Rule**: place a test file at the same relative path under `tests/` as the
-source file it tests lives under `backend/` or `frontend/src/`. E2E tests
-that don't target a specific source file go in `tests/e2e/`. Shared test
-utilities (auth helpers, page objects, seed functions) stay in `tests/helpers/`.
+source file it tests lives under `backend/` or `frontend/src/`, and keep
+one spec file per source file: all tests exercising `<name>.ts` —
+however many feature areas they cover — belong in that single mirroring
+spec file (e.g. every NoteManager test, hit timing to loop queries, goes
+in `note-manager.spec.ts`), never split across feature-named files.
+E2E tests that don't target a specific source file go in `tests/e2e/`.
+Shared test utilities (auth helpers, page objects, seed functions) stay
+in `tests/helpers/`.
 
 ### Playwright projects
 

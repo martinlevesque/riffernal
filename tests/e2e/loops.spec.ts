@@ -125,6 +125,9 @@ test.describe('Loops - NoteManager.resetFromTime', () => {
   });
 });
 
+// -- NoteManager.findLoopTrimEnd tests live in
+// tests/frontend/src/game/note-manager.spec.ts (bun unit tests).
+
 // -- Game method tests (constructed instance, no DOM wiring) -----------------
 
 test.describe('Loops - Game.seekTo & loop wrap', () => {
@@ -1025,6 +1028,107 @@ test.describe('Loops - UI', () => {
     });
 
     expect(maxRun).toBeLessThan(25);
+  });
+
+  test('trim button removes the last note of a loop and persists the change', async ({ page }) => {
+    await startGame(page, {
+      keepSong: true,
+      songTitle: 'TrimLoop',
+      notes: [
+        { time: 3.0, key: 'C3', duration: 0.25 },
+        { time: 5.0, key: 'E3', duration: 0.25 },
+        { time: 8.0, key: 'G3', duration: 0.25 },
+        { time: 9.0, key: 'A3', duration: 0.25 },
+      ],
+      loops: [{ startTime: 3.0, endTime: 8.0, enabled: true }],
+    });
+    await closeSongInfoPopup(page);
+
+    await openSheet(page);
+    const row = page.locator('#loops-list .loop-row').first();
+    await expect(row.locator('.loop-row-time')).toHaveText('0:03-0:08');
+
+    await row.locator('.loop-row-shrink').click();
+    await expect(row.locator('.loop-row-time')).toHaveText('0:03-0:05');
+    await closeSheet(page);
+
+    // The trimmed loop stays engaged as the current loop.
+    await expectLoopStatus(page, 'Loop 0:03-0:05');
+
+    const request = page.context().request;
+    const headers = await authHeaders(request);
+    const songs = await (await request.get('/api/songs', { headers })).json();
+    const songId = (Array.isArray(songs) ? songs : songs.songs)[0].id;
+    const loops = await (await request.get(`/api/songs/${songId}/loops`, { headers })).json();
+    expect(loops).toHaveLength(1);
+    expect(loops[0].startTime).toBeCloseTo(3.0);
+    expect(loops[0].endTime).toBeCloseTo(5.0);
+  });
+
+  test('extend button grows the earlier loop onto the next note between loops, even when already played', async ({ page }) => {
+    await startGame(page, {
+      keepSong: true,
+      songTitle: 'ExtendLoopBetween',
+      notes: [
+        { time: 5.0, key: 'C3', duration: 0.25 },
+        { time: 6.0, key: 'E3', duration: 0.25 },
+        { time: 8.0, key: 'G3', duration: 0.25 },
+        { time: 11.0, key: 'A3', duration: 0.25 },
+        { time: 12.0, key: 'B3', duration: 0.25 },
+        { time: 13.0, key: 'C4', duration: 0.25 },
+        { time: 14.0, key: 'D4', duration: 0.25 },
+      ],
+      loops: [
+        { startTime: 10.0, endTime: 15.0, enabled: true },
+        { startTime: 5.0, endTime: 7.0, enabled: true },
+      ],
+    });
+    await closeSongInfoPopup(page);
+
+    // The player already covered the note at 8s (between the two loops);
+    // resolving it must not make the extend skip over it.
+    const resolved = await page.evaluate(async (H) => {
+      // @ts-expect-error browser-side dynamic import
+      const { NOTE_TO_LANE } = await import('/js/utils/notes.js');
+      const g = (window as any)._game;
+      g.pause();
+      const nm = g.noteManager;
+      nm.update(8.0, H);
+      const hit = nm.checkHit(8.0, NOTE_TO_LANE.get('G3'));
+      return { resolved: nm.notes.find((n: any) => n.time === 8.0).resolved, hit: hit !== null };
+    }, CANVAS_HEIGHT);
+    expect(resolved.hit).toBe(true);
+    expect(resolved.resolved).toBe(true);
+
+    await openSheet(page);
+    // Rows are in start order: the 5-7 loop is first, the 10-15 loop second.
+    const row = page.locator('#loops-list .loop-row').first();
+    await expect(row.locator('.loop-row-time')).toHaveText('0:05-0:07');
+
+    // The note at 8s is free of any loop: the loop extends onto it.
+    await row.locator('.loop-row-extend').click();
+    await expect(row.locator('.loop-row-time')).toHaveText('0:05-0:08');
+
+    // The next note (11s) lies inside the 10-15 loop, so the loop grows
+    // to that loop's start and sits adjacent instead of reaching into it.
+    await row.locator('.loop-row-extend').click();
+    await expect(row.locator('.loop-row-time')).toHaveText('0:05-0:10');
+
+    // Already adjacent: further extends are a no-op.
+    await row.locator('.loop-row-extend').click();
+    await expect(row.locator('.loop-row-time')).toHaveText('0:05-0:10');
+    await closeSheet(page);
+
+    const request = page.context().request;
+    const headers = await authHeaders(request);
+    const songs = await (await request.get('/api/songs', { headers })).json();
+    const songId = (Array.isArray(songs) ? songs : songs.songs)[0].id;
+    const loops = await (await request.get(`/api/songs/${songId}/loops`, { headers })).json();
+    expect(loops).toHaveLength(2);
+    expect(loops[0].startTime).toBeCloseTo(5.0);
+    expect(loops[0].endTime).toBeCloseTo(10.0);
+    expect(loops[1].startTime).toBeCloseTo(10.0);
+    expect(loops[1].endTime).toBeCloseTo(15.0);
   });
 });
 

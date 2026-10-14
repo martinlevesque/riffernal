@@ -187,9 +187,9 @@
 }
 
 .loop-row-toggle,
+.loop-row-shrink,
 .loop-row-extend,
 .loop-row-delete,
-.loop-row-save,
 .loop-row-cancel {
   font-family: var(--font-ui);
   font-size: var(--fs-smaller);
@@ -210,11 +210,6 @@
 .loop-row-toggle:hover {
   color: var(--text-primary);
   border-color: var(--accent-purple);
-}
-
-.loop-row-save {
-  border-color: var(--accent-purple);
-  color: var(--accent-purple);
 }
 
 .loop-row-delete:hover,

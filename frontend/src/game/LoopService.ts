@@ -136,6 +136,22 @@ export class LoopService {
     this._rebuildChain();
   }
 
+  /** Start time of the next saved loop that begins after `startTime`, as
+   *  the exclusive bound for growing that loop: the chain plays loops in
+   *  start order, so a loop must never extend into another loop's span.
+   *  Disabled loops count too, so re-enabling cannot create overlaps.
+   *  null when no loop starts later. */
+  nextStartAfter(startTime: number): number | null {
+    let next: number | null = null;
+
+    for (const l of this.loops) {
+      if (l.startTime <= startTime) continue;
+      if (next === null || l.startTime < next) next = l.startTime;
+    }
+
+    return next;
+  }
+
   /** Reset all state (fresh game start). */
   clear(): void {
     this.loops = [];
