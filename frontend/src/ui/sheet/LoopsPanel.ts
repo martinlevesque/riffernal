@@ -156,9 +156,14 @@ export class LoopsPanel {
   private async _updateLoopEnd(loop: LoopRow, newEnd: number | null, errorText: string): Promise<void> {
     if (newEnd === null) return;
 
+    // The row's loop object is the live SavedLoop — snapshot the old end
+    // before setLoopEndTime overwrites it.
+    const oldEnd = loop.endTime;
+
     try {
       await updateLoopEndTime(loop.id, newEnd);
       this._game.setLoopEndTime(loop.id, newEnd);
+      this._game.playLoopBoundaryNotes(loop.startTime, oldEnd, newEnd);
       this._sync({ scrollToEnd: true });
     } catch (e) {
       reportError(errorText, e);
