@@ -126,19 +126,24 @@ test.describe("API: loops persistence", () => {
     expect(patchRes.status()).toBe(404);
   });
 
-  test("loops are returned ordered by start_time ascending", async ({ request }) => {
+  test("loops are returned ordered by start_time ascending, ties by id", async ({ request }) => {
     const songId = await seed(request, "Loops-Order");
     const jsonHeaders = await authJsonHeaders(request);
-    for (const [s, e] of [[7, 9] as const, [1, 3] as const, [4, 6] as const]) {
-      await request.post(`/api/songs/${songId}/loops`, {
+    const createdIds: number[] = [];
+    for (const [s, e] of [[7, 9] as const, [1, 3] as const, [4, 6] as const, [2, 3] as const, [2, 6] as const]) {
+      const res = await request.post(`/api/songs/${songId}/loops`, {
         data: { startTime: s, endTime: e, enabled: true },
         headers: jsonHeaders,
       });
+      createdIds.push((await res.json()).id);
     }
     const headers = await authHeaders(request);
     const getRes = await request.get(`/api/songs/${songId}/loops`, { headers });
     const list = await getRes.json();
-    expect(list.map((l: { startTime: number }) => l.startTime)).toEqual([1, 4, 7]);
+    expect(list.map((l: { startTime: number }) => l.startTime)).toEqual([1, 2, 2, 4, 7]);
+    // Ties on start_time come back id-ascending (creation order).
+    const tied = list.filter((l: { startTime: number }) => l.startTime === 2);
+    expect(tied.map((l: { id: number }) => l.id)).toEqual([createdIds[3], createdIds[4]]);
     await deleteSong(request, songId);
   });
 
