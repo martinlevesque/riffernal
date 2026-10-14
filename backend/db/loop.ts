@@ -15,7 +15,7 @@ export function findLoopsBySong(userId: number, songId: number): LoopRow[] {
     .query(
       `SELECT id, user_id, song_id, start_time, end_time, enabled, created_at
        FROM user_song_loops WHERE user_id = ? AND song_id = ?
-       ORDER BY start_time ASC`,
+       ORDER BY start_time ASC, id ASC`,
     )
     .all(userId, songId) as LoopRow[];
 }

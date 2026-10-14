@@ -17,8 +17,9 @@ export interface SavedLoop {
 }
 
 export class LoopService {
-  /** All saved loops for the current song. Order matches insertion; the
-   *  chain re-sorts by startTime on every recompute. */
+  /** All saved loops for the current song, kept sorted by startTime —
+   *  the same order the API returns them in — so the management panel
+   *  renders rows in time order even for mid-session additions. */
   loops: SavedLoop[] = [];
   /** Position within the active chain. null when not chaining (zero
    *  enabled loops, or chain deliberately not engaged yet). */
@@ -102,13 +103,16 @@ export class LoopService {
 
   /** Replace the saved-loop set (used on game start after fetching). */
   setLoops(loops: SavedLoop[]): void {
-    this.loops = loops;
+    this.loops = [...loops].sort((a, b) => a.startTime - b.startTime);
     this._rebuildChain();
   }
 
-  /** Add a freshly-persisted saved loop to the local set. */
+  /** Add a freshly-persisted saved loop to the local set. Sort is
+   *  stable, so an equal startTime lands after existing ones, matching
+   *  the API's id-ascending tiebreak. */
   addLoop(loop: SavedLoop): void {
     this.loops.push(loop);
+    this.loops.sort((a, b) => a.startTime - b.startTime);
     if (loop.enabled) this._rebuildChain();
   }
 

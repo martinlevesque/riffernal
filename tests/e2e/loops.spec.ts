@@ -1238,7 +1238,7 @@ test.describe('Loops - end-to-end toggle + restart', () => {
 
 // -- e2e: create loop via define flow, then restart ----------------------------
 test.describe('Loops - end-to-end create + restart', () => {
-  test('loop created via setBoundary + addSavedLoop re-engages on retry', async ({ page }) => {
+  test('loop created via setBoundary + addSavedLoop re-engages on retry and slots into start order', async ({ page }) => {
     const song = makeSong([
       { time: 0.5, key: 'C3', duration: 0.25 },
       { time: 3.0, key: 'E3', duration: 0.25 },
@@ -1263,16 +1263,20 @@ test.describe('Loops - end-to-end create + restart', () => {
       // Retry should re-engage the chain.
       game.retry();
       await new Promise((r) => setTimeout(r, 50));
-      game.backToMenu();
-      return {
-        afterStart,
-        afterEnd,
-        hasDraft,
+      const afterRetry = {
         active: game.loopActive,
         currentTime: game.currentTime,
         currentStart: game.loopStart,
         chainLen: game.loop.chain.length,
       };
+
+      // A loop created later with an earlier start must slot into start
+      // order — the loops panel renders the saved set verbatim.
+      game.addSavedLoop({ id: 2, startTime: 1.0, endTime: 2.0, enabled: true });
+      const loopOrder = game.loop.loops.map((l: any) => l.startTime);
+
+      game.backToMenu();
+      return { afterStart, afterEnd, hasDraft, ...afterRetry, loopOrder };
     });
     expect(result.afterStart).toBe('end');
     expect(result.afterEnd).toBe('off');
@@ -1282,5 +1286,6 @@ test.describe('Loops - end-to-end create + restart', () => {
     expect(result.currentStart).toBe(3.0);
     expect(result.currentTime).toBeLessThan(3.0);
     expect(result.currentTime).toBeGreaterThan(1.0);
+    expect(result.loopOrder).toEqual([1.0, 3.0]);
   });
 });

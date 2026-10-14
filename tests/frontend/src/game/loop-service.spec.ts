@@ -27,6 +27,29 @@ test('loop chain reflects every mutation', () => {
   expect(svc.chain).toEqual([]);
 });
 
+// -- saved-set order -----------------------------------------------------------
+
+test('saved set stays ordered by startTime across setLoops and addLoop', () => {
+  const svc = new LoopService();
+  svc.addLoop({ id: 1, startTime: 5, endTime: 8, enabled: true });
+  svc.addLoop({ id: 2, startTime: 0, endTime: 2, enabled: true });
+  svc.addLoop({ id: 3, startTime: 10, endTime: 12, enabled: false });
+  expect(svc.loops.map((l) => l.id)).toEqual([2, 1, 3]);
+
+  svc.setLoops([
+    { id: 4, startTime: 9, endTime: 11, enabled: true },
+    { id: 5, startTime: 2, endTime: 4, enabled: true },
+  ]);
+  expect(svc.loops.map((l) => l.id)).toEqual([5, 4]);
+});
+
+test('addLoop lands a new loop after existing loops with equal startTime', () => {
+  const svc = new LoopService();
+  svc.addLoop({ id: 1, startTime: 4, endTime: 6, enabled: true });
+  svc.addLoop({ id: 2, startTime: 4, endTime: 8, enabled: true });
+  expect(svc.loops.map((l) => l.id)).toEqual([1, 2]);
+});
+
 // -- extension bound: nextStartAfter ------------------------------------------
 
 test('nextStartAfter returns the earliest loop starting later', () => {
