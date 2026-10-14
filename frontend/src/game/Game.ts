@@ -331,6 +331,18 @@ export class Game {
     return cap !== null && cap > endTime ? cap : null;
   }
 
+  /** Audible trim/extend feedback: play the chord at the loop's new end
+   *  boundary (its new last note). Silent when the move added no player
+   *  note — an extend that only closed the gap to the next loop. */
+  playLoopBoundaryNotes(loopStart: number, oldEnd: number, newEnd: number): void {
+    const cap = this.loop.nextStartAfter(loopStart);
+    const notes = this.noteManager.findLoopBoundaryNotes(oldEnd, newEnd, cap);
+
+    for (const note of notes) {
+      this._playNoteOnce(note);
+    }
+  }
+
   // -- Frame time & loop wrap -----------------------------------------------
 
   private _updateFrameTime(now: number, _delta: number): void {

@@ -938,6 +938,26 @@ export class NoteManager {
     return null;
   }
 
+  /** The chord at a loop's new end boundary once its end moved from
+   *  `oldEnd` to `newEnd`: on trim, the chord at the new end (the loop's
+   *  new last note); on extend, the chord of the first player note after
+   *  the old end — the newly added note — with `cap` as an exclusive
+   *  upper bound, as in findNextPlayerNoteTime. Empty when the move
+   *  added no player note: an extend that only closed the gap to the
+   *  next loop. */
+  findLoopBoundaryNotes(oldEnd: number, newEnd: number, cap: number | null): SongNote[] {
+    if (newEnd < oldEnd) return this._notesAtTime(newEnd);
+
+    const boundaryTime = this.findNextPlayerNoteTime(oldEnd, cap);
+
+    return boundaryTime === null ? [] : this._notesAtTime(boundaryTime);
+  }
+
+  /** All notes starting exactly at `time` — the chord sounding at that instant. */
+  private _notesAtTime(time: number): SongNote[] {
+    return this.notes.filter((note) => note.time === time);
+  }
+
   /** Returns the latest `time + duration` among notes whose start time is
    *  at or before `end`, so a loop wrapping at `end` lets the last note
    *  in the loop finish playing before rewinding. Returns `end` if no

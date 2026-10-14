@@ -267,3 +267,94 @@ test('findNextPlayerNoteTime skips auto-played notes from the other practice han
   nm.practiceHand = PracticeHand.Left;
   expect(nm.findNextPlayerNoteTime(2.0)).toBe(6.0);
 });
+
+// -- loop boundary: findLoopBoundaryNotes --------------------------------------
+
+test('findLoopBoundaryNotes returns the new last note on trim', () => {
+  const nm = new NoteManager();
+  load(nm, [
+    { time: 1.0, key: 'C3', duration: 0.25 },
+    { time: 2.0, key: 'E3', duration: 0.25 },
+    { time: 3.0, key: 'G3', duration: 0.25 },
+  ]);
+  // Trim [1, 3] to [1, 2]: the loop now ends on the note at 2.
+  const notes = nm.findLoopBoundaryNotes(3.0, 2.0, null);
+  expect(notes.map((n) => n.key)).toEqual(['E3']);
+});
+
+test('findLoopBoundaryNotes returns every note of the trimmed-to chord', () => {
+  const nm = new NoteManager();
+  load(nm, [
+    { time: 1.0, key: 'C3', duration: 0.25 },
+    { time: 2.0, key: 'E3', duration: 0.25 },
+    { time: 2.0, key: 'G3', duration: 0.25 },
+    { time: 3.0, key: 'A3', duration: 0.25 },
+  ]);
+  const notes = nm.findLoopBoundaryNotes(3.0, 2.0, null);
+  expect(notes.map((n) => n.key).sort()).toEqual(['E3', 'G3']);
+});
+
+test('findLoopBoundaryNotes includes a coinciding background note in the trimmed chord', () => {
+  const nm = new NoteManager();
+  load(nm, [
+    { time: 1.0, key: 'C3', duration: 0.25 },
+    { time: 2.0, key: 'E3', duration: 0.25 },
+    { time: 2.0, key: 'A2', duration: 0.25 },
+    { time: 3.0, key: 'G3', duration: 0.25 },
+  ]);
+  // A2 rides along with the player note at the boundary — the preview
+  // sounds the full chord, like gameplay would.
+  nm.notes[2].selected = false;
+  const notes = nm.findLoopBoundaryNotes(3.0, 2.0, null);
+  expect(notes.map((n) => n.key).sort()).toEqual(['A2', 'E3']);
+});
+
+test('findLoopBoundaryNotes returns the newly added chord on extend', () => {
+  const nm = new NoteManager();
+  load(nm, [
+    { time: 1.0, key: 'C3', duration: 0.25 },
+    { time: 4.0, key: 'E3', duration: 0.25 },
+    { time: 4.0, key: 'A2', duration: 0.25 },
+  ]);
+  // Extend [0, 1] to [0, 4]: the added moment is the full chord at 4.
+  nm.notes[2].selected = false;
+  const notes = nm.findLoopBoundaryNotes(1.0, 4.0, null);
+  expect(notes.map((n) => n.key).sort()).toEqual(['A2', 'E3']);
+});
+
+test('findLoopBoundaryNotes is silent when an extend only closed the gap to the next loop', () => {
+  const nm = new NoteManager();
+  load(nm, [
+    { time: 1.0, key: 'C3', duration: 0.25 },
+    { time: 5.0, key: 'E3', duration: 0.25 },
+  ]);
+  // The end moved to the next loop's start (5): the note at 5 belongs to
+  // the next loop, so nothing new was added to play.
+  expect(nm.findLoopBoundaryNotes(1.0, 5.0, 5.0)).toEqual([]);
+});
+
+test('findLoopBoundaryNotes skips auto-played notes from the other practice hand on extend', () => {
+  const nm = new NoteManager();
+  load(nm, [
+    { time: 1.0, key: 'C3', duration: 0.25 },
+    { time: 4.0, key: 'C5', duration: 0.25 },
+    { time: 6.0, key: 'E3', duration: 0.25 },
+  ]);
+  nm.learningMode = true;
+  nm.practiceHand = PracticeHand.Left;
+  // Extending lands on the left-hand note at 6, skipping the auto-played C5.
+  const notes = nm.findLoopBoundaryNotes(1.0, 6.0, null);
+  expect(notes.map((n) => n.key)).toEqual(['E3']);
+});
+
+test('findLoopBoundaryNotes counts resolved notes on extend', () => {
+  const nm = new NoteManager();
+  load(nm, [
+    { time: 1.0, key: 'C3', duration: 0.25 },
+    { time: 4.0, key: 'E3', duration: 0.25 },
+  ]);
+  // The added note was already learned — extending must still sound it.
+  nm.notes[1].resolved = true;
+  const notes = nm.findLoopBoundaryNotes(1.0, 4.0, null);
+  expect(notes.map((n) => n.key)).toEqual(['E3']);
+});
