@@ -182,7 +182,31 @@
   background: rgba(40, 30, 60, 0.7);
 }
 
+.loop-row-name {
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.loop-row-name--empty {
+  color: var(--text-secondary);
+  font-style: italic;
+}
+
+.loop-row-name-input {
+  flex: 1;
+  min-width: 0;
+  padding: 0.1rem 0.35rem;
+}
+
 .loop-row-time {
+  flex: 0 0 auto;
+  color: var(--text-secondary);
+}
+
+.loop-row--draft .loop-row-time {
   flex: 1;
 }
 

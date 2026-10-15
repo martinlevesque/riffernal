@@ -307,6 +307,10 @@
   color: var(--text-secondary);
   font-family: var(--font-mono);
   min-width: 6em;
+  max-width: 22ch;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
   text-align: right;
   letter-spacing: 0.05em;
   margin-left: 0.2rem;

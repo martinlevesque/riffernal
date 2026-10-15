@@ -1,4 +1,7 @@
+import type { SQLQueryBindings } from "bun:sqlite";
 import { db } from "./connection.ts";
+
+const LOOP_COLUMNS = "id, user_id, song_id, start_time, end_time, enabled, name, created_at";
 
 export interface LoopRow {
   id: number;
@@ -7,13 +10,14 @@ export interface LoopRow {
   start_time: number;
   end_time: number;
   enabled: number;
+  name: string | null;
   created_at: string;
 }
 
 export function findLoopsBySong(userId: number, songId: number): LoopRow[] {
   return db
     .query(
-      `SELECT id, user_id, song_id, start_time, end_time, enabled, created_at
+      `SELECT ${LOOP_COLUMNS}
        FROM user_song_loops WHERE user_id = ? AND song_id = ?
        ORDER BY start_time ASC, id ASC`,
     )
@@ -27,38 +31,60 @@ export function insertLoop(
   startTime: number,
   endTime: number,
   enabled: boolean,
+  name: string | null = null,
 ): LoopRow {
   return db
     .query(
-      `INSERT INTO user_song_loops (user_id, song_id, start_time, end_time, enabled)
-       VALUES (?, ?, ?, ?, ?)
-       RETURNING id, user_id, song_id, start_time, end_time, enabled, created_at`,
+      `INSERT INTO user_song_loops (user_id, song_id, start_time, end_time, enabled, name)
+       VALUES (?, ?, ?, ?, ?, ?)
+       RETURNING ${LOOP_COLUMNS}`,
     )
-    .get(userId, songId, startTime, endTime, enabled ? 1 : 0) as LoopRow;
+    .get(userId, songId, startTime, endTime, enabled ? 1 : 0, name) as LoopRow;
 }
 
-/** Flip a loop's enabled flag. Returns the updated row, or undefined when
- *  no loop with that id exists for the user. */
-export function updateLoopEnabled(userId: number, id: number, enabled: boolean): LoopRow | undefined {
-  const result = db
-    .query(
-      `UPDATE user_song_loops SET enabled = ? WHERE id = ? AND user_id = ?
-       RETURNING id, user_id, song_id, start_time, end_time, enabled, created_at`,
-    )
-    .get(enabled ? 1 : 0, id, userId) as LoopRow | undefined;
-  return result;
+/** Field updates for one loop, keyed by table column. */
+export interface LoopFieldUpdate {
+  enabled?: boolean;
+  end_time?: number;
+  name?: string | null;
 }
 
-/** Update a loop's end time. Returns the updated row, or undefined when
- *  no loop with that id exists for the user. */
-export function updateLoopEndTime(userId: number, id: number, endTime: number): LoopRow | undefined {
-  const result = db
+/** Per-column encoders: only these columns accept an update, and each
+ *  maps its domain value to its storage representation (the enabled flag
+ *  persists as the 1/0 boolean column). */
+const LOOP_FIELD_ENCODERS: Record<string, (value: unknown) => SQLQueryBindings> = {
+  enabled: (value) => (value ? 1 : 0),
+  end_time: (value) => value as number,
+  name: (value) => value as string | null,
+};
+
+/** Update a loop from a map of column values in one statement. Keys are
+ *  confined to `LOOP_FIELD_ENCODERS`; each present value is encoded
+ *  first. Returns the updated row, or undefined when no loop with that
+ *  id belongs to the user (or nothing was asked to change). */
+export function updateLoopRow(
+  userId: number,
+  id: number,
+  updates: LoopFieldUpdate,
+): LoopRow | undefined {
+  const assignments: string[] = [];
+  const params: SQLQueryBindings[] = [];
+
+  for (const column of Object.keys(LOOP_FIELD_ENCODERS)) {
+    const value = updates[column as keyof LoopFieldUpdate];
+    if (value === undefined) continue;
+    assignments.push(`${column} = ?`);
+    params.push(LOOP_FIELD_ENCODERS[column](value));
+  }
+
+  if (assignments.length === 0) return undefined;
+
+  return db
     .query(
-      `UPDATE user_song_loops SET end_time = ? WHERE id = ? AND user_id = ?
-       RETURNING id, user_id, song_id, start_time, end_time, enabled, created_at`,
+      `UPDATE user_song_loops SET ${assignments.join(", ")} WHERE id = ? AND user_id = ?
+       RETURNING ${LOOP_COLUMNS}`,
     )
-    .get(endTime, id, userId) as LoopRow | undefined;
-  return result;
+    .get(...params, id, userId) as LoopRow | undefined;
 }
 
 /** Delete a loop owned by the user. Returns true when a row was removed. */
@@ -75,8 +101,8 @@ export function deleteLoop(userId: number, id: number): boolean {
 export function copyLoopsToUser(fromUserId: number, toUserId: number, songId: number): number {
   const result = db
     .query(
-      `INSERT INTO user_song_loops (user_id, song_id, start_time, end_time, enabled)
-       SELECT ?, song_id, start_time, end_time, enabled
+      `INSERT INTO user_song_loops (user_id, song_id, start_time, end_time, enabled, name)
+       SELECT ?, song_id, start_time, end_time, enabled, name
        FROM user_song_loops
        WHERE user_id = ? AND song_id = ?
        AND NOT EXISTS (

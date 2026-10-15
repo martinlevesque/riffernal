@@ -24,7 +24,7 @@ import type { MidiInput } from '../input/MidiInput.js';
 import { InputDeviceType } from '../input/types.js';
 import type { ScoreDisplay } from '../ui/play/ScoreDisplay.js';
 import type { Song } from '../utils/MidiParser.js';
-import { LoopService, type SavedLoop } from './LoopService.js';
+import { LoopService, type SavedLoop, type LoopUpdates } from './LoopService.js';
 import { ResultsScreen } from './rendering/ResultsScreen.js';
 import type { NavAction } from '../ui/navFocus.js';
 import { themeManager } from '../themes/ThemeManager.js';
@@ -82,6 +82,9 @@ export class Game {
   /** Fired (debounced externally) when the user changes the in-game Tracks
    *  panel state for the current song, so main.ts can persist it. */
   onTrackPreferencesChange: ((song: Song) => void) | null = null;
+  /** Fired after the playback chain has advanced to another loop (wrap
+   *  or gap jump), so the UI can refresh the loop status display. */
+  onLoopAdvanced: (() => void) | null = null;
   readonly loop = new LoopService();
 
   // -- public accessors ---------------------------------------------------
@@ -239,7 +242,7 @@ export class Game {
    *  chain engagement or seek). Call before `start()` so `start()` can
    *  engage the chain with the countdown buffer. Also disengages any
    *  stale chain state from a previous song. */
-  loadLoops(loops: Array<{ id: number; startTime: number; endTime: number; enabled: boolean }>): void {
+  loadLoops(loops: Array<{ id: number; startTime: number; endTime: number; enabled: boolean; name: string | null }>): void {
     this.loop.setLoops(loops);
     this.loop.disengage();
     this.loop.cancelDraft();
@@ -248,7 +251,7 @@ export class Game {
   /** Add a saved loop (already persisted) to the controller's local set.
    *  If the chain is engaged the new loop participates in the next chain
    *  recompute. If the chain is idle and the new loop is enabled, engage. */
-  addSavedLoop(loop: { id: number; startTime: number; endTime: number; enabled: boolean }): void {
+  addSavedLoop(loop: { id: number; startTime: number; endTime: number; enabled: boolean; name: string | null }): void {
     this.loop.addLoop(loop);
     if (!this.loop.active && this.loop.chain.length > 0) {
       this.loop.engage();
@@ -260,16 +263,22 @@ export class Game {
     }
   }
 
-  /** Update a saved loop's enabled flag. Handles chain transitions:
+  /** Update a saved loop from a whitelist of fields. Handles chain
+   *  transitions when `enabled` changes:
    *  - Chain becomes empty → disengage, resume normal play.
    *  - Chain was empty, now non-empty → engage from the first loop.
    *  - The currently-playing loop was disabled (or currentIndex is now
    *    out of bounds after recompute) → re-engage from the first loop.
    *  - Otherwise (toggle a non-current loop) the current loop keeps
    *    playing unchanged. */
-  setLoopEnabled(loopId: number, enabled: boolean): void {
+  setLoopProperties(loopId: number, updates: LoopUpdates): void {
     const wasCurrent = this.loop.current?.id === loopId;
-    this.loop.setEnabled(loopId, enabled);
+    this.loop.updateLoop(loopId, updates);
+
+    // endTime/name-only changes never re-engage the chain; only the
+    // active set can.
+    if (!('enabled' in updates)) return;
+
     const chainLen = this.loop.chain.length;
     if (chainLen === 0) {
       if (this.loop.active) {
@@ -282,7 +291,7 @@ export class Game {
     // Re-engage when: chain was empty, OR the current loop was the one
     // toggled off, OR currentIndex is now out of bounds.
     const outOfBounds = this.loop.currentIndex !== null && this.loop.currentIndex >= chainLen;
-    const needReengage = this.loop.currentIndex === null || (enabled === false && wasCurrent) || outOfBounds;
+    const needReengage = this.loop.currentIndex === null || (updates.enabled === false && wasCurrent) || outOfBounds;
     if (needReengage && this.state === GameState.Playing) {
       this.loop.engage();
       const first = this.loop.current;
@@ -312,11 +321,6 @@ export class Game {
       if (current) this._seekWithBuffer(current.startTime, LOOP_TRANSITION_SECONDS);
       this._applyScoringEnabled();
     }
-  }
-
-  /** Extend a saved loop's end time (already persisted). */
-  setLoopEndTime(loopId: number, endTime: number): void {
-    this.loop.setEndTime(loopId, endTime);
   }
 
   /** New end when extending a loop by one note: the next player note
@@ -395,6 +399,7 @@ export class Game {
     } else {
       this.seekTo(next.startTime);
     }
+    this.onLoopAdvanced?.();
   }
 
   /** Seek to `time` with a pre-roll `buffer` (seconds) so the player has a

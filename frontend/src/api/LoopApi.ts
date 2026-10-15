@@ -5,6 +5,14 @@ export interface Loop {
   startTime: number;
   endTime: number;
   enabled: boolean;
+  name: string | null;
+}
+
+/** Updatable loop fields (PATCH `name`-whitelisted at the API route). */
+export interface LoopUpdates {
+  enabled?: boolean;
+  endTime?: number;
+  name?: string | null;
 }
 
 export async function fetchLoops(songId: number): Promise<Loop[]> {
@@ -28,21 +36,11 @@ export async function createLoop(
   return res.json() as Promise<Loop>;
 }
 
-export async function updateLoopEnabled(loopId: number, enabled: boolean): Promise<Loop> {
+export async function updateLoop(loopId: number, updates: LoopUpdates): Promise<Loop> {
   const res = await apiFetch(`/api/loops/${loopId}`, {
     method: "PATCH",
     headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ enabled }),
-  });
-  if (!res.ok) throw new Error(await parseError(res));
-  return res.json() as Promise<Loop>;
-}
-
-export async function updateLoopEndTime(loopId: number, endTime: number): Promise<Loop> {
-  const res = await apiFetch(`/api/loops/${loopId}`, {
-    method: "PATCH",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ endTime }),
+    body: JSON.stringify(updates),
   });
   if (!res.ok) throw new Error(await parseError(res));
   return res.json() as Promise<Loop>;

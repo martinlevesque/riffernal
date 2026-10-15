@@ -1,13 +1,13 @@
 import {
   listLoops,
   createLoop,
-  setLoopEnabled,
-  setLoopEndTime,
+  setLoopProperties,
   removeLoop,
-  type Loop,
+  type LoopUpdates,
 } from "../models/index.ts";
 import { json, parseJson, paramId, notFound, type Handler } from "./router.ts";
 import { requireAuth } from "./middleware/index.ts";
+import { pickGuardedFields } from "./helpers/fields.ts";
 
 export const loopRoutes = [
   {
@@ -46,29 +46,21 @@ export const loopRoutes = [
       const loopId = paramId(id);
       if (loopId instanceof Response) return loopId;
 
-      type Updater = (userId: number, loopId: number, value: never) => Loop | null;
-      const up: Record<string, [Updater, (v: unknown) => boolean]> = {
-        enabled: [setLoopEnabled as Updater, (v): v is boolean => typeof v === "boolean"],
-        endTime: [setLoopEndTime as Updater, (v): v is number => typeof v === "number"],
-      };
+      // Whitelist: only these keys are patchable; anything else in the
+      // body is ignored, and a body with no whitelisted key is rejected.
+      const updates = pickGuardedFields<LoopUpdates>(body, {
+        enabled: (value): value is boolean => typeof value === "boolean",
+        endTime: (value): value is number => typeof value === "number",
+        name: (value): value is string | null => typeof value === "string" || value === null,
+      });
 
-      let result: Loop | null = null;
-      let applied = false;
-      let attempted = false;
-
-      for (const [key, value] of Object.entries(body)) {
-        const entry = up[key];
-        if (!entry) continue;
-        const [fn, guard] = entry;
-        if (!guard(value)) continue;
-        attempted = true;
-        const updated = fn(auth.id, loopId, value as never);
-        if (updated) { result = updated; applied = true; }
+      if (Object.keys(updates).length === 0) {
+        return json({ error: "No valid fields to update" }, 400);
       }
 
-      if (!attempted) return json({ error: "No valid fields to update" }, 400);
-      if (!applied) return notFound();
-      return json(result);
+      const updated = setLoopProperties(auth.id, loopId, updates);
+      if (!updated) return notFound();
+      return json(updated);
     }) as Handler,
   },
   {
