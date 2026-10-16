@@ -159,31 +159,10 @@
 }
 
 .home-leaderboard-user {
-  width: 34%;
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
   font-weight: 600;
-}
-
-.home-leaderboard-score {
-  width: 20%;
-  text-align: right;
-  font-variant-numeric: tabular-nums;
-  color: var(--text-primary);
-}
-
-.home-leaderboard-song {
-  width: 32%;
-  white-space: nowrap;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  color: var(--text-secondary);
-}
-
-.home-leaderboard-dash {
-  color: var(--text-secondary);
-  opacity: 0.5;
 }
 
 .home-leaderboard-you {

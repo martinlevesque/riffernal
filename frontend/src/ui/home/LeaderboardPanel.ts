@@ -34,14 +34,11 @@ export class LeaderboardPanel {
         const songLabel = e.lastSong
           ? (e.lastSongArtist ? `${e.lastSongArtist} — ${e.lastSong}` : e.lastSong)
           : null;
-        const lastSong = songLabel
-          ? this._escapeHtml(songLabel)
-          : '<span class="home-leaderboard-dash">—</span>';
         const userCell =
           this._escapeHtml(e.username) +
           (isYou ? ' <span class="home-leaderboard-you">you</span>' : '');
-        // The username and last-song cells truncate with ellipsis, so carry
-        // the full row text in a native title tooltip shown on hover.
+        // Score and last-song live only in the hover tooltip — wide values
+        // (6-digit scores, long titles) never break the fixed-width row.
         const fullText = songLabel
           ? `#${e.rank} ${e.username} · ${e.totalScore.toLocaleString()} · Last: ${songLabel}`
           : `#${e.rank} ${e.username} · ${e.totalScore.toLocaleString()}`;
@@ -50,8 +47,6 @@ export class LeaderboardPanel {
           `<tr class="${isYou ? 'is-you' : ''}" title="${this._escapeHtml(fullText)}">` +
           `<td class="home-leaderboard-rank">${e.rank}</td>` +
           `<td class="home-leaderboard-user">${userCell}</td>` +
-          `<td class="home-leaderboard-score">${e.totalScore.toLocaleString()}</td>` +
-          `<td class="home-leaderboard-song">${lastSong}</td>` +
           '</tr>'
         );
       })
