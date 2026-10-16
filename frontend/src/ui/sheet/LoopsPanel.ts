@@ -1,21 +1,18 @@
 import { type Game, LoopDefinitionState } from '../../game/Game.js';
-import { updateLoopEnabled, updateLoopEndTime, deleteLoop } from '../../api/LoopApi.js';
+import { updateLoop, deleteLoop } from '../../api/LoopApi.js';
 import { formatTime, reportError } from '../../utils/helpers.js';
+import type { SavedLoop } from '../../game/LoopService.js';
 
 export interface LoopsPanelCallbacks {
   setMode: (learning: boolean) => void;
   onMutated: (opts?: { scrollToEnd?: boolean }) => void;
 }
 
+/** Same cap the backend applies when trimming a name. */
+const LOOP_NAME_MAX_LENGTH = 64;
+
 function fmtBounds(start: number, end: number): string {
   return `${formatTime(start)}-${formatTime(end)}`;
-}
-
-/** Loop fields the row button builders need. */
-interface LoopRow {
-  id: number;
-  startTime: number;
-  endTime: number;
 }
 
 function rowBtn(cls: string, text: string, title?: string): HTMLButtonElement {
@@ -35,6 +32,7 @@ export class LoopsPanel {
   private _callbacks: LoopsPanelCallbacks;
   private _loopsList: HTMLElement;
   private _loopsPanelCount: HTMLElement;
+  private _editingId: number | null = null;
 
   constructor(game: Game, callbacks: LoopsPanelCallbacks) {
     this._game = game;
@@ -67,9 +65,13 @@ export class LoopsPanel {
 
       if (loop.id === this.selectedId) li.classList.add('loop-row--selected');
 
+      if (this._editingId === loop.id) li.appendChild(this._buildNameInput(loop));
+      else li.appendChild(this._buildNameCell(loop));
+
       const time = document.createElement('span');
       time.className = 'loop-row-time';
       time.textContent = fmtBounds(loop.startTime, loop.endTime);
+      li.appendChild(time);
 
       const toggle = rowBtn(
         'loop-row-toggle',
@@ -83,8 +85,8 @@ export class LoopsPanel {
         const next = !loop.enabled;
 
         try {
-          await updateLoopEnabled(loop.id, next);
-          this._game.setLoopEnabled(loop.id, next);
+          await updateLoop(loop.id, { enabled: next });
+          this._game.setLoopProperties(loop.id, { enabled: next });
 
           if (next && this._game.loopActive && !this._game.learningMode) this._callbacks.setMode(true);
           this._sync();
@@ -110,17 +112,22 @@ export class LoopsPanel {
       const extendBtn = this._buildExtendBtn(loop);
 
       li.addEventListener('click', (e) => {
-        if ((e.target as HTMLElement).closest('button')) return;
+        if ((e.target as HTMLElement).closest('button, input')) return;
         this.selectedId = this.selectedId === loop.id ? null : loop.id;
         this._sync();
       });
 
-      li.appendChild(time);
       li.appendChild(toggle);
       li.appendChild(trimBtn);
       li.appendChild(extendBtn);
       li.appendChild(delBtn);
       this._loopsList.appendChild(li);
+
+      if (this._editingId === loop.id) {
+        const input = li.querySelector<HTMLInputElement>('.loop-row-name-input');
+        input?.focus();
+        input?.select();
+      }
     }
 
     if (this._game.loopDefinitionState !== LoopDefinitionState.Off) {
@@ -153,16 +160,16 @@ export class LoopsPanel {
   }
 
   /** Persist a new loop end (no-op when null), then sync panel + sheet. */
-  private async _updateLoopEnd(loop: LoopRow, newEnd: number | null, errorText: string): Promise<void> {
+  private async _updateLoopEnd(loop: SavedLoop, newEnd: number | null, errorText: string): Promise<void> {
     if (newEnd === null) return;
 
     // The row's loop object is the live SavedLoop — snapshot the old end
-    // before setLoopEndTime overwrites it.
+    // before setLoopProperties overwrites it.
     const oldEnd = loop.endTime;
 
     try {
-      await updateLoopEndTime(loop.id, newEnd);
-      this._game.setLoopEndTime(loop.id, newEnd);
+      await updateLoop(loop.id, { endTime: newEnd });
+      this._game.setLoopProperties(loop.id, { endTime: newEnd });
       this._game.playLoopBoundaryNotes(loop.startTime, oldEnd, newEnd);
       this._sync({ scrollToEnd: true });
     } catch (e) {
@@ -170,7 +177,7 @@ export class LoopsPanel {
     }
   }
 
-  private _buildTrimBtn(loop: LoopRow): HTMLButtonElement {
+  private _buildTrimBtn(loop: SavedLoop): HTMLButtonElement {
     const btn = rowBtn('loop-row-shrink', '<', 'Trim loop to previous note');
     btn.addEventListener('click', async () => {
       const newEnd = this._game.noteManager.findLoopTrimEnd(loop.startTime, loop.endTime);
@@ -180,7 +187,7 @@ export class LoopsPanel {
     return btn;
   }
 
-  private _buildExtendBtn(loop: LoopRow): HTMLButtonElement {
+  private _buildExtendBtn(loop: SavedLoop): HTMLButtonElement {
     const btn = rowBtn('loop-row-extend', '>', 'Extend loop to next note');
     btn.addEventListener('click', async () => {
       const newEnd = this._game.findLoopExtendEnd(loop.startTime, loop.endTime);
@@ -188,6 +195,63 @@ export class LoopsPanel {
     });
 
     return btn;
+  }
+
+  private _buildNameCell(loop: SavedLoop): HTMLElement {
+    const span = document.createElement('span');
+    // Positional defaults keep the muted "auto-assigned" look.
+    span.className = loop.name ? 'loop-row-name' : 'loop-row-name loop-row-name--empty';
+    span.textContent = this._game.loop.displayName(loop);
+    span.title = 'Rename this loop';
+    span.addEventListener('click', (e) => {
+      e.stopPropagation();
+      this._editingId = loop.id;
+      this._sync();
+    });
+
+    return span;
+  }
+
+  private _buildNameInput(loop: SavedLoop): HTMLInputElement {
+    const input = document.createElement('input');
+    input.className = 'loop-row-name-input';
+    input.type = 'text';
+    input.maxLength = LOOP_NAME_MAX_LENGTH;
+    input.value = loop.name ?? '';
+    // Emptying the field returns the loop to its positional default.
+    input.placeholder = this._game.loop.displayName(loop);
+    input.title = 'Enter a name, Enter to save, Esc to cancel';
+
+    let done = false; // blur+commit double-fire guard
+    const commit = async (save: boolean): Promise<void> => {
+      if (done || this._editingId !== loop.id) return;
+      done = true;
+      this._editingId = null;
+
+      const name = save ? (input.value.trim().slice(0, LOOP_NAME_MAX_LENGTH) || null) : loop.name;
+
+      if (save && name !== loop.name) {
+        try {
+          await updateLoop(loop.id, { name });
+          this._game.setLoopProperties(loop.id, { name });
+        } catch (e) {
+          reportError('Failed to rename loop', e);
+        }
+      }
+
+      this._sync();
+    };
+
+    input.addEventListener('keydown', (e) => {
+      // Gameplay keys (Space/N/R/arrows) are document-level listeners —
+      // keep typing from leaking into them.
+      e.stopPropagation();
+      if (e.key === 'Enter') { e.preventDefault(); void commit(true); }
+      else if (e.key === 'Escape') { e.preventDefault(); void commit(false); }
+    });
+    input.addEventListener('blur', () => { void commit(true); });
+
+    return input;
   }
 
   select(id: number | null): void {

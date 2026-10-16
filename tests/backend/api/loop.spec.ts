@@ -96,6 +96,94 @@ test.describe("API: loops persistence", () => {
     await deleteSong(request, songId);
   });
 
+  test("POST returns name null for a fresh loop and PATCH names it", async ({ request }) => {
+    const songId = await seed(request, "Loops-Rename");
+    const jsonHeaders = await authJsonHeaders(request);
+    const created = await (
+      await request.post(`/api/songs/${songId}/loops`, {
+        data: { startTime: 1, endTime: 3, enabled: true },
+        headers: jsonHeaders,
+      })
+    ).json() as { id: number; name: null };
+    expect(created.name).toBeNull();
+
+    const patchRes = await request.patch(`/api/loops/${created.id}`, {
+      data: { name: "Solo" },
+      headers: jsonHeaders,
+    });
+    expect(patchRes.status()).toBe(200);
+    expect((await patchRes.json()).name).toBe("Solo");
+
+    const headers = await authHeaders(request);
+    const list = await (
+      await request.get(`/api/songs/${songId}/loops`, { headers })
+    ).json();
+    expect((list as Array<{ id: number; name: null }>).map((l) => l.name)).toEqual(["Solo"]);
+    await deleteSong(request, songId);
+  });
+
+  test("PATCH /api/loops/:id names are trimmed, capped and emptied to null", async ({ request }) => {
+    const songId = await seed(request, "Loops-Name-Validate");
+    const jsonHeaders = await authJsonHeaders(request);
+    const created = await (
+      await request.post(`/api/songs/${songId}/loops`, {
+        data: { startTime: 1, endTime: 3, enabled: true },
+        headers: jsonHeaders,
+      })
+    ).json();
+
+    const pad = (n: number) => "x".repeat(n);
+
+    const res = await request.patch(`/api/loops/${created.id}`, {
+      data: { name: `  ${pad(80)}  ` },
+      headers: jsonHeaders,
+    });
+    expect(res.status()).toBe(200);
+    expect((await res.json()).name).toBe(pad(64));
+
+    const cleared = await request.patch(`/api/loops/${created.id}`, {
+      data: { name: "   " },
+      headers: jsonHeaders,
+    });
+    expect((await cleared.json()).name).toBeNull();
+
+    const clearedByNull = await request.patch(`/api/loops/${created.id}`, {
+      data: { name: "named" },
+      headers: jsonHeaders,
+    });
+    expect((await clearedByNull.json()).name).toBe("named");
+    const cleared2 = await request.patch(`/api/loops/${created.id}`, {
+      data: { name: null },
+      headers: jsonHeaders,
+    });
+    expect((await cleared2.json()).name).toBeNull();
+    await deleteSong(request, songId);
+  });
+
+  test("PATCH /api/loops/:id rejects a non-string non-null name without applying", async ({ request }) => {
+    const songId = await seed(request, "Loops-Name-Type");
+    const jsonHeaders = await authJsonHeaders(request);
+    const created = await (
+      await request.post(`/api/songs/${songId}/loops`, {
+        data: { startTime: 1, endTime: 3, enabled: true },
+        headers: jsonHeaders,
+      })
+    ).json();
+
+    const res = await request.patch(`/api/loops/${created.id}`, {
+      data: { name: 42 },
+      headers: jsonHeaders,
+    });
+    expect(res.status()).toBe(400);
+
+    const headers = await authHeaders(request);
+    const list = await (
+      await request.get(`/api/songs/${songId}/loops`, { headers })
+    ).json();
+    expect((list as Array<{ id: number; name: null }>).map((l) => l.name)).toEqual([null]);
+    await deleteSong(request, songId);
+  });
+
   test("DELETE /api/loops/:id removes the loop", async ({ request }) => {
     const songId = await seed(request, "Loops-Delete");
     const jsonHeaders = await authJsonHeaders(request);

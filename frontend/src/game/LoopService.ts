@@ -8,12 +8,18 @@
 
 import { LoopDefinitionState } from './Loop.js';
 
-/** One saved loop. `id` is the persisted DB row id. */
 export interface SavedLoop {
   id: number;
   startTime: number;
   endTime: number;
   enabled: boolean;
+  name: string | null;
+}
+
+export interface LoopUpdates {
+  enabled?: boolean;
+  endTime?: number;
+  name?: string | null;
 }
 
 export class LoopService {
@@ -58,6 +64,12 @@ export class LoopService {
 
   get start(): number | null { return this.current?.startTime ?? null; }
   get end(): number | null { return this.current?.endTime ?? null; }
+
+  displayName(loop: SavedLoop): string {
+    if (loop.name) return loop.name;
+    const index = this.loops.findIndex((l) => l.id === loop.id);
+    return `Loop ${index + 1}`;
+  }
 
   /** Begin defining a new loop draft. Discards any in-progress draft. */
   beginDefine(): void {
@@ -115,13 +127,14 @@ export class LoopService {
     this.loops.sort((a, b) => a.startTime - b.startTime);
     if (loop.enabled) this._rebuildChain();
   }
-
-  /** Update a saved loop's enabled flag. The chain and currentIndex are
-   *  recomputed by the caller (Game) via engage/disengage/seek as needed. */
-  setEnabled(id: number, enabled: boolean): void {
+  updateLoop(id: number, updates: LoopUpdates): void {
     const loop = this.loops.find((l) => l.id === id);
     if (!loop) return;
-    loop.enabled = enabled;
+
+    if (updates.enabled !== undefined) loop.enabled = updates.enabled;
+    if (updates.endTime !== undefined) loop.endTime = updates.endTime;
+    if (updates.name !== undefined) loop.name = updates.name;
+
     this._rebuildChain();
   }
 
@@ -129,14 +142,6 @@ export class LoopService {
    *  chain/currentIndex revalidation. */
   remove(id: number): void {
     this.loops = this.loops.filter((l) => l.id !== id);
-    this._rebuildChain();
-  }
-
-  /** Update a saved loop's end time. */
-  setEndTime(id: number, endTime: number): void {
-    const loop = this.loops.find((l) => l.id === id);
-    if (!loop) return;
-    loop.endTime = endTime;
     this._rebuildChain();
   }
 

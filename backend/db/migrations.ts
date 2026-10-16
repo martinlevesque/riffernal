@@ -90,6 +90,7 @@ const initialSchema: Migration = {
         start_time REAL NOT NULL,
         end_time REAL NOT NULL,
         enabled INTEGER NOT NULL DEFAULT 1,
+        name TEXT,
         created_at TEXT NOT NULL DEFAULT (datetime('now'))
       );
     `);
@@ -122,11 +123,16 @@ const initialSchema: Migration = {
   },
 };
 
-export const MIGRATIONS: Migration[] = [initialSchema];
+const loopNameMigration: Migration = {
+  id: 2,
+  description: "upgrade: loops.name column for databases created before it joined the initial schema",
+  up: (db) => {
+    addColumnIfMissing(db, "user_song_loops", "name", "TEXT");
+  },
+};
 
-/** Apply pending migrations exactly once per database: each runs inside a
- *  transaction that also records its id, so a failed migration leaves no
- *  partial state behind and is retried on the next startup. */
+export const MIGRATIONS: Migration[] = [initialSchema, loopNameMigration];
+
 export function runMigrations(db: Database): void {
   db.exec(`
     CREATE TABLE IF NOT EXISTS schema_migrations (

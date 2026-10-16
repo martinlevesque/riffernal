@@ -159,9 +159,17 @@ export class GameControls {
     else if (this.game.loop.hasDraft) loopStatus.textContent = 'Draft ready — Save in Loops panel';
     else if (this.game.loopActive) {
       const cur = this.game.loop.current;
-      loopStatus.textContent = cur
-        ? `Loop ${formatTime(cur.startTime)}-${formatTime(cur.endTime)}`
-        : 'Chain active';
+      const chainLen = this.game.loop.chain.length;
+
+      if (cur) {
+        // Chain position leads so progress through the loop set stays
+        // readable.
+        const pos = chainLen > 1 ? `${(this.game.loop.currentIndex ?? 0) + 1}/${chainLen}·` : '';
+        const bounds = `${formatTime(cur.startTime)}-${formatTime(cur.endTime)}`;
+        loopStatus.textContent = cur.name
+          ? `${pos}${cur.name} (${bounds})`
+          : `${pos}Loop ${bounds}`;
+      } else loopStatus.textContent = 'Chain active';
     } else if (savedCount > 0) {
       loopStatus.textContent = enabledCount > 0
         ? `${enabledCount} of ${savedCount} loops enabled`

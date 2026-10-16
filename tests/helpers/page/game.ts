@@ -106,6 +106,7 @@ export interface TestLoop {
   startTime: number;
   endTime: number;
   enabled: boolean;
+  name?: string | null;
 }
 
 /** Boot a Game instance in the page and expose it as `window._testGame`.
@@ -134,7 +135,7 @@ async function bootTestGame(opts: {
     game.setLearningMode(true);
   }
   if (opts.loops) {
-    game.loadLoops(opts.loops);
+    game.loadLoops(opts.loops.map((l) => ({ ...l, name: l.name ?? null })));
   }
   game.start(opts.song);
   (window as unknown as Record<string, unknown>)._testGame = game;

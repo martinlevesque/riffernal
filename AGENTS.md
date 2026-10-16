@@ -18,6 +18,10 @@ If the project is not yet set up, run `bun install` first.
 
 When a GitHub URL is pasted, use `gh` CLI (e.g., `gh issue view`, `gh pr view`) to access it instead of webfetch.
 
+Git: never commit or create branches/PRs on your own — do it only when
+the user explicitly asks (e.g. "commit", "create a PR"). Leaving the
+work uncommitted for user review is the safe default.
+
 ## Testing
 
 - **Framework**: Playwright (e2e + API) / bun:test (unit)
@@ -137,6 +141,15 @@ needed:
   `--port <n>` (or `PORT=<n>`) so you don't contend for port 3000;
   `dev:stop` only ever kills the port-3000 listener.
 
+### Bug fixes
+
+A bug fix must come with a regression test that targets the bug. Run the
+new test **before** making the change and confirm it fails, then re-run
+it after the fix and confirm it passes. Commit message and diff should
+show both states exist (write the test first). A fix without a failing
+test first is not verified — the bug can't be exercised by any current
+test, or the test doesn't capture it.
+
 ## TypeScript
 
 - Source code in `frontend/src/` (`.ts` files, imports use `.js` extensions)
@@ -218,3 +231,34 @@ Presentation-side domain helpers live in their domain module (e.g.
 `frontend/src/game/scoring.ts`), not in a generic `utils/` grab-bag.
 Generic, framework-agnostic helpers (e.g. `clamp`, `formatTime`,
 `noteNameToMidi`) stay in `frontend/src/utils/helpers.ts`.
+
+## CRUD & update API design
+
+Updatable resources are exposed through **one generic update operation
+with a whitelist of fields** — not one method per column/variable —
+across every layer: the API route (PATCH with allowed keys), the model
+(`setLoopProperties`-style functions that validate all present fields
+before persisting), the domain service, and the frontend fetch wrapper.
+A new column/field is added to the whitelist + validation, not as a new
+dedicated setter chain.
+
+Good reasons to keep a specific method exist (e.g. an operation with
+distinct side effects, special semantics like a best-score submission),
+but "a field is mutable" is not one. The `db/` layer is the exception:
+row-level SQL helpers may stay field-specific, since each column needs
+its own statement and the generic restriction belongs at the model
+boundary — `db/` has no domain rules.
+
+## Migrations
+
+- **The first migration owns the whole schema.** New tables and columns
+  go into its CREATE TABLE statements, so a fresh database always gets
+  the complete schema in one pass (e.g. `user_song_loops.name` lives in
+  migration 1). Use `addColumnIfMissing` right after the CREATE TABLE
+  for columns whose safety-net ordering may drift.
+- **Later migrations only upgrade existing databases.** They are
+  append-only and additive (`addColumnIfMissing` for new columns);
+  keep them minimal no-ops on fresh databases. Editing an already
+  applied migration does nothing for databases that recorded it —
+  anything such a database still needs (data backfill, missing
+  column) must arrive as a new migration.

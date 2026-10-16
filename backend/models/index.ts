@@ -4,10 +4,10 @@ export { type AuthUser, isAdminUser } from "./auth.ts";
 export { type LeaderboardEntry, getTodayLeaderboard } from "./leaderboard.ts";
 export {
   type Loop,
+  type LoopUpdates,
   listLoops,
   createLoop,
-  setLoopEnabled,
-  setLoopEndTime,
+  setLoopProperties,
   removeLoop,
 } from "./loop.ts";
 export {

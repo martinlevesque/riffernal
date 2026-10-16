@@ -1030,6 +1030,45 @@ test.describe('Loops - UI', () => {
     expect(maxRun).toBeLessThan(25);
   });
 
+  test('renaming a loop updates the panel, the HUD status, and persists', async ({ page }) => {
+    await startGame(page, {
+      keepSong: true,
+      songTitle: 'RenameLoop',
+      notes: [
+        { time: 0.5, key: 'C3', duration: 0.25 },
+        { time: 5.0, key: 'E3', duration: 0.25 },
+        { time: 8.0, key: 'G3', duration: 0.25 },
+      ],
+      loops: [{ startTime: 5.0, endTime: 8.0, enabled: true }],
+    });
+    await closeSongInfoPopup(page);
+
+    await openSheet(page);
+    const row = page.locator('#loops-list .loop-row').first();
+    // Unnamed loops show a positional default derived from start order.
+    await expect(row.locator('.loop-row-name')).toHaveText('Loop 1');
+
+    await row.locator('.loop-row-name').click();
+    const input = row.locator('.loop-row-name-input');
+    await expect(input).toBeVisible();
+    await expect(input).toBeFocused();
+    await input.fill('Chorus A');
+    await input.press('Enter');
+    await expect(row.locator('.loop-row-name')).toHaveText('Chorus A');
+    await closeSheet(page);
+
+    // The currently-playing loop now shows its name in the play-zone HUD.
+    await expectLoopStatus(page, 'Chorus A (0:05-0:08)');
+
+    const request = page.context().request;
+    const headers = await authHeaders(request);
+    const songs = await (await request.get('/api/songs', { headers })).json();
+    const songId = (Array.isArray(songs) ? songs : songs.songs)[0].id;
+    const loops = await (await request.get(`/api/songs/${songId}/loops`, { headers })).json();
+    expect(loops).toHaveLength(1);
+    expect(loops[0].name).toBe('Chorus A');
+  });
+
   test('trim button removes the last note of a loop and persists the change', async ({ page }) => {
     await startGame(page, {
       keepSong: true,
@@ -1152,12 +1191,13 @@ test.describe('Loops - end-to-end restart', () => {
     await closeSongInfoPopup(page);
 
     // Loops were loaded at startup, so the chain should auto-engage at the
-    // first enabled loop. Loop-status text shows the active loop's bounds.
-    await expectLoopStatus(page, 'Loop 0:03-0:07');
+    // first enabled loop. Loop-status text shows the active loop's bounds,
+    // prefixed with its position in the two-loop chain.
+    await expectLoopStatus(page, '1/2·Loop 0:03-0:07');
 
     // After restart, retry() should re-engage the chain at the first loop.
     await clickRestart(page);
-    await expectLoopStatus(page, 'Loop 0:03-0:07');
+    await expectLoopStatus(page, '1/2·Loop 0:03-0:07');
   });
 
   test('clicking restart with 1 enabled loop seeks to the loop start, not the song beginning', async ({ page }) => {
@@ -1228,11 +1268,11 @@ test.describe('Loops - end-to-end toggle + restart', () => {
     await closeSheet(page);
 
     await clickRestart(page);
-    await expectLoopStatus(page, 'Loop 0:03-0:07');
+    await expectLoopStatus(page, '1/2·Loop 0:03-0:07');
 
     // After restart, retry() re-engages at the first enabled loop.
     await clickRestart(page);
-    await expectLoopStatus(page, 'Loop 0:03-0:07');
+    await expectLoopStatus(page, '1/2·Loop 0:03-0:07');
   });
 });
 

@@ -41,11 +41,18 @@ test("runMigrations creates the schema and seeds the initial categories", () => 
       expect(tables.some((t) => t.name === table)).toBe(true);
     }
 
+    // Loops are named: the initial schema carries the nullable column.
+    expect(
+      (db.query("PRAGMA table_info(user_song_loops)").all() as Array<{ name: string }>).some(
+        (c) => c.name === "name",
+      ),
+    ).toBe(true);
+
     expect(
       (db.query("SELECT id FROM schema_migrations ORDER BY id").all() as Array<{ id: number }>).map(
         (row) => row.id,
       ),
-    ).toEqual([1]);
+    ).toEqual([1, 2]);
   } finally {
     db.close();
     rmSync(join(path, ".."), { recursive: true, force: true });
@@ -70,7 +77,7 @@ test("runMigrations is idempotent when the database is reopened", () => {
       expect(rows.map((c) => c.name)).toEqual(SEEDED_CATEGORY_NAMES);
       expect(
         (db.query("SELECT id FROM schema_migrations").all() as Array<{ id: number }>).length,
-      ).toBe(1);
+      ).toBe(2);
       db.close();
     }
   } finally {
@@ -82,7 +89,7 @@ test("a failed migration is not recorded and leaves no partial state", () => {
   const path = tempPath();
   const db = openFreshDb(path);
   const failing: Migration = {
-    id: 2,
+    id: 999,
     description: "failing migration",
     up: (d: Database) => {
       d.exec("CREATE TABLE migration_two_marker (id INTEGER)");
@@ -97,11 +104,12 @@ test("a failed migration is not recorded and leaves no partial state", () => {
     expect(
       (db.query("SELECT name FROM sqlite_master WHERE name = 'migration_two_marker'").all()).length,
     ).toBe(0);
+    // Every migration before the failed one stays recorded and applied.
     expect(
       (db.query("SELECT id FROM schema_migrations ORDER BY id").all() as Array<{ id: number }>).map(
         (row) => row.id,
       ),
-    ).toEqual([1]);
+    ).toEqual([1, 2]);
   } finally {
     MIGRATIONS.pop();
     db.close();
