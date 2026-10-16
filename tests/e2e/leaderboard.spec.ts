@@ -47,18 +47,19 @@ test.describe('Home leaderboard', () => {
 
     const panel = page.locator('#home-leaderboard');
     await expect(panel).toContainText(username!, { timeout: 5000 });
-    await expect(panel).toContainText('12,345');
     await expect(panel.locator('tr.is-you')).toHaveCount(1);
     await expect(panel.locator('tr.is-you')).toContainText(username!);
 
-    // Hovering a row shows the full, untruncated text via its title tooltip.
+    // Score and last-song are rendered in hover only; the fixed-width row
+    // keeps rank + username so large scores cannot break the layout.
     const youRow = panel.locator('tr.is-you');
+    await expect(panel.locator('.home-leaderboard-score')).toHaveCount(0);
+    await expect(panel.locator('.home-leaderboard-song')).toHaveCount(0);
+
     const title = await youRow.getAttribute('title');
     expect(title).toContain(username!);
     expect(title).toContain('12,345');
-    // The last-song column shows both artist and title.
     expect(title).toContain('LB-UI-Artist — LB-UI-Song');
-    await expect(youRow.locator('.home-leaderboard-song')).toContainText('LB-UI-Artist — LB-UI-Song');
 
     // Cleanup
     await deleteSong(request, id);
