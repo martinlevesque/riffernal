@@ -18,8 +18,6 @@ export interface Loop {
   name: string | null;
 }
 
-/** Max characters accepted for a loop name; matches the other UI text
- *  inputs (category names) so one DB column keeps its bound. */
 const LOOP_NAME_MAX_LENGTH = 64;
 
 /** Convert a raw snake_case `LoopRow` (with `enabled` as 0/1) into the
@@ -62,8 +60,6 @@ export function createLoop(
   return rowToLoop(row);
 }
 
-/** Normalize a loop name: strings are trimmed and capped at the max
- *  length, empty results (and anything non-string) become null. */
 function validateLoopName(name: unknown): string | null {
   if (typeof name !== "string") return null;
   const trimmed = name.trim().slice(0, LOOP_NAME_MAX_LENGTH);
@@ -85,28 +81,23 @@ function validateEndTime(endTime: unknown): asserts endTime is number {
   }
 }
 
-/** Updatable loop fields. `id` and `startTime` are excluded — they
- *  identify the row and order the chain, so they are never patched. */
+/** Updatable loop fields — `id`/`startTime` are immutable (they identify
+ *  and order the row). */
 export interface LoopUpdates {
   enabled?: boolean;
   endTime?: number;
   name?: string | null;
 }
 
-/** Validate every present field of an updates object before anything is
- *  persisted, so a multi-field patch cannot half-apply. Throws on invalid
- *  input. */
+/** Validated before anything is persisted so a multi-field patch cannot
+ *  half-apply. */
 function validateLoopUpdates(updates: LoopUpdates): void {
   if (updates.enabled !== undefined) validateEnabled(updates.enabled);
   if (updates.endTime !== undefined) validateEndTime(updates.endTime);
-  // name is normalized (see validateLoopName), never rejected
+  if (updates.name !== undefined) validateLoopName(updates.name);
 }
 
-/** Update a loop in place from a whitelist of fields: `enabled` toggles
- *  chained playback, `endTime` moves the loop's end, `name` renames it
- *  (normalized, null clears). All present fields are validated before
- *  any one of them is persisted, and the whole set lands in one UPDATE.
- *  Returns the updated DTO, or null when the loop doesn't exist for the
+/** Returns the updated DTO, or null when the loop doesn't exist for the
  *  user. Throws on invalid input. */
 export function setLoopProperties(userId: number, id: number, updates: LoopUpdates): Loop | null {
   validateLoopUpdates(updates);

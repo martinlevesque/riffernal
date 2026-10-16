@@ -197,13 +197,9 @@ export class LoopsPanel {
     return btn;
   }
 
-  /** Name label for a renamed loop, or its positional default ("Loop N")
-   *  straight from the service; clicking starts an inline edit instead of
-   *  the row's select toggle. */
   private _buildNameCell(loop: SavedLoop): HTMLElement {
     const span = document.createElement('span');
-    // A positional default keeps the muted "placeholder" look so it reads
-    // as auto-assigned, not user-chosen.
+    // Positional defaults keep the muted "auto-assigned" look.
     span.className = loop.name ? 'loop-row-name' : 'loop-row-name loop-row-name--empty';
     span.textContent = this._game.loop.displayName(loop);
     span.title = 'Rename this loop';
@@ -216,9 +212,6 @@ export class LoopsPanel {
     return span;
   }
 
-  /** Inline text input replacing the name cell while it is being edited.
-   *  Enter commits, Escape cancels, blur (losing focus, not closing the
-   *  editor) commits. */
   private _buildNameInput(loop: SavedLoop): HTMLInputElement {
     const input = document.createElement('input');
     input.className = 'loop-row-name-input';

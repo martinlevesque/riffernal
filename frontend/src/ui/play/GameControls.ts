@@ -162,9 +162,8 @@ export class GameControls {
       const chainLen = this.game.loop.chain.length;
 
       if (cur) {
-        // Named loops show "name (A-B)"; with several chained loops the
-        // position within the chain comes first so edits between them
-        // stay understandable.
+        // Chain position leads so progress through the loop set stays
+        // readable.
         const pos = chainLen > 1 ? `${(this.game.loop.currentIndex ?? 0) + 1}/${chainLen}·` : '';
         const bounds = `${formatTime(cur.startTime)}-${formatTime(cur.endTime)}`;
         loopStatus.textContent = cur.name

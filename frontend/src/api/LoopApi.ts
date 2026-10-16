@@ -8,7 +8,6 @@ export interface Loop {
   name: string | null;
 }
 
-/** Updatable loop fields (PATCH `name`-whitelisted at the API route). */
 export interface LoopUpdates {
   enabled?: boolean;
   endTime?: number;

@@ -333,8 +333,7 @@ function setupTrailingComponents(ctx: AppContext): void {
     updatePauseBtn: () => controls.updatePauseBtn(),
   });
 
-  // The chain auto-advances during playback; refresh the loop HUD status
-  // so it always names the loop actually being played.
+  // Keep the loop HUD status following the chain as it auto-advances.
   game.onLoopAdvanced = () => controls.updateLoopUI();
 }
 

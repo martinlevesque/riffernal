@@ -10,7 +10,6 @@ test("extracts whitelisted fields whose values pass their guards", () => {
     },
   );
 
-  // Unknown keys never reach the result, even when present in the body.
   expect(result).toEqual({ enabled: true, name: "Solo" });
   expect("unknown" in result).toBe(false);
 });

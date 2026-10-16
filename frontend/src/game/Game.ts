@@ -263,20 +263,10 @@ export class Game {
     }
   }
 
-  /** Update a saved loop from a whitelist of fields. Handles chain
-   *  transitions when `enabled` changes:
-   *  - Chain becomes empty → disengage, resume normal play.
-   *  - Chain was empty, now non-empty → engage from the first loop.
-   *  - The currently-playing loop was disabled (or currentIndex is now
-   *    out of bounds after recompute) → re-engage from the first loop.
-   *  - Otherwise (toggle a non-current loop) the current loop keeps
-   *    playing unchanged. */
   setLoopProperties(loopId: number, updates: LoopUpdates): void {
     const wasCurrent = this.loop.current?.id === loopId;
     this.loop.updateLoop(loopId, updates);
 
-    // endTime/name-only changes never re-engage the chain; only the
-    // active set can.
     if (!('enabled' in updates)) return;
 
     const chainLen = this.loop.chain.length;
@@ -288,8 +278,7 @@ export class Game {
       this._applyScoringEnabled();
       return;
     }
-    // Re-engage when: chain was empty, OR the current loop was the one
-    // toggled off, OR currentIndex is now out of bounds.
+
     const outOfBounds = this.loop.currentIndex !== null && this.loop.currentIndex >= chainLen;
     const needReengage = this.loop.currentIndex === null || (updates.enabled === false && wasCurrent) || outOfBounds;
     if (needReengage && this.state === GameState.Playing) {
@@ -688,9 +677,6 @@ export class Game {
 
   // -- Results & navigation -------------------------------------------------
 
-  /** Returns true when the current score beats the stored best for this song.
-   *  A score of 0 (no notes hit) is never considered a new best, so we don't
-   *  present a meaningless "New Best!" for a run that scored nothing. */
   isNewBest(): boolean {
     const score = this.noteManager.scoring.score;
 

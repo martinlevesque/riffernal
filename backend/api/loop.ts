@@ -46,8 +46,6 @@ export const loopRoutes = [
       const loopId = paramId(id);
       if (loopId instanceof Response) return loopId;
 
-      // Whitelist: only these keys are patchable; anything else in the
-      // body is ignored, and a body with no whitelisted key is rejected.
       const updates = pickGuardedFields<LoopUpdates>(body, {
         enabled: (value): value is boolean => typeof value === "boolean",
         endTime: (value): value is number => typeof value === "number",

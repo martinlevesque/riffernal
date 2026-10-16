@@ -8,8 +8,6 @@
 
 import { LoopDefinitionState } from './Loop.js';
 
-/** One saved loop. `id` is the persisted DB row id; `name` is the
- *  user-facing label (null when unnamed). */
 export interface SavedLoop {
   id: number;
   startTime: number;
@@ -18,8 +16,6 @@ export interface SavedLoop {
   name: string | null;
 }
 
-/** Fields a caller may change on a saved loop after creation. `id` and
- *  `startTime` are immutable — they identify the row and order the chain. */
 export interface LoopUpdates {
   enabled?: boolean;
   endTime?: number;
@@ -69,8 +65,6 @@ export class LoopService {
   get start(): number | null { return this.current?.startTime ?? null; }
   get end(): number | null { return this.current?.endTime ?? null; }
 
-  /** Row label for management UIs: the saved name, or a positional
-   *  default ("Loop N", 1-based in start order) when unnamed. */
   displayName(loop: SavedLoop): string {
     if (loop.name) return loop.name;
     const index = this.loops.findIndex((l) => l.id === loop.id);
@@ -133,12 +127,8 @@ export class LoopService {
     this.loops.sort((a, b) => a.startTime - b.startTime);
     if (loop.enabled) this._rebuildChain();
   }
-
-  /** Update a saved loop from a whitelist of fields. Unknown fields and
-   *  unknown ids are ignored. The chain is rebuilt once for the whole
-   *  change set (`enabled` and endTime affect it; name doesn't, but the
-   *  rebuild is a cheap filter+sort over the saved set). */
-  updateLoop(id: number, updates: LoopUpdates): void {    const loop = this.loops.find((l) => l.id === id);
+  updateLoop(id: number, updates: LoopUpdates): void {
+    const loop = this.loops.find((l) => l.id === id);
     if (!loop) return;
 
     if (updates.enabled !== undefined) loop.enabled = updates.enabled;
