@@ -408,6 +408,12 @@
   justify-content: center;
 }
 
+.clear-loops-message {
+  font-size: var(--fs-smaller);
+  color: var(--text-primary);
+  text-align: center;
+}
+
 .song-info-sound-hint {
   margin-bottom: 1rem;
   padding: 0.5rem 0.75rem;

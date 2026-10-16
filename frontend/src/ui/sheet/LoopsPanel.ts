@@ -2,6 +2,14 @@ import { type Game, LoopDefinitionState } from '../../game/Game.js';
 import { updateLoop, deleteLoop } from '../../api/LoopApi.js';
 import { formatTime, reportError } from '../../utils/helpers.js';
 import type { SavedLoop } from '../../game/LoopService.js';
+import {
+  BTN_CLEAR_LOOPS_CANCEL_ID,
+  BTN_CLEAR_LOOPS_ID,
+  BTN_CLEAR_LOOPS_OK_ID,
+  CLEAR_LOOPS_POPUP_ID,
+  LOOPS_LIST_ID,
+  LOOPS_PANEL_COUNT_ID,
+} from './sheetElementIds.js';
 
 export interface LoopsPanelCallbacks {
   setMode: (learning: boolean) => void;
@@ -33,12 +41,31 @@ export class LoopsPanel {
   private _loopsList: HTMLElement;
   private _loopsPanelCount: HTMLElement;
   private _editingId: number | null = null;
+  private _btnClearAll: HTMLButtonElement;
+  private _clearAllPopup: HTMLElement;
 
   constructor(game: Game, callbacks: LoopsPanelCallbacks) {
     this._game = game;
     this._callbacks = callbacks;
-    this._loopsList = document.getElementById('loops-list')!;
-    this._loopsPanelCount = document.getElementById('loops-panel-count')!;
+    this._loopsList = document.getElementById(LOOPS_LIST_ID)!;
+    this._loopsPanelCount = document.getElementById(LOOPS_PANEL_COUNT_ID)!;
+    this._btnClearAll = document.getElementById(BTN_CLEAR_LOOPS_ID) as HTMLButtonElement;
+    this._clearAllPopup = document.getElementById(CLEAR_LOOPS_POPUP_ID)!;
+
+    this._setupClearAll();
+  }
+
+  private _setupClearAll(): void {
+    const cancelBtn = document.getElementById(BTN_CLEAR_LOOPS_CANCEL_ID)!;
+    const okBtn = document.getElementById(BTN_CLEAR_LOOPS_OK_ID)!;
+
+    this._btnClearAll.addEventListener('click', () => this._onClearAllClick());
+    cancelBtn.addEventListener('click', () => this._hideClearAllPopup());
+    okBtn.addEventListener('click', () => { void this._clearAll(); });
+
+    this._clearAllPopup.addEventListener('click', (e) => {
+      if (e.target === this._clearAllPopup) this._hideClearAllPopup();
+    });
   }
 
   render(): void {
@@ -46,6 +73,11 @@ export class LoopsPanel {
     const loops = this._game.loop.loops;
     const chain = this._game.loop.chain;
 
+    // Enabled while loops exist or a draft/define flow is in progress: a
+    // fresh draft (boundaries not yet picked) clears without confirmation.
+    this._btnClearAll.disabled = loops.length === 0
+      && !this._game.loop.hasDraft
+      && this._game.loopDefinitionState === LoopDefinitionState.Off;
     this._loopsPanelCount.textContent = chain.length > 0
       ? `${chain.length} enabled`
       : '';
@@ -151,6 +183,48 @@ export class LoopsPanel {
       li.appendChild(cancelBtn);
       this._loopsList.appendChild(li);
     }
+  }
+
+  private _onClearAllClick(): void {
+    if (this._game.loop.loops.length === 0) {
+      // Only a draft in flight: cancelling loses nothing saved, so no
+      // confirmation is needed.
+      if (this._game.loopDefinitionState !== LoopDefinitionState.Off || this._game.loop.hasDraft) {
+        this._game.cancelLoopDraft();
+      }
+
+      this._sync();
+      return;
+    }
+
+    this._clearAllPopup.classList.remove('hidden');
+  }
+
+  private _hideClearAllPopup(): void {
+    this._clearAllPopup.classList.add('hidden');
+  }
+
+  /** Wipe every saved loop (after "OK" on the confirmation popup). */
+  private async _clearAll(): Promise<void> {
+    this._hideClearAllPopup();
+
+    if (this._game.loopDefinitionState !== LoopDefinitionState.Off || this._game.loop.hasDraft) {
+      this._game.cancelLoopDraft();
+    }
+
+    const saved = [...this._game.loop.loops];
+    const results = await Promise.allSettled(saved.map((l) => deleteLoop(l.id)));
+
+    results.forEach((result, i) => {
+      if (result.status === 'fulfilled') {
+        this._game.deleteSavedLoop(saved[i].id);
+      } else {
+        reportError('Failed to delete loop', result.reason);
+      }
+    });
+
+    this.selectedId = null;
+    this._sync();
   }
 
   /** Re-render the rows and notify the sheet view of the mutation. */

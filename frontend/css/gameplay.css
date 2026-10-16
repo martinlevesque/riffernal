@@ -317,17 +317,6 @@
   margin-right: 0.2rem;
 }
 
-.loop-btn-clear {
-  padding: 0.2rem 0.4rem;
-  border-color: var(--border-divider);
-  margin-left: 0.2rem;
-}
-
-.loop-btn-clear:hover {
-  border-color: var(--accent-red);
-  color: var(--accent-red);
-}
-
 @media (max-width: 900px) {
   .speed-btn,
   .mode-btn,

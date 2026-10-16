@@ -1,5 +1,5 @@
 import { expect, type Page } from '@playwright/test';
-import { CANVAS_HEIGHT } from '../constants.js';
+import { CANVAS_HEIGHT, LOOP_STATUS } from '../constants.js';
 import type { SongData } from '../song.js';
 
 // -- screen state ------------------------------------------------------------
@@ -70,7 +70,7 @@ export async function expectMode(page: Page, mode: 'learn' | 'play'): Promise<vo
 
 /** Assert the loop status text. */
 export async function expectLoopStatus(page: Page, text: string): Promise<void> {
-  await expect(page.locator('#loop-status')).toHaveText(text);
+  await expect(page.locator(LOOP_STATUS)).toHaveText(text);
 }
 
 // -- practice hand -----------------------------------------------------------
