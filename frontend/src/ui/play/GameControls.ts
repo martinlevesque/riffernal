@@ -3,6 +3,7 @@ import { PracticeHand } from '../../utils/notes.js';
 import { fetchUserSettings, updateUserSettings } from '../../api/UserApi.js';
 import { themeManager } from '../../themes/ThemeManager.js';
 import { formatTime } from '../../utils/helpers.js';
+import { BTN_DEFINE_LOOP_ID, BTN_LOOP_PLAY_ID, LOOP_STATUS_ID } from '../sheet/sheetElementIds.js';
 
 export class GameControls {
   game: Game;
@@ -14,7 +15,7 @@ export class GameControls {
     const modeLearn = document.getElementById('mode-learn')!;
     const handLeft = document.getElementById('hand-left')!;
     const handRight = document.getElementById('hand-right')!;
-    const loopPlayBtn = document.getElementById('btn-loop-play')!;
+    const loopPlayBtn = document.getElementById(BTN_LOOP_PLAY_ID)!;
     const pauseBtn = document.getElementById('btn-pause')!;
 
     modePlay.addEventListener('click', () => this.setMode(false));
@@ -141,9 +142,9 @@ export class GameControls {
   }
 
   updateLoopUI(): void {
-    const defineLoopBtn = document.getElementById('btn-define-loop')!;
-    const loopStatus = document.getElementById('loop-status')!;
-    const loopPlayBtn = document.getElementById('btn-loop-play')!;
+    const defineLoopBtn = document.getElementById(BTN_DEFINE_LOOP_ID)!;
+    const loopStatus = document.getElementById(LOOP_STATUS_ID)!;
+    const loopPlayBtn = document.getElementById(BTN_LOOP_PLAY_ID)!;
     const phase = this.game.loopDefinitionState;
     defineLoopBtn.classList.toggle('active', phase !== 'off');
     defineLoopBtn.classList.toggle('loop-active', this.game.loopActive);

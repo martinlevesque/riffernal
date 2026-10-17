@@ -1,9 +1,22 @@
 import { type Game, GameState, LoopDefinitionState } from '../../game/Game.js';
 import { SHEET_TOP_OFFSET, Renderer, SHEET_BEATS_VISIBLE } from '../../game/rendering/Renderer.js';
 import type { SongNote } from '../../game/NoteManager.js';
-import { createLoop, deleteLoop } from '../../api/LoopApi.js';
+import { createLoop } from '../../api/LoopApi.js';
 import { setupHoverCursor } from '../play/HoverCursor.js';
 import { LoopsPanel } from './LoopsPanel.js';
+import {
+  BTN_ADD_LOOP_ID,
+  BTN_CLOSE_SHEET_ID,
+  BTN_DEFINE_LOOP_ID,
+  BTN_OPEN_SHEET_ID,
+  BTN_SHEET_NEXT_ID,
+  BTN_SHEET_PREV_ID,
+  SHEET_CANVAS_ID,
+  SHEET_HINT_ID,
+  SHEET_PAGE_INFO_ID,
+  SHEET_RESIZE_HANDLE_ID,
+  SHEET_SCREEN_ID,
+} from './sheetElementIds.js';
 import { reportError } from '../../utils/helpers.js';
 
 const SHEET_STAFF_LINE_SPACING = 10;
@@ -63,18 +76,17 @@ export class SheetView {
       onMutated: onLoopsMutated,
     });
 
-    const openSheetBtn = document.getElementById('btn-open-sheet')!;
-    this._sheetScreen = document.getElementById('sheet-screen')!;
-    this._sheetCanvas = document.getElementById('sheet-canvas') as HTMLCanvasElement;
+    const openSheetBtn = document.getElementById(BTN_OPEN_SHEET_ID)!;
+    this._sheetScreen = document.getElementById(SHEET_SCREEN_ID)!;
+    this._sheetCanvas = document.getElementById(SHEET_CANVAS_ID) as HTMLCanvasElement;
     this._sheetRenderer = new Renderer(this._sheetCanvas);
-    this._sheetPrevBtn = document.getElementById('btn-sheet-prev')!;
-    this._sheetNextBtn = document.getElementById('btn-sheet-next')!;
-    const sheetCloseBtn = document.getElementById('btn-close-sheet')!;
-    this._sheetPageInfo = document.getElementById('sheet-page-info')!;
-    this._sheetHint = document.getElementById('sheet-hint')!;
-    const defineLoopBtn = document.getElementById('btn-define-loop')!;
-    const clearLoopBtn = document.getElementById('btn-clear-loop')!;
-    const addLoopBtn = document.getElementById('btn-add-loop')! as HTMLButtonElement;
+    this._sheetPrevBtn = document.getElementById(BTN_SHEET_PREV_ID)!;
+    this._sheetNextBtn = document.getElementById(BTN_SHEET_NEXT_ID)!;
+    const sheetCloseBtn = document.getElementById(BTN_CLOSE_SHEET_ID)!;
+    this._sheetPageInfo = document.getElementById(SHEET_PAGE_INFO_ID)!;
+    this._sheetHint = document.getElementById(SHEET_HINT_ID)!;
+    const defineLoopBtn = document.getElementById(BTN_DEFINE_LOOP_ID)!;
+    const addLoopBtn = document.getElementById(BTN_ADD_LOOP_ID)! as HTMLButtonElement;
 
     openSheetBtn.addEventListener('click', () => {
       if (this._game.state === GameState.Playing) this.toggleSheetView();
@@ -113,30 +125,7 @@ export class SheetView {
       if (this._sheetOpen) this.renderSheetPage();
     });
 
-    clearLoopBtn.addEventListener('click', async () => {
-      if (this._game.loopDefinitionState !== LoopDefinitionState.Off || this._game.loop.hasDraft) {
-        this._game.cancelLoopDraft();
-      }
-
-      const saved = [...this._game.loop.loops];
-      const results = await Promise.allSettled(saved.map((l) => deleteLoop(l.id)));
-
-      results.forEach((result, i) => {
-        if (result.status === 'fulfilled') {
-          this._game.deleteSavedLoop(saved[i].id);
-        } else {
-          reportError('Failed to delete loop', result.reason);
-        }
-      });
-
-      this._loopsPanel.selectedId = null;
-      this._deps.updateLoopUI();
-      this._loopsPanel.render();
-
-      if (this._sheetOpen) this.renderSheetPage();
-    });
-
-    const resizeHandle = document.getElementById('sheet-resize-handle')!;
+    const resizeHandle = document.getElementById(SHEET_RESIZE_HANDLE_ID)!;
     let resizing = false;
     let resizeRAF = false;
 

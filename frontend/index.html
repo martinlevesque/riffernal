@@ -85,8 +85,7 @@
             <span id="loop-control">
               <button id="btn-define-loop" class="loop-btn" title="Define loop start, then end (click a note on the sheet)">LOOP</button>
               <button id="btn-loop-play" class="loop-btn loop-btn-play" title="Play/pause loop" style="display:none">&#9654;</button>
-              <span id="loop-status">No loop</span>
-              <button id="btn-clear-loop" class="loop-btn loop-btn-clear" title="Clear stored loop" aria-label="Clear loop">&#10005;</button>
+            <span id="loop-status">No loop</span>
             </span>
             <button id="btn-toggle-bg" class="speed-btn" title="Toggle background tracks">Tracks</button>
             <button id="btn-open-sheet" class="open-sheet-btn" title="Open full sheet" aria-label="Open full sheet">⤢</button>
@@ -164,7 +163,10 @@
           <div id="loops-panel" class="loops-panel">
             <div class="loops-panel-header">
               <span>LOOPS</span>
-              <button id="btn-add-loop" class="loops-panel-add-btn" title="Add new loop">+ Add loop</button>
+              <span class="loops-panel-header-actions">
+                <button id="btn-add-loop" class="loops-panel-add-btn" title="Add new loop">+ Add loop</button>
+                <button id="btn-clear-loops" class="loops-panel-clear-btn" title="Clear all loops" aria-label="Clear all loops">&#10005; Clear all</button>
+              </span>
               <span id="loops-panel-count" class="loops-panel-count"></span>
             </div>
             <ul id="loops-list" class="loops-list"></ul>
@@ -261,6 +263,19 @@
           </div>
           <div class="popup-actions">
             <button id="btn-close-song-info" class="btn btn-primary">LET'S GO</button>
+          </div>
+        </div>
+      </div>
+
+      <div id="clear-loops-popup" class="popup hidden">
+        <div class="popup-card">
+          <h2>CLEAR ALL LOOPS</h2>
+          <div class="popup-body">
+            <p class="clear-loops-message">Delete all saved loops for this song? This cannot be undone.</p>
+          </div>
+          <div class="popup-actions">
+            <button id="btn-clear-loops-cancel" class="btn btn-secondary" type="button">CANCEL</button>
+            <button id="btn-clear-loops-ok" class="btn btn-primary" type="button">OK</button>
           </div>
         </div>
       </div>
