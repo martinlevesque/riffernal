@@ -72,7 +72,6 @@ export class TrackSelect {
       const selectBtn = document.createElement('button');
       selectBtn.className = 'track-select-btn';
       selectBtn.textContent = track.name;
-      selectBtn.addEventListener('click', () => this._toggleSelect(track.index, li));
 
       const info = document.createElement('span');
       info.className = 'track-info';
@@ -98,6 +97,16 @@ export class TrackSelect {
       li.appendChild(handBtn);
       li.appendChild(bgBtn);
       this._listEl.appendChild(li);
+
+      // Whole row taps toggle the track; the hand and background buttons
+      // inside it keep their own behavior.
+      li.addEventListener('click', (e) => {
+        const target = e.target as HTMLElement | null;
+
+        if (target?.closest('.track-hand-btn, .track-bg-btn')) return;
+
+        this._toggleSelect(track.index, li);
+      });
     }
   }
 

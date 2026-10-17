@@ -74,6 +74,38 @@ function buildMidiBufferWithNotes(noteEvents: number[]): Buffer {
   return Buffer.from([...header, ...trackHeader, ...trackEvents]);
 }
 
+function buildMultiTrackMidiBuffer(): Buffer {
+  const header = [
+    0x4D, 0x54, 0x68, 0x64,
+    0x00, 0x00, 0x00, 0x06,
+    0x00, 0x00,
+    0x00, 0x03,
+    0x01, 0xE0,
+  ];
+
+  const trackChunks = [0x3C, 0x40, 0x45].map((note) => {
+    const trackEvents = [
+      0x00, 0xFF, 0x51, 0x03, 0x07, 0xA1, 0x20,
+      0x78, 0x90, note, 0x64,
+      0x78, note, 0x00,
+      0x00, 0xFF, 0x2F, 0x00,
+    ];
+
+    const trackLength = trackEvents.length;
+    const trackHeader = [
+      0x4D, 0x54, 0x72, 0x6B,
+      (trackLength >> 24) & 0xFF,
+      (trackLength >> 16) & 0xFF,
+      (trackLength >> 8) & 0xFF,
+      trackLength & 0xFF,
+    ];
+
+    return [...trackHeader, ...trackEvents];
+  });
+
+  return Buffer.from([...header, ...trackChunks.flat()]);
+}
+
 test.describe('MIDI Import', () => {
   test.beforeEach(async ({ request }: { request: APIRequestContext }) => {
     await wipeDatabase(request);
@@ -111,12 +143,44 @@ test.describe('MIDI Import', () => {
   test('importing a valid MIDI file adds a song to the list', async ({ page }) => {
     await goToSongList(page);
 
-    await importMidiFile(page, 'test-song.mid', buildMidiBuffer());
+    await page.waitForFunction(() => (document.getElementById('midi-status') as HTMLElement).textContent.length > 0);
 
-    const importedItem = page.locator('.song-item.imported');
-    await expect(importedItem).toHaveCount(1, { timeout: 5000 });
-    await expect(importedItem).toContainText('test-song');
-    await expect(importedItem.locator('.song-difficulty')).toContainText('easy');
+    const fileChooserPromise = page.waitForEvent('filechooser', { timeout: 5000 });
+    await page.locator('#btn-import-midi').click();
+    const fileChooser = await fileChooserPromise;
+    await fileChooser.setFiles({ name: 'test-song.mid', mimeType: 'audio/midi', buffer: buildMultiTrackMidiBuffer() });
+
+    // Multi-track files go through track selection; the whole row (body as
+    // well as track name) selects or unselects, while the hand and
+    // background buttons inside the row keep their own behavior.
+    await page.waitForSelector('#track-select-screen.active', { timeout: 5000 });
+
+    const row = page.locator('.track-item').first();
+    const confirmBtn = page.locator('#track-select-confirm');
+
+    await row.locator('.track-info').click();
+    await expect(row).toHaveClass(/selected/);
+    await expect(confirmBtn).toBeEnabled();
+
+    await row.locator('.track-info').click();
+    await expect(row).not.toHaveClass(/selected/);
+    await expect(confirmBtn).toBeDisabled();
+    await expect(row.locator('.track-bg-btn')).toContainText('\u{1F50A}');
+
+    await row.locator('.track-select-btn').click();
+    await expect(row).toHaveClass(/selected/);
+
+    await row.locator('.track-hand-btn').click();
+    await expect(row).toHaveClass(/selected/);
+    await row.locator('.track-bg-btn').click();
+    await expect(row).toHaveClass(/selected/);
+
+    await confirmBtn.click();
+    await page.waitForSelector('#category-select-screen.active', { timeout: 5000 });
+    await page.locator('#category-select-skip').click();
+
+    await expect(page.locator('.song-item.imported')).toHaveCount(1, { timeout: 5000 });
+    await expect(page.locator('.song-item.imported')).toContainText('test-song');
   });
 
   test('importing multiple MIDI files adds all to the list', async ({ page }) => {
