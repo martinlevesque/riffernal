@@ -322,13 +322,10 @@ export function recordBestScore(songId: number, userId: number, score: unknown):
   return { bestScore, lastScore: raw.last_score, isNew: bestScore != null && raw.best_score === score };
 }
 
-/** Persist the user's track prefs for a song. Validates `input` first
- *  (throws on invalid backgroundTracks / mainTrackMuted). Returns the prefs
- *  back, or null when the song doesn't exist. */
 export function saveTrackPreferences(
   songId: number,
   userId: number,
-  input: { backgroundTracks?: unknown; mainTrackMuted?: unknown },
+  input: { backgroundTracks?: unknown; mainTrackMuted?: unknown; playMode?: unknown },
 ): TrackPreferences | null {
   if (!songExists(songId)) return null;
   return savePrefs(userId, songId, input);

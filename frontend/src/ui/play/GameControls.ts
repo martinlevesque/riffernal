@@ -111,8 +111,11 @@ export class GameControls {
     });
   }
 
-  setMode(learning: boolean): void {
-    this.game.setLearningMode(learning);
+  /** Switch LEARN/PLAY mode. `persist = false` skips storing it as the
+   *  song's resume mode (used when applying the initial mode at song start,
+   *  before the song is the game's current one). */
+  setMode(learning: boolean, persist = true): void {
+    this.game.setLearningMode(learning, persist);
     const modePlay = document.getElementById('mode-play')!;
     const modeLearn = document.getElementById('mode-learn')!;
     const handControl = document.getElementById('hand-control')!;

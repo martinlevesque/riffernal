@@ -204,7 +204,7 @@ export const songRoutes = [
     handler: (async (req: Request, { id }: Record<string, string>) => {
       const auth = requireAuth(req);
       if (auth instanceof Response) return auth;
-      const body = await parseJson<{ backgroundTracks?: number[]; mainTrackMuted?: boolean }>(req);
+      const body = await parseJson<{ backgroundTracks?: number[]; mainTrackMuted?: boolean; playMode?: string }>(req);
       const saved = saveTrackPreferences(Number(id), auth.id, body);
       return saved ? json(saved) : notFound();
     }) as Handler,

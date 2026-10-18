@@ -385,26 +385,39 @@ test.describe("API: songs CRUD", () => {
 
     const jsonHeaders = await authJsonHeaders(request);
     const saveRes = await request.put(`/api/songs/${created.id}/track-preferences`, {
-      data: { backgroundTracks: [3], mainTrackMuted: true },
+      data: { backgroundTracks: [3], mainTrackMuted: true, playMode: "learn" },
       headers: jsonHeaders,
     });
     expect(saveRes.ok()).toBeTruthy();
     const saved = await saveRes.json();
     expect(saved.backgroundTracks).toEqual([3]);
     expect(saved.mainTrackMuted).toBe(true);
+    expect(saved.playMode).toBe("learn");
 
     const afterRes = await request.get(`/api/songs/${created.id}`, { headers });
     expect(afterRes.ok()).toBeTruthy();
     const after = await afterRes.json();
-    expect(after.trackPreferences).toEqual({ backgroundTracks: [3], mainTrackMuted: true });
+    expect(after.trackPreferences).toEqual({ backgroundTracks: [3], mainTrackMuted: true, playMode: "learn" });
 
     const resaveRes = await request.put(`/api/songs/${created.id}/track-preferences`, {
-      data: { backgroundTracks: [2, 3], mainTrackMuted: false },
+      data: { backgroundTracks: [2, 3], mainTrackMuted: false, playMode: "play" },
       headers: jsonHeaders,
     });
     expect(resaveRes.ok()).toBeTruthy();
     const reRes = await (await request.get(`/api/songs/${created.id}`, { headers })).json();
-    expect(reRes.trackPreferences).toEqual({ backgroundTracks: [2, 3], mainTrackMuted: false });
+    expect(reRes.trackPreferences).toEqual({ backgroundTracks: [2, 3], mainTrackMuted: false, playMode: "play" });
+
+    const missingRes = await request.put(`/api/songs/${created.id}/track-preferences`, {
+      data: { backgroundTracks: [3], mainTrackMuted: true },
+      headers: jsonHeaders,
+    });
+    expect(missingRes.status()).toBe(400);
+
+    const invalidRes = await request.put(`/api/songs/${created.id}/track-preferences`, {
+      data: { backgroundTracks: [3], mainTrackMuted: true, playMode: "practice" },
+      headers: jsonHeaders,
+    });
+    expect(invalidRes.status()).toBe(400);
 
     await cleanupSongs(request, /^E2E-TrackPrefs$/);
   });
@@ -412,7 +425,7 @@ test.describe("API: songs CRUD", () => {
   test("PUT /api/songs/:id/track-preferences returns 404 for missing song", async ({ request }) => {
     const jsonHeaders = await authJsonHeaders(request);
     const res = await request.put(`/api/songs/98887766/track-preferences`, {
-      data: { backgroundTracks: [], mainTrackMuted: false },
+      data: { backgroundTracks: [], mainTrackMuted: false, playMode: "play" },
       headers: jsonHeaders,
     });
     expect(res.status()).toBe(404);

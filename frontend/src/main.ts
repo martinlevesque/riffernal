@@ -22,6 +22,7 @@ import { setupHoverCursor } from './ui/play/HoverCursor.js';
 import { PracticeHand } from './utils/notes.js';
 import type { Song } from './utils/MidiParser.js';
 import {
+  PlayMode,
   fetchSong, songFullToSong, markSongPlayed,
   recordBestScore, updateSongTitle, deleteSong,
   updateSongDifficulty,
@@ -182,7 +183,10 @@ async function startSong(
   fetchFull: (id: number) => Promise<SongFull>,
 ): Promise<void> {
   const { game, controls, songInfoPopup } = ctx;
-  controls.setMode(false);
+  // Reset for the incoming song without persisting: the previous song is
+  // still the game's current one until start() swaps it, so a persisted
+  // save here would write the wrong mode into its stored preferences.
+  controls.setMode(false, false);
   controls.setPracticeHand(PracticeHand.Both);
   let fullSong = song;
 
@@ -210,7 +214,14 @@ async function startSong(
     }
   }
 
-  if (hasEnabledLoops) controls.setMode(true);
+  // Enabled loops still force LEARN; otherwise resume the LEARN/PLAY mode
+  // the user last played this song in (stored as trackPreferences.playMode).
+  // PLAY is already active from the reset above, so only LEARN switches.
+  // Neither is persisted — applying the starting mode is not a mode switch.
+  if (hasEnabledLoops || fullSong.trackPreferences?.playMode === PlayMode.Learn) {
+    controls.setMode(true, false);
+  }
+
   game.start(fullSong);
   game.engageChain();
   game.pause();
