@@ -1,10 +1,14 @@
 /** Menu sound effects: short square-wave blips in the spirit of 8-bit
  *  console UIs. Uses its own AudioContext so it never contends with the
- *  game Synth's voice limits or compressor. */
+ *  game Synth's voice limits or compressor.
+ *
+ *  Blips get a slight daily flavor from ./dailyVariation.ts. */
+
+import { applyDailyVariation, currentDailyVariation } from './dailyVariation.js';
 
 export type MenuSound = 'next' | 'prev' | 'enter';
 
-interface Blip {
+export interface Blip {
   /** [frequency Hz, duration s] steps played back to back */
   steps: [number, number][];
   type: OscillatorType;
@@ -70,7 +74,10 @@ function ensureContext(): AudioContext | null {
 function schedule(audio: AudioContext, sound: MenuSound): void {
   if (!master) return;
 
-  const { steps, type, gain } = MENU_SOUNDS[sound];
+  const { steps, type, gain } = applyDailyVariation(
+    MENU_SOUNDS[sound],
+    currentDailyVariation()[sound],
+  );
   const osc = audio.createOscillator();
   const env = audio.createGain();
   const start = audio.currentTime;
