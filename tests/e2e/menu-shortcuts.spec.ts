@@ -198,21 +198,20 @@ test.describe('Song list keyboard shortcuts', () => {
 
     const cards = page.locator('.home-mode-card');
 
-    // start on FREEPLAY (index 0); next (s = D3) moves focus to CAMPAIGN
+    // the unreachable campaign mode has no card: only freeplay/settings/logout remain
+    await expect(cards).toHaveCount(3);
+
+    // start on FREEPLAY (index 0); next (s = D3) moves focus to SETTINGS
     await page.keyboard.press('s');
     await expect(cards.nth(1)).toHaveClass(/focused/);
-
-    // next again reaches SETTINGS
-    await page.keyboard.press('s');
-    await expect(cards.nth(2)).toHaveClass(/focused/);
 
     // enter (d = E3) acts on the focused card
     await page.keyboard.press('d');
     await expect(page.locator('#settings-popup')).toBeVisible({ timeout: 5000 });
     await page.locator('#btn-close-settings').click();
 
-    // back on home: prev (a = C3) moves focus back to CAMPAIGN
+    // back on home: prev (a = C3) moves focus back to FREEPLAY
     await page.keyboard.press('a');
-    await expect(cards.nth(1)).toHaveClass(/focused/);
+    await expect(cards.nth(0)).toHaveClass(/focused/);
   });
 });

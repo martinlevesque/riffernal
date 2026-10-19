@@ -107,11 +107,10 @@ export class HomeScreen {
 
   private _wireButtons(): void {
     const freeplayBtn = this._screen.querySelector('[data-mode="freeplay"]') as HTMLElement;
-    const campaignBtn = this._screen.querySelector('[data-mode="campaign"]') as HTMLElement;
     const settingsBtn = this._screen.querySelector('[data-mode="settings"]') as HTMLElement;
     const logoutBtn = this._screen.querySelector('[data-mode="logout"]') as HTMLElement;
 
-    this._cards = [freeplayBtn, campaignBtn, settingsBtn, logoutBtn];
+    this._cards = [freeplayBtn, settingsBtn, logoutBtn];
 
     freeplayBtn.addEventListener('click', () => {
       this._opts.onNavigate?.('freeplay');
