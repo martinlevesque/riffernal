@@ -8,10 +8,12 @@ import { communityRoutes } from "./community.ts";
 import { userRoutes } from "./user.ts";
 import { loopRoutes } from "./loop.ts";
 import { authRoutes } from "./auth.ts";
+import { statusRoutes } from "./status.ts";
 import { leaderboardRoutes } from "./leaderboard.ts";
 import { withRateLimit } from "./middleware/rateLimit.ts";
 
 const routes: Route[] = defineRoutes([
+  ...statusRoutes,
   ...authRoutes,
   ...categoryRoutes,
   ...songRoutes,
