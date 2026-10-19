@@ -1,6 +1,7 @@
 import { midiToNoteName, noteNameToMidi } from '../utils/helpers.js';
 import { NOTE_NAMES, HandSide, HAND_SPLIT_MIDI, GM_DRUM_CHANNEL } from './notes.js';
 import { estimateSongDifficulty } from '../game/difficulty.js';
+import type { PlayMode } from '../api/SongApi.js';
 
 export interface Note {
   time: number;
@@ -32,9 +33,10 @@ export interface Song {
   selectedTrackIndices?: number[];
   trackHands?: Record<number, HandSide>;
   backgroundTracks?: number[];
-  /** Per-user-per-song Tracks panel preferences. Null until the
-   *  backend has been queried for the user's saved state. */
-  trackPreferences?: { backgroundTracks: number[]; mainTrackMuted: boolean } | null;
+  /** Per-user-per-song in-game preferences (Tracks panel choices plus the
+   *  LEARN/PLAY mode to resume the song in). Null until the backend has
+   *  been queried for the user's saved state. */
+  trackPreferences?: { backgroundTracks: number[]; mainTrackMuted: boolean; playMode: PlayMode } | null;
   id?: number;
   categoryId?: number | null;
   lastPlayedAt?: string | null;

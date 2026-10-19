@@ -24,6 +24,7 @@ import type { MidiInput } from '../input/MidiInput.js';
 import { InputDeviceType } from '../input/types.js';
 import type { ScoreDisplay } from '../ui/play/ScoreDisplay.js';
 import type { Song } from '../utils/MidiParser.js';
+import { PlayMode } from '../api/SongApi.js';
 import { LoopService, type SavedLoop, type LoopUpdates } from './LoopService.js';
 import { ResultsScreen } from './rendering/ResultsScreen.js';
 import type { NavAction } from '../ui/navFocus.js';
@@ -832,7 +833,7 @@ export class Game {
     }
   }
 
-  setLearningMode(enabled: boolean): void {
+  setLearningMode(enabled: boolean, persist = true): void {
     this.learningMode = enabled;
     this.noteManager.learningMode = enabled;
     if (enabled) this._usedLearningMode = true;
@@ -840,6 +841,11 @@ export class Game {
     this._refGameTime = this.currentTime;
     this._refRealTime = performance.now() / 1000;
     this._learningFrozen = false;
+
+    if (persist && this._currentSong) {
+      this._syncTrackPreferences();
+      this.onTrackPreferencesChange?.(this._currentSong);
+    }
   }
 
   setPracticeHand(hand: PracticeHand): void {
@@ -877,14 +883,12 @@ export class Game {
     }
   }
 
-  /** Keep `currentSong.trackPreferences` mirroring the live mute state so a
-   *  following `retry()` (which reuses `currentSong`) preserves the user's
-   *  choices, and main.ts can persist the whole struct at once. */
   private _syncTrackPreferences(): void {
     if (!this._currentSong) return;
     this._currentSong.trackPreferences = {
       backgroundTracks: [...(this._currentSong.backgroundTracks ?? [])],
       mainTrackMuted: this.mainTrackMuted,
+      playMode: this.learningMode ? PlayMode.Learn : PlayMode.Play,
     };
   }
 }

@@ -42,10 +42,16 @@ export interface LibraryMenu {
   categories: LibraryCategoryGroup[];
 }
 
-/** Per-user-per-song in-game Tracks panel preferences. */
+/** The LEARN/PLAY mode a song should resume in (see TrackPreferences). */
+export enum PlayMode {
+  Play = 'play',
+  Learn = 'learn',
+}
+
 export interface TrackPreferences {
   backgroundTracks: number[];
   mainTrackMuted: boolean;
+  playMode: PlayMode;
 }
 
 export interface SongFull extends SongSummary {
@@ -184,9 +190,6 @@ export async function recordBestScore(
   return res.json() as Promise<{ isNew: boolean; bestScore: number | null; lastScore: number }>;
 }
 
-/** Persist the user's in-game Tracks panel choices for a song:
- *  the enabled background-track set and whether the main (live) track is
- *  muted. Both fields are required — the backend stores the full state. */
 export async function saveSongTrackPreferences(
   id: number,
   prefs: TrackPreferences,

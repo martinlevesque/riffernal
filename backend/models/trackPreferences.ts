@@ -1,16 +1,24 @@
 import { findTrackPreferencesJson, upsertTrackPreferencesJson } from "../db/userSong.ts";
 import { ValidationError } from "./validation.ts";
 
-/** Per-user-per-song in-game Tracks panel preferences.
- *  `backgroundTracks` is the user's chosen enabled set (overrides the
- *  song-level default stored on the `songs` table). `mainTrackMuted` mutes
- *  the sound the web app plays on live key presses. */
+/** Per-user-per-song in-game preferences: the Tracks panel choices plus the
+ *  LEARN/PLAY mode to resume the song in. `backgroundTracks` is the user's
+ *  chosen enabled set (overrides the song-level default stored on the
+ *  `songs` table). `mainTrackMuted` mutes the sound the web app plays on
+ *  live key presses. `playMode` is the mode the song should resume in —
+ *  the one the user last played it in. */
+export enum PlayMode {
+  Play = "play",
+  Learn = "learn",
+}
+
 export interface TrackPreferences {
   backgroundTracks: number[];
   mainTrackMuted: boolean;
+  playMode: PlayMode;
 }
 
-const EMPTY_PREFS: TrackPreferences = { backgroundTracks: [], mainTrackMuted: false };
+const EMPTY_PREFS: TrackPreferences = { backgroundTracks: [], mainTrackMuted: false, playMode: PlayMode.Play };
 
 /** Validate that `backgroundTracks` is an array of numbers. Throws on
  *  invalid input. */
@@ -27,16 +35,30 @@ function validateMainTrackMuted(mainTrackMuted: unknown): asserts mainTrackMuted
   }
 }
 
+/** Validate that `playMode` is one of the PlayMode values. Throws on
+ *  invalid input. */
+function validatePlayMode(playMode: unknown): asserts playMode is PlayMode {
+  if (playMode !== PlayMode.Play && playMode !== PlayMode.Learn) {
+    throw new ValidationError("Invalid playMode");
+  }
+}
+
 /** Validate raw input as a TrackPreferences DTO. Throws on invalid input
- *  (non-array backgroundTracks, non-number entries, or non-boolean
- *  mainTrackMuted). */
+ *  (non-array backgroundTracks, non-number entries, non-boolean
+ *  mainTrackMuted, or a playMode outside the PlayMode union). */
 export function validateTrackPreferences(input: {
   backgroundTracks?: unknown;
   mainTrackMuted?: unknown;
+  playMode?: unknown;
 }): TrackPreferences {
   validateBackgroundTracks(input.backgroundTracks);
   validateMainTrackMuted(input.mainTrackMuted);
-  return { backgroundTracks: input.backgroundTracks, mainTrackMuted: input.mainTrackMuted };
+  validatePlayMode(input.playMode);
+  return {
+    backgroundTracks: input.backgroundTracks,
+    mainTrackMuted: input.mainTrackMuted,
+    playMode: input.playMode,
+  };
 }
 
 /** Read the saved track preferences for a user and song. Returns null when
@@ -49,6 +71,7 @@ export function getTrackPreferences(userId: number, songId: number): TrackPrefer
     return {
       backgroundTracks: Array.isArray(parsed.backgroundTracks) ? parsed.backgroundTracks : [],
       mainTrackMuted: parsed.mainTrackMuted === true,
+      playMode: parsed.playMode === PlayMode.Learn ? PlayMode.Learn : PlayMode.Play,
     };
   } catch {
     return null;
@@ -62,7 +85,7 @@ export function getTrackPreferences(userId: number, songId: number): TrackPrefer
 export function saveTrackPreferences(
   userId: number,
   songId: number,
-  prefs: { backgroundTracks?: unknown; mainTrackMuted?: unknown },
+  prefs: { backgroundTracks?: unknown; mainTrackMuted?: unknown; playMode?: unknown },
 ): TrackPreferences {
   const valid = validateTrackPreferences(prefs);
   upsertTrackPreferencesJson(userId, songId, JSON.stringify(valid));
