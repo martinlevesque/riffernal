@@ -81,20 +81,6 @@
   background: rgba(255, 255, 255, 0.06);
 }
 
-.home-mode-card:disabled {
-  opacity: 0.22;
-  cursor: default;
-  pointer-events: none;
-}
-
-.home-mode-card:disabled.focused {
-  border-color: var(--border-medium);
-  color: var(--text-secondary);
-  background: rgba(255, 255, 255, 0.02);
-  box-shadow: none;
-  opacity: 0.22;
-}
-
 .home-mode-hint {
   color: var(--text-secondary);
   opacity: 0.5;

@@ -356,10 +356,6 @@ kbd {
   background: var(--bg-card);
 }
 
-.home-mode-card:disabled.focused {
-  box-shadow: var(--pixel-shadow-offset) var(--pixel-shadow-offset) 0 var(--pixel-shadow-color);
-}
-
 /* ============================================
    FREEPLAY SONG LIST
    ============================================ */
