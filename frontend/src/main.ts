@@ -330,7 +330,6 @@ function setupTrailingComponents(ctx: AppContext): void {
   setupHoverCursor(game, canvas, game.renderer);
 
   const sheetView = new SheetView(game, canvas, {
-    closeSongInfoPopup: () => songInfoPopup.hide(),
     setMode: (learning) => controls.setMode(learning),
     updateLoopUI: () => controls.updateLoopUI(),
   });
