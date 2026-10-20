@@ -129,6 +129,10 @@ export class AuthScreen {
           </form>
           ${toggleHtml}
         </div>
+        <div class="auth-legal">
+          <a class="btn-link" href="/terms.html">Terms</a>
+          <a class="btn-link" href="/privacy.html">Privacy</a>
+        </div>
       </div>
     `;
 

@@ -167,6 +167,14 @@
   color: var(--accent-blue);
 }
 
+/* -- legal links (below the card) ------------------------------------------ */
+
+.auth-legal {
+  display: flex;
+  gap: 1.5rem;
+  padding-top: 0.5rem;
+}
+
 /* ============================================
    AUTH SCREEN - BRAND
    ============================================ */

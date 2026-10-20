@@ -1,5 +1,6 @@
 import { cpSync, existsSync, mkdirSync, readFileSync, rmSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
+import { STATIC_ASSETS } from "./prepare-dist.ts";
 
 const ROOT = join(import.meta.dir, "..");
 const SRC = join(ROOT, "frontend", "src");
@@ -30,7 +31,10 @@ const html = readFileSync(htmlSrc, "utf-8");
 const ts = Date.now().toString(36);
 writeFileSync(htmlDist, html.replace('src="js/main.js"', `src="js/main.js?v=${ts}"`));
 
-for (const item of ["css", "assets"]) {
+// index.html is written above with a cache-busted script tag; the rest of
+// STATIC_ASSETS is copied verbatim.
+for (const item of STATIC_ASSETS) {
+  if (item === "index.html") continue;
   cpSync(join(ROOT, "frontend", item), join(DIST, item), { recursive: true });
 }
 

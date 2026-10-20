@@ -90,6 +90,19 @@
   user-select: none;
 }
 
+/* -- legal links (bottom-center) ------------------------------------------ */
+
+.home-legal {
+  position: absolute;
+  bottom: 1rem;
+  left: 50%;
+  transform: translateX(-50%);
+  z-index: 2;
+  display: flex;
+  gap: 1.5rem;
+  pointer-events: auto;
+}
+
 /* -- daily leaderboard (bottom-right) ------------------------------------- */
 
 .home-leaderboard {
@@ -175,6 +188,18 @@
 /* -- mobile: shrink the panel so it never crowds the centered cards ------- */
 
 @media (max-width: 640px) {
+  /* Anchor the legal links bottom-left: a centered row would collide with
+     the bottom-right leaderboard, which is 168px wide at this width. */
+  .home-legal {
+    left: 0.5rem;
+    right: calc(168px + 1.5rem);
+    transform: none;
+    justify-content: flex-start;
+    flex-wrap: wrap;
+    bottom: 0.5rem;
+    gap: 1rem;
+  }
+
   .home-leaderboard {
     width: 168px;
     bottom: 0.5rem;
