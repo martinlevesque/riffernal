@@ -3,7 +3,18 @@ import type { Song } from '../../utils/MidiParser.js';
 import { formatTime, formatScore } from '../../utils/helpers.js';
 import { hasUserGestured } from '../../audio/userGesture.js';
 
-const GESTURE_EVENTS = ['pointerdown', 'pointerup', 'keydown', 'touchend'] as const;
+// Set of input events that can unblock audio, drawn to include every event
+// the gesture tracker accepts plus the ones that only complete a gesture
+// already in flight (a pointerup/touchend whose down counterpart landed
+// before the tracker was installed).
+const GESTURE_EVENTS = [
+  'pointerdown',
+  'pointerup',
+  'mousedown',
+  'keydown',
+  'touchstart',
+  'touchend',
+] as const;
 
 export class SongInfoPopup {
   private _songInfoPopup: HTMLElement;

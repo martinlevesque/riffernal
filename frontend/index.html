@@ -1,6 +1,22 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
+  <script>
+    // The app's gesture tracker installs when main.js evaluates, so input
+    // arriving while the page loads is missed by it; the browser counts
+    // those gestures when unlocking audio. Track them here, before any
+    // deferred script runs.
+    window.__userGestured = false;
+    for (const type of ["pointerdown", "mousedown", "keydown", "touchstart"]) {
+      document.addEventListener(
+        type,
+        (e) => {
+          if (e.isTrusted) window.__userGestured = true;
+        },
+        { capture: true },
+      );
+    }
+  </script>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>Riffernal</title>

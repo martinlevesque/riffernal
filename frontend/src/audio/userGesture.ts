@@ -2,11 +2,19 @@
  *  device the browser accepts for unlocking audio (mouse button, keyboard
  *  key, touch). MIDI input does not count.
  *
- *  `navigator.userActivation` exposes the same sticky state, but it is
- *  missing in some browsers and untrue in automation runtimes, so the app
- *  tracks it from the same trusted events that actually unblock audio.
+ *  These listeners install when the app boots; index.html installs a twin
+ *  writer that sets the same flag before any deferred script runs, so
+ *  gestures landing during page load still count. `navigator.userActivation`
+ *  would skip all of that, but it is missing in some browsers and untrue in
+ *  automation runtimes.
  *  Synthetic events (`isTrusted === false`, e.g. scripted clicks) are
  *  ignored to mirror real browser activation semantics. */
+
+declare global {
+  interface Window {
+    __userGestured?: boolean;
+  }
+}
 
 const GESTURE_EVENTS = ['pointerdown', 'mousedown', 'keydown', 'touchstart'] as const;
 
@@ -20,6 +28,7 @@ export function installUserGestureTracking(): void {
   const mark = (e: Event) => {
     if (!e.isTrusted) return;
     gestured = true;
+    window.__userGestured = true;
   };
 
   for (const type of GESTURE_EVENTS) {
@@ -28,5 +37,5 @@ export function installUserGestureTracking(): void {
 }
 
 export function hasUserGestured(): boolean {
-  return gestured;
+  return gestured || window.__userGestured === true;
 }
