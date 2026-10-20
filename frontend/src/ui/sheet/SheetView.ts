@@ -23,7 +23,6 @@ const SHEET_STAFF_LINE_SPACING = 10;
 export const BASE_SHEET_HEIGHT = 5 + 4 * SHEET_STAFF_LINE_SPACING + 8 + 4 * SHEET_STAFF_LINE_SPACING + 5;
 
 export interface SheetViewDeps {
-  closeSongInfoPopup: () => void;
   setMode: (learning: boolean) => void;
   updateLoopUI: () => void;
 }
@@ -154,16 +153,6 @@ export class SheetView {
     window.addEventListener('pointerup', () => { resizing = false; });
 
     this._canvas.addEventListener('click', (e) => this._handleCanvasClick(e, this._canvas, this._game.renderer));
-
-    document.addEventListener('keydown', (e) => {
-      if (this._game.state !== GameState.Playing) return;
-
-      if (e.code === 'KeyR') {
-        this._deps.closeSongInfoPopup();
-        this.closeSheetView();
-        this._game.retry();
-      }
-    });
 
     document.addEventListener('keydown', (e) => {
       if (!this._sheetOpen) return;
