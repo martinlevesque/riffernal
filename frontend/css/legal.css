@@ -1,0 +1,101 @@
+/* ============================================
+   LEGAL PAGES (terms.html / privacy.html)
+
+   Standalone static pages: they load only what
+   they need (fonts + tokens) and un-pin the
+   SPA shell's fixed, non-scrolling body.
+   Not imported by style.css — the app never
+   loads this file.
+   ============================================ */
+
+@import 'fonts.css';
+@import 'base.css';
+
+body {
+  overflow-y: auto;
+  overflow-x: hidden;
+  width: auto;
+  height: auto;
+  min-height: 100vh;
+}
+
+.legal-card {
+  max-width: 40rem;
+  margin: clamp(1.5rem, 5vh, 3.5rem) auto 4rem;
+  padding: clamp(1.5rem, 4vw, 2.5rem);
+  background: var(--bg-surface);
+  border: 1px solid var(--border-medium);
+}
+
+.legal-title {
+  font-size: var(--fs-xxlarge);
+  letter-spacing: 0.3em;
+  color: var(--text-primary);
+  margin-bottom: 1.5rem;
+}
+
+.legal-lead {
+  font-family: var(--font-mono);
+  font-size: var(--fs-large);
+  line-height: 1.3;
+  color: var(--text-primary);
+}
+
+.legal-heading {
+  font-size: var(--fs-small);
+  letter-spacing: 0.15em;
+  color: var(--text-primary);
+  margin: 1.75rem 0 0.6rem;
+}
+
+.legal-text {
+  font-family: var(--font-mono);
+  font-size: var(--fs-medium);
+  line-height: 1.35;
+  color: var(--text-secondary);
+}
+
+.legal-list {
+  list-style: none;
+  display: flex;
+  flex-direction: column;
+  gap: 0.3rem;
+}
+
+.legal-list li {
+  font-family: var(--font-mono);
+  font-size: var(--fs-medium);
+  line-height: 1.3;
+  color: var(--text-secondary);
+  padding-left: 1rem;
+  position: relative;
+}
+
+.legal-list li::before {
+  content: '+';
+  position: absolute;
+  left: 0;
+  color: var(--accent-red);
+}
+
+.legal-back {
+  display: inline-block;
+  margin-top: 2.25rem;
+  font-family: var(--font-ui);
+  font-size: var(--fs-smaller);
+  letter-spacing: 0.1em;
+  color: var(--text-secondary);
+  text-decoration: none;
+  border-bottom: 1px solid transparent;
+  transition: all 0.15s;
+}
+
+.legal-back:hover {
+  color: var(--text-primary);
+  border-bottom-color: var(--accent-red);
+}
+
+a:focus-visible {
+  outline: 1px solid var(--accent-red);
+  outline-offset: 3px;
+}
