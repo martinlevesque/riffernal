@@ -160,4 +160,42 @@ test.describe('Song start audio unlock prompt', () => {
     await expect(page.locator('#song-info-popup')).not.toHaveClass(/hidden/);
     await expect(page.locator('#song-info-sound-hint')).toBeHidden();
   });
+
+  test('does not show the prompt when a trusted click happened while the app was still booting', async ({
+    page,
+  }) => {
+    await emulateLockedAudio(page);
+
+    // main.js installs the gesture tracker when it evaluates. Stalling it
+    // makes the trusted click below land after page load but before the
+    // tracker exists: the browser counts it (sticky activation), the app's
+    // own tracking misses it. Mirrors clicking during a slow page load.
+    await page.route('**/js/main.js', async (route) => {
+      await new Promise((r) => setTimeout(r, 1500));
+      await route.continue();
+    });
+
+    await page.goto('/', { waitUntil: 'commit' });
+
+    // #home-screen is static HTML parsed ahead of the stalled module, so
+    // its attach proves the head's inline gesture-tracking script is live.
+    await page.locator('#home-screen').waitFor({ state: 'attached' });
+    await page.mouse.click(512, 300);
+
+    await page.locator('#home-screen').waitFor();
+    await page.evaluate(() => (document.querySelector('[data-mode="freeplay"]') as HTMLElement).click());
+    await page.locator('.song-item').first().waitFor();
+    await page.evaluate(() => {
+      const el = document.querySelector('.song-item') as HTMLElement;
+      el.dispatchEvent(new MouseEvent('dblclick', { bubbles: true }));
+    });
+    await page.locator('#play-screen').waitFor({ state: 'attached' });
+
+    await expect(page.locator('#song-info-popup')).not.toHaveClass(/hidden/);
+    await expect(page.locator('#song-info-sound-hint')).toBeHidden();
+
+    // no hold engaged, so the normal 4s auto-hide still runs
+    await page.waitForTimeout(3800);
+    await expect(page.locator('#song-info-popup')).toHaveClass(/hidden/);
+  });
 });
