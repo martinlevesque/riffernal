@@ -1,5 +1,5 @@
 import { test, expect } from '@playwright/test';
-import { expectHomeScreenActive } from '../helpers/index.js';
+import { expectAuthScreenActive, expectHomeScreenActive } from '../helpers/index.js';
 
 test.describe('Legal pages', () => {
   test('home screen shows footer links to both pages', async ({ page }) => {
@@ -34,6 +34,19 @@ test.describe('Legal pages', () => {
 
     await page.locator('.legal-back').click();
     await expectHomeScreenActive(page);
+  });
+
+  test('auth screen shows footer links to both pages', async ({ page }) => {
+    await page.goto('/');
+    await page.evaluate(() => localStorage.clear());
+    await page.reload();
+
+    await expectAuthScreenActive(page);
+
+    const terms = page.locator('.auth-legal a[href="/terms.html"]');
+    const privacy = page.locator('.auth-legal a[href="/privacy.html"]');
+    await expect(terms).toBeVisible();
+    await expect(privacy).toBeVisible();
   });
 
   test('both pages are viewable without logging in', async ({ page }) => {
