@@ -1,4 +1,5 @@
-import { getUserRow, setGameSettingsJson, type UserRow } from "../db/user.ts";
+import { getUserRow, setGameSettingsJson, isAdminUser, deleteUserCascade, type UserRow } from "../db/user.ts";
+import { ForbiddenError } from "./validation.ts";
 
 export interface CurrentUser {
   id: number;
@@ -43,4 +44,17 @@ export function updateGameSettings(userId: number, patch: Partial<GameSettings>)
   const merged = { ...current, ...patch };
   setGameSettingsJson(userId, JSON.stringify(merged));
   return merged;
+}
+
+/** Destroy the user's account and every entity that references it: their
+ *  songs (with other users' bookmarks of and loops copied from those songs,
+ *  same as the per-song delete), stats, loops, scores and sessions. The
+ *  setup admin is the bootstrap account and cannot self-delete. */
+export function deleteUserAccount(userId: number): { ok: boolean } {
+  if (isAdminUser(userId)) {
+    throw new ForbiddenError("The setup admin account cannot be deleted");
+  }
+
+  deleteUserCascade(userId);
+  return { ok: true };
 }

@@ -32,7 +32,8 @@ import {
 import { fetchLoops } from './api/LoopApi.js';
 import { themeManager } from './themes/ThemeManager.js';
 import { AuthScreen } from './ui/auth/AuthScreen.js';
-import { getStoredUser, logout } from './api/AuthApi.js';
+import { getStoredUser, logout, clearAuth } from './api/AuthApi.js';
+import { deleteAccount } from './api/UserApi.js';
 
 export type AppMode = 'home' | 'freeplay' | 'settings';
 let currentMode: AppMode = 'home';
@@ -58,6 +59,23 @@ async function handleLogout(): Promise<void> {
     },
   });
   authScreen.show();
+}
+
+/** Delete the logged-in account after a confirmation. The server session
+ *  dies with the account, so local auth is cleared and the page reloaded —
+ *  booting onto the auth screen also drops the in-memory Menu that holds
+ *  this user's scores/loops. */
+async function handleDeleteAccount(): Promise<void> {
+  if (!confirm('Delete your account? This permanently destroys your account, your songs and all your progress — including other users\' bookmarks and loops copied from your songs. This cannot be undone.')) return;
+
+  try {
+    await deleteAccount();
+    clearAuth();
+    window.location.reload();
+  } catch (err) {
+    console.error('Failed to delete account:', err);
+    alert(err instanceof Error && err.message ? `Failed to delete account: ${err.message}` : 'Failed to delete account.');
+  }
 }
 
 async function init(): Promise<void> {
@@ -360,6 +378,7 @@ async function initApp(): Promise<void> {
   _homeScreen = new HomeScreen({
     onNavigate: (mode: AppMode) => { currentMode = mode; },
     onLogout: handleLogout,
+    onDeleteAccount: handleDeleteAccount,
   });
   _homeScreen.show();
 

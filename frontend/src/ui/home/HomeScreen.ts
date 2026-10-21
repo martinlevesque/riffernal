@@ -41,6 +41,7 @@ const SPARK_CORE_COLOR = '#ffffff';
 export interface HomeScreenOptions {
   onNavigate?: (mode: AppMode) => void;
   onLogout?: () => void;
+  onDeleteAccount?: () => void;
 }
 
 export class HomeScreen {
@@ -371,6 +372,11 @@ export class HomeScreen {
     const btnClose = document.getElementById('btn-close-settings');
     if (btnClose) {
       btnClose.addEventListener('click', () => close());
+    }
+
+    const btnDeleteAccount = document.getElementById('btn-delete-account');
+    if (btnDeleteAccount) {
+      btnDeleteAccount.addEventListener('click', () => this._opts.onDeleteAccount?.());
     }
 
     settingsPopup.addEventListener('click', (e) => {
