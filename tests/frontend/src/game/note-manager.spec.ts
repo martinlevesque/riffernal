@@ -1,6 +1,6 @@
 import { test, expect } from 'bun:test';
 import { NoteGrade } from '../../../../frontend/src/game/scoring.ts';
-import { NoteManager } from '../../../../frontend/src/game/NoteManager.ts';
+import { NoteManager, backgroundBudgetScale, BG_DENSITY_WINDOW } from '../../../../frontend/src/game/NoteManager.ts';
 import { NOTE_TO_LANE, PracticeHand } from '../../../../frontend/src/utils/notes.ts';
 import { makeSong } from '../../../helpers/song.js';
 
@@ -357,4 +357,84 @@ test('findLoopBoundaryNotes counts resolved notes on extend', () => {
   nm.notes[1].resolved = true;
   const notes = nm.findLoopBoundaryNotes(1.0, 4.0, null);
   expect(notes.map((n) => n.key)).toEqual(['E3']);
+});
+
+// -- background density & budget ---------------------------------------------
+
+const loadWithTracks = (
+  nm: NoteManager,
+  notes: Array<{ time: number; key: string; duration: number; track?: number }>,
+): void => {
+  nm.loadSong({
+    ...makeSong(notes as any),
+    backgroundTracks: [1],
+    selectedTrackIndices: [0],
+    tracks: [
+      { index: 0, name: 'Player', noteCount: 2 },
+      { index: 1, name: 'Accompaniment', noteCount: 4 },
+    ],
+  } as any);
+};
+
+test('backgroundNps counts only auto-played notes in the window', () => {
+  const nm = new NoteManager();
+  loadWithTracks(nm, [
+    { time: 10.0, key: 'C3', duration: 0.25 },
+    { time: 10.4, key: 'C3', duration: 0.25 },
+    { time: 10.8, key: 'C3', duration: 0.25, track: 1 },
+    { time: 11.2, key: 'C3', duration: 0.25, track: 1 },
+    { time: 11.6, key: 'C3', duration: 0.25, track: 1 },
+    { time: 13.0, key: 'C3', duration: 0.25, track: 1 },
+    { time: 20.0, key: 'C3', duration: 0.25 },
+  ]);
+
+  // Window [10, 12]: 3 background notes across the default 2s horizon.
+  expect(BG_DENSITY_WINDOW).toBe(2);
+  expect(nm.backgroundNps(10.0)).toBe(1.5);
+  expect(nm.backgroundNps(12.0)).toBe(0.5);
+  expect(nm.backgroundNps(14.0)).toBe(0);
+});
+
+test('backgroundNps honours a custom window', () => {
+  const nm = new NoteManager();
+  loadWithTracks(nm, [
+    { time: 10.0, key: 'C3', duration: 0.25 },
+    { time: 10.4, key: 'C3', duration: 0.25, track: 1 },
+    { time: 10.8, key: 'C3', duration: 0.25, track: 1 },
+  ]);
+
+  expect(nm.backgroundNps(10.0, 1)).toBe(2);
+  expect(nm.backgroundNps(10.0, 0.5)).toBe(2); // only 10.4 is inside [10, 10.5]
+});
+
+test('a non-practiced hand counts as background density in learn mode', () => {
+  const nm = new NoteManager();
+  nm.loadSong({
+    ...makeSong([
+      { time: 10.0, key: 'C3', duration: 0.25 },
+      { time: 10.5, key: 'C3', duration: 0.25 },
+    ] as any),
+    trackHands: { 0: 'left' },
+  } as any);
+
+  nm.learningMode = true;
+  nm.practiceHand = PracticeHand.Both;
+
+  expect(nm.backgroundNps(10.0)).toBe(0);
+
+  nm.practiceHand = PracticeHand.Right;
+
+  // Only the right hand is practiced: the left-hand notes auto-play.
+  expect(nm.backgroundNps(10.0)).toBe(1);
+});
+
+test('backgroundBudgetScale keeps the full budget up to the density threshold', () => {
+  expect(backgroundBudgetScale(0)).toBe(1);
+  expect(backgroundBudgetScale(12)).toBe(1);
+});
+
+test('backgroundBudgetScale scales past the threshold down to a floor', () => {
+  expect(backgroundBudgetScale(24)).toBeCloseTo(0.5, 9);
+  expect(backgroundBudgetScale(48)).toBeCloseTo(1 / 3, 9);
+  expect(backgroundBudgetScale(100)).toBeCloseTo(1 / 3, 9);
 });

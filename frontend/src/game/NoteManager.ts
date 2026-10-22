@@ -32,6 +32,22 @@ export const HIT_ZONE_Y_RATIO = 0.82;
  *  considered, accounting for stem/flag overshoot and rounding. */
 const CLICK_TIME_WINDOW_RATIO = 1.5;
 
+/** Horizon (seconds ahead used to measure upcoming background density). */
+export const BG_DENSITY_WINDOW = 2;
+
+/** Upcoming auto-played notes per second past which the synth's background
+ *  voice budget is scaled down (see backgroundBudgetScale). */
+export const BG_DENSITY_NPS = 12;
+
+/** Fraction of the base background voice budget affordable at `nps`
+ *  auto-played notes per second: full budget up to the density threshold,
+ *  then scaled toward a floor that still holds one busy instrument layer
+ *  (the live fallback path keeps voices after 3/3's pre-rendered engine). */
+export function backgroundBudgetScale(nps: number): number {
+  if (nps <= BG_DENSITY_NPS) return 1;
+  return Math.max(1 / 3, BG_DENSITY_NPS / nps);
+}
+
 export interface LearningHitOutcome {
   results: HitResult[];
   wrong: boolean;
@@ -186,7 +202,7 @@ export class NoteManager {
     }
   }
 
-  private _isAutoPlayNote(note: SongNote): boolean {
+  isAutoPlayNote(note: SongNote): boolean {
     if (!note.selected) return this.backgroundTracks.has(note.track);
     if (!this.learningMode || this.practiceHand === PracticeHand.Both)
       return false;
@@ -198,7 +214,7 @@ export class NoteManager {
   /** True for notes the player must play: selected (not a background
    *  track) and not auto-played for the current practice hand. */
   private _isPlayerNote(note: SongNote): boolean {
-    return note.selected && !this._isAutoPlayNote(note);
+    return note.selected && !this.isAutoPlayNote(note);
   }
 
   /** Mark a note as resolved and keep the selected-resolved counter in sync.
@@ -222,6 +238,28 @@ export class NoteManager {
     } else {
       this.backgroundTracks.delete(trackIndex);
     }
+  }
+
+  /** Background (auto-played) notes per second expected within `window`
+   *  seconds of `currentTime`, from the time-sorted note list. Drives the
+   *  density-aware background voice budget in Synth. */
+  backgroundNps(currentTime: number, window: number = BG_DENSITY_WINDOW): number {
+    let lo = 0;
+    let hi = this.notes.length;
+
+    while (lo < hi) {
+      const mid = (lo + hi) >> 1;
+
+      if (this.notes[mid].time < currentTime) lo = mid + 1;
+      else hi = mid;
+    }
+
+    let count = 0;
+    for (let i = lo; i < this.notes.length && this.notes[i].time <= currentTime + window; i++) {
+      if (this.isAutoPlayNote(this.notes[i])) count++;
+    }
+
+    return count / window;
   }
 
   /** Reset gameplay state for all notes at or after `time` so a seek/loop
@@ -356,7 +394,7 @@ export class NoteManager {
    *  themselves on schedule. Returns true when the note was handled and the
    *  scan should move on. */
   private _resolveAutoPlayNote(note: SongNote, timeDiff: number): boolean {
-    if (!this._isAutoPlayNote(note) || note.autoPlayed || timeDiff > 0)
+    if (!this.isAutoPlayNote(note) || note.autoPlayed || timeDiff > 0)
       return false;
 
     note.autoPlayed = true;
@@ -565,7 +603,7 @@ export class NoteManager {
           !n.holding &&
           !n.failing &&
           !n.resolved &&
-          !this._isAutoPlayNote(n) &&
+          !this.isAutoPlayNote(n) &&
           Math.abs(n.time - currentTime) <= TIMING.GOOD + EARLY_HIT_WINDOW,
       );
       if (hasFreshNote) continue;
@@ -610,7 +648,7 @@ export class NoteManager {
       if (note.hit || note.missed || note.holding || note.failing) continue;
       if (!this._noteMatchesLane(note, lane, octaveAgnostic, targetPitchClass))
         continue;
-      if (this._isAutoPlayNote(note)) continue;
+      if (this.isAutoPlayNote(note)) continue;
       const diff = Math.abs(note.time - currentTime);
       const isEarly = currentTime < note.time;
       const maxWindow = isEarly ? TIMING.GOOD + EARLY_HIT_WINDOW : TIMING.GOOD;
@@ -706,7 +744,7 @@ export class NoteManager {
       (n) =>
         this._noteMatchesLane(n, lane, octaveAgnostic, targetPitchClass) &&
         !n.resolved &&
-        this._isAutoPlayNote(n),
+        this.isAutoPlayNote(n),
     );
   }
 
@@ -735,7 +773,7 @@ export class NoteManager {
         !n.holding &&
         !n.failing &&
         !n.resolved &&
-        !this._isAutoPlayNote(n) &&
+        !this.isAutoPlayNote(n) &&
         Math.abs(n.time - currentTime) <= TIMING.GOOD,
     );
   }

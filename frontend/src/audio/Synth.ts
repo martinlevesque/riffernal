@@ -23,7 +23,8 @@ export class Synth {
   // Bounded polyphony prevents runaway node counts when the audio thread
   // can't keep up. Background (auto-played) voices are evicted first.
   private _maxVoices = isLowEndDevice() ? 20 : 32;
-  private _maxBackgroundVoices = isLowEndDevice() ? 12 : 24;
+  private _baseBackgroundBudget = isLowEndDevice() ? 12 : 24;
+  private _maxBackgroundVoices = this._baseBackgroundBudget;
 
   init(): void {
     if (this._initialized) return;
@@ -125,6 +126,19 @@ export class Synth {
     patchNote.output.connect(this._masterGain!);
     this._activeNotes.set(key, { note: patchNote, backgroundPrio: prio });
     if (prio === PRIO_BACKGROUND) this._bgCount++;
+  }
+
+  /** Cap the background voice budget for dense passages: `scale` is a
+   *  fraction of the base budget (1 restores it). The voices a smaller
+   *  budget no longer carries are released immediately, oldest first. */
+  scaleBackgroundBudget(scale: number): void {
+    const budget = Math.min(this._baseBackgroundBudget, Math.ceil(this._baseBackgroundBudget * scale));
+    if (budget === this._maxBackgroundVoices) return;
+
+    this._maxBackgroundVoices = budget;
+    while (this._bgCount > budget) {
+      if (!this._stealOldestBackground()) break;
+    }
   }
 
   /** Release and remove the oldest background voice. Returns true on success. */

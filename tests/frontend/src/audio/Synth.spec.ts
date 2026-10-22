@@ -116,6 +116,56 @@ describe('Synth — self-scheduled voices (duration known)', () => {
   });
 });
 
+describe('Synth — density-driven background budget', () => {
+  const seedBackground = (n: number, first = 0): void => {
+    for (let i = first; i < first + n; i++) {
+      synth.noteOn('C4', metalPatch, `auto_${i}_c4`, 60, 100);
+    }
+  };
+
+  test('scale 1 leaves the base budget untouched', () => {
+    synth.scaleBackgroundBudget(1);
+
+    expect((synth as unknown as { _maxBackgroundVoices: number })._maxBackgroundVoices).toBe(24);
+  });
+
+  test('shrinking sheds the oldest background voices immediately', () => {
+    seedBackground(24);
+
+    synth.scaleBackgroundBudget(0.5);
+
+    expect(notes(synth).size).toBe(12);
+    expect(bgCount(synth)).toBe(12);
+    expect(notes(synth).has('auto_0_c4')).toBe(false);
+    expect(notes(synth).has('auto_11_c4')).toBe(false);
+    expect(notes(synth).has('auto_12_c4')).toBe(true);
+    expect(notes(synth).has('auto_23_c4')).toBe(true);
+  });
+
+  test('the capped budget rolls off the oldest voices as new ones arrive', () => {
+    seedBackground(24);
+    synth.scaleBackgroundBudget(0.5);
+
+    synth.noteOn('C4', metalPatch, 'auto_new_c4', 60, 100);
+
+    expect(notes(synth).size).toBe(12);
+    expect(notes(synth).has('auto_new_c4')).toBe(true);
+    expect(notes(synth).has('auto_12_c4')).toBe(false);
+    expect(notes(synth).has('auto_13_c4')).toBe(true);
+  });
+
+  test('restoring the scale reopens the base budget', () => {
+    seedBackground(24);
+    synth.scaleBackgroundBudget(0.5);
+    synth.scaleBackgroundBudget(1);
+
+    seedBackground(18, 100);
+
+    expect(notes(synth).size).toBe(24);
+    expect(bgCount(synth)).toBe(24);
+  });
+});
+
 describe('Synth — same-key re-press behaviour', () => {
   test('re-pressing an auto voice releases the previous build, loop-safe', () => {
     synth.noteOn('C4', metalPatch, 'auto_t10_c4', 60, 0.15);

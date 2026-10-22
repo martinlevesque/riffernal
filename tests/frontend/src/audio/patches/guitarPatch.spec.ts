@@ -16,9 +16,10 @@ function snap(events: FakeParamEvent[]): FakeParamEvent[] {
 // cleanly against the recorded events.
 const n = (v: number): number => Math.round(v * 1e9) / 1e9;
 
-function build(freq: number, startTime: number, duration?: number) {
+function build(freq: number, startTime: number, duration?: number, cheap = false) {
   const ctx = new FakeContext();
-  const note = guitarDistortionPatch.build(ctx as unknown as AudioContext, freq, startTime, 30, duration);
+  const patch = cheap ? guitarDistortionPatch.cheap! : guitarDistortionPatch;
+  const note = patch.build(ctx as unknown as AudioContext, freq, startTime, 30, duration);
   const oscs = ctx.ofKind('oscillator');
   const param = ctx.enveloped('gain').gain as FakeAudioParam;
   const shaper = ctx.ofKind('waveshaper').at(0)!;
@@ -31,6 +32,21 @@ describe('guitarPatch — node shape (distortion variant)', () => {
 
     expect(shaper.curve).toBe(getDistortionCurve(12));
     expect(shaper.oversample).toBe('2x');
+  });
+
+  test('the background variant keeps the curve, sheds the oversample', () => {
+    const { shaper } = build(440, 0, undefined, true);
+
+    expect(shaper.curve).toBe(getDistortionCurve(12));
+    expect(shaper.oversample).toBe('none');
+  });
+
+  test('the background variant still schedules the self-release', () => {
+    const { note, oscs } = build(440, 5, 0.03, true);
+
+    expect(note.endTime).toBeCloseTo(5.38, 9);
+    const end = note.endTime as number;
+    for (const osc of oscs) expect(osc.stops).toEqual([end]);
   });
 });
 

@@ -14,7 +14,14 @@ const ENVELOPE: EnvelopePoint[] = [
   { at: 0.4, to: 0.35, type: 'exp' },
 ];
 
-function buildGuitar(ctx: AudioContext, freq: number, startTime: number, distortion: number, duration?: number): PatchNote {
+function buildGuitar(
+  ctx: AudioContext,
+  freq: number,
+  startTime: number,
+  distortion: number,
+  duration?: number,
+  cheap = false,
+): PatchNote {
   const osc1 = ctx.createOscillator();
   const osc2 = ctx.createOscillator();
   const gainNode = ctx.createGain();
@@ -35,7 +42,9 @@ function buildGuitar(ctx: AudioContext, freq: number, startTime: number, distort
   gain2.gain.value = 0.45;
 
   distortionNode.curve = getDistortionCurve(distortion);
-  distortionNode.oversample = isLowEndDevice() ? 'none' : '2x';
+  // '2x' is the most expensive node on the audio render thread; background
+  // voices never earn it (live presses keep full quality).
+  distortionNode.oversample = cheap || isLowEndDevice() ? 'none' : '2x';
 
   // Filter: start bright, settle to mid-range (aligned with metalPatch character)
   const filterStart = Math.min(5000, 3000 + distortion * 200);
@@ -78,11 +87,21 @@ function buildGuitar(ctx: AudioContext, freq: number, startTime: number, distort
   return patchNote;
 }
 
+function cheapVariant(name: string, distortion: number): Patch {
+  return {
+    name,
+    build(ctx, freq, startTime, _midi, duration) {
+      return buildGuitar(ctx, freq, startTime, distortion, duration, true);
+    },
+  };
+}
+
 export const guitarCleanPatch: Patch = {
   name: 'Guitar Clean',
   build(ctx, freq, startTime, _midi, duration) {
     return buildGuitar(ctx, freq, startTime, 0.5, duration);
   },
+  cheap: cheapVariant('Guitar Clean', 0.5),
 };
 
 export const guitarOverdrivenPatch: Patch = {
@@ -90,6 +109,7 @@ export const guitarOverdrivenPatch: Patch = {
   build(ctx, freq, startTime, _midi, duration) {
     return buildGuitar(ctx, freq, startTime, 4, duration);
   },
+  cheap: cheapVariant('Guitar Overdriven', 4),
 };
 
 export const guitarDistortionPatch: Patch = {
@@ -97,4 +117,5 @@ export const guitarDistortionPatch: Patch = {
   build(ctx, freq, startTime, _midi, duration) {
     return buildGuitar(ctx, freq, startTime, 12, duration);
   },
+  cheap: cheapVariant('Guitar Distortion', 12),
 };

@@ -5,7 +5,7 @@
 import { Renderer } from './rendering/Renderer.js';
 import { LoopDefinitionState } from './Loop.js';
 export { LoopDefinitionState };
-import { NoteManager, SCROLL_SPEED, HIT_ZONE_Y_RATIO } from './NoteManager.js';
+import { NoteManager, SCROLL_SPEED, HIT_ZONE_Y_RATIO, backgroundBudgetScale } from './NoteManager.js';
 import type { HitResult, ResolveResult, SongNote } from './NoteManager.js';
 import { NoteGrade, gradeLabel, TIMING_OFFSET_DISPLAY_THRESHOLD_MS, TAP_NOTE_THRESHOLD, SUCCESS_PARTICLE_HOLD_RATIO, comboBoost } from './scoring.js';
 import type { Scoring } from './scoring.js';
@@ -406,6 +406,9 @@ export class Game {
   private _renderPlayingFrame(): void {
     const loopEndCutoff = this.loop.active ? this.loop.end : null;
     this.noteManager.update(this.currentTime, this.renderer.height, loopEndCutoff);
+    // Dense upcoming background content temporarily sheds background voices
+    // so the audio thread trades texture for clean playback.
+    this._synth.scaleBackgroundBudget(backgroundBudgetScale(this.noteManager.backgroundNps(this.currentTime)));
 
     this.renderer.drawSheetMusic(
       this.noteManager.trebleNotes,
@@ -455,6 +458,7 @@ export class Game {
     this._currentSong = song;
     this._updateSongTitleDisplay();
     this.noteManager.loadSong(song);
+    this._synth.scaleBackgroundBudget(1);
     this.songBpm = song.bpm;
     this._refGameTime = -COUNTDOWN_SECONDS;
     this._refRealTime = performance.now() / 1000;
@@ -590,7 +594,7 @@ export class Game {
     const activeNote = this.noteManager.findActiveNoteForLane(this.currentTime, lane);
     if (!this.mainTrackMuted) {
       const patch = activeNote
-        ? this._patchForNote(activeNote.program, activeNote.channel)
+        ? this._patchForNote(activeNote.program, activeNote.channel, false)
         : this._synth.getPatch();
       this._synth.noteOn(noteName, patch, undefined, activeNote?.rawMidi);
     }
@@ -755,19 +759,32 @@ export class Game {
     this.noteManager.scoring.enabled = !this.loop.active || !this.learningMode;
   }
 
-  private _patchForNote(program: number, channel: number): Patch {
-    if (channel === GM_DRUM_CHANNEL) return drumPatch;
-    // GM Guitar programs: 25-31 (Steel, Jazz, Clean, Muted, Overdriven, Distortion, Harmonics)
-    if (program >= 25 && program <= 28) return guitarCleanPatch;
-    if (program === 29) return guitarOverdrivenPatch;
-    if (program === 30) return guitarDistortionPatch;
-    if (program === 31) return guitarCleanPatch;
-    // GM Bass programs: 32-39 (Acoustic Bass through Synth Bass 2)
-    if (program >= 32 && program <= 39) return bassPatch;
-    // GM bowed strings: 40-44 (Violin, Viola, Cello, Contrabass, Tremolo Strings)
-    // GM string ensembles: 48-51 (String Ensemble, Synth Strings)
-    if ((program >= 40 && program <= 44) || (program >= 48 && program <= 51)) return violinPatch;
-    return this._synth.getPatch();
+  private _patchForNote(program: number, channel: number, background: boolean): Patch {
+    let patch: Patch;
+
+    if (channel === GM_DRUM_CHANNEL) {
+      patch = drumPatch;
+    } else if (program === 29) {
+      patch = guitarOverdrivenPatch;
+    } else if (program === 30) {
+      patch = guitarDistortionPatch;
+    } else if (program >= 25 && program <= 31) {
+      // GM Guitar programs 25-28/31: Steel, Jazz, Clean, Muted, Harmonics
+      patch = guitarCleanPatch;
+    } else if (program >= 32 && program <= 39) {
+      // GM Bass programs: 32-39 (Acoustic Bass through Synth Bass 2)
+      patch = bassPatch;
+    } else if ((program >= 40 && program <= 44) || (program >= 48 && program <= 51)) {
+      // GM bowed strings: 40-44 (Violin, Viola, Cello, Contrabass, Tremolo Strings)
+      // GM string ensembles: 48-51 (String Ensemble, Synth Strings)
+      patch = violinPatch;
+    } else {
+      patch = this._synth.getPatch();
+    }
+
+    if (background && patch.cheap) patch = patch.cheap;
+
+    return patch;
   }
 
   private _playNoteOnce(note: SongNote): void {
@@ -780,7 +797,7 @@ export class Game {
     // voice ends itself with zero main-thread work.
     const realDuration = note.duration / this.speedMultiplier;
     const id = `auto_${note.track}_${note.time}_${note.key}`;
-    const patch = this._patchForNote(note.program, note.channel);
+    const patch = this._patchForNote(note.program, note.channel, this.noteManager.isAutoPlayNote(note));
     this._synth.noteOn(note.key, patch, id, note.rawMidi, realDuration);
   }
 
