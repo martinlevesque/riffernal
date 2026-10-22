@@ -48,12 +48,14 @@ const initialSchema: Migration = {
         imported INTEGER NOT NULL DEFAULT 1,
         imported_by_user_id INTEGER REFERENCES users(id),
         public_community INTEGER NOT NULL DEFAULT 0,
+        guest_showcase INTEGER NOT NULL DEFAULT 0,
         created_at TEXT NOT NULL DEFAULT (datetime('now'))
       );
     `);
 
     addColumnIfMissing(db, "songs", "imported_by_user_id", "INTEGER REFERENCES users(id)");
     addColumnIfMissing(db, "songs", "public_community", "INTEGER NOT NULL DEFAULT 0");
+    addColumnIfMissing(db, "songs", "guest_showcase", "INTEGER NOT NULL DEFAULT 0");
 
     db.exec(`
       CREATE TABLE IF NOT EXISTS sessions (
@@ -110,6 +112,7 @@ const initialSchema: Migration = {
     db.exec("CREATE INDEX IF NOT EXISTS idx_songs_created_at ON songs(created_at)");
     db.exec("CREATE INDEX IF NOT EXISTS idx_songs_imported_by_user ON songs(imported_by_user_id, created_at)");
     db.exec("CREATE INDEX IF NOT EXISTS idx_songs_public_community_created_at ON songs(public_community, created_at)");
+    db.exec("CREATE INDEX IF NOT EXISTS idx_songs_guest_showcase ON songs(guest_showcase)");
     db.exec("CREATE INDEX IF NOT EXISTS idx_sessions_user_id ON sessions(user_id)");
     db.exec("CREATE INDEX IF NOT EXISTS idx_user_song_loops ON user_song_loops(user_id, song_id)");
     db.exec("CREATE INDEX IF NOT EXISTS idx_user_songs_song_id ON user_songs(song_id)");
@@ -131,7 +134,16 @@ const loopNameMigration: Migration = {
   },
 };
 
-export const MIGRATIONS: Migration[] = [initialSchema, loopNameMigration];
+const guestShowcaseMigration: Migration = {
+  id: 3,
+  description: "upgrade: songs.guest_showcase column for databases created before it joined the initial schema",
+  up: (db) => {
+    addColumnIfMissing(db, "songs", "guest_showcase", "INTEGER NOT NULL DEFAULT 0");
+    db.exec("CREATE INDEX IF NOT EXISTS idx_songs_guest_showcase ON songs(guest_showcase)");
+  },
+};
+
+export const MIGRATIONS: Migration[] = [initialSchema, loopNameMigration, guestShowcaseMigration];
 
 export function runMigrations(db: Database): void {
   db.exec(`

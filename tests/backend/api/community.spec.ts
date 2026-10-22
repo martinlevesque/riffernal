@@ -206,6 +206,38 @@ test.describe("API: community songs", () => {
     await cleanupSongs(request, /^E2E-Comm-Page/);
   });
 
+  test("GET /api/community/songs allows guests without auth", async ({ request }) => {
+    await cleanupSongs(request, /^E2E-Comm-Guest/);
+
+    const song = await uploadSong(request, "E2E-Comm-Guest-A");
+    await publishSong(request, song.id);
+
+    // No Authorization header at all — anonymous browse.
+    const res = await request.get("/api/community/songs");
+    expect(res.ok()).toBeTruthy();
+    const body = await res.json();
+    const found = body.songs.find((s: { title: string }) => s.title === "E2E-Comm-Guest-A");
+    expect(found).toBeTruthy();
+    expect(found.publicCommunity).toBe(true);
+    // Guests have no scores or bookmarks: stats come back empty.
+    expect(found.bestScore).toBeNull();
+    expect(found.communityBookmarked).toBe(false);
+
+    await cleanupSongs(request, /^E2E-Comm-Guest/);
+  });
+
+  test("GET /api/community/songs/:id still requires auth (guest play gate)", async ({ request }) => {
+    await cleanupSongs(request, /^E2E-Comm-Gate/);
+
+    const song = await uploadSong(request, "E2E-Comm-Gate-A");
+    await publishSong(request, song.id);
+
+    const res = await request.get(`/api/community/songs/${song.id}`);
+    expect(res.status()).toBe(401);
+
+    await cleanupSongs(request, /^E2E-Comm-Gate/);
+  });
+
   test("PUT /api/songs/:id/public-community owner can toggle publish", async ({ request }) => {
     await cleanupSongs(request, /^E2E-Comm-Pub$/);
 
@@ -319,11 +351,6 @@ test.describe("API: community songs", () => {
     expect(res.status()).toBe(403);
 
     await cleanupSongs(request, /^E2E-Comm-PrivateFetch$/);
-  });
-
-  test("GET /api/community/songs requires auth", async ({ request }) => {
-    const res = await request.get("/api/community/songs");
-    expect(res.status()).toBe(401);
   });
 
   test("GET /api/community/songs excludes songs the user has bookmarked", async ({ request }) => {

@@ -12,6 +12,9 @@ import {
   getPublicCommunitySongs,
   getBookmarkedSongs,
   updateSongPublicCommunity,
+  getGuestShowcaseSongs,
+  countGuestShowcaseSongs,
+  updateSongGuestShowcase,
   type SongRow,
   type SongSummaryRow,
   type InsertSongInput,
@@ -84,6 +87,7 @@ export interface SongSummary {
   publicCommunity: boolean;
   communityBookmarked: boolean;
   bookmarkCount?: number;
+  guestShowcase: boolean;
 }
 
 /** Full view of a song, as returned by GET /api/songs/:id. Extends the
@@ -120,6 +124,7 @@ function rowToSummary(
     lastScore: stats.lastScore,
     publicCommunity: row.public_community === 1,
     communityBookmarked,
+    guestShowcase: row.guest_showcase === 1,
   };
 
   if (bookmarkCount !== undefined) {
@@ -341,22 +346,27 @@ export interface CommunitySongListResult {
  *  (most bookmarked first), then by creation date. Excludes songs the
  *  requesting user has bookmarked — those appear in `listBookmarkedSongs`
  *  and the user's category groups instead. Each song includes the
- *  requesting user's score stats. Paginated via limit/offset. */
+ *  requesting user's score stats. A null userId (guest) gets empty stats
+ *  and no bookmark exclusion. Paginated via limit/offset. */
 export function listPublicCommunitySongs(
-  userId: number,
+  userId: number | null,
   limit: number,
   offset: number,
 ): CommunitySongListResult {
-  const rawStats = findAllScoreStats(userId);
   const statsBySongId = new Map<number, ScoreStats>();
-  for (const row of rawStats) {
-    statsBySongId.set(row.song_id, toScoreStats(row));
+
+  if (userId !== null) {
+    const rawStats = findAllScoreStats(userId);
+
+    for (const row of rawStats) {
+      statsBySongId.set(row.song_id, toScoreStats(row));
+    }
   }
 
   const rows = getPublicCommunitySongs(limit, offset, userId);
 
   const songs = rows.map((row: PublicCommunitySongRow) => {
-    const stats = statsBySongId.get(row.id) ?? EMPTY_STATS;
+    const stats = userId !== null ? statsBySongId.get(row.id) ?? EMPTY_STATS : EMPTY_STATS;
     return rowToSummary(row, stats, false, row.bookmark_count, row.imported_by_username);
   });
 
@@ -627,4 +637,48 @@ export function getCommunitySong(id: number, userId: number): SongFull | null {
   const stats = toScoreStats(findScoreStats(userId, row.id));
   const prefs = getTrackPreferences(userId, row.id);
   return rowToFull(row, stats, prefs);
+}
+
+/** Maximum songs the admin may keep in the guest showcase. The showcase is
+ *  the app's front window for anonymous visitors — a bounded, curated list,
+ *  not a second community catalog. */
+export const GUEST_SHOWCASE_MAX_SONGS = 12;
+
+/** List the admin-curated guest showcase songs as summaries (no user data:
+ *  guests have none). Ordered by creation date, newest first. */
+export function listGuestShowcaseSongs(): SongSummary[] {
+  return getGuestShowcaseSongs().map((row) =>
+    rowToSummary(row, EMPTY_STATS, false, row.bookmark_count, row.imported_by_username),
+  );
+}
+
+/** Get a guest showcase song as a full DTO for an anonymous visitor to
+ *  play. Returns null when the song doesn't exist or isn't in the
+ *  showcase. No per-user stats or track prefs: guests have none. */
+export function getGuestShowcaseSong(id: number): SongFull | null {
+  const row = getSongById(id);
+
+  if (!row || row.guest_showcase !== 1) return null;
+
+  return rowToFull(row);
+}
+
+/** Add or remove a song from the guest showcase. Admin-only — enforced by
+ *  the controller (isAdminUser); this function validates the showcase size
+ *  cap when featuring. Returns the updated full DTO with the admin's score
+ *  stats, or null when the song doesn't exist. */
+export function setSongGuestShowcase(id: number, userId: number, value: boolean): SongFull | null {
+  const row = getSongSummaryById(id);
+
+  if (!row) return null;
+
+  if (value && row.guest_showcase !== 1 && countGuestShowcaseSongs() >= GUEST_SHOWCASE_MAX_SONGS) {
+    throw new ValidationError(`Guest showcase is full (max ${GUEST_SHOWCASE_MAX_SONGS} songs)`);
+  }
+
+  updateSongGuestShowcase(id, value ? 1 : 0);
+
+  const updated = getSongById(id)!;
+  const stats = toScoreStats(findScoreStats(userId, id));
+  return rowToFull(updated, stats);
 }

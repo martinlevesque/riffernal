@@ -116,6 +116,11 @@
   border-bottom: 1px solid var(--border-medium);
 }
 
+/* Hidden while in guest mode: loop persistence requires an account. */
+.loops-panel.hidden {
+  display: none;
+}
+
 .loops-panel-header {
   display: flex;
   align-items: center;

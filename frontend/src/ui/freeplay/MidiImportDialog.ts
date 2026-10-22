@@ -5,6 +5,8 @@ import type { CategorySelect } from './CategorySelect.js';
 import type { Song } from '../../utils/MidiParser.js';
 import { parseMidi } from '../../utils/MidiParser.js';
 import { uploadSong, songFullToSong } from '../../api/SongApi.js';
+import { isGuestMode } from '../../api/AuthApi.js';
+import { addGuestSong, GUEST_MIDI_MAX_BYTES } from '../../utils/guestStore.js';
 import { reportError } from '../../utils/helpers.js';
 import { estimateSongDifficulty, type Difficulty } from '../../game/difficulty.js';
 
@@ -61,6 +63,12 @@ export class MidiImportDialog {
 
   private _importMidi(buffer: ArrayBuffer, midiFile: File, input: HTMLInputElement): void {
     try {
+      // Guests store the file locally instead of uploading, so the server's
+      // size cap has to be enforced here too.
+      if (isGuestMode() && midiFile.size > GUEST_MIDI_MAX_BYTES) {
+        throw new Error('MIDI file too large (max 500 KB)');
+      }
+
       const song = parseMidi(buffer, midiFile.name);
       this._openImportFlow(song, midiFile);
     } catch (err: unknown) {
@@ -107,7 +115,7 @@ export class MidiImportDialog {
         void this._saveImportedSong(song, midiFile, categoryId, title, artist, difficulty);
       },
       onCancel: () => this._reportCancelled(),
-    }, song);
+    }, song, { hideCategories: isGuestMode() });
   }
 
   private async _saveImportedSong(
@@ -118,6 +126,11 @@ export class MidiImportDialog {
     artist: string,
     difficulty: Difficulty,
   ): Promise<void> {
+    if (isGuestMode()) {
+      await this._saveGuestSong(song, midiFile, title, artist, difficulty);
+      return;
+    }
+
     try {
       const full = await uploadSong({
         midiFile,
@@ -135,6 +148,33 @@ export class MidiImportDialog {
         categoryId,
       });
       this._menu.addSong(songFullToSong(full));
+      this._menu.setMidiStatus(this._midiInput.connected, 'Import complete');
+    } catch (err: unknown) {
+      reportError('Failed to save song', err, { alert: true });
+    }
+  }
+
+  /** Guest import: keep the raw bytes + choices in the local guest store —
+   *  the server is never contacted. */
+  private async _saveGuestSong(
+    song: Song,
+    midiFile: File,
+    title: string,
+    artist: string,
+    difficulty: Difficulty,
+  ): Promise<void> {
+    try {
+      const guestSong = await addGuestSong({
+        filename: midiFile.name,
+        midiBytes: await midiFile.arrayBuffer(),
+        title: title || song.title,
+        artist: artist || song.artist,
+        difficulty,
+        selectedTrackIndices: song.selectedTrackIndices ?? [],
+        trackHands: song.trackHands ?? {},
+        backgroundTracks: song.backgroundTracks ?? [],
+      });
+      this._menu.addGuestSong(guestSong);
       this._menu.setMidiStatus(this._midiInput.connected, 'Import complete');
     } catch (err: unknown) {
       reportError('Failed to save song', err, { alert: true });

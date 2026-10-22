@@ -52,6 +52,10 @@
   margin-bottom: 2rem;
 }
 
+#btn-guest-signin.hidden {
+  display: none;
+}
+
 .theme-anchor {
   position: relative;
 }
@@ -492,4 +496,52 @@
 
 .community-load-more:hover {
   opacity: 1;
+}
+
+/* ============================================
+    GUEST MODE (showcase section, sign-in chip)
+    ============================================ */
+
+.brand-corner.hidden {
+  display: none;
+}
+
+.showcase-section {
+  margin-top: 1.5rem;
+}
+
+.showcase-header {
+  color: var(--accent-blue);
+}
+
+.showcase-song {
+  border-left-color: var(--accent-blue);
+}
+
+.showcase-song:hover {
+  border-left-color: var(--accent-blue);
+  background: rgba(34, 136, 255, 0.05);
+}
+
+.showcase-label {
+  color: var(--accent-blue);
+}
+
+.sign-in-chip {
+  margin-top: 0.35rem;
+  background: none;
+  border: 1px solid var(--border-medium);
+  border-radius: 4px;
+  color: var(--text-secondary);
+  font-family: var(--font-ui);
+  font-size: var(--fs-smallest);
+  letter-spacing: 0.05em;
+  cursor: pointer;
+  padding: 0.25rem 0.6rem;
+  transition: color 0.15s, border-color 0.15s;
+}
+
+.sign-in-chip:hover {
+  color: var(--text-primary);
+  border-color: var(--accent-blue);
 }

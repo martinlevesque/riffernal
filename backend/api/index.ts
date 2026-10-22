@@ -5,6 +5,7 @@ import { DomainError } from "../models/validation.ts";
 import { categoryRoutes } from "./category.ts";
 import { songRoutes } from "./song.ts";
 import { communityRoutes } from "./community.ts";
+import { guestRoutes } from "./guest.ts";
 import { userRoutes } from "./user.ts";
 import { loopRoutes } from "./loop.ts";
 import { authRoutes } from "./auth.ts";
@@ -18,6 +19,7 @@ const routes: Route[] = defineRoutes([
   ...categoryRoutes,
   ...songRoutes,
   ...communityRoutes,
+  ...guestRoutes,
   ...userRoutes,
   ...loopRoutes,
   ...leaderboardRoutes,

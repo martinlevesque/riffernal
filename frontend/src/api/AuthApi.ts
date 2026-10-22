@@ -2,6 +2,7 @@ import { parseError } from "./helpers.js";
 
 const TOKEN_KEY = "riffernal_token";
 const USER_KEY = "riffernal_user";
+const GUEST_KEY = "riffernal_guest";
 
 export interface AuthUser {
   id: number;
@@ -25,11 +26,28 @@ export function getStoredUser(): AuthUser | null {
 export function setAuth(token: string, user: AuthUser): void {
   localStorage.setItem(TOKEN_KEY, token);
   localStorage.setItem(USER_KEY, JSON.stringify(user));
+  // A real session supersedes the guest session.
+  clearGuestMode();
 }
 
 export function clearAuth(): void {
   localStorage.removeItem(TOKEN_KEY);
   localStorage.removeItem(USER_KEY);
+}
+
+/** True while the visitor chose "continue as guest". Kept in localStorage
+ *  so a refresh boots straight back into guest mode (guest songs persist
+ *  in IndexedDB). Cleared by any successful login/register/setup. */
+export function isGuestMode(): boolean {
+  return localStorage.getItem(GUEST_KEY) === "1";
+}
+
+export function setGuestMode(): void {
+  localStorage.setItem(GUEST_KEY, "1");
+}
+
+export function clearGuestMode(): void {
+  localStorage.removeItem(GUEST_KEY);
 }
 
 export async function checkSetup(): Promise<{ needed: boolean }> {

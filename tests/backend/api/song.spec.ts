@@ -570,3 +570,121 @@ test.describe("API: song difficulty", () => {
     await cleanupSongs(request, PREFIX);
   });
 });
+
+test.describe("API: guest showcase curation", () => {
+  const PREFIX = /^E2E-Showcase/;
+  const ONE_NOTE = [{ time: 0, key: "C4", duration: 1 }];
+
+  test("PUT /api/songs/:id/guest-showcase requires auth", async ({ request }) => {
+    const res = await request.put("/api/songs/1/guest-showcase", {
+      data: { guestShowcase: true },
+    });
+    expect(res.status()).toBe(401);
+  });
+
+  test("PUT /api/songs/:id/guest-showcase rejects non-admin owners with 403", async ({ request }) => {
+    const other = await registerUser(request, uniqueUsername("show_nonadmin"));
+    const otherId = await seedSongWithNotes(request, "E2E-Showcase-403", ONE_NOTE, other.token);
+
+    const res = await request.put(`/api/songs/${otherId}/guest-showcase`, {
+      data: { guestShowcase: true },
+      headers: { Authorization: `Bearer ${other.token}`, "Content-Type": "application/json" },
+    });
+    expect(res.status()).toBe(403);
+  });
+
+  test("PUT /api/songs/:id/guest-showcase admin can feature and unfeature", async ({ request }) => {
+    const jsonHeaders = await authJsonHeaders(request);
+    const id = await seedSongWithNotes(request, "E2E-Showcase-Toggle", ONE_NOTE);
+
+    const on = await request.put(`/api/songs/${id}/guest-showcase`, {
+      data: { guestShowcase: true },
+      headers: jsonHeaders,
+    });
+    expect(on.ok()).toBeTruthy();
+    expect((await on.json()).guestShowcase).toBe(true);
+
+    const off = await request.put(`/api/songs/${id}/guest-showcase`, {
+      data: { guestShowcase: false },
+      headers: jsonHeaders,
+    });
+    expect(off.ok()).toBeTruthy();
+    expect((await off.json()).guestShowcase).toBe(false);
+  });
+
+  test("PUT /api/songs/:id/guest-showcase 400s for non-boolean body", async ({ request }) => {
+    const jsonHeaders = await authJsonHeaders(request);
+    const id = await seedSongWithNotes(request, "E2E-Showcase-BadBody", ONE_NOTE);
+
+    const res = await request.put(`/api/songs/${id}/guest-showcase`, {
+      data: { guestShowcase: "yes" },
+      headers: jsonHeaders,
+    });
+    expect(res.status()).toBe(400);
+  });
+
+  test("PUT /api/songs/:id/guest-showcase 404s for unknown songs", async ({ request }) => {
+    const jsonHeaders = await authJsonHeaders(request);
+
+    const res = await request.put("/api/songs/98887766/guest-showcase", {
+      data: { guestShowcase: true },
+      headers: jsonHeaders,
+    });
+    expect(res.status()).toBe(404);
+  });
+
+  test("PUT /api/songs/:id/guest-showcase enforces the showcase cap", async ({ request }) => {
+    // Mirror of GUEST_SHOWCASE_MAX_SONGS in backend/models/song.ts.
+    const SHOWCASE_CAP = 12;
+    const jsonHeaders = await authJsonHeaders(request);
+
+    // Deterministic baseline: clear anything featured by earlier tests.
+    const listRes = await request.get("/api/guest/showcase");
+    const { songs } = await listRes.json();
+    for (const s of songs) {
+      const off = await request.put(`/api/songs/${s.id}/guest-showcase`, {
+        data: { guestShowcase: false },
+        headers: jsonHeaders,
+      });
+      expect(off.ok()).toBeTruthy();
+    }
+
+    const ids: number[] = [];
+    for (let i = 0; i < SHOWCASE_CAP; i++) {
+      const id = await seedSongWithNotes(request, `E2E-Showcase-Cap-${i}`, ONE_NOTE);
+      ids.push(id);
+
+      const on = await request.put(`/api/songs/${id}/guest-showcase`, {
+        data: { guestShowcase: true },
+        headers: jsonHeaders,
+      });
+      expect(on.ok()).toBeTruthy();
+    }
+
+    // One beyond the cap is rejected with the model's validation error.
+    const overflowId = await seedSongWithNotes(request, "E2E-Showcase-Cap-Overflow", ONE_NOTE);
+    const overflow = await request.put(`/api/songs/${overflowId}/guest-showcase`, {
+      data: { guestShowcase: true },
+      headers: jsonHeaders,
+    });
+    expect(overflow.status()).toBe(400);
+    expect((await overflow.json()).error).toContain("Guest showcase is full");
+
+    // Unfeature makes room again.
+    const off = await request.put(`/api/songs/${ids[0]}/guest-showcase`, {
+      data: { guestShowcase: false },
+      headers: jsonHeaders,
+    });
+    expect(off.ok()).toBeTruthy();
+
+    const retry = await request.put(`/api/songs/${overflowId}/guest-showcase`, {
+      data: { guestShowcase: true },
+      headers: jsonHeaders,
+    });
+    expect(retry.ok()).toBeTruthy();
+  });
+
+  test.afterEach(async ({ request }) => {
+    await cleanupSongs(request, PREFIX);
+  });
+});

@@ -1,4 +1,4 @@
-export { requireAuth, withAuth } from "./auth.ts";
+export { requireAuth, withAuth, optionalAuth, withOptionalAuth } from "./auth.ts";
 export { withErrorHandling } from "./errors.ts";
 export { withRequestLogging } from "./logging.ts";
 export {

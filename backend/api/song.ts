@@ -11,13 +11,14 @@ import {
   recordBestScore,
   saveTrackPreferences,
   setSongDifficulty,
+  setSongGuestShowcase,
   isSongOwner,
   isAdminUser,
   AUTO_DIFFICULTY,
   type CreateSongInput,
   type SongUpdate,
 } from "../models/index.ts";
-import { json, parseJson, errMsg, handleErr, numOrNull, notFound, type Handler } from "./router.ts";
+import { json, parseJson, errMsg, handleErr, numOrNull, notFound, paramId, type Handler } from "./router.ts";
 import { parsePagination } from "./helpers/pagination.ts";
 import { requireAuth } from "./middleware/index.ts";
 import { ValidationError } from "../models/validation.ts";
@@ -169,6 +170,36 @@ export const songRoutes = [
 
       try {
         const updated = setSongDifficulty(songId, auth.id, requested);
+        return updated ? json(updated) : notFound();
+      } catch (err) {
+        return handleErr(err);
+      }
+    }) as Handler,
+  },
+  {
+    method: "PUT",
+    path: "/api/songs/:id/guest-showcase",
+    handler: (async (req: Request, { id }: Record<string, string>) => {
+      const auth = requireAuth(req);
+      if (auth instanceof Response) return auth;
+
+      // Curation is an admin power: the showcase is the app's front window
+      // for anonymous visitors, so regular owners cannot self-feature.
+      if (!isAdminUser(auth.id)) {
+        return json({ error: "Forbidden" }, 403);
+      }
+
+      const songId = paramId(id);
+      if (songId instanceof Response) return songId;
+
+      const body = await parseJson<{ guestShowcase: boolean }>(req);
+
+      if (typeof body?.guestShowcase !== "boolean") {
+        return json({ error: "guestShowcase must be a boolean" }, 400);
+      }
+
+      try {
+        const updated = setSongGuestShowcase(songId, auth.id, body.guestShowcase);
         return updated ? json(updated) : notFound();
       } catch (err) {
         return handleErr(err);

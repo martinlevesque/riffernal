@@ -255,6 +255,11 @@
   border-left: 1px solid var(--border-divider);
 }
 
+/* Hidden while in guest mode: loop persistence requires an account. */
+#loop-control.hidden {
+  display: none;
+}
+
 .loop-btn {
   font-family: var(--font-ui);
   font-size: var(--fs-smaller);

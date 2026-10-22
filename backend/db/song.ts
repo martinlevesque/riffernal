@@ -17,6 +17,7 @@ export interface SongRow {
   imported: number;
   imported_by_user_id: number | null;
   public_community: number;
+  guest_showcase: number;
   created_at: string;
 }
 
@@ -32,6 +33,7 @@ export interface SongSummaryRow {
   category_id: number | null;
   imported_by_user_id: number | null;
   public_community: number;
+  guest_showcase: number;
   created_at: string;
 }
 
@@ -59,6 +61,7 @@ const SUMMARY_COLUMNS = [
   "category_id",
   "imported_by_user_id",
   "public_community",
+  "guest_showcase",
   "created_at",
 ];
 
@@ -135,18 +138,22 @@ export function deleteSong(id: number): void {
 
 /** Count public community songs (for pagination totals), excluding songs
  *  the requesting user has bookmarked (those live in their own category
- *  groups instead of the community browse list). */
-export function countPublicCommunitySongs(userId: number): number {
+ *  groups instead of the community browse list). A null userId (guest)
+ *  counts everything with no exclusion. */
+export function countPublicCommunitySongs(userId: number | null): number {
+  const exclusion = userId === null
+    ? ""
+    : `AND NOT EXISTS (
+           SELECT 1 FROM user_songs us
+           WHERE us.user_id = ? AND us.song_id = s.id AND us.community_bookmarked = 1
+         )`;
   const row = db
     .query(
       `SELECT COUNT(*) AS count FROM songs s
        WHERE s.public_community = 1
-         AND NOT EXISTS (
-           SELECT 1 FROM user_songs us
-           WHERE us.user_id = ? AND us.song_id = s.id AND us.community_bookmarked = 1
-         )`,
+         ${exclusion}`,
     )
-    .get(userId) as { count: number };
+    .get(...(userId === null ? [] : [userId])) as { count: number };
   return row.count;
 }
 
@@ -160,12 +167,19 @@ export interface PublicCommunitySongRow extends SongSummaryRow {
 /** Get public community songs ordered by bookmark popularity (most
  *  bookmarked first), then by creation date. Paginated via limit/offset.
  *  Excludes songs the requesting user has bookmarked (those appear in the
- *  user's category groups instead). */
+ *  user's category groups instead). A null userId (guest) gets no bookmark
+ *  exclusion. */
 export function getPublicCommunitySongs(
   limit: number,
   offset: number,
-  userId: number,
+  userId: number | null,
 ): PublicCommunitySongRow[] {
+  const exclusion = userId === null
+    ? ""
+    : `AND NOT EXISTS (
+           SELECT 1 FROM user_songs us2
+           WHERE us2.user_id = ? AND us2.song_id = s.id AND us2.community_bookmarked = 1
+         )`;
   return db
     .query(
       `SELECT ${columns(SUMMARY_COLUMNS, "s")}, COUNT(us.user_id) AS bookmark_count, u.username AS imported_by_username
@@ -173,15 +187,12 @@ export function getPublicCommunitySongs(
        LEFT JOIN users u ON u.id = s.imported_by_user_id
        LEFT JOIN user_songs us ON us.song_id = s.id AND us.community_bookmarked = 1
        WHERE s.public_community = 1
-         AND NOT EXISTS (
-           SELECT 1 FROM user_songs us2
-           WHERE us2.user_id = ? AND us2.song_id = s.id AND us2.community_bookmarked = 1
-         )
+         ${exclusion}
        GROUP BY s.id
        ORDER BY bookmark_count DESC, s.created_at DESC
        LIMIT ? OFFSET ?`,
     )
-    .all(userId, limit, offset) as PublicCommunitySongRow[];
+    .all(...(userId === null ? [limit, offset] : [userId, limit, offset])) as PublicCommunitySongRow[];
 }
 
 /** Get the public community songs the given user has bookmarked, ordered by
@@ -204,4 +215,33 @@ export function getBookmarkedSongs(userId: number): SongSummaryRow[] {
 /** Set the public_community flag on a song. */
 export function updateSongPublicCommunity(id: number, value: number): void {
   db.run("UPDATE songs SET public_community = ? WHERE id = ?", [value, id]);
+}
+
+/** Get the admin-curated guest showcase songs (playable without an
+ *  account), newest first, with bookmark counts and sharer usernames. */
+export function getGuestShowcaseSongs(): PublicCommunitySongRow[] {
+  return db
+    .query(
+      `SELECT ${columns(SUMMARY_COLUMNS, "s")}, COUNT(us.user_id) AS bookmark_count, u.username AS imported_by_username
+       FROM songs s
+       LEFT JOIN users u ON u.id = s.imported_by_user_id
+       LEFT JOIN user_songs us ON us.song_id = s.id AND us.community_bookmarked = 1
+       WHERE s.guest_showcase = 1
+       GROUP BY s.id
+       ORDER BY s.created_at DESC`,
+    )
+    .all() as PublicCommunitySongRow[];
+}
+
+/** Count guest showcase songs (for the showcase size cap). */
+export function countGuestShowcaseSongs(): number {
+  const row = db
+    .query("SELECT COUNT(*) AS count FROM songs WHERE guest_showcase = 1")
+    .get() as { count: number };
+  return row.count;
+}
+
+/** Set the guest_showcase flag on a song. */
+export function updateSongGuestShowcase(id: number, value: number): void {
+  db.run("UPDATE songs SET guest_showcase = ? WHERE id = ?", [value, id]);
 }

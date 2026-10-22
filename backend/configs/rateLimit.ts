@@ -49,6 +49,10 @@ export const RATE_LIMIT_CONFIG: RateLimitConfig = {
     // Setup is first-come-first-served on a fresh DB, so the read that leaks
     // whether it's still open gets a probing bound too.
     { id: "auth-setup-probe", method: "GET", path: "/api/auth/setup", windowMs: 5 * MINUTE, max: 30 },
+    // Unauthenticated-browsable content: tighter than the fallback so a
+    // scraper can't pull the catalogs at full speed.
+    { id: "guest-showcase", method: "GET", path: "/api/guest/*", windowMs: MINUTE, max: 120 },
+    { id: "community-list", method: "GET", path: "/api/community/songs", windowMs: MINUTE, max: 120 },
   ],
   fallback: { windowMs: MINUTE, max: 600 },
 };

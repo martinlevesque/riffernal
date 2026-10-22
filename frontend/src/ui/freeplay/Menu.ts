@@ -6,6 +6,7 @@ import {
   fetchLibraryCategorySongs,
   type SongSummary,
 } from "../../api/SongApi.js";
+import { fetchGuestShowcaseSongs } from "../../api/GuestApi.js";
 import {
   getSongListKeys,
   matchSongListAction,
@@ -43,14 +44,28 @@ export class Menu {
   private _communityTotal = 0;
   private _communityOffset = 0;
   private _communityLoading = false;
+  private _showcaseSongs: Song[] = [];
+  private _guestMode = false;
   onStart: ((song: Song) => void) | null = null;
   onCommunityStart: ((song: Song) => void) | null = null;
+  /** Guest mode: start an admin-curated showcase song. */
+  onShowcaseStart: ((song: Song) => void) | null = null;
+  /** Guest mode: a locked community song (or its sign-in chip) was
+   *  activated — leave guest mode via the auth screen. */
+  onSignIn: (() => void) | null = null;
+  /** Admin: add/remove a song from the guest showcase. */
+  onToggleGuestShowcase: ((song: Song) => void) | null = null;
   onRename: ((song: Song) => void) | null = null;
   onDelete: ((song: Song) => void) | null = null;
   onSetDifficulty: ((song: Song) => void) | null = null;
   onPublishCommunity: ((song: Song) => void) | null = null;
   onBookmark: ((song: Song) => void) | null = null;
   onBackToHome: (() => void) | null = null;
+
+  /** Switch guest rendering/behavior. Must be set before any load* call. */
+  setGuestMode(guest: boolean): void {
+    this._guestMode = guest;
+  }
   /** Home main-menu action for a matched shortcut chord (home screen). */
   private _runHomeAction: ((action: "prev" | "next" | "enter") => void) | null = null;
 
@@ -122,6 +137,51 @@ export class Menu {
       this._render();
     } catch (err) {
       reportError("Failed to load library", err);
+    }
+  }
+
+  /** Guest mode: render the local shelf as one group. The songs arrive
+   *  pre-parsed (with negative ids) from the guest store. */
+  loadGuestLibrary(songs: Song[]): void {
+    this._groups = [{
+      id: null,
+      name: "My Imports",
+      items: songs.map((song) => ({ song, isCommunity: false })),
+      total: songs.length,
+      loading: false,
+    }];
+    this._render();
+  }
+
+  /** Guest mode: append a freshly imported song to the shelf group. */
+  addGuestSong(song: Song): void {
+    const group = this._groups.find((g) => g.id === null);
+
+    if (group) {
+      group.items.push({ song, isCommunity: false });
+      group.total = group.items.length;
+    } else {
+      this._groups.push({
+        id: null,
+        name: "My Imports",
+        items: [{ song, isCommunity: false }],
+        total: 1,
+        loading: false,
+      });
+    }
+
+    this._render();
+  }
+
+  /** Guest mode: load the admin-curated showcase list (playable without an
+   *  account). */
+  async loadShowcaseSongs(): Promise<void> {
+    try {
+      const { songs } = await fetchGuestShowcaseSongs();
+      this._showcaseSongs = songs.map((s) => this._itemToSong(s));
+      this._render();
+    } catch (err) {
+      reportError("Failed to load guest showcase", err);
     }
   }
 
@@ -206,6 +266,7 @@ export class Menu {
       publicCommunity: s.publicCommunity,
       communityBookmarked: s.communityBookmarked,
       bookmarkCount: s.bookmarkCount,
+      guestShowcase: s.guestShowcase,
     } as Song;
   }
 
@@ -215,9 +276,19 @@ export class Menu {
 
     try {
       const result = await fetchCommunitySongs(COMMUNITY_PAGE_SIZE, this._communityOffset);
-      this._communitySongs = [...this._communitySongs, ...result.songs.map((s) => this._itemToSong(s))];
-      this._communityOffset = this._communitySongs.length;
-      this._communityTotal = result.total;
+      let songs = result.songs.map((s) => this._itemToSong(s));
+
+      // Guests: showcase songs are already playable in the Featured section
+      // above — showing them locked here too would be contradictory.
+      if (this._guestMode) {
+        songs = songs.filter((s) => s.guestShowcase !== true);
+      }
+
+      this._communitySongs = [...this._communitySongs, ...songs];
+      this._communityOffset += result.songs.length;
+      this._communityTotal = this._guestMode
+        ? Math.max(0, result.total - this._showcaseSongs.length)
+        : result.total;
       this._render();
     } catch (err) {
       reportError("Failed to load community songs", err);
@@ -303,7 +374,7 @@ export class Menu {
 
     const hasGroups = this._groups.some((g) => g.items.length > 0);
 
-    if (!hasGroups && this._communitySongs.length === 0) {
+    if (!hasGroups && this._communitySongs.length === 0 && this._showcaseSongs.length === 0) {
       const empty = document.createElement("p");
       empty.className = "empty-song-list";
       empty.textContent = "No songs yet. Import a MIDI to get started.";
@@ -319,12 +390,17 @@ export class Menu {
       }
     }
 
+    if (this._showcaseSongs.length > 0) {
+      this._songListEl.appendChild(this._renderShowcaseSection());
+    }
+
     if (this._communitySongs.length > 0) {
       this._songListEl.appendChild(this._renderCommunitySection());
     }
 
     const allSongs = [
       ...this._groups.flatMap((g) => g.items.map((i) => i.song)),
+      ...this._showcaseSongs,
       ...this._communitySongs,
     ];
 
@@ -390,6 +466,45 @@ export class Menu {
     return section;
   }
 
+  private _renderShowcaseSection(): HTMLElement {
+    const showcaseKey = "guest-showcase";
+    const collapsedSet = this._loadCollapsed();
+    const isCollapsed = collapsedSet.has(showcaseKey);
+
+    const section = document.createElement("div");
+    section.className = `category-section showcase-section${isCollapsed ? " collapsed" : ""}`;
+    section.dataset.categoryKey = showcaseKey;
+
+    const header = document.createElement("div");
+    header.className = "category-header showcase-header";
+    header.innerHTML = `<span>Featured</span><span><span class="category-collapse-icon"></span></span>`;
+
+    header.addEventListener("click", () => {
+      const set = this._loadCollapsed();
+      const collapsed = section.classList.toggle("collapsed");
+
+      if (collapsed) {
+        set.add(showcaseKey);
+      } else {
+        set.delete(showcaseKey);
+      }
+
+      this._saveCollapsed(set);
+    });
+
+    const songsWrap = document.createElement("div");
+    songsWrap.className = "category-songs";
+
+    for (const song of this._showcaseSongs) {
+      songsWrap.appendChild(this._renderCommunitySong(song, false, true));
+    }
+
+    section.appendChild(header);
+    section.appendChild(songsWrap);
+
+    return section;
+  }
+
   private _renderCommunitySection(): HTMLElement {
     const communityKey = "community";
     const collapsedSet = this._loadCollapsed();
@@ -438,29 +553,56 @@ export class Menu {
     return section;
   }
 
-  private _renderCommunitySong(song: Song, showCommunityLabel = false): HTMLElement {
-    const el = this._el("div", `song-item community-song ${NAV_ITEM_CLASS}`);
+  /** A community song row. `showcase` renders it as a Featured (guest-playable)
+   *  item. In guest mode, locked community songs lose their bookmark button
+   *  and carry a sign-in chip instead. */
+  private _renderCommunitySong(song: Song, showCommunityLabel = false, showcase = false): HTMLElement {
+    const el = this._el("div", `song-item community-song${showcase ? " showcase-song" : ""} ${NAV_ITEM_CLASS}`);
     el.dataset.songId = song.id !== undefined ? String(song.id) : "";
 
     this._renderSongMeta(song, el, showCommunityLabel);
 
-    if (!showCommunityLabel && song.importedByUsername) {
+    if (song.importedByUsername && (!showCommunityLabel || showcase)) {
       el.appendChild(this._el("div", "song-origin-user", `Shared by ${song.importedByUsername}`));
     }
 
     this._renderSongStats(song, el);
-    this._renderBookmarkButton(song, el);
+
+    if (!this._guestMode) {
+      this._renderBookmarkButton(song, el);
+    } else if (!showcase) {
+      this._renderSignInChip(el);
+    }
+
+    if (showcase) {
+      el.appendChild(this._el("span", "song-community-label showcase-label", "Featured"));
+    }
 
     // Admins keep a menu on other users' songs so they can recalculate the
     // auto difficulty there (Set difficulty is their only option).
-    if (getStoredUser()?.id === ADMIN_USER_ID && song.importedByUserId != null) {
-      this._renderSongActions(song, el, true);
+    if (!this._guestMode && getStoredUser()?.id === ADMIN_USER_ID && song.importedByUserId != null) {
+      this._renderSongActions(song, el, { adminRecalc: true });
     }
 
     el.addEventListener("click", () => this._onSongClick(song, el));
     el.addEventListener("dblclick", () => this._startSong(song, true));
 
     return el;
+  }
+
+  /** Guest mode: the lock replacement on community rows — a chip that leads
+   *  straight to the auth screen. */
+  private _renderSignInChip(el: HTMLElement): void {
+    const chip = this._el("button", "sign-in-chip", "\u{1F512} Sign in to play") as HTMLButtonElement;
+    chip.type = "button";
+    chip.title = "Create an account (or log in) to play community songs";
+    chip.addEventListener("click", (e) => {
+      e.stopPropagation();
+      e.preventDefault();
+      if (this.onSignIn) this.onSignIn();
+    });
+    chip.addEventListener("dblclick", (e) => { e.stopPropagation(); });
+    el.appendChild(chip);
   }
 
   private _renderBookmarkButton(song: Song, el: HTMLElement): void {
@@ -484,7 +626,7 @@ export class Menu {
 
     this._renderSongMeta(song, el);
     this._renderSongStats(song, el);
-    this._renderSongActions(song, el);
+    this._renderSongActions(song, el, this._guestMode ? { guestLocal: true } : {});
 
     el.addEventListener("click", () => this._onSongClick(song, el));
     el.addEventListener("dblclick", () => this._startSong(song, false));
@@ -546,8 +688,15 @@ export class Menu {
   }
 
   /** `adminRecalc` renders the menu on a song the viewer doesn't own, with
-   *  only the Set difficulty option (used by admins on community songs). */
-  private _renderSongActions(song: Song, el: HTMLElement, adminRecalc = false): void {
+   *  only the Set difficulty option (used by admins on community songs).
+   *  `guestLocal` renders the shelf item for a guest: only Delete (removes
+   *  it from the local guest store). */
+  private _renderSongActions(
+    song: Song,
+    el: HTMLElement,
+    opts: { adminRecalc?: boolean; guestLocal?: boolean } = {},
+  ): void {
+    const { adminRecalc, guestLocal } = opts;
     const actionsMenu = this._el("div", "song-actions-menu hidden");
 
     const actionsBtn = this._el("button", "song-actions-btn", "\u2026") as HTMLButtonElement;
@@ -563,10 +712,33 @@ export class Menu {
     });
     actionsBtn.addEventListener("dblclick", (e) => { e.stopPropagation(); });
 
+    if (guestLocal) {
+      actionsMenu.appendChild(this._actionOption("Delete", "song-action-option danger", () => {
+        actionsMenu.classList.add("hidden");
+        if (this.onDelete) this.onDelete(song);
+      }));
+      el.appendChild(actionsBtn);
+      el.appendChild(actionsMenu);
+      return;
+    }
+
     actionsMenu.appendChild(this._actionOption("Set difficulty", "song-action-option", () => {
       actionsMenu.classList.add("hidden");
       if (this.onSetDifficulty) this.onSetDifficulty(song);
     }));
+
+    // Admin curation: feature any song for guest play, own or not.
+    if (getStoredUser()?.id === ADMIN_USER_ID && this.onToggleGuestShowcase) {
+      const isFeatured = song.guestShowcase === true;
+      actionsMenu.appendChild(this._actionOption(
+        isFeatured ? "Remove from guest showcase" : "Feature for guests",
+        "song-action-option",
+        () => {
+          actionsMenu.classList.add("hidden");
+          if (this.onToggleGuestShowcase) this.onToggleGuestShowcase(song);
+        },
+      ));
+    }
 
     if (!adminRecalc) {
       actionsMenu.appendChild(this._actionOption("Edit", "song-action-option", () => {
@@ -662,6 +834,23 @@ export class Menu {
   private _startSong(song: Song, isCommunity: boolean): void {
     playMenuSound("enter");
 
+    if (this._guestMode) {
+      if (!isCommunity) {
+        this.onStart?.(song);
+        return;
+      }
+
+      // Guest + community row: playable when featured, otherwise the
+      // start action is the sign-in prompt.
+      if (song.guestShowcase === true) {
+        this.onShowcaseStart?.(song);
+      } else {
+        this.onSignIn?.();
+      }
+
+      return;
+    }
+
     if (isCommunity) {
       this.onCommunityStart?.(song);
     } else {
@@ -708,7 +897,9 @@ export class Menu {
 
       if (item) return item.song;
     }
-    return this._communitySongs.find((s) => s.id === id) ?? null;
+    return this._showcaseSongs.find((s) => s.id === id)
+      ?? this._communitySongs.find((s) => s.id === id)
+      ?? null;
   }
 
   private _autoSelect(song: Song): void {

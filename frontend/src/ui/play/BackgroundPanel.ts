@@ -1,6 +1,7 @@
 import type { Game } from '../../game/Game.js';
 import type { Song } from '../../utils/MidiParser.js';
 import { saveSongTrackPreferences } from '../../api/SongApi.js';
+import { isGuestMode } from '../../api/AuthApi.js';
 
 export class BackgroundPanel {
   private _toggleBgBtn: HTMLButtonElement;
@@ -124,7 +125,8 @@ export class BackgroundPanel {
   private _schedulePreferencesSave(song: Song): void {
     const songId = song.id;
 
-    if (songId === undefined) return;
+    // Guests have no server-side preferences to save.
+    if (songId === undefined || isGuestMode()) return;
 
     if (this._preferencesTimer !== null) clearTimeout(this._preferencesTimer);
     this._preferencesTimer = setTimeout(() => {

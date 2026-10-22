@@ -45,6 +45,8 @@ export interface Song {
   publicCommunity?: boolean;
   communityBookmarked?: boolean;
   bookmarkCount?: number;
+  /** Admin-curated "playable without an account" flag (guest showcase). */
+  guestShowcase?: boolean;
 }
 
 export function normalizeSong(song: Song): Song {

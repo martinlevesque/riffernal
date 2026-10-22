@@ -267,6 +267,12 @@
   margin-bottom: 1rem;
 }
 
+/* Guest import: categories are per-user server data, so the category UI
+ * vanishes and the card is just the title/artist/difficulty form. */
+#category-select-card .hidden {
+  display: none;
+}
+
 #category-list {
   list-style: none;
   flex: 1;
