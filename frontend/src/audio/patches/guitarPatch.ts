@@ -1,8 +1,20 @@
-import type { Patch } from './Patch.js';
+import type { Patch, PatchNote } from './Patch.js';
+import { applyEnvelope, applyEnvelopeWithRelease, type EnvelopePoint } from './shared.js';
 import { getDistortionCurve } from './shared.js';
 import { isLowEndDevice } from '../../utils/device.js';
 
-function buildGuitar(ctx: AudioContext, freq: number, startTime: number, distortion: number): { output: GainNode; release: (ctx: AudioContext, stopTime: number) => void } {
+const RELEASE_LEN = 0.15;
+const STOP_TAIL = 0.2;
+
+// Envelope aligned with metalPatch for consistent perceived timing
+const ENVELOPE: EnvelopePoint[] = [
+  { at: 0, to: 0, type: 'set' },
+  { at: 0.002, to: 0.9, type: 'lin' },
+  { at: 0.08, to: 0.6, type: 'exp' },
+  { at: 0.4, to: 0.35, type: 'exp' },
+];
+
+function buildGuitar(ctx: AudioContext, freq: number, startTime: number, distortion: number, duration?: number): PatchNote {
   const osc1 = ctx.createOscillator();
   const osc2 = ctx.createOscillator();
   const gainNode = ctx.createGain();
@@ -39,44 +51,50 @@ function buildGuitar(ctx: AudioContext, freq: number, startTime: number, distort
   distortionNode.connect(filterNode);
   filterNode.connect(gainNode);
 
-  // Envelope aligned with metalPatch for consistent perceived timing
-  gainNode.gain.setValueAtTime(0, startTime);
-  gainNode.gain.linearRampToValueAtTime(0.9, startTime + 0.002);
-  gainNode.gain.exponentialRampToValueAtTime(0.6, startTime + 0.08);
-  gainNode.gain.exponentialRampToValueAtTime(0.35, startTime + 0.4);
-
   osc1.start(startTime);
   osc2.start(startTime);
 
-  return {
+  const patchNote: PatchNote = {
     output: gainNode,
     release(_ctx: AudioContext, stopTime: number) {
       gainNode.gain.cancelScheduledValues(stopTime);
       gainNode.gain.setValueAtTime(gainNode.gain.value, stopTime);
-      gainNode.gain.exponentialRampToValueAtTime(0.001, stopTime + 0.15);
-      osc1.stop(stopTime + 0.2);
-      osc2.stop(stopTime + 0.2);
+      gainNode.gain.exponentialRampToValueAtTime(0.001, stopTime + RELEASE_LEN);
+      osc1.stop(stopTime + STOP_TAIL);
+      osc2.stop(stopTime + STOP_TAIL);
     },
   };
+
+  if (duration === undefined) {
+    applyEnvelope(gainNode.gain, startTime, ENVELOPE);
+  } else {
+    const silentAt = applyEnvelopeWithRelease(gainNode.gain, startTime, ENVELOPE, duration, RELEASE_LEN);
+    const stopAt = silentAt + STOP_TAIL;
+    osc1.stop(stopAt);
+    osc2.stop(stopAt);
+    patchNote.endTime = stopAt;
+  }
+
+  return patchNote;
 }
 
 export const guitarCleanPatch: Patch = {
   name: 'Guitar Clean',
-  build(ctx, freq, startTime) {
-    return buildGuitar(ctx, freq, startTime, 0.5);
+  build(ctx, freq, startTime, _midi, duration) {
+    return buildGuitar(ctx, freq, startTime, 0.5, duration);
   },
 };
 
 export const guitarOverdrivenPatch: Patch = {
   name: 'Guitar Overdriven',
-  build(ctx, freq, startTime) {
-    return buildGuitar(ctx, freq, startTime, 4);
+  build(ctx, freq, startTime, _midi, duration) {
+    return buildGuitar(ctx, freq, startTime, 4, duration);
   },
 };
 
 export const guitarDistortionPatch: Patch = {
   name: 'Guitar Distortion',
-  build(ctx, freq, startTime) {
-    return buildGuitar(ctx, freq, startTime, 12);
+  build(ctx, freq, startTime, _midi, duration) {
+    return buildGuitar(ctx, freq, startTime, 12, duration);
   },
 };

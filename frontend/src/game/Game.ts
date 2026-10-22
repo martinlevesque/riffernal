@@ -776,11 +776,12 @@ export class Game {
     // PLAY mode. Background-accompaniment notes are governed by their own
     // per-track toggle and must keep playing.
     if (note.selected && this.mainTrackMuted) return;
-    const realDuration = note.duration * 1000 / this.speedMultiplier;
+    // Known duration: the patch schedules the release in the graph, so the
+    // voice ends itself with zero main-thread work.
+    const realDuration = note.duration / this.speedMultiplier;
     const id = `auto_${note.track}_${note.time}_${note.key}`;
     const patch = this._patchForNote(note.program, note.channel);
-    this._synth.noteOn(note.key, patch, id, note.rawMidi);
-    setTimeout(() => this._synth.noteOff(id), realDuration);
+    this._synth.noteOn(note.key, patch, id, note.rawMidi, realDuration);
   }
 
   // -- Playback controls ----------------------------------------------------

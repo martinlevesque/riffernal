@@ -1,8 +1,19 @@
-import type { Patch } from './Patch.js';
+import type { Patch, PatchNote } from './Patch.js';
+import { applyEnvelope, applyEnvelopeWithRelease, type EnvelopePoint } from './shared.js';
+
+const RELEASE_LEN = 0.15;
+const STOP_TAIL = 0.2;
+
+const ENVELOPE: EnvelopePoint[] = [
+  { at: 0, to: 0, type: 'set' },
+  { at: 0.002, to: 1, type: 'lin' },
+  { at: 0.08, to: 0.6, type: 'exp' },
+  { at: 0.4, to: 0.35, type: 'exp' },
+];
 
 export const metalPatch: Patch = {
   name: 'Metal',
-  build(ctx, freq, startTime) {
+  build(ctx, freq, startTime, _midi, duration) {
     const osc1 = ctx.createOscillator();
     const osc2 = ctx.createOscillator();
     const osc3 = ctx.createOscillator();
@@ -40,25 +51,33 @@ export const metalPatch: Patch = {
     gain3.connect(filterNode);
     filterNode.connect(gainNode);
 
-    gainNode.gain.setValueAtTime(0, startTime);
-    gainNode.gain.linearRampToValueAtTime(1, startTime + 0.002);
-    gainNode.gain.exponentialRampToValueAtTime(0.6, startTime + 0.08);
-    gainNode.gain.exponentialRampToValueAtTime(0.35, startTime + 0.4);
-
     osc1.start(startTime);
     osc2.start(startTime);
     osc3.start(startTime);
 
-    return {
+    const patchNote: PatchNote = {
       output: gainNode,
       release(_ctx, stopTime) {
         gainNode.gain.cancelScheduledValues(stopTime);
         gainNode.gain.setValueAtTime(gainNode.gain.value, stopTime);
-        gainNode.gain.exponentialRampToValueAtTime(0.001, stopTime + 0.15);
-        osc1.stop(stopTime + 0.2);
-        osc2.stop(stopTime + 0.2);
-        osc3.stop(stopTime + 0.2);
+        gainNode.gain.exponentialRampToValueAtTime(0.001, stopTime + RELEASE_LEN);
+        osc1.stop(stopTime + STOP_TAIL);
+        osc2.stop(stopTime + STOP_TAIL);
+        osc3.stop(stopTime + STOP_TAIL);
       },
     };
+
+    if (duration === undefined) {
+      applyEnvelope(gainNode.gain, startTime, ENVELOPE);
+    } else {
+      const silentAt = applyEnvelopeWithRelease(gainNode.gain, startTime, ENVELOPE, duration, RELEASE_LEN);
+      const stopAt = silentAt + STOP_TAIL;
+      osc1.stop(stopAt);
+      osc2.stop(stopAt);
+      osc3.stop(stopAt);
+      patchNote.endTime = stopAt;
+    }
+
+    return patchNote;
   },
 };

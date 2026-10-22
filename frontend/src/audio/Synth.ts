@@ -81,11 +81,24 @@ export class Synth {
     return this._patch;
   }
 
-  noteOn(noteName: string, patch?: Patch, id?: string, midiOverride?: number): void {
+  noteOn(noteName: string, patch?: Patch, id?: string, midiOverride?: number, duration?: number): void {
     this.init();
     this.resume();
 
     const key = id ?? noteName;
+
+    // Voices built with a known duration end themselves in the graph — drop
+    // the map entries whose audio already finished. Runs piggybacked on
+    // noteOn (called constantly during playback), bounded by the voice cap.
+    const now = this._ctx!.currentTime;
+    const sweepCutoff = now - 0.25;
+    for (const [k, v] of this._activeNotes) {
+      if (v.note.endTime !== undefined && v.note.endTime < sweepCutoff) {
+        this._activeNotes.delete(k);
+        if (v.backgroundPrio === PRIO_BACKGROUND) this._bgCount--;
+      }
+    }
+
     if (this._activeNotes.has(key)) {
       this.noteOff(key);
     }
@@ -106,10 +119,9 @@ export class Synth {
 
     const freq = 440 * 2 ** ((noteMidi - 69) / 12);
     const midi = midiOverride ?? noteMidi;
-    const now = this._ctx!.currentTime;
 
     const activePatch = patch ?? this._patch;
-    const patchNote = activePatch.build(this._ctx!, freq, now, midi);
+    const patchNote = activePatch.build(this._ctx!, freq, now, midi, duration);
     patchNote.output.connect(this._masterGain!);
     this._activeNotes.set(key, { note: patchNote, backgroundPrio: prio });
     if (prio === PRIO_BACKGROUND) this._bgCount++;

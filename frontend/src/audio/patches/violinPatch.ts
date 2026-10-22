@@ -1,8 +1,21 @@
-import type { Patch } from './Patch.js';
+import type { Patch, PatchNote } from './Patch.js';
+import { applyEnvelope, applyEnvelopeWithRelease, type EnvelopePoint } from './shared.js';
+
+const RELEASE_LEN = 0.25;
+const STOP_TAIL = 0.3;
+
+// Bowed string envelope: quick initial transient for sync, then sustained
+// (a real violin sustains at near-constant amplitude while bowing)
+const ENVELOPE: EnvelopePoint[] = [
+  { at: 0, to: 0, type: 'set' },
+  { at: 0.005, to: 0.5, type: 'lin' },
+  { at: 0.035, to: 0.85, type: 'lin' },
+  { at: 0.15, to: 0.75, type: 'exp' },
+];
 
 export const violinPatch: Patch = {
   name: 'Violin',
-  build(ctx, freq, startTime) {
+  build(ctx, freq, startTime, _midi, duration) {
     const osc1 = ctx.createOscillator();
     const osc2 = ctx.createOscillator();
     const osc3 = ctx.createOscillator();
@@ -83,30 +96,36 @@ export const violinPatch: Patch = {
     formant3.connect(lowpassNode);
     lowpassNode.connect(gainNode);
 
-    // Bowed string envelope: quick initial transient for sync, then sustained
-    // A real violin sustains at near-constant amplitude while bowing
-    gainNode.gain.setValueAtTime(0, startTime);
-    gainNode.gain.linearRampToValueAtTime(0.5, startTime + 0.005);
-    gainNode.gain.linearRampToValueAtTime(0.85, startTime + 0.035);
-    gainNode.gain.exponentialRampToValueAtTime(0.75, startTime + 0.15);
-    gainNode.gain.setValueAtTime(0.75, startTime + 0.15);
-
     osc1.start(startTime);
     osc2.start(startTime);
     osc3.start(startTime);
     lfo.start(startTime);
 
-    return {
+    const patchNote: PatchNote = {
       output: gainNode,
       release(_ctx, stopTime) {
         gainNode.gain.cancelScheduledValues(stopTime);
         gainNode.gain.setValueAtTime(gainNode.gain.value, stopTime);
-        gainNode.gain.exponentialRampToValueAtTime(0.001, stopTime + 0.25);
-        osc1.stop(stopTime + 0.3);
-        osc2.stop(stopTime + 0.3);
-        osc3.stop(stopTime + 0.3);
-        lfo.stop(stopTime + 0.3);
+        gainNode.gain.exponentialRampToValueAtTime(0.001, stopTime + RELEASE_LEN);
+        osc1.stop(stopTime + STOP_TAIL);
+        osc2.stop(stopTime + STOP_TAIL);
+        osc3.stop(stopTime + STOP_TAIL);
+        lfo.stop(stopTime + STOP_TAIL);
       },
     };
+
+    if (duration === undefined) {
+      applyEnvelope(gainNode.gain, startTime, ENVELOPE);
+    } else {
+      const silentAt = applyEnvelopeWithRelease(gainNode.gain, startTime, ENVELOPE, duration, RELEASE_LEN);
+      const stopAt = silentAt + STOP_TAIL;
+      osc1.stop(stopAt);
+      osc2.stop(stopAt);
+      osc3.stop(stopAt);
+      lfo.stop(stopAt);
+      patchNote.endTime = stopAt;
+    }
+
+    return patchNote;
   },
 };
