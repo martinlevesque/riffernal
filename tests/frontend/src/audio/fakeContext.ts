@@ -44,7 +44,7 @@ const PARAMS_BY_KIND: Record<FakeNodeKind, string[]> = {
   gain: ['gain'],
   biquadfilter: ['frequency', 'Q', 'gain'],
   waveshaper: [],
-  bufferSource: [],
+  bufferSource: ['playbackRate'],
   compressor: ['threshold', 'knee', 'ratio', 'attack', 'release'],
   destination: [],
 };
@@ -53,6 +53,9 @@ export class FakeNode {
   readonly kind: FakeNodeKind;
   readonly connections: FakeNode[] = [];
   readonly starts: number[] = [];
+  /** Buffer playback offsets paired with buffer-source `start(when, offset)`
+   *  calls (patch voices call single-arg start, so this stays empty). */
+  readonly startOffsets: number[] = [];
   readonly stops: number[] = [];
   // Mutable per-slot params so `node.gain.value = x` style writes stay valid;
   // these DO NOT exist for nodes whose params list is empty.
@@ -71,8 +74,9 @@ export class FakeNode {
     return target;
   }
 
-  start(time?: number): void {
+  start(time?: number, offset?: number): void {
     this.starts.push(time ?? 0);
+    if (offset !== undefined) this.startOffsets.push(offset);
   }
 
   stop(time: number): void {
@@ -149,5 +153,34 @@ export class FakeContext {
     const node = new FakeNode(kind);
     this.nodes.push(node);
     return node;
+  }
+}
+
+export interface FakeBufferLike {
+  length: number;
+  sampleRate: number;
+  getChannelData: (index: number) => Float32Array;
+}
+
+/** OfflineAudioContext stand-in for the accompaniment engine: same node
+ *  factories as FakeContext, but startRendering resolves immediately with
+ *  a buffer-shaped stub and counts render requests for assertions. */
+export class FakeOfflineContext extends FakeContext {
+  readonly length: number;
+  rendersStarted = 0;
+
+  constructor(length: number, sampleRate: number) {
+    super();
+    (this as { sampleRate: number }).sampleRate = sampleRate;
+    this.length = length;
+  }
+
+  startRendering(): Promise<FakeBufferLike> {
+    this.rendersStarted++;
+    return Promise.resolve({
+      length: this.length,
+      sampleRate: this.sampleRate,
+      getChannelData: () => new Float32Array(this.length),
+    });
   }
 }

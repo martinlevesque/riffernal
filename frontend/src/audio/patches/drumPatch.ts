@@ -6,7 +6,7 @@ import { isLowEndDevice } from '../../utils/device.js';
 // On low-end devices the distortion waveshaper is skipped (a plain GainNode
 // is returned instead) and 'none' oversampling is used otherwise, drastically
 // cutting CPU per hit. The grit it adds is inaudible on small speakers.
-function buildDistortion(ctx: AudioContext, amount: number, lowEnd: boolean): AudioNode {
+function buildDistortion(ctx: BaseAudioContext, amount: number, lowEnd: boolean): AudioNode {
   if (lowEnd) {
     return ctx.createGain();
   }
@@ -27,9 +27,9 @@ function isCymbal(midi: number): boolean { return midi === 49 || midi === 52 || 
 function isClap(midi: number): boolean { return midi === 39; }
 function isRide(midi: number): boolean { return midi === 51 || midi === 53 || midi === 59; }
 
-const _noiseBufferCache = new WeakMap<AudioContext, Map<number, AudioBuffer>>();
+const _noiseBufferCache = new WeakMap<BaseAudioContext, Map<number, AudioBuffer>>();
 
-function _getNoiseBuffer(ctx: AudioContext, duration: number): AudioBuffer {
+function _getNoiseBuffer(ctx: BaseAudioContext, duration: number): AudioBuffer {
   let bucketMap = _noiseBufferCache.get(ctx);
   if (!bucketMap) {
     bucketMap = new Map();
@@ -51,7 +51,7 @@ function _getNoiseBuffer(ctx: AudioContext, duration: number): AudioBuffer {
   return buffer;
 }
 
-function buildNoise(ctx: AudioContext, duration: number): { source: AudioBufferSourceNode; output: GainNode } {
+function buildNoise(ctx: BaseAudioContext, duration: number): { source: AudioBufferSourceNode; output: GainNode } {
   const buffer = _getNoiseBuffer(ctx, duration);
   const source = ctx.createBufferSource();
   source.buffer = buffer;
@@ -115,7 +115,7 @@ const KICK_HARM_ENV: EnvelopePoint[] = [
 
 // Click transient — sharp high-frequency punch. Sub body — deep sine sweep
 // with more weight. Harmonic layer — adds growl and body.
-function buildKick(ctx: AudioContext, _freq: number, startTime: number, duration?: number): PatchNote {
+function buildKick(ctx: BaseAudioContext, _freq: number, startTime: number, duration?: number): PatchNote {
   const lowEnd = isLowEndDevice();
 
   const clickOsc = ctx.createOscillator();
@@ -197,7 +197,7 @@ const SNARE_RING_ENV: EnvelopePoint[] = [
 
 // Noise — longer, louder, more body. Body — triangle oscillator for body
 // and crack. Ring — metallic resonant tone for character.
-function buildSnare(ctx: AudioContext, _freq: number, startTime: number, duration?: number): PatchNote {
+function buildSnare(ctx: BaseAudioContext, _freq: number, startTime: number, duration?: number): PatchNote {
   const lowEnd = isLowEndDevice();
 
   const noise = buildNoise(ctx, 0.35);
@@ -272,7 +272,7 @@ function buildSnare(ctx: AudioContext, _freq: number, startTime: number, duratio
 }
 
 // Two bandpass filters for metallic shimmer on bandpassed noise.
-function buildHH(ctx: AudioContext, _freq: number, startTime: number, open: boolean, duration?: number): PatchNote {
+function buildHH(ctx: BaseAudioContext, _freq: number, startTime: number, open: boolean, duration?: number): PatchNote {
   const hhDur = open ? 0.55 : 0.08;
   const noise = buildNoise(ctx, hhDur + 0.05);
   const HH_ENV: EnvelopePoint[] = [
@@ -318,7 +318,7 @@ const TOM_CLICK_ENV: EnvelopePoint[] = [
 ];
 
 // Main body — deeper, punchier, plus a click transient.
-function buildTom(ctx: AudioContext, freq: number, startTime: number, duration?: number): PatchNote {
+function buildTom(ctx: BaseAudioContext, freq: number, startTime: number, duration?: number): PatchNote {
   const osc = ctx.createOscillator();
   osc.type = 'sine';
   osc.frequency.setValueAtTime(freq * 2.5, startTime);
@@ -360,7 +360,7 @@ function buildTom(ctx: AudioContext, freq: number, startTime: number, duration?:
 }
 
 // Big, washy crash — on low-end, shorten to keep the noise buffer short.
-function buildCymbal(ctx: AudioContext, _freq: number, startTime: number, duration?: number): PatchNote {
+function buildCymbal(ctx: BaseAudioContext, _freq: number, startTime: number, duration?: number): PatchNote {
   const lowEnd = isLowEndDevice();
   const dur = lowEnd ? 0.6 : 1.5;
   const decay = lowEnd ? 0.5 : 1.3;
@@ -410,7 +410,7 @@ const CLAP_ENV: EnvelopePoint[] = [
 ];
 
 // Multiple rapid hits for clap character.
-function buildClap(ctx: AudioContext, _freq: number, startTime: number, duration?: number): PatchNote {
+function buildClap(ctx: BaseAudioContext, _freq: number, startTime: number, duration?: number): PatchNote {
   const noise = buildNoise(ctx, 0.25);
   const filter = ctx.createBiquadFilter();
   filter.type = 'bandpass';
@@ -439,7 +439,7 @@ const RIDE_PING_ENV: EnvelopePoint[] = [
   { at: 0.15, to: 0.001, type: 'exp' },
 ];
 
-function buildRide(ctx: AudioContext, _freq: number, startTime: number, duration?: number): PatchNote {
+function buildRide(ctx: BaseAudioContext, _freq: number, startTime: number, duration?: number): PatchNote {
   const lowEnd = isLowEndDevice();
   const noise = buildNoise(ctx, lowEnd ? 0.5 : 1.2);
   const WASH_ENV: EnvelopePoint[] = [
@@ -503,7 +503,7 @@ const PERC_ENV: EnvelopePoint[] = [
   { at: 0.1, to: 0.001, type: 'exp' },
 ];
 
-function buildPerc(ctx: AudioContext, freq: number, startTime: number, duration?: number): PatchNote {
+function buildPerc(ctx: BaseAudioContext, freq: number, startTime: number, duration?: number): PatchNote {
   const osc = ctx.createOscillator();
   osc.type = 'square';
   osc.frequency.value = freq;

@@ -14,6 +14,7 @@ import { formatTime } from '../utils/helpers.js';
 import { hasMeaningfulScore } from './scoring.js';
 import type { VisibleRange } from '../utils/notes.js';
 import type { Synth } from '../audio/Synth.js';
+import { AccompanimentEngine } from '../audio/Accompaniment.js';
 import type { Patch } from '../audio/patches/Patch.js';
 import { guitarCleanPatch, guitarOverdrivenPatch, guitarDistortionPatch } from '../audio/patches/guitarPatch.js';
 import { bassPatch } from '../audio/patches/bassPatch.js';
@@ -97,6 +98,11 @@ export class Game {
   // -- private properties -------------------------------------------------
 
   private _synth: Synth;
+  private _accomp = new AccompanimentEngine();
+  /** Set when a speed fallback disengaged the accompaniment engine; a
+   *  return to 1.0 re-engages it. Opposite of paused: seeking never
+   *  re-engages a speed-halted engine. */
+  private _speedHalted = false;
   private _keyboardInput: KeyboardInput;
   private _midiInput: MidiInput;
   private _currentSong: Song | null = null;
@@ -172,6 +178,11 @@ export class Game {
 
     if (frozenNow && !this._learningFrozen) {
       this._learningFrozenRealTime = this._preFrameRealTime;
+      this._accomp.pause();
+    }
+
+    if (!frozenNow && this._learningFrozen) {
+      this._restartAccompaniment(this.currentTime);
     }
 
     this._learningFrozen = frozenNow;
@@ -409,6 +420,7 @@ export class Game {
     // Dense upcoming background content temporarily sheds background voices
     // so the audio thread trades texture for clean playback.
     this._synth.scaleBackgroundBudget(backgroundBudgetScale(this.noteManager.backgroundNps(this.currentTime)));
+    this._accomp.tick(this.currentTime);
 
     this.renderer.drawSheetMusic(
       this.noteManager.trebleNotes,
@@ -484,6 +496,7 @@ export class Game {
     this._applyScoringEnabled();
     this._setupInputHandlers();
     this._setupNoteCallbacks();
+    this._attachAccompaniment();
 
     this._lastFrameTime = 0;
     this._mainLoop();
@@ -498,6 +511,7 @@ export class Game {
    *  pre-game info popup is visible. */
   pause(): void {
     this._paused = true;
+    this._accomp.pause();
   }
 
   private _computeUsedNoteRange(song: Song): void {
@@ -537,7 +551,6 @@ export class Game {
   private _setupNoteCallbacks(): void {
     this.noteManager.onMiss = (note) => this._playNoteOnce(note);
     this.noteManager.onAutoPlayOn = (note) => this._playNoteOnce(note);
-
     this.noteManager.onResolve = (result) => {
       const grade = result.grade;
       if (grade === null) {
@@ -696,6 +709,7 @@ export class Game {
   private _showResults(): void {
     this.state = GameState.Results;
     this._playScreen.classList.remove('active');
+    this._accomp.pause();
 
     this._resultsScreen.show(this.noteManager.scoring, this._usedLearningMode, this.isNewBest());
 
@@ -743,6 +757,8 @@ export class Game {
     this._songTitleEl.textContent = '';
     document.title = this._baseDocTitle;
     this._keyboardInput.stop();
+    this._accomp.dispose();
+    this._speedHalted = false;
     this._synth.releaseAll();
     this._keyboardInput.onNoteOn = null;
     this._keyboardInput.onNoteOff = null;
@@ -757,6 +773,45 @@ export class Game {
 
   private _applyScoringEnabled(): void {
     this.noteManager.scoring.enabled = !this.loop.active || !this.learningMode;
+  }
+
+  /** Attach the accompaniment engine for this song: one buffer stream per
+   *  background track, regardless of enable state (toggle = gain ramp).
+   *  Detached whenever there is nothing to pre-render or speed != 1 (buffer
+   *  rate would transpose pitch — the live path keeps that behavior). */
+  private _attachAccompaniment(): void {
+    const bgTrackList = this._currentSong?.backgroundTracks ?? [];
+    if (bgTrackList.length === 0) {
+      this._accomp.dispose();
+      this._speedHalted = false;
+      return;
+    }
+
+    const notes = this.noteManager.notes;
+    this._accomp.attach({
+      ctx: this._synth.context,
+      master: this._synth.masterGain,
+      patchFor: (program, channel, background) => this._patchForNote(program, channel, background),
+      tracks: bgTrackList.map((index) => ({
+        index,
+        enabled: this.noteManager.backgroundTracks.has(index),
+        notes: notes.filter((n) => n.track === index),
+      })),
+    });
+
+    if (this.speedMultiplier !== 1) {
+      this._speedHalted = true;
+      this._accomp.halt();
+    } else {
+      this._speedHalted = false;
+      this._accomp.restartAt(this.currentTime);
+    }
+  }
+
+  /** Re-anchor the accompaniment unless a speed fallback disengaged it. */
+  private _restartAccompaniment(pos: number): void {
+    if (this._speedHalted) return;
+    this._accomp.restartAt(pos);
   }
 
   private _patchForNote(program: number, channel: number, background: boolean): Patch {
@@ -793,6 +848,9 @@ export class Game {
     // PLAY mode. Background-accompaniment notes are governed by their own
     // per-track toggle and must keep playing.
     if (note.selected && this.mainTrackMuted) return;
+    // Notes whose audio a rendered buffer stream carries are silently
+    // skipped here — live voices remain for misses and fallbacks only.
+    if (this._accomp.handles(note)) return;
     // Known duration: the patch schedules the release in the graph, so the
     // voice ends itself with zero main-thread work.
     const realDuration = note.duration / this.speedMultiplier;
@@ -812,9 +870,11 @@ export class Game {
       // is recaptured at resume time, not the pre-pause instant.
       this._learningFrozen = false;
       this._lastFrameTime = 0;
+      this._restartAccompaniment(this.currentTime);
       this._mainLoop();
     } else {
       this._paused = true;
+      this._accomp.pause();
       if (this._animationId !== null) {
         cancelAnimationFrame(this._animationId);
         this._animationId = null;
@@ -826,6 +886,19 @@ export class Game {
     this._refGameTime = this.currentTime;
     this._refRealTime = performance.now() / 1000;
     this.speedMultiplier = Math.max(0.1, Math.min(2.0, multiplier));
+
+    // Buffer sources have no cheap pitch-preserving time stretch, so the
+    // engine runs at speed 1.0 only; anything else falls back to the
+    // per-note live path until the speed returns to 1.0.
+    if (this.speedMultiplier !== 1) {
+      if (this._accomp.running) {
+        this._speedHalted = true;
+        this._accomp.halt();
+      }
+    } else if (this._speedHalted) {
+      this._speedHalted = false;
+      this._accomp.restartAt(this.currentTime);
+    }
   }
 
   /** Re-anchor playback at `time` (seconds) and reset note gameplay state
@@ -842,6 +915,7 @@ export class Game {
     this._pressedLanes.clear();
     this.renderer.clearGrind();
     this.noteManager.resetFromTime(clamped);
+    this._restartAccompaniment(clamped);
   }
 
   seekToNextNote(): void {
@@ -874,6 +948,7 @@ export class Game {
 
   setBackgroundTrack(trackIndex: number, enabled: boolean): void {
     this.noteManager.setBackgroundTrack(trackIndex, enabled);
+    this._accomp.setTrackEnabled(trackIndex, enabled);
     if (this._currentSong) {
       if (enabled) {
         if (!this._currentSong.backgroundTracks) this._currentSong.backgroundTracks = [];

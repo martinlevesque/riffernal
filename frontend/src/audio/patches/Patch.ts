@@ -10,7 +10,9 @@ export interface PatchNote {
 
 export interface Patch {
   name: string;
-  build(ctx: AudioContext, freq: number, startTime: number, midi?: number, duration?: number): PatchNote;
+  /** `BaseAudioContext` so the same builders also render accompaniment
+   *  buffers offline (OfflineAudioContext), not just live voices. */
+  build(ctx: BaseAudioContext, freq: number, startTime: number, midi?: number, duration?: number): PatchNote;
   /** Reduced-cost voice of the same instrument, built for auto-played
    *  (background) voices so dense passages never alias a player's press;
    *  live presses always take the main `build`. */

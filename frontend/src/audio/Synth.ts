@@ -82,6 +82,19 @@ export class Synth {
     return this._patch;
   }
 
+  /** The live audio context, creating it (and the master chain) if needed. */
+  get context(): AudioContext {
+    if (!this._ctx) this.init();
+    return this._ctx!;
+  }
+
+  /** Node live voices connect into; the accompaniment engine routes its
+   *  buffer streams through the same master chain. */
+  get masterGain(): GainNode {
+    this.context;
+    return this._masterGain!;
+  }
+
   noteOn(noteName: string, patch?: Patch, id?: string, midiOverride?: number, duration?: number): void {
     this.init();
     this.resume();

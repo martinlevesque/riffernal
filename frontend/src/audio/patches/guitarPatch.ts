@@ -15,7 +15,7 @@ const ENVELOPE: EnvelopePoint[] = [
 ];
 
 function buildGuitar(
-  ctx: AudioContext,
+  ctx: BaseAudioContext,
   freq: number,
   startTime: number,
   distortion: number,
