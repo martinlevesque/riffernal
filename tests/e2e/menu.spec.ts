@@ -93,6 +93,33 @@ test.describe('Menu Screen', () => {
     await expectHomeScreenInactive(page);
   });
 
+  test('delete account in settings destroys the session and returns to the auth screen', async ({ request, page }) => {
+    // Throwaway user: the shared e2e user is the setup admin, which is
+    // protected from self-deletion, and its session must survive anyway.
+    const username = uniqueUsername('delete_user');
+    const { user, token } = await registerUser(request, username);
+
+    await page.goto('/');
+    await page.evaluate(([t, u]) => {
+      localStorage.setItem('riffernal_token', t);
+      localStorage.setItem('riffernal_user', u);
+    }, [token, JSON.stringify(user)]);
+    await page.reload();
+    await expectHomeScreenActive(page);
+
+    page.on('dialog', async dialog => {
+      await dialog.accept();
+    });
+
+    await openSettings(page);
+    await page.locator('#btn-delete-account').click();
+
+    await expectAuthScreenActive(page);
+    await expectHomeScreenInactive(page);
+    // Local auth state was cleared with the account.
+    expect(await page.evaluate(() => localStorage.getItem('riffernal_token'))).toBeNull();
+  });
+
   test('theme selector in settings popup switches active theme', async ({ page }) => {
     await page.goto('/');
     await openSettings(page);

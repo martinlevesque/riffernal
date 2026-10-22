@@ -29,3 +29,11 @@ export async function updateUserSettings(settings: Partial<GameSettings>): Promi
   if (!res.ok) throw new Error(await parseError(res));
   return res.json() as Promise<GameSettings>;
 }
+
+/** Delete the logged-in user's account and every entity referencing it.
+ *  The server session dies with the account, so the caller must clearAuth()
+ *  once this resolves. */
+export async function deleteAccount(): Promise<void> {
+  const res = await apiFetch("/api/user", { method: "DELETE" });
+  if (!res.ok) throw new Error(await parseError(res));
+}

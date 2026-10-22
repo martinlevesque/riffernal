@@ -171,6 +171,35 @@ input[type="text"]:focus {
   margin-top: 1rem;
 }
 
+.setting-danger {
+  margin-top: 1.2rem;
+  padding-top: 1rem;
+  border-top: 1px solid var(--border-subtle);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+.setting-danger-label {
+  color: var(--text-secondary);
+  font-size: var(--fs-smallest);
+  letter-spacing: 0.05em;
+  user-select: none;
+}
+
+.btn-danger {
+  background: transparent;
+  border-color: var(--accent-red);
+  color: var(--accent-red);
+  padding: 0.4rem 1.2rem;
+}
+
+.btn-danger:hover {
+  background: var(--accent-red);
+  color: var(--text-on-accent);
+}
+
 .shortcuts-hint {
   font-family: var(--font-mono);
   color: var(--text-secondary);

@@ -60,3 +60,19 @@ export function findSession(token: string): { user_id: number } | null {
 export function deleteSession(token: string): void {
   db.run("DELETE FROM sessions WHERE token = ?", [token]);
 }
+
+/** Delete a user row and every row that references it. The user's songs must
+ *  go first: `songs.imported_by_user_id` is the only user FK without ON
+ *  DELETE CASCADE (SQLite cannot alter FK actions without a table rebuild),
+ *  and deleting a song already cascades every user's `user_songs` and
+ *  `user_song_loops` rows — the same semantics as the per-song delete. The
+ *  users delete then cascades sessions, the remaining per-user stats/loops
+ *  rows and daily scores. */
+export function deleteUserCascade(userId: number): void {
+  const remove = db.transaction(() => {
+    db.run("DELETE FROM songs WHERE imported_by_user_id = ?", [userId]);
+    db.run("DELETE FROM users WHERE id = ?", [userId]);
+  });
+
+  remove();
+}

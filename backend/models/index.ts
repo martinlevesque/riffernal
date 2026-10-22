@@ -1,5 +1,5 @@
 export { type Category, listCategories, createCategory } from "./category.ts";
-export { type GameSettings, getGameSettings, updateGameSettings } from "./user.ts";
+export { type GameSettings, getGameSettings, updateGameSettings, deleteUserAccount } from "./user.ts";
 export { type AuthUser, isAdminUser } from "./auth.ts";
 export { type StatusReport, getStatus } from "./status.ts";
 export { type LeaderboardEntry, getTodayLeaderboard } from "./leaderboard.ts";
