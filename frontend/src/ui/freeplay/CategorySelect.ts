@@ -9,8 +9,7 @@ export interface CategorySelectDeps {
 }
 
 export interface CategorySelectShowOptions {
-  /** Guest imports skip categories entirely (they're per-user server data):
-   *  only the title/artist/difficulty fields are shown. */
+  /** Guest imports skip categories (per-user server data). */
   hideCategories?: boolean;
 }
 

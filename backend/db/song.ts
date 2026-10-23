@@ -136,34 +136,28 @@ export function deleteSong(id: number): void {
   db.run("DELETE FROM songs WHERE id = ?", [id]);
 }
 
-/** Extra WHERE term shared by the community browse count and listing
- *  (alias the bookmark subquery `bm` so it never collides with the outer
- *  joins): signed-in callers get the bookmark exclusion — bookmarked songs
- *  appear in their category groups instead. Anonymous (guest) callers get
- *  the showcase exclusion — featured songs are already playable in the
- *  guest's Featured section, so locked duplicates there would be
- *  contradictory. */
+// Signed-in callers drop bookmarked songs (they appear in their category
+// groups instead) and their own shared songs (same reason). Anonymous
+// callers drop showcased songs so the Featured section never shows a locked
+// duplicate.
 function communityBrowseExclusion(userId: number | null): string {
   return userId === null
     ? "AND s.guest_showcase = 0"
     : `AND NOT EXISTS (
            SELECT 1 FROM user_songs bm
            WHERE bm.user_id = ? AND bm.song_id = s.id AND bm.community_bookmarked = 1
-         )`;
+         )
+         AND (s.imported_by_user_id IS NULL OR s.imported_by_user_id != ?)`;
 }
 
-/** Count public community songs (for pagination totals), excluding songs
- *  the requesting user has bookmarked (those live in their own category
- *  groups instead of the community browse list). A null userId (guest)
- *  drops showcased songs rather than bookmarked ones. */
 export function countPublicCommunitySongs(userId: number | null): number {
   const row = db
     .query(
-      `SELECT COUNT(*) AS count FROM songs s
-       WHERE s.public_community = 1
-         ${communityBrowseExclusion(userId)}`,
-    )
-    .get(...(userId === null ? [] : [userId])) as { count: number };
+       `SELECT COUNT(*) AS count FROM songs s
+        WHERE s.public_community = 1
+          ${communityBrowseExclusion(userId)}`,
+     )
+    .get(...(userId === null ? [] : [userId, userId])) as { count: number };
   return row.count;
 }
 
@@ -174,11 +168,6 @@ export interface PublicCommunitySongRow extends SongSummaryRow {
   imported_by_username?: string | null;
 }
 
-/** Get public community songs ordered by bookmark popularity (most
- *  bookmarked first), then by creation date. Paginated via limit/offset.
- *  For signed-in callers, excludes songs the user has bookmarked (those
- *  appear in the user's category groups instead); for guests, excludes
- *  showcased songs (see `communityBrowseExclusion`). */
 export function getPublicCommunitySongs(
   limit: number,
   offset: number,
@@ -196,13 +185,9 @@ export function getPublicCommunitySongs(
        ORDER BY bookmark_count DESC, s.created_at DESC
        LIMIT ? OFFSET ?`,
     )
-    .all(...(userId === null ? [limit, offset] : [userId, limit, offset])) as PublicCommunitySongRow[];
+    .all(...(userId === null ? [limit, offset] : [userId, userId, limit, offset])) as PublicCommunitySongRow[];
 }
 
-/** Get the public community songs the given user has bookmarked, ordered by
- *  the user's last-played time (most recent first, never-played last), then
- *  by song creation. These appear in the user's category groups in the
- *  freeplay menu rather than in the community browse list. */
 export function getBookmarkedSongs(userId: number): SongSummaryRow[] {
   return db
     .query(
@@ -222,7 +207,7 @@ export function updateSongPublicCommunity(id: number, value: number): void {
 }
 
 /** Get the admin-curated guest showcase songs (playable without an
- *  account), newest first, with bookmark counts and sharer usernames. */
+ *  account). */
 export function getGuestShowcaseSongs(): PublicCommunitySongRow[] {
   return db
     .query(
@@ -237,7 +222,6 @@ export function getGuestShowcaseSongs(): PublicCommunitySongRow[] {
     .all() as PublicCommunitySongRow[];
 }
 
-/** Count guest showcase songs (for the showcase size cap). */
 export function countGuestShowcaseSongs(): number {
   const row = db
     .query("SELECT COUNT(*) AS count FROM songs WHERE guest_showcase = 1")
@@ -245,7 +229,6 @@ export function countGuestShowcaseSongs(): number {
   return row.count;
 }
 
-/** Set the guest_showcase flag on a song. */
 export function updateSongGuestShowcase(id: number, value: number): void {
   db.run("UPDATE songs SET guest_showcase = ? WHERE id = ?", [value, id]);
 }

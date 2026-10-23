@@ -48,12 +48,10 @@ export class Menu {
   private _guestMode = false;
   onStart: ((song: Song) => void) | null = null;
   onCommunityStart: ((song: Song) => void) | null = null;
-  /** Guest mode: start an admin-curated showcase song. */
   onShowcaseStart: ((song: Song) => void) | null = null;
   /** Guest mode: a locked community song (or its sign-in chip) was
    *  activated — leave guest mode via the auth screen. */
   onSignIn: (() => void) | null = null;
-  /** Admin: add/remove a song from the guest showcase. */
   onToggleGuestShowcase: ((song: Song) => void) | null = null;
   onRename: ((song: Song) => void) | null = null;
   onDelete: ((song: Song) => void) | null = null;
@@ -62,7 +60,7 @@ export class Menu {
   onBookmark: ((song: Song) => void) | null = null;
   onBackToHome: (() => void) | null = null;
 
-  /** Switch guest rendering/behavior. Must be set before any load* call. */
+  /** Must be set before any load* call. */
   setGuestMode(guest: boolean): void {
     this._guestMode = guest;
   }
@@ -140,8 +138,7 @@ export class Menu {
     }
   }
 
-  /** Guest mode: render the local shelf as one group. The songs arrive
-   *  pre-parsed (with negative ids) from the guest store. */
+  /** The songs arrive pre-parsed (with negative ids) from the guest store. */
   loadGuestLibrary(songs: Song[]): void {
     this._groups = [{
       id: null,
@@ -153,7 +150,6 @@ export class Menu {
     this._render();
   }
 
-  /** Guest mode: append a freshly imported song to the shelf group. */
   addGuestSong(song: Song): void {
     const group = this._groups.find((g) => g.id === null);
 
@@ -173,8 +169,6 @@ export class Menu {
     this._render();
   }
 
-  /** Guest mode: load the admin-curated showcase list (playable without an
-   *  account). */
   async loadShowcaseSongs(): Promise<void> {
     try {
       const { songs } = await fetchGuestShowcaseSongs();
@@ -545,9 +539,9 @@ export class Menu {
     return section;
   }
 
-  /** A community song row. `showcase` renders it as a Featured (guest-playable)
-   *  item. In guest mode, locked community songs lose their bookmark button
-   *  and carry a sign-in chip instead. */
+  /** `showcase` renders the row as a Featured (guest-playable) item. In
+   *  guest mode, locked community songs lose their bookmark button and
+   *  carry a sign-in chip instead. */
   private _renderCommunitySong(
     song: Song,
     opts: { showCommunityLabel?: boolean; showcase?: boolean } = {},
@@ -586,10 +580,9 @@ export class Menu {
     return el;
   }
 
-  /** Guest mode: the lock replacement on community rows — a chip that leads
-   *  straight to the auth screen. */
+  /** The lock replacement on community rows. */
   private _renderSignInChip(el: HTMLElement): void {
-    const chip = this._el("button", "sign-in-chip", "\u{1F512} Sign in to play") as HTMLButtonElement;
+    const chip = this._el("button", "btn-ghost sign-in-chip", "\u{1F512} Sign in to play") as HTMLButtonElement;
     chip.type = "button";
     chip.title = "Create an account (or log in) to play community songs";
     chip.addEventListener("click", (e) => {
@@ -836,8 +829,6 @@ export class Menu {
         return;
       }
 
-      // Guest + community row: playable when featured, otherwise the
-      // start action is the sign-in prompt.
       if (song.guestShowcase === true) {
         this.onShowcaseStart?.(song);
       } else {

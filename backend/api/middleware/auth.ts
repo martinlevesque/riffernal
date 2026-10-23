@@ -37,18 +37,14 @@ export function withAuth(
   };
 }
 
-/** Validate the Bearer token when present. Returns the authenticated user,
- *  or null for a missing/invalid token — unlike `requireAuth`, this never
- *  produces a 401: routes that are open to guests treat "no user" as a
- *  valid state. */
+/** User-or-null variant of `requireAuth`: routes open to guests treat
+ *  "no user" as a valid state. */
 export function optionalAuth(req: Request): AuthUser | null {
   const token = extractToken(req);
   if (!token) return null;
   return validateSession(token);
 }
 
-/** Wrap a handler so it runs with or without a session. The wrapped handler
- *  receives the authenticated user or null (guest). */
 export function withOptionalAuth(
   handler: (req: Request, auth: AuthUser | null, params: Record<string, string>) => Promise<Response> | Response,
 ): Handler {

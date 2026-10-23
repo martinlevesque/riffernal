@@ -52,10 +52,6 @@
   margin-bottom: 2rem;
 }
 
-#btn-guest-signin.hidden {
-  display: none;
-}
-
 .theme-anchor {
   position: relative;
 }
@@ -71,10 +67,6 @@
   min-width: 140px;
   z-index: 50;
   box-shadow: 0 8px 24px rgba(0, 0, 0, 0.5);
-}
-
-.theme-dropdown.hidden {
-  display: none;
 }
 
 .theme-option {
@@ -163,11 +155,16 @@
   background: rgba(255, 255, 255, 0.04);
 }
 
-.song-item.imported {
+/* Blue-accented rows: the user's own imports + the guest-showcase features.
+   Showcase rows also carry `.community-song` (purple), so these beat it on
+   specificity, not source order. */
+.song-item.imported,
+.song-item.showcase-song {
   border-left-color: var(--accent-blue);
 }
 
-.song-item.imported:hover {
+.song-item.imported:hover,
+.song-item.showcase-song:hover {
   border-left-color: var(--accent-blue);
   background: rgba(34, 136, 255, 0.05);
 }
@@ -276,10 +273,6 @@
   box-shadow: 0 8px 24px rgba(0, 0, 0, 0.5);
 }
 
-.song-actions-menu.hidden {
-  display: none;
-}
-
 .song-action-option {
   display: block;
   width: 100%;
@@ -383,10 +376,6 @@
   letter-spacing: 0.05em;
 }
 
-.controls-hint.hidden {
-  display: none;
-}
-
 .btn-start {
   display: inline-block;
   background: transparent;
@@ -425,7 +414,9 @@
    COMMUNITY SECTION (inside freeplay song list)
    ============================================ */
 
-.community-section {
+/* Sections appended below the main list (community, guest showcase) */
+.community-section,
+.showcase-section {
   margin-top: 1.5rem;
 }
 
@@ -499,28 +490,13 @@
 }
 
 /* ============================================
-    GUEST MODE (showcase section, sign-in chip)
+    GUEST MODE (showcase header/label, sign-in chip)
+    The section/song-row styling is shared with the
+    community + imported rules above.
     ============================================ */
-
-.brand-corner.hidden {
-  display: none;
-}
-
-.showcase-section {
-  margin-top: 1.5rem;
-}
 
 .showcase-header {
   color: var(--accent-blue);
-}
-
-.showcase-song {
-  border-left-color: var(--accent-blue);
-}
-
-.showcase-song:hover {
-  border-left-color: var(--accent-blue);
-  background: rgba(34, 136, 255, 0.05);
 }
 
 .showcase-label {
@@ -529,19 +505,6 @@
 
 .sign-in-chip {
   margin-top: 0.35rem;
-  background: none;
-  border: 1px solid var(--border-medium);
-  border-radius: 4px;
-  color: var(--text-secondary);
-  font-family: var(--font-ui);
   font-size: var(--fs-smallest);
-  letter-spacing: 0.05em;
-  cursor: pointer;
   padding: 0.25rem 0.6rem;
-  transition: color 0.15s, border-color 0.15s;
-}
-
-.sign-in-chip:hover {
-  color: var(--text-primary);
-  border-color: var(--accent-blue);
 }

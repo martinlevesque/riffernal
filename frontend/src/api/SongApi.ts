@@ -260,7 +260,7 @@ export async function setSongPublicCommunity(id: number, value: boolean): Promis
   return res.json() as Promise<SongFull>;
 }
 
-/** Admin-only: add or remove a song from the guest showcase. */
+/** Admin-only curation of the guest showcase. */
 export async function setSongGuestShowcase(id: number, value: boolean): Promise<SongFull> {
   const res = await apiFetch(`/api/songs/${id}/guest-showcase`, {
     method: "PUT",

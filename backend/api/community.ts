@@ -12,9 +12,8 @@ export const communityRoutes = [
   {
     method: "GET",
     path: "/api/community/songs",
-    // Open to guests: unauthenticated callers see the same list minus their
-    // (nonexistent) stats and bookmark state. Playing a listed song still
-    // requires auth via /api/community/songs/:id below.
+    // Open to guests; playing a listed song still requires auth via
+    // /api/community/songs/:id below.
     handler: withOptionalAuth((req, auth) => {
       const { limit, offset } = parsePagination(new URL(req.url));
       return json(listPublicCommunitySongs(auth?.id ?? null, limit, offset));

@@ -35,9 +35,8 @@ export function clearAuth(): void {
   localStorage.removeItem(USER_KEY);
 }
 
-/** True while the visitor chose "continue as guest". Kept in localStorage
- *  so a refresh boots straight back into guest mode (guest songs persist
- *  in IndexedDB). Cleared by any successful login/register/setup. */
+/** True while the visitor chose "continue as guest"; cleared by any
+ *  successful login/register/setup. */
 export function isGuestMode(): boolean {
   return localStorage.getItem(GUEST_KEY) === "1";
 }

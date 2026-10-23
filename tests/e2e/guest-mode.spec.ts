@@ -67,7 +67,6 @@ test.describe('Guest mode', () => {
     const { context, page } = await continueAsGuest(browser);
 
     await expect(page.locator('#btn-import-midi')).toBeVisible();
-    // Guest chrome: no home screen corner, a Sign in exit instead.
     await expect(page.locator('.brand-corner')).toBeHidden();
     await expect(page.locator('#btn-guest-signin')).toBeVisible();
 
@@ -102,7 +101,6 @@ test.describe('Guest mode', () => {
     await expect(page.locator('.song-item.imported')).toHaveCount(1, { timeout: 5000 });
     await expect(page.locator('.song-item.imported')).toContainText('Guest Song');
 
-    // And it is playable without an account.
     await page.locator('.song-item.imported').click();
     const startBtn = page.locator('#btn-start');
     await expect(startBtn).toBeEnabled();
@@ -124,6 +122,12 @@ test.describe('Guest mode', () => {
 
     await lockedRow.locator('.sign-in-chip').click();
     await expectAuthScreenUsable(page);
+
+    // The guest link doubles as the escape hatch back to the shelf.
+    await expect(page.locator('#auth-guest-btn')).toBeVisible();
+    await page.locator('#auth-guest-btn').click();
+    await expectMenuScreenActive(page);
+    await expect(page.locator('#btn-guest-signin')).toBeVisible();
 
     await context.close();
     await cleanupSongs(request, /^E2E-Guest-Comm$/);
@@ -150,8 +154,7 @@ test.describe('Guest mode', () => {
     await expect(featuredRow).toBeVisible({ timeout: 5000 });
     await expect(page.locator('.showcase-section', { hasText: 'Featured' })).toBeVisible();
 
-    // Featured songs are playable in the showcase section, not duplicated
-    // as locked rows in the community list.
+    // Featured songs are not duplicated as locked rows in the community list.
     await expect(page.locator('.community-section .song-item', { hasText: 'E2E-Guest-Feat' })).toHaveCount(0);
 
     await featuredRow.click();

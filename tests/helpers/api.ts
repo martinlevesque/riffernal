@@ -259,9 +259,9 @@ export async function publishSong(request: APIRequestContext, id: number): Promi
   expect(res.ok()).toBeTruthy();
 }
 
-/** Feature a song (by id, as the shared user) for guest play in the
- *  guest showcase. Requires the curation caller to be an admin — the
- *  shared test user is the setup admin on the fresh test DB. */
+/** Feature a song (by id, as the shared user). Requires the curation
+ *  caller to be an admin — the shared test user is the setup admin on the
+ *  fresh test DB. */
 export async function featureSong(request: APIRequestContext, id: number): Promise<void> {
   const headers = await authJsonHeaders(request);
   const res = await request.put(`/api/songs/${id}/guest-showcase`, {

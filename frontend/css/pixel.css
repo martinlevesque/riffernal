@@ -370,7 +370,8 @@ kbd {
   box-shadow: var(--pixel-shadow-offset-sm) var(--pixel-shadow-offset-sm) 0 var(--accent-red);
 }
 
-.song-item.imported:hover {
+.song-item.imported:hover,
+.song-item.showcase-song:hover {
   box-shadow: var(--pixel-shadow-offset-sm) var(--pixel-shadow-offset-sm) 0 var(--accent-blue);
 }
 
@@ -465,14 +466,17 @@ input[type="text"]:focus,
   --focus-shadow-offset: var(--pixel-shadow-offset-sm);
 }
 
-.nav-item.imported {
-  --focus-color: var(--accent-blue);
-  --focus-bg: rgba(34, 136, 255, 0.08);
-}
-
 .nav-item.community-song {
   --focus-color: var(--accent-purple);
   --focus-bg: rgba(180, 100, 255, 0.08);
+}
+
+/* Blue accents (own imports + showcase). After the community block because
+   showcase rows carry both classes. */
+.nav-item.imported,
+.nav-item.showcase-song {
+  --focus-color: var(--accent-blue);
+  --focus-bg: rgba(34, 136, 255, 0.08);
 }
 
 .nav-item.focused,

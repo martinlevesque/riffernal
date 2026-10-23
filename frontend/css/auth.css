@@ -167,27 +167,14 @@
   color: var(--accent-blue);
 }
 
-.auth-guest {
+.auth-secondary {
   margin-top: 0.9rem;
   text-align: center;
 }
 
-.auth-guest button {
-  background: none;
-  border: 1px solid var(--border-medium);
-  border-radius: 4px;
-  color: var(--text-secondary);
-  font-family: var(--font-ui);
+.auth-secondary .btn-ghost {
   font-size: var(--fs-smaller);
-  cursor: pointer;
-  letter-spacing: 0.05em;
   padding: 0.45rem 1.1rem;
-  transition: color 0.15s, border-color 0.15s;
-}
-
-.auth-guest button:hover {
-  color: var(--text-primary);
-  border-color: var(--accent-blue);
 }
 
 /* -- legal links (below the card) ------------------------------------------ */

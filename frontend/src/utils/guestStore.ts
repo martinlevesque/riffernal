@@ -129,8 +129,8 @@ function storage(): GuestSongStorage {
   return _storage;
 }
 
-/** Swap the storage backend and reset the in-session mapping (tests).
- *  Passing null restores the IndexedDB backend. */
+/** Swap the storage backend (tests); passing null restores the IndexedDB
+ *  backend. */
 export function setGuestSongStorage(storage: GuestSongStorage | null): void {
   _storage = storage;
   _records = [];
@@ -139,9 +139,6 @@ export function setGuestSongStorage(storage: GuestSongStorage | null): void {
   _loaded = false;
 }
 
-/** Build the playable Song for one record: parse the raw bytes fresh (notes,
- *  tracks, bpm all derive from the file), then apply the importer's stored
- *  choices. The negative id is the Menu-facing key. */
 export function recordToSong(record: GuestSongRecord, id: number): Song {
   const song = parseMidi(record.midiBytes, record.filename);
   song.id = id;
@@ -159,9 +156,7 @@ export function recordToSong(record: GuestSongRecord, id: number): Song {
 }
 
 /** Read the guest shelf and rebuild the session mapping. Must run before
- *  addGuestSong/removeGuestSong so ids stay aligned with storage. Ids are
- *  reassigned deterministically on every load — callers get a fresh set of
- *  Song objects at the same time, so no stale references survive. */
+ *  addGuestSong/removeGuestSong so ids stay aligned with storage. */
 export async function loadGuestSongs(): Promise<Song[]> {
   _records = (await storage().list()).sort((a, b) => a.createdAt - b.createdAt);
   _idToKey = new Map<number, string>();
@@ -184,8 +179,6 @@ async function ensureLoaded(): Promise<void> {
   if (!_loaded) await loadGuestSongs();
 }
 
-/** Store a new guest import. Returns the playable song with its assigned
- *  negative id, or throws when the shelf is full. */
 export async function addGuestSong(input: GuestSongInput): Promise<Song> {
   await ensureLoaded();
 
@@ -210,8 +203,6 @@ export async function addGuestSong(input: GuestSongInput): Promise<Song> {
   return recordToSong(record, id);
 }
 
-/** Remove a guest song by its negative id. Returns false when no record
- *  matches (unknown/stale id). */
 export async function removeGuestSong(id: number): Promise<boolean> {
   await ensureLoaded();
 

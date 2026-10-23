@@ -661,7 +661,6 @@ test.describe("API: guest showcase curation", () => {
       expect(on.ok()).toBeTruthy();
     }
 
-    // One beyond the cap is rejected with the model's validation error.
     const overflowId = await seedSongWithNotes(request, "E2E-Showcase-Cap-Overflow", ONE_NOTE);
     const overflow = await request.put(`/api/songs/${overflowId}/guest-showcase`, {
       data: { guestShowcase: true },
@@ -670,7 +669,6 @@ test.describe("API: guest showcase curation", () => {
     expect(overflow.status()).toBe(400);
     expect((await overflow.json()).error).toContain("Guest showcase is full");
 
-    // Unfeature makes room again.
     const off = await request.put(`/api/songs/${ids[0]}/guest-showcase`, {
       data: { guestShowcase: false },
       headers: jsonHeaders,

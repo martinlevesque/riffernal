@@ -37,6 +37,23 @@
   color: var(--text-primary);
 }
 
+/* Quiet bordered button for secondary, non-primary actions (auth "continue
+   as guest", menu sign-in chips). Sizing stays with the component. */
+.btn-ghost {
+  background: none;
+  border: 1px solid var(--border-medium);
+  color: var(--text-secondary);
+  font-family: var(--font-ui);
+  letter-spacing: 0.05em;
+  cursor: pointer;
+  transition: color 0.15s, border-color 0.15s;
+}
+
+.btn-ghost:hover {
+  color: var(--text-primary);
+  border-color: var(--accent-blue);
+}
+
 .btn-link {
   background: none;
   border: none;

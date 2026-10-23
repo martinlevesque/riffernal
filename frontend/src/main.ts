@@ -48,16 +48,12 @@ function showApp(): void {
   document.getElementById('home-screen')!.classList.add('active');
 }
 
-/** Show the freeplay screen without the (user-scoped) home screen. */
 function showFreeplay(): void {
   document.getElementById('auth-screen')!.classList.remove('active');
   document.getElementById('home-screen')!.classList.remove('active');
   document.getElementById('freeplay-screen')!.classList.add('active');
 }
 
-/** Enter guest mode: no account, no server persistence. The local shelf
- *  (IndexedDB) and the public showcase/community listings carry the
- *  session. Kept in localStorage so a refresh re-enters guest mode. */
 function enterGuestMode(): void {
   setGuestMode();
   _guestMode = true;
@@ -65,23 +61,32 @@ function enterGuestMode(): void {
   initApp();
 }
 
-/** Leave guest mode through the auth screen. The freeplay screen must die
- *  here: without a z-index it paints above the auth screen (DOM order), and
- *  its active state would swallow every click. A successful login/register
- *  clears the guest flag (setAuth), and the reload boots the app
- *  authenticated. */
+/** Boot the guest session off the auth screen after the app already ran as
+ *  a signed-in user (logout) or holds a stale shelf: the flag is persisted
+ *  and init() re-runs on reload to build a clean guest app — the in-memory
+ *  Menu still carries the previous user's data. */
+function bootGuestMode(): void {
+  setGuestMode();
+  window.location.reload();
+}
+
+/** The freeplay screen must die here: without a z-index it paints above
+ *  the auth screen (DOM order), and its active state would swallow every
+ *  click. A successful login/register clears the guest flag (setAuth), so
+ *  the reload boots the app authenticated. */
 function signInFromGuest(): void {
   document.getElementById('freeplay-screen')!.classList.remove('active');
   const authScreen = new AuthScreen({
     onAuth: () => window.location.reload(),
+    onGuest: () => bootGuestMode(),
   });
   authScreen.show();
 }
 
 /** Shared logout handler: clears auth, hides the home screen, and shows
- *  the auth screen for re-login. A successful re-login reloads the page so
- *  the app reboots with the new user's data (the in-memory Menu held the
- *  previous user's scores/loops). */
+ *  the auth screen for re-login. A successful re-login (or continued guest
+ *  session) reloads the page so the app reboots with the new user's data
+ *  (the in-memory Menu held the previous user's scores/loops). */
 async function handleLogout(): Promise<void> {
   await logout();
   _homeScreen?.hide();
@@ -90,6 +95,7 @@ async function handleLogout(): Promise<void> {
       authScreen.hide();
       window.location.reload();
     },
+    onGuest: () => bootGuestMode(),
   });
   authScreen.show();
 }
@@ -131,8 +137,6 @@ async function init(): Promise<void> {
     showApp();
     initApp();
   } else if (isGuestMode()) {
-    // Returning guest after a refresh: the shelf lives in IndexedDB, so
-    // boot straight back into the freeplay menu.
     enterGuestMode();
   } else {
     authScreen.show();
@@ -174,8 +178,7 @@ function createAppContext(): AppContext {
 
 /** Load the user's library (own + bookmarked songs grouped by category) and
  *  fire off the community browse listing (not awaited — it can populate
- *  whenever ready). Guests load the local shelf plus the public showcase
- *  and community listings instead. */
+ *  whenever ready). */
 async function loadMenuData(ctx: AppContext): Promise<void> {
   const { menu } = ctx;
 
@@ -319,7 +322,6 @@ function setupMenuCallbacks(ctx: AppContext): void {
   menu.onSignIn = signInFromGuest;
 
   if (_guestMode) {
-    // Guest shelf delete: remove from the local store and the menu.
     menu.onDelete = (song) => {
       if (song.id === undefined) return;
 
@@ -380,7 +382,6 @@ function setupMenuCallbacks(ctx: AppContext): void {
     });
   };
 
-  // Admin curation of the guest showcase (front window for visitors).
   menu.onToggleGuestShowcase = (song) => {
     if (song.id === undefined) return;
     const id = song.id;
@@ -450,8 +451,7 @@ function setupTrailingComponents(ctx: AppContext): void {
 }
 
 /** Guest-mode chrome: no home screen (user-scoped stats/leaderboard), no
- *  loop controls (loop persistence needs an account). A Sign in button is
- *  the way out of the session. */
+ *  loop controls (loop persistence needs an account). */
 function setupGuestUi(): void {
   document.querySelector('.brand-corner')?.classList.add('hidden');
   document.getElementById('btn-guest-signin')?.classList.remove('hidden');

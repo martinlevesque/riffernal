@@ -7,6 +7,7 @@ import {
   uniqueUsername,
   registerUser,
   featureSong,
+  bearer,
 } from "../../helpers/index.js";
 
 const MIDI_HEADER = [0x4d, 0x54, 0x68, 0x64, 0x00, 0x00, 0x00, 0x06, 0x00, 0x00, 0x00, 0x01, 0x01, 0xe0];
@@ -156,55 +157,95 @@ test.describe("API: community songs", () => {
   test("GET /api/community/songs returns only public songs", async ({ request }) => {
     await cleanupSongs(request, /^E2E-Comm-List/);
 
-    const song1 = await uploadSong(request, "E2E-Comm-List-A");
-    const song2 = await uploadSong(request, "E2E-Comm-List-B");
+    const viewer = await registerUser(request, uniqueUsername("comm_view"));
 
-    await publishSong(request, song1.id);
+    try {
+      const song1 = await uploadSong(request, "E2E-Comm-List-A");
+      const song2 = await uploadSong(request, "E2E-Comm-List-B");
+      const base = await (await request.get("/api/community/songs", { headers: bearer(viewer.token) })).json();
 
-    const headers = await authHeaders(request);
-    const res = await request.get("/api/community/songs", { headers });
-    expect(res.ok()).toBeTruthy();
-    const body = await res.json();
-    expect(body.songs).toHaveLength(1);
-    expect(body.songs[0].title).toBe("E2E-Comm-List-A");
-    expect(body.songs[0].publicCommunity).toBe(true);
-    expect(body.total).toBe(1);
+      await publishSong(request, song1.id);
 
-    await publishSong(request, song2.id);
-    const res2 = await request.get("/api/community/songs", { headers });
-    const body2 = await res2.json();
-    expect(body2.songs).toHaveLength(2);
-    expect(body2.total).toBe(2);
+      const res = await request.get("/api/community/songs", { headers: bearer(viewer.token) });
+      expect(res.ok()).toBeTruthy();
+      const body = await res.json();
+      expect(body.songs.some((s: { title: string; publicCommunity: boolean }) =>
+        s.title === "E2E-Comm-List-A" && s.publicCommunity)).toBe(true);
+      expect(body.songs.some((s: { title: string }) => s.title === "E2E-Comm-List-B")).toBe(false);
+      expect(body.total).toBe(base.total + 1);
 
-    await cleanupSongs(request, /^E2E-Comm-List/);
+      await publishSong(request, song2.id);
+      const res2 = await request.get("/api/community/songs", { headers: bearer(viewer.token) });
+      const body2 = await res2.json();
+      expect(body2.songs.filter((s: { title: string }) => /^E2E-Comm-List/.test(s.title))).toHaveLength(2);
+      expect(body2.total).toBe(base.total + 2);
+    } finally {
+      await cleanupSongs(request, /^E2E-Comm-List/);
+    }
+  });
+
+  test("GET /api/community/songs excludes the sharer's own shared songs", async ({ request }) => {
+    await cleanupSongs(request, /^E2E-Comm-Own/);
+
+    const viewer = await registerUser(request, uniqueUsername("comm_ownview"));
+
+    try {
+      const headers = await authHeaders(request);
+      const base = await (await request.get("/api/community/songs", { headers })).json();
+
+      const song = await uploadSong(request, "E2E-Comm-Own-Shared");
+      await publishSong(request, song.id);
+
+      // The song already lives in the sharer's own category groups, so the
+      // community browse list must not repeat it — rows and total alike.
+      const own = await (await request.get("/api/community/songs", { headers })).json();
+      expect(own.songs.some((s: { id: number }) => s.id === song.id)).toBe(false);
+      expect(own.total).toBe(base.total);
+
+      const other = await (await request.get("/api/community/songs", { headers: bearer(viewer.token) })).json();
+      expect(other.songs.some((s: { id: number }) => s.id === song.id)).toBe(true);
+      expect(other.total).toBe(base.total + 1);
+    } finally {
+      await cleanupSongs(request, /^E2E-Comm-Own/);
+    }
   });
 
   test("GET /api/community/songs paginates with limit and offset", async ({ request }) => {
     await cleanupSongs(request, /^E2E-Comm-Page/);
 
-    for (let i = 0; i < 12; i++) {
-      const song = await uploadSong(request, `E2E-Comm-Page-${i}`);
-      await publishSong(request, song.id);
+    const viewer = await registerUser(request, uniqueUsername("comm_view"));
+
+    try {
+      const base = await (await request.get("/api/community/songs", { headers: bearer(viewer.token) })).json();
+
+      for (let i = 0; i < 12; i++) {
+        const song = await uploadSong(request, `E2E-Comm-Page-${i}`);
+        await publishSong(request, song.id);
+      }
+
+      const expectedTotal = base.total + 12;
+
+      const page1 = await (
+        await request.get("/api/community/songs?limit=10&offset=0", { headers: bearer(viewer.token) })
+      ).json();
+      expect(page1.songs).toHaveLength(10);
+      expect(page1.total).toBe(expectedTotal);
+
+      const page2 = await (
+        await request.get("/api/community/songs?limit=10&offset=10", { headers: bearer(viewer.token) })
+      ).json();
+      expect(page2.songs).toHaveLength(Math.min(expectedTotal - 10, 10));
+      expect(page2.total).toBe(expectedTotal);
+
+      const page1Ids = page1.songs.map((s: { id: number }) => s.id);
+      const page2Ids = page2.songs.map((s: { id: number }) => s.id);
+
+      for (const id of page2Ids) {
+        expect(page1Ids).not.toContain(id);
+      }
+    } finally {
+      await cleanupSongs(request, /^E2E-Comm-Page/);
     }
-
-    const headers = await authHeaders(request);
-
-    const page1 = await (await request.get("/api/community/songs?limit=10&offset=0", { headers })).json();
-    expect(page1.songs).toHaveLength(10);
-    expect(page1.total).toBe(12);
-
-    const page2 = await (await request.get("/api/community/songs?limit=10&offset=10", { headers })).json();
-    expect(page2.songs).toHaveLength(2);
-    expect(page2.total).toBe(12);
-
-    const page1Ids = page1.songs.map((s: { id: number }) => s.id);
-    const page2Ids = page2.songs.map((s: { id: number }) => s.id);
-
-    for (const id of page2Ids) {
-      expect(page1Ids).not.toContain(id);
-    }
-
-    await cleanupSongs(request, /^E2E-Comm-Page/);
   });
 
   test("GET /api/community/songs allows guests without auth", async ({ request }) => {
@@ -213,14 +254,12 @@ test.describe("API: community songs", () => {
     const song = await uploadSong(request, "E2E-Comm-Guest-A");
     await publishSong(request, song.id);
 
-    // No Authorization header at all — anonymous browse.
     const res = await request.get("/api/community/songs");
     expect(res.ok()).toBeTruthy();
     const body = await res.json();
     const found = body.songs.find((s: { title: string }) => s.title === "E2E-Comm-Guest-A");
     expect(found).toBeTruthy();
     expect(found.publicCommunity).toBe(true);
-    // Guests have no scores or bookmarks: stats come back empty.
     expect(found.bestScore).toBeNull();
     expect(found.communityBookmarked).toBe(false);
 
@@ -244,28 +283,36 @@ test.describe("API: community songs", () => {
 
     const plain = await uploadSong(request, "E2E-Comm-Showcase-Plain");
     const featured = await uploadSong(request, "E2E-Comm-Showcase-Featured");
-    await publishSong(request, plain.id);
-    await publishSong(request, featured.id);
-    await featureSong(request, featured.id);
 
-    // Anonymous (guest): the featured song is fully playable in the
-    // Featured section, so the locked browse list drops it — rows and
-    // pagination total alike.
-    const anonBody = await (await request.get("/api/community/songs")).json();
-    const anonTitles = anonBody.songs.map((s: { title: string }) => s.title);
-    expect(anonTitles).toContain("E2E-Comm-Showcase-Plain");
-    expect(anonTitles).not.toContain("E2E-Comm-Showcase-Featured");
-    expect(anonBody.total).toBe(1);
+    try {
+      // A signed-in non-owner still sees showcased songs in browse (they only
+      // disappear from the owner's own list, which holds them as own songs).
+      const viewer = await registerUser(request, uniqueUsername("comm_showview"));
+      const viewerBase = await (await request.get("/api/community/songs", { headers: bearer(viewer.token) })).json();
+      const anonBase = await (await request.get("/api/community/songs")).json();
 
-    // Signed-in users see the full community list regardless of curation.
-    const headers = await authHeaders(request);
-    const authedBody = await (await request.get("/api/community/songs", { headers })).json();
-    const authedTitles = authedBody.songs.map((s: { title: string }) => s.title);
-    expect(authedTitles).toContain("E2E-Comm-Showcase-Plain");
-    expect(authedTitles).toContain("E2E-Comm-Showcase-Featured");
-    expect(authedBody.total).toBe(2);
+      await publishSong(request, plain.id);
+      await publishSong(request, featured.id);
+      await featureSong(request, featured.id);
 
-    await cleanupSongs(request, /^E2E-Comm-Showcase/);
+      const anonBody = await (await request.get("/api/community/songs")).json();
+      const anonTitles = anonBody.songs.map((s: { title: string }) => s.title);
+      expect(anonTitles).toContain("E2E-Comm-Showcase-Plain");
+      expect(anonTitles).not.toContain("E2E-Comm-Showcase-Featured");
+      expect(anonBody.total).toBe(anonBase.total + 1);
+
+      // A signed-in non-owner still sees showcased songs in browse (they only
+      // disappear from the owner's own list, which holds them as own songs).
+      const authedBody = await (
+        await request.get("/api/community/songs", { headers: bearer(viewer.token) })
+      ).json();
+      const authedTitles = authedBody.songs.map((s: { title: string }) => s.title);
+      expect(authedTitles).toContain("E2E-Comm-Showcase-Plain");
+      expect(authedTitles).toContain("E2E-Comm-Showcase-Featured");
+      expect(authedBody.total).toBe(viewerBase.total + 2);
+    } finally {
+      await cleanupSongs(request, /^E2E-Comm-Showcase/);
+    }
   });
 
   test("PUT /api/songs/:id/public-community owner can toggle publish", async ({ request }) => {

@@ -344,11 +344,11 @@ export interface CommunitySongListResult {
 
 /** List public community songs as summaries, ordered by bookmark popularity
  *  (most bookmarked first), then by creation date. Excludes songs the
- *  requesting user has bookmarked — those appear in `listBookmarkedSongs`
- *  and the user's category groups instead. Each song includes the
- *  requesting user's score stats. A null userId (guest) gets empty stats
- *  and the guest exclusions (see `getPublicCommunitySongs`). Paginated via
- *  limit/offset. */
+ *  requesting user has bookmarked or shared — both appear in
+ *  `listBookmarkedSongs` / the user's category groups instead — so nobody
+ *  sees their own song twice. Each song includes the requesting user's
+ *  score stats. A null userId (guest) gets empty stats and the guest
+ *  exclusions (see `getPublicCommunitySongs`). Paginated via limit/offset. */
 export function listPublicCommunitySongs(
   userId: number | null,
   limit: number,
@@ -638,9 +638,8 @@ export function getCommunitySong(id: number, userId: number): SongFull | null {
   return rowToFull(row, stats, prefs);
 }
 
-/** Community row (bookmark counts + sharer username) → summary decorated
- *  with the caller's score stats when signed in, empty for anonymous.
- *  Shared by the community browse and the guest showcase listings. */
+/** Row → summary decoration; shared by the community browse and guest
+ *  showcase listings. */
 function communityRowToSummary(
   row: PublicCommunitySongRow,
   stats: ScoreStats = EMPTY_STATS,
@@ -653,15 +652,14 @@ function communityRowToSummary(
  *  not a second community catalog. */
 export const GUEST_SHOWCASE_MAX_SONGS = 12;
 
-/** List the admin-curated guest showcase songs as summaries (no user data:
- *  guests have none). Ordered by creation date, newest first. */
+/** List the admin-curated guest showcase songs (no user data: guests have
+ *  none). */
 export function listGuestShowcaseSongs(): SongSummary[] {
   return getGuestShowcaseSongs().map((row) => communityRowToSummary(row));
 }
 
-/** Get a guest showcase song as a full DTO for an anonymous visitor to
- *  play. Returns null when the song doesn't exist or isn't in the
- *  showcase. No per-user stats or track prefs: guests have none. */
+/** Get a guest showcase song for an anonymous visitor to play (no per-user
+ *  stats or track prefs: guests have none). */
 export function getGuestShowcaseSong(id: number): SongFull | null {
   const row = getSongById(id);
 
@@ -670,10 +668,8 @@ export function getGuestShowcaseSong(id: number): SongFull | null {
   return rowToFull(row);
 }
 
-/** Add or remove a song from the guest showcase. Admin-only — enforced by
- *  the controller (isAdminUser); this function validates the showcase size
- *  cap when featuring. Returns the updated full DTO with the admin's score
- *  stats, or null when the song doesn't exist. */
+/** Add or remove a song from the guest showcase. Admin-only is enforced by
+ *  the controller (isAdminUser), not here. */
 export function setSongGuestShowcase(id: number, userId: number, value: boolean): SongFull | null {
   const row = getSongSummaryById(id);
 
@@ -687,5 +683,6 @@ export function setSongGuestShowcase(id: number, userId: number, value: boolean)
 
   const updated = getSongById(id)!;
   const stats = toScoreStats(findScoreStats(userId, id));
+
   return rowToFull(updated, stats);
 }

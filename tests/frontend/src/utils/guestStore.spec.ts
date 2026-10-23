@@ -112,17 +112,14 @@ describe('guestStore', () => {
     }
 
     await expect(addGuestSong(input('One Too Many'))).rejects.toThrow(/Guest shelf is full/);
-    // The rejected import is not stored.
     expect((await storage.list()).length).toBe(GUEST_SONG_LIMIT);
   });
 
   test('add counts what earlier sessions left behind', async () => {
-    // Shelf already holds a song from a previous session (never loaded).
     await storage.add(record(input('Old Import'), 'gs_old', 1));
 
     const fresh = await addGuestSong(input('New Import'));
 
-    // The pre-existing record occupies -1; the new one gets -2.
     expect(fresh.id).toBe(-2);
     const songs = await loadGuestSongs();
     expect(songs.map((s) => s.title)).toEqual(['Old Import', 'New Import']);

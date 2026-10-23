@@ -22,7 +22,6 @@ test.describe("API: guest showcase", () => {
     await publishSong(request, plain);
     await featureSong(request, featured);
 
-    // No Authorization header: the showcase is the anonymous front window.
     const res = await request.get("/api/guest/showcase");
     expect(res.ok()).toBeTruthy();
     const body = await res.json();
@@ -50,7 +49,6 @@ test.describe("API: guest showcase", () => {
     expect(song.id).toBe(id);
     expect(song.title).toBe("E2E-Guest-Show-Full");
     expect(song.guestShowcase).toBe(true);
-    // Full DTO: playable note data without any account.
     expect(Array.isArray(song.notes)).toBe(true);
     expect(song.notes.length).toBeGreaterThan(0);
 
@@ -60,8 +58,7 @@ test.describe("API: guest showcase", () => {
   test("GET /api/guest/showcase/:id 404s for public community songs that are not featured", async ({ request }) => {
     await cleanupSongs(request, /^E2E-Guest-Show-Locked$/);
 
-    // Public in the community sense, but not curated for guests: the play
-    // gate holds — only showcase songs are guest-fetchable.
+    // Public in the community sense, but not curated for guests.
     const id = await seedSongWithNotes(request, "E2E-Guest-Show-Locked", SEED_NOTES);
     await publishSong(request, id);
 

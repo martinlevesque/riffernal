@@ -12,7 +12,6 @@ export async function fetchGuestShowcaseSongs(): Promise<GuestShowcaseResult> {
   return res.json() as Promise<GuestShowcaseResult>;
 }
 
-/** Fetch the full data of a showcase song for an anonymous play. */
 export async function fetchGuestShowcaseSong(id: number): Promise<SongFull> {
   const res = await apiFetch(`/api/guest/showcase/${id}`);
   if (!res.ok) throw new Error(await parseError(res));
