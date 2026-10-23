@@ -102,11 +102,10 @@ export class Menu {
     this._midiStatusEl = document.getElementById("midi-status")!;
     this._controlsHintEl = this._freeplayScreen.querySelector(".controls-hint");
     this._render();
+    // Same path as the keyboard Enter chord: the routing that picks
+    // community/showcase/sign-in (and guest handling) lives in _startSong.
     this._startBtn.addEventListener("click", () => {
-      if (this._selectedSong && this.onStart) {
-        playMenuSound("enter");
-        this.onStart(this._selectedSong);
-      }
+      this._startSelected();
     });
 
     const brandCorner = this._freeplayScreen.querySelector('.brand-corner') as HTMLElement;
@@ -194,6 +193,7 @@ export class Menu {
           artist: updated.artist,
           difficulty: updated.difficulty,
           publicCommunity: updated.publicCommunity,
+          guestShowcase: updated.guestShowcase,
         };
         break;
       }

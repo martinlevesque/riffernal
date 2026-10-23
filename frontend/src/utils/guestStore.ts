@@ -156,19 +156,37 @@ export function recordToSong(record: GuestSongRecord, id: number): Song {
 }
 
 /** Read the guest shelf and rebuild the session mapping. Must run before
- *  addGuestSong/removeGuestSong so ids stay aligned with storage. */
+ *  addGuestSong/removeGuestSong so ids stay aligned with storage. Records
+ *  that no longer parse (bad write, tampered bytes) are dropped from both
+ *  the session and storage instead of taking the whole shelf down. */
 export async function loadGuestSongs(): Promise<Song[]> {
   _records = (await storage().list()).sort((a, b) => a.createdAt - b.createdAt);
   _idToKey = new Map<number, string>();
   _lastId = 0;
 
   const songs: Song[] = [];
+  const deadKeys: string[] = [];
 
   for (const record of _records) {
     const id = _lastId - 1;
+    let song: Song;
+
+    try {
+      song = recordToSong(record, id);
+    } catch (err) {
+      console.error('Discarding unparseable guest record:', err);
+      deadKeys.push(record.key);
+      continue;
+    }
+
     _lastId = id;
     _idToKey.set(id, record.key);
-    songs.push(recordToSong(record, id));
+    songs.push(song);
+  }
+
+  if (deadKeys.length > 0) {
+    for (const key of deadKeys) await storage().remove(key);
+    _records = _records.filter((r) => !deadKeys.includes(r.key));
   }
 
   _loaded = true;

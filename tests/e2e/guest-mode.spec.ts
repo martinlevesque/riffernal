@@ -157,13 +157,39 @@ test.describe('Guest mode', () => {
     // Featured songs are not duplicated as locked rows in the community list.
     await expect(page.locator('.community-section .song-item', { hasText: 'E2E-Guest-Feat' })).toHaveCount(0);
 
+    // Both start paths (row dblclick and the PLAY button) must load the
+    // featured song: a duration of 0:00 means the game started with no
+    // notes (the PLAY button used to route guests at the owner endpoint).
     await featuredRow.click();
     const startBtn = page.locator('#btn-start');
     await expect(startBtn).toBeEnabled();
     await startBtn.click();
     await expect(page.locator('#play-screen')).toBeVisible({ timeout: 5000 });
+    await expect(page.locator('#song-info-duration')).not.toHaveText('0:00', { timeout: 5000 });
 
     await context.close();
     await cleanupSongs(request, /^E2E-Guest-Feat$/);
+  });
+
+  test('PLAY button on a locked community song leads to the auth screen', async ({ browser, request }) => {
+    await cleanupSongs(request, /^E2E-Guest-Comm-Play$/);
+    const id = await seedSongWithNotes(request, 'E2E-Guest-Comm-Play', SEED_NOTES);
+    await publishSong(request, id);
+
+    const { context, page } = await continueAsGuest(browser);
+
+    const lockedRow = page.locator('.song-item.community-song', { hasText: 'E2E-Guest-Comm-Play' });
+    await expect(lockedRow.locator('.sign-in-chip')).toBeVisible({ timeout: 5000 });
+
+    // The row is selectable, so the PLAY button must route like the chip:
+    // not silently start a note-less game against the owner-only endpoint.
+    await lockedRow.click();
+    const startBtn = page.locator('#btn-start');
+    await expect(startBtn).toBeEnabled();
+    await startBtn.click();
+    await expectAuthScreenUsable(page);
+
+    await context.close();
+    await cleanupSongs(request, /^E2E-Guest-Comm-Play$/);
   });
 });

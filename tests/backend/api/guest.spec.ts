@@ -15,7 +15,9 @@ test.beforeAll(async ({ request }: { request: APIRequestContext }) => {
 
 test.describe("API: guest showcase", () => {
   test("GET /api/guest/showcase lists only featured songs, without auth", async ({ request }) => {
-    await cleanupSongs(request, /^E2E-Guest-Show$/);
+    // Matches both seeded titles; the first test here used to leak
+    // E2E-Guest-Show-Plain because the pattern was anchored to full titles.
+    await cleanupSongs(request, /^E2E-Guest-Show(-Plain)?$/);
 
     const featured = await seedSongWithNotes(request, "E2E-Guest-Show", SEED_NOTES);
     const plain = await seedSongWithNotes(request, "E2E-Guest-Show-Plain", SEED_NOTES);

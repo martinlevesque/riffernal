@@ -106,6 +106,22 @@ describe('guestStore', () => {
     expect(songs.map((s) => s.id)).toEqual([-1, -2]);
   });
 
+  test('load skips an unparseable stored record and keeps the rest', async () => {
+    await addGuestSong(input('First'));
+    // Corrupt bytes from another session or a bad write: loading must not
+    // blow up the whole shelf, and a dead record must not keep its slot.
+    await storage.add(
+      record({ ...input('Broken'), midiBytes: new Uint8Array([1, 2, 3]).buffer }, 'gs_broken', 150),
+    );
+    await addGuestSong(input('Second'));
+
+    const songs = await loadGuestSongs();
+
+    expect(songs.map((s) => s.title)).toEqual(['First', 'Second']);
+    expect(songs.map((s) => s.id)).toEqual([-1, -2]);
+    expect((await storage.list()).map((r) => r.key)).not.toContain('gs_broken');
+  });
+
   test('add throws when the shelf is full', async () => {
     for (let i = 0; i < GUEST_SONG_LIMIT; i++) {
       await addGuestSong(input(`Song ${i}`));
