@@ -6,6 +6,7 @@ import {
   authJsonHeaders,
   uniqueUsername,
   registerUser,
+  featureSong,
 } from "../../helpers/index.js";
 
 const MIDI_HEADER = [0x4d, 0x54, 0x68, 0x64, 0x00, 0x00, 0x00, 0x06, 0x00, 0x00, 0x00, 0x01, 0x01, 0xe0];
@@ -236,6 +237,35 @@ test.describe("API: community songs", () => {
     expect(res.status()).toBe(401);
 
     await cleanupSongs(request, /^E2E-Comm-Gate/);
+  });
+
+  test("GET /api/community/songs hides showcased songs from guests, keeps them for signed-in users", async ({ request }) => {
+    await cleanupSongs(request, /^E2E-Comm-Showcase/);
+
+    const plain = await uploadSong(request, "E2E-Comm-Showcase-Plain");
+    const featured = await uploadSong(request, "E2E-Comm-Showcase-Featured");
+    await publishSong(request, plain.id);
+    await publishSong(request, featured.id);
+    await featureSong(request, featured.id);
+
+    // Anonymous (guest): the featured song is fully playable in the
+    // Featured section, so the locked browse list drops it — rows and
+    // pagination total alike.
+    const anonBody = await (await request.get("/api/community/songs")).json();
+    const anonTitles = anonBody.songs.map((s: { title: string }) => s.title);
+    expect(anonTitles).toContain("E2E-Comm-Showcase-Plain");
+    expect(anonTitles).not.toContain("E2E-Comm-Showcase-Featured");
+    expect(anonBody.total).toBe(1);
+
+    // Signed-in users see the full community list regardless of curation.
+    const headers = await authHeaders(request);
+    const authedBody = await (await request.get("/api/community/songs", { headers })).json();
+    const authedTitles = authedBody.songs.map((s: { title: string }) => s.title);
+    expect(authedTitles).toContain("E2E-Comm-Showcase-Plain");
+    expect(authedTitles).toContain("E2E-Comm-Showcase-Featured");
+    expect(authedBody.total).toBe(2);
+
+    await cleanupSongs(request, /^E2E-Comm-Showcase/);
   });
 
   test("PUT /api/songs/:id/public-community owner can toggle publish", async ({ request }) => {

@@ -276,19 +276,11 @@ export class Menu {
 
     try {
       const result = await fetchCommunitySongs(COMMUNITY_PAGE_SIZE, this._communityOffset);
-      let songs = result.songs.map((s) => this._itemToSong(s));
-
-      // Guests: showcase songs are already playable in the Featured section
-      // above — showing them locked here too would be contradictory.
-      if (this._guestMode) {
-        songs = songs.filter((s) => s.guestShowcase !== true);
-      }
+      const songs = result.songs.map((s) => this._itemToSong(s));
 
       this._communitySongs = [...this._communitySongs, ...songs];
       this._communityOffset += result.songs.length;
-      this._communityTotal = this._guestMode
-        ? Math.max(0, result.total - this._showcaseSongs.length)
-        : result.total;
+      this._communityTotal = result.total;
       this._render();
     } catch (err) {
       reportError("Failed to load community songs", err);
@@ -447,7 +439,7 @@ export class Menu {
     songsWrap.className = "category-songs";
 
     for (const { song, isCommunity } of group.items) {
-      songsWrap.appendChild(isCommunity ? this._renderCommunitySong(song, true) : this._renderSong(song));
+      songsWrap.appendChild(isCommunity ? this._renderCommunitySong(song, { showCommunityLabel: true }) : this._renderSong(song));
     }
 
     section.appendChild(header);
@@ -496,7 +488,7 @@ export class Menu {
     songsWrap.className = "category-songs";
 
     for (const song of this._showcaseSongs) {
-      songsWrap.appendChild(this._renderCommunitySong(song, false, true));
+      songsWrap.appendChild(this._renderCommunitySong(song, { showcase: true }));
     }
 
     section.appendChild(header);
@@ -556,7 +548,11 @@ export class Menu {
   /** A community song row. `showcase` renders it as a Featured (guest-playable)
    *  item. In guest mode, locked community songs lose their bookmark button
    *  and carry a sign-in chip instead. */
-  private _renderCommunitySong(song: Song, showCommunityLabel = false, showcase = false): HTMLElement {
+  private _renderCommunitySong(
+    song: Song,
+    opts: { showCommunityLabel?: boolean; showcase?: boolean } = {},
+  ): HTMLElement {
+    const { showCommunityLabel, showcase } = opts;
     const el = this._el("div", `song-item community-song${showcase ? " showcase-song" : ""} ${NAV_ITEM_CLASS}`);
     el.dataset.songId = song.id !== undefined ? String(song.id) : "";
 

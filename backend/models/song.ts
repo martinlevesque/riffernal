@@ -347,7 +347,8 @@ export interface CommunitySongListResult {
  *  requesting user has bookmarked — those appear in `listBookmarkedSongs`
  *  and the user's category groups instead. Each song includes the
  *  requesting user's score stats. A null userId (guest) gets empty stats
- *  and no bookmark exclusion. Paginated via limit/offset. */
+ *  and the guest exclusions (see `getPublicCommunitySongs`). Paginated via
+ *  limit/offset. */
 export function listPublicCommunitySongs(
   userId: number | null,
   limit: number,
@@ -365,10 +366,8 @@ export function listPublicCommunitySongs(
 
   const rows = getPublicCommunitySongs(limit, offset, userId);
 
-  const songs = rows.map((row: PublicCommunitySongRow) => {
-    const stats = userId !== null ? statsBySongId.get(row.id) ?? EMPTY_STATS : EMPTY_STATS;
-    return rowToSummary(row, stats, false, row.bookmark_count, row.imported_by_username);
-  });
+  const songs = rows.map((row: PublicCommunitySongRow) =>
+    communityRowToSummary(row, statsBySongId.get(row.id) ?? EMPTY_STATS));
 
   return { songs, total: countPublicCommunitySongs(userId) };
 }
@@ -639,6 +638,16 @@ export function getCommunitySong(id: number, userId: number): SongFull | null {
   return rowToFull(row, stats, prefs);
 }
 
+/** Community row (bookmark counts + sharer username) → summary decorated
+ *  with the caller's score stats when signed in, empty for anonymous.
+ *  Shared by the community browse and the guest showcase listings. */
+function communityRowToSummary(
+  row: PublicCommunitySongRow,
+  stats: ScoreStats = EMPTY_STATS,
+): SongSummary {
+  return rowToSummary(row, stats, false, row.bookmark_count, row.imported_by_username);
+}
+
 /** Maximum songs the admin may keep in the guest showcase. The showcase is
  *  the app's front window for anonymous visitors — a bounded, curated list,
  *  not a second community catalog. */
@@ -647,9 +656,7 @@ export const GUEST_SHOWCASE_MAX_SONGS = 12;
 /** List the admin-curated guest showcase songs as summaries (no user data:
  *  guests have none). Ordered by creation date, newest first. */
 export function listGuestShowcaseSongs(): SongSummary[] {
-  return getGuestShowcaseSongs().map((row) =>
-    rowToSummary(row, EMPTY_STATS, false, row.bookmark_count, row.imported_by_username),
-  );
+  return getGuestShowcaseSongs().map((row) => communityRowToSummary(row));
 }
 
 /** Get a guest showcase song as a full DTO for an anonymous visitor to

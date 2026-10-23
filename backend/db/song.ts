@@ -136,22 +136,32 @@ export function deleteSong(id: number): void {
   db.run("DELETE FROM songs WHERE id = ?", [id]);
 }
 
+/** Extra WHERE term shared by the community browse count and listing
+ *  (alias the bookmark subquery `bm` so it never collides with the outer
+ *  joins): signed-in callers get the bookmark exclusion — bookmarked songs
+ *  appear in their category groups instead. Anonymous (guest) callers get
+ *  the showcase exclusion — featured songs are already playable in the
+ *  guest's Featured section, so locked duplicates there would be
+ *  contradictory. */
+function communityBrowseExclusion(userId: number | null): string {
+  return userId === null
+    ? "AND s.guest_showcase = 0"
+    : `AND NOT EXISTS (
+           SELECT 1 FROM user_songs bm
+           WHERE bm.user_id = ? AND bm.song_id = s.id AND bm.community_bookmarked = 1
+         )`;
+}
+
 /** Count public community songs (for pagination totals), excluding songs
  *  the requesting user has bookmarked (those live in their own category
  *  groups instead of the community browse list). A null userId (guest)
- *  counts everything with no exclusion. */
+ *  drops showcased songs rather than bookmarked ones. */
 export function countPublicCommunitySongs(userId: number | null): number {
-  const exclusion = userId === null
-    ? ""
-    : `AND NOT EXISTS (
-           SELECT 1 FROM user_songs us
-           WHERE us.user_id = ? AND us.song_id = s.id AND us.community_bookmarked = 1
-         )`;
   const row = db
     .query(
       `SELECT COUNT(*) AS count FROM songs s
        WHERE s.public_community = 1
-         ${exclusion}`,
+         ${communityBrowseExclusion(userId)}`,
     )
     .get(...(userId === null ? [] : [userId])) as { count: number };
   return row.count;
@@ -166,20 +176,14 @@ export interface PublicCommunitySongRow extends SongSummaryRow {
 
 /** Get public community songs ordered by bookmark popularity (most
  *  bookmarked first), then by creation date. Paginated via limit/offset.
- *  Excludes songs the requesting user has bookmarked (those appear in the
- *  user's category groups instead). A null userId (guest) gets no bookmark
- *  exclusion. */
+ *  For signed-in callers, excludes songs the user has bookmarked (those
+ *  appear in the user's category groups instead); for guests, excludes
+ *  showcased songs (see `communityBrowseExclusion`). */
 export function getPublicCommunitySongs(
   limit: number,
   offset: number,
   userId: number | null,
 ): PublicCommunitySongRow[] {
-  const exclusion = userId === null
-    ? ""
-    : `AND NOT EXISTS (
-           SELECT 1 FROM user_songs us2
-           WHERE us2.user_id = ? AND us2.song_id = s.id AND us2.community_bookmarked = 1
-         )`;
   return db
     .query(
       `SELECT ${columns(SUMMARY_COLUMNS, "s")}, COUNT(us.user_id) AS bookmark_count, u.username AS imported_by_username
@@ -187,7 +191,7 @@ export function getPublicCommunitySongs(
        LEFT JOIN users u ON u.id = s.imported_by_user_id
        LEFT JOIN user_songs us ON us.song_id = s.id AND us.community_bookmarked = 1
        WHERE s.public_community = 1
-         ${exclusion}
+         ${communityBrowseExclusion(userId)}
        GROUP BY s.id
        ORDER BY bookmark_count DESC, s.created_at DESC
        LIMIT ? OFFSET ?`,

@@ -65,10 +65,13 @@ function enterGuestMode(): void {
   initApp();
 }
 
-/** Leave guest mode through the auth screen. A successful login/register
+/** Leave guest mode through the auth screen. The freeplay screen must die
+ *  here: without a z-index it paints above the auth screen (DOM order), and
+ *  its active state would swallow every click. A successful login/register
  *  clears the guest flag (setAuth), and the reload boots the app
  *  authenticated. */
 function signInFromGuest(): void {
+  document.getElementById('freeplay-screen')!.classList.remove('active');
   const authScreen = new AuthScreen({
     onAuth: () => window.location.reload(),
   });

@@ -1,8 +1,9 @@
-import { test, expect, type Browser, type BrowserContext, type Page, type APIRequestContext } from '@playwright/test';
+import { test, expect, type Browser, type BrowserContext, type Page } from '@playwright/test';
 import {
   cleanupSongs,
   seedSongWithNotes,
-  authJsonHeaders,
+  publishSong,
+  featureSong,
   expectMenuScreenActive,
   expectAuthScreenActive,
 } from '../helpers/index.js';
@@ -49,24 +50,16 @@ async function continueAsGuest(browser: Browser): Promise<{ context: BrowserCont
   return { context, page };
 }
 
-/** Feature a seeded song. The shared e2e user is the setup admin (first
- *  account on the fresh test DB). */
-async function featureSong(request: APIRequestContext, id: number): Promise<void> {
-  const headers = await authJsonHeaders(request);
-  const res = await request.put(`/api/songs/${id}/guest-showcase`, {
-    data: { guestShowcase: true },
-    headers,
-  });
-  expect(res.ok()).toBeTruthy();
-}
-
-async function publishSong(request: APIRequestContext, id: number): Promise<void> {
-  const headers = await authJsonHeaders(request);
-  const res = await request.put(`/api/songs/${id}/public-community`, {
-    data: { publicCommunity: true },
-    headers,
-  });
-  expect(res.ok()).toBeTruthy();
+/** The auth screen must actually cover the freeplay UI, not merely carry
+ *  the class underneath it: both screens are unzipped absolutely-positioned
+ *  siblings, so DOM order paints freeplay over auth when both are active —
+ *  and every click would land on freeplay. The real click is the z-order
+ *  probe (Playwright verifies the hit point). */
+async function expectAuthScreenUsable(page: Page): Promise<void> {
+  await expectAuthScreenActive(page);
+  await expect(page.locator('#freeplay-screen')).not.toHaveClass(/active/);
+  await expect(page.locator('#auth-username')).toBeVisible();
+  await page.locator('#auth-username').click();
 }
 
 test.describe('Guest mode', () => {
@@ -130,10 +123,19 @@ test.describe('Guest mode', () => {
     await expect(lockedRow.locator('.sign-in-chip')).toBeVisible({ timeout: 5000 });
 
     await lockedRow.locator('.sign-in-chip').click();
-    await expectAuthScreenActive(page);
+    await expectAuthScreenUsable(page);
 
     await context.close();
     await cleanupSongs(request, /^E2E-Guest-Comm$/);
+  });
+
+  test('the Sign in toolbar button leads to the auth screen', async ({ browser }) => {
+    const { context, page } = await continueAsGuest(browser);
+
+    await page.locator('#btn-guest-signin').click();
+    await expectAuthScreenUsable(page);
+
+    await context.close();
   });
 
   test('guest can play admin-featured showcase songs', async ({ browser, request }) => {
