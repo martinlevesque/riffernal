@@ -8,6 +8,11 @@ export interface CategorySelectDeps {
   onCancel: () => void;
 }
 
+export interface CategorySelectShowOptions {
+  /** Guest imports skip categories (per-user server data). */
+  hideCategories?: boolean;
+}
+
 export class CategorySelect {
   private _screen: HTMLElement;
   private _listEl: HTMLElement;
@@ -51,11 +56,17 @@ export class CategorySelect {
     });
   }
 
-  async show(deps: CategorySelectDeps, song?: Song): Promise<void> {
+  async show(deps: CategorySelectDeps, song?: Song, opts: CategorySelectShowOptions = {}): Promise<void> {
     this._deps = deps;
     this._selectedCategoryId = null;
     this._newCategoryInput.value = "";
-    this._confirmBtn.disabled = true;
+    this._confirmBtn.disabled = !opts.hideCategories;
+
+    const hideCats = opts.hideCategories;
+    document.getElementById("category-list")!.classList.toggle("hidden", hideCats);
+    document.getElementById("category-create")!.classList.toggle("hidden", hideCats);
+    document.getElementById("category-select-count")!.classList.toggle("hidden", hideCats);
+    document.getElementById("category-select-skip")!.classList.toggle("hidden", hideCats);
 
     if (song) {
       this._titleInput.value = song.title;
@@ -68,7 +79,7 @@ export class CategorySelect {
     this._selectedDifficulty = song && isDifficulty(song.difficulty) ? song.difficulty : DEFAULT_DIFFICULTY;
     this._renderDifficultyOptions();
 
-    await this._loadCategories();
+    if (!hideCats) await this._loadCategories();
     this._renderList();
     this._screen.classList.add("active");
     this._titleInput.focus();

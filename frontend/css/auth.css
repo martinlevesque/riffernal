@@ -167,6 +167,16 @@
   color: var(--accent-blue);
 }
 
+.auth-secondary {
+  margin-top: 0.9rem;
+  text-align: center;
+}
+
+.auth-secondary .btn-ghost {
+  font-size: var(--fs-smaller);
+  padding: 0.45rem 1.1rem;
+}
+
 /* -- legal links (below the card) ------------------------------------------ */
 
 .auth-legal {

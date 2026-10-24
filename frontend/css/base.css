@@ -127,3 +127,10 @@ body {
   white-space: nowrap;
   border: 0;
 }
+
+/* Universal show/hide toggle driven by JS (classList add/remove 'hidden').
+   `!important` so this one utility beats the display each container sets on
+   itself (popups, panels, toolbar spans, buttons...). */
+.hidden {
+  display: none !important;
+}

@@ -230,6 +230,33 @@ test.describe('MIDI Import', () => {
     await expect(importedItem.locator('.song-difficulty')).toContainText('hard');
   });
 
+  test("imported song's Feature-for-guests toggle survives a menu refresh", async ({ page }) => {
+    await goToSongList(page);
+
+    await importMidiFile(page, 'featureable.mid', buildMidiBuffer());
+
+    const importedItem = page.locator('.song-item.imported');
+    await expect(importedItem).toHaveCount(1, { timeout: 5000 });
+
+    // The setup admin (user id 1) sees the curation entry on own songs;
+    // the label must reflect the flag the server just flipped, not fall
+    // back to the stale copy from before the update.
+    await importedItem.locator('.song-actions-btn').click();
+    await page.locator('.song-action-option', { hasText: 'Feature for guests' }).click();
+
+    await importedItem.locator('.song-actions-btn').click();
+    const featuredLabel = page.locator('.song-actions-menu:not(.hidden) .song-action-option', {
+      hasText: 'Remove from guest showcase',
+    });
+    await expect(featuredLabel).toBeVisible();
+
+    await featuredLabel.click();
+    await importedItem.locator('.song-actions-btn').click();
+    await expect(
+      page.locator('.song-actions-menu:not(.hidden) .song-action-option', { hasText: 'Feature for guests' }),
+    ).toBeVisible();
+  });
+
   test('shows error alert for invalid file', async ({ page }) => {
     await goToSongList(page);
 

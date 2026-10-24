@@ -171,10 +171,6 @@
   box-shadow: 0 4px 20px rgba(0, 0, 0, 0.4);
 }
 
-.bg-panel.hidden {
-  display: none;
-}
-
 .bg-panel-title {
   font-size: var(--fs-smallest);
   color: var(--text-secondary);
@@ -377,10 +373,6 @@
   pointer-events: auto;
 }
 
-.popup.hidden {
-  display: none;
-}
-
 .popup-card {
   background: var(--bg-surface);
   border: 1px solid var(--border-medium);
@@ -422,10 +414,6 @@
   color: var(--accent-yellow);
   border: var(--pixel-border) solid var(--accent-yellow);
   animation: sound-hint-blink 1s steps(1) infinite;
-}
-
-.song-info-sound-hint.hidden {
-  display: none;
 }
 
 @keyframes sound-hint-blink {

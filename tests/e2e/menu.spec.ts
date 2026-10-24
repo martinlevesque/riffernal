@@ -9,6 +9,7 @@ import {
   expectHomeScreenActive,
   expectHomeScreenInactive,
   expectAuthScreenActive,
+  expectMenuScreenActive,
   clickLogout,
   openSettings,
   themeOptions,
@@ -73,7 +74,7 @@ test.describe('Menu Screen', () => {
     await expect(checkbox).not.toBeChecked();
   });
 
-  test('logout card logs out and shows auth screen', async ({ request, page }) => {
+  test('logout card logs out and shows auth screen with the guest option', async ({ request, page }) => {
     // Use a throwaway user so the shared e2e session is never invalidated.
     const username = uniqueUsername('logout_user');
     const { user, token } = await registerUser(request, username);
@@ -91,6 +92,12 @@ test.describe('Menu Screen', () => {
 
     await expectAuthScreenActive(page);
     await expectHomeScreenInactive(page);
+
+    // Logged back out, the visitor can choose the guest shelf again.
+    await expect(page.locator('#auth-guest-btn')).toBeVisible();
+    await page.locator('#auth-guest-btn').click();
+    await expectMenuScreenActive(page);
+    await expect(page.locator('#btn-guest-signin')).toBeVisible();
   });
 
   test('delete account in settings destroys the session and returns to the auth screen', async ({ request, page }) => {

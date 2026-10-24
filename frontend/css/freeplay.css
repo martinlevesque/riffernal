@@ -69,10 +69,6 @@
   box-shadow: 0 8px 24px rgba(0, 0, 0, 0.5);
 }
 
-.theme-dropdown.hidden {
-  display: none;
-}
-
 .theme-option {
   display: block;
   width: 100%;
@@ -159,11 +155,16 @@
   background: rgba(255, 255, 255, 0.04);
 }
 
-.song-item.imported {
+/* Blue-accented rows: the user's own imports + the guest-showcase features.
+   Showcase rows also carry `.community-song` (purple), so these beat it on
+   specificity, not source order. */
+.song-item.imported,
+.song-item.showcase-song {
   border-left-color: var(--accent-blue);
 }
 
-.song-item.imported:hover {
+.song-item.imported:hover,
+.song-item.showcase-song:hover {
   border-left-color: var(--accent-blue);
   background: rgba(34, 136, 255, 0.05);
 }
@@ -272,10 +273,6 @@
   box-shadow: 0 8px 24px rgba(0, 0, 0, 0.5);
 }
 
-.song-actions-menu.hidden {
-  display: none;
-}
-
 .song-action-option {
   display: block;
   width: 100%;
@@ -379,10 +376,6 @@
   letter-spacing: 0.05em;
 }
 
-.controls-hint.hidden {
-  display: none;
-}
-
 .btn-start {
   display: inline-block;
   background: transparent;
@@ -421,7 +414,9 @@
    COMMUNITY SECTION (inside freeplay song list)
    ============================================ */
 
-.community-section {
+/* Sections appended below the main list (community, guest showcase) */
+.community-section,
+.showcase-section {
   margin-top: 1.5rem;
 }
 
@@ -492,4 +487,24 @@
 
 .community-load-more:hover {
   opacity: 1;
+}
+
+/* ============================================
+    GUEST MODE (showcase header/label, sign-in chip)
+    The section/song-row styling is shared with the
+    community + imported rules above.
+    ============================================ */
+
+.showcase-header {
+  color: var(--accent-blue);
+}
+
+.showcase-label {
+  color: var(--accent-blue);
+}
+
+.sign-in-chip {
+  margin-top: 0.35rem;
+  font-size: var(--fs-smallest);
+  padding: 0.25rem 0.6rem;
 }

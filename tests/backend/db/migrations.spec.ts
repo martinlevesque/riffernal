@@ -48,11 +48,18 @@ test("runMigrations creates the schema and seeds the initial categories", () => 
       ),
     ).toBe(true);
 
+    // The guest showcase flag is part of the initial schema.
+    expect(
+      (db.query("PRAGMA table_info(songs)").all() as Array<{ name: string }>).some(
+        (c) => c.name === "guest_showcase",
+      ),
+    ).toBe(true);
+
     expect(
       (db.query("SELECT id FROM schema_migrations ORDER BY id").all() as Array<{ id: number }>).map(
         (row) => row.id,
       ),
-    ).toEqual([1, 2]);
+    ).toEqual(MIGRATIONS.map((m) => m.id));
   } finally {
     db.close();
     rmSync(join(path, ".."), { recursive: true, force: true });
@@ -77,7 +84,7 @@ test("runMigrations is idempotent when the database is reopened", () => {
       expect(rows.map((c) => c.name)).toEqual(SEEDED_CATEGORY_NAMES);
       expect(
         (db.query("SELECT id FROM schema_migrations").all() as Array<{ id: number }>).length,
-      ).toBe(2);
+      ).toBe(MIGRATIONS.length);
       db.close();
     }
   } finally {
@@ -96,6 +103,7 @@ test("a failed migration is not recorded and leaves no partial state", () => {
       throw new Error("boom");
     },
   };
+  const baseIds = MIGRATIONS.map((m) => m.id);
   MIGRATIONS.push(failing);
 
   try {
@@ -109,7 +117,7 @@ test("a failed migration is not recorded and leaves no partial state", () => {
       (db.query("SELECT id FROM schema_migrations ORDER BY id").all() as Array<{ id: number }>).map(
         (row) => row.id,
       ),
-    ).toEqual([1, 2]);
+    ).toEqual(baseIds);
   } finally {
     MIGRATIONS.pop();
     db.close();

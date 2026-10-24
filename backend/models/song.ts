@@ -12,6 +12,9 @@ import {
   getPublicCommunitySongs,
   getBookmarkedSongs,
   updateSongPublicCommunity,
+  getGuestShowcaseSongs,
+  countGuestShowcaseSongs,
+  updateSongGuestShowcase,
   type SongRow,
   type SongSummaryRow,
   type InsertSongInput,
@@ -84,6 +87,7 @@ export interface SongSummary {
   publicCommunity: boolean;
   communityBookmarked: boolean;
   bookmarkCount?: number;
+  guestShowcase: boolean;
 }
 
 /** Full view of a song, as returned by GET /api/songs/:id. Extends the
@@ -120,6 +124,7 @@ function rowToSummary(
     lastScore: stats.lastScore,
     publicCommunity: row.public_community === 1,
     communityBookmarked,
+    guestShowcase: row.guest_showcase === 1,
   };
 
   if (bookmarkCount !== undefined) {
@@ -339,26 +344,30 @@ export interface CommunitySongListResult {
 
 /** List public community songs as summaries, ordered by bookmark popularity
  *  (most bookmarked first), then by creation date. Excludes songs the
- *  requesting user has bookmarked — those appear in `listBookmarkedSongs`
- *  and the user's category groups instead. Each song includes the
- *  requesting user's score stats. Paginated via limit/offset. */
+ *  requesting user has bookmarked or shared — both appear in
+ *  `listBookmarkedSongs` / the user's category groups instead — so nobody
+ *  sees their own song twice. Each song includes the requesting user's
+ *  score stats. A null userId (guest) gets empty stats and the guest
+ *  exclusions (see `getPublicCommunitySongs`). Paginated via limit/offset. */
 export function listPublicCommunitySongs(
-  userId: number,
+  userId: number | null,
   limit: number,
   offset: number,
 ): CommunitySongListResult {
-  const rawStats = findAllScoreStats(userId);
   const statsBySongId = new Map<number, ScoreStats>();
-  for (const row of rawStats) {
-    statsBySongId.set(row.song_id, toScoreStats(row));
+
+  if (userId !== null) {
+    const rawStats = findAllScoreStats(userId);
+
+    for (const row of rawStats) {
+      statsBySongId.set(row.song_id, toScoreStats(row));
+    }
   }
 
   const rows = getPublicCommunitySongs(limit, offset, userId);
 
-  const songs = rows.map((row: PublicCommunitySongRow) => {
-    const stats = statsBySongId.get(row.id) ?? EMPTY_STATS;
-    return rowToSummary(row, stats, false, row.bookmark_count, row.imported_by_username);
-  });
+  const songs = rows.map((row: PublicCommunitySongRow) =>
+    communityRowToSummary(row, statsBySongId.get(row.id) ?? EMPTY_STATS));
 
   return { songs, total: countPublicCommunitySongs(userId) };
 }
@@ -627,4 +636,53 @@ export function getCommunitySong(id: number, userId: number): SongFull | null {
   const stats = toScoreStats(findScoreStats(userId, row.id));
   const prefs = getTrackPreferences(userId, row.id);
   return rowToFull(row, stats, prefs);
+}
+
+/** Row → summary decoration; shared by the community browse and guest
+ *  showcase listings. */
+function communityRowToSummary(
+  row: PublicCommunitySongRow,
+  stats: ScoreStats = EMPTY_STATS,
+): SongSummary {
+  return rowToSummary(row, stats, false, row.bookmark_count, row.imported_by_username);
+}
+
+/** Maximum songs the admin may keep in the guest showcase. The showcase is
+ *  the app's front window for anonymous visitors — a bounded, curated list,
+ *  not a second community catalog. */
+export const GUEST_SHOWCASE_MAX_SONGS = 12;
+
+/** List the admin-curated guest showcase songs (no user data: guests have
+ *  none). */
+export function listGuestShowcaseSongs(): SongSummary[] {
+  return getGuestShowcaseSongs().map((row) => communityRowToSummary(row));
+}
+
+/** Get a guest showcase song for an anonymous visitor to play (no per-user
+ *  stats or track prefs: guests have none). */
+export function getGuestShowcaseSong(id: number): SongFull | null {
+  const row = getSongById(id);
+
+  if (!row || row.guest_showcase !== 1) return null;
+
+  return rowToFull(row);
+}
+
+/** Add or remove a song from the guest showcase. Admin-only is enforced by
+ *  the controller (isAdminUser), not here. */
+export function setSongGuestShowcase(id: number, userId: number, value: boolean): SongFull | null {
+  const row = getSongSummaryById(id);
+
+  if (!row) return null;
+
+  if (value && row.guest_showcase !== 1 && countGuestShowcaseSongs() >= GUEST_SHOWCASE_MAX_SONGS) {
+    throw new ValidationError(`Guest showcase is full (max ${GUEST_SHOWCASE_MAX_SONGS} songs)`);
+  }
+
+  updateSongGuestShowcase(id, value ? 1 : 0);
+
+  const updated = getSongById(id)!;
+  const stats = toScoreStats(findScoreStats(userId, id));
+
+  return rowToFull(updated, stats);
 }

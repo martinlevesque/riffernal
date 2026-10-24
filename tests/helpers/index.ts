@@ -11,6 +11,8 @@ export {
   seedSong,
   seedSongWithNotes,
   cleanupCategoriesByLabel,
+  publishSong,
+  featureSong,
   authHeaders,
   authJsonHeaders,
   bearer,

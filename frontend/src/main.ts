@@ -25,30 +25,68 @@ import {
   PlayMode,
   fetchSong, songFullToSong, markSongPlayed,
   recordBestScore, updateSongTitle, deleteSong,
-  updateSongDifficulty,
+  updateSongDifficulty, setSongGuestShowcase,
   fetchCommunitySong, setSongPublicCommunity, toggleCommunityBookmark,
   type SongFull,
 } from './api/SongApi.js';
 import { fetchLoops } from './api/LoopApi.js';
+import { fetchGuestShowcaseSong } from './api/GuestApi.js';
+import { loadGuestSongs, removeGuestSong } from './utils/guestStore.js';
 import { themeManager } from './themes/ThemeManager.js';
 import { AuthScreen } from './ui/auth/AuthScreen.js';
-import { getStoredUser, logout, clearAuth } from './api/AuthApi.js';
+import { getStoredUser, logout, clearAuth, isGuestMode, setGuestMode } from './api/AuthApi.js';
 import { deleteAccount } from './api/UserApi.js';
 
 export type AppMode = 'home' | 'freeplay' | 'settings';
 let currentMode: AppMode = 'home';
 let _homeScreen: HomeScreen | null = null;
 let _appInitialized = false;
+let _guestMode = false;
 
 function showApp(): void {
   document.getElementById('auth-screen')!.classList.remove('active');
   document.getElementById('home-screen')!.classList.add('active');
 }
 
+function showFreeplay(): void {
+  document.getElementById('auth-screen')!.classList.remove('active');
+  document.getElementById('home-screen')!.classList.remove('active');
+  document.getElementById('freeplay-screen')!.classList.add('active');
+}
+
+function enterGuestMode(): void {
+  setGuestMode();
+  _guestMode = true;
+  showFreeplay();
+  initApp();
+}
+
+/** Boot the guest session off the auth screen after the app already ran as
+ *  a signed-in user (logout) or holds a stale shelf: the flag is persisted
+ *  and init() re-runs on reload to build a clean guest app — the in-memory
+ *  Menu still carries the previous user's data. */
+function bootGuestMode(): void {
+  setGuestMode();
+  window.location.reload();
+}
+
+/** The freeplay screen must die here: without a z-index it paints above
+ *  the auth screen (DOM order), and its active state would swallow every
+ *  click. A successful login/register clears the guest flag (setAuth), so
+ *  the reload boots the app authenticated. */
+function signInFromGuest(): void {
+  document.getElementById('freeplay-screen')!.classList.remove('active');
+  const authScreen = new AuthScreen({
+    onAuth: () => window.location.reload(),
+    onGuest: () => bootGuestMode(),
+  });
+  authScreen.show();
+}
+
 /** Shared logout handler: clears auth, hides the home screen, and shows
- *  the auth screen for re-login. A successful re-login reloads the page so
- *  the app reboots with the new user's data (the in-memory Menu held the
- *  previous user's scores/loops). */
+ *  the auth screen for re-login. A successful re-login (or continued guest
+ *  session) reloads the page so the app reboots with the new user's data
+ *  (the in-memory Menu held the previous user's scores/loops). */
 async function handleLogout(): Promise<void> {
   await logout();
   _homeScreen?.hide();
@@ -57,6 +95,7 @@ async function handleLogout(): Promise<void> {
       authScreen.hide();
       window.location.reload();
     },
+    onGuest: () => bootGuestMode(),
   });
   authScreen.show();
 }
@@ -88,11 +127,17 @@ async function init(): Promise<void> {
       showApp();
       initApp();
     },
+    onGuest: () => {
+      authScreen.hide();
+      enterGuestMode();
+    },
   });
 
   if (getStoredUser()) {
     showApp();
     initApp();
+  } else if (isGuestMode()) {
+    enterGuestMode();
   } else {
     authScreen.show();
   }
@@ -136,6 +181,14 @@ function createAppContext(): AppContext {
  *  whenever ready). */
 async function loadMenuData(ctx: AppContext): Promise<void> {
   const { menu } = ctx;
+
+  if (_guestMode) {
+    menu.loadGuestLibrary(await loadGuestSongs());
+    menu.loadShowcaseSongs().catch((e) => console.error('Failed to load guest showcase:', e));
+    menu.loadCommunitySongs().catch((e) => console.error('Failed to load community songs:', e));
+    return;
+  }
+
   await menu.loadLibrary();
   menu.loadCommunitySongs().catch((e) => console.error('Failed to load community songs:', e));
 }
@@ -163,7 +216,10 @@ function setupGameCallbacks(ctx: AppContext): void {
     const freeplayScreen = document.getElementById('freeplay-screen')!;
     const homeScreenEl = document.getElementById('home-screen')!;
 
-    if (currentMode === 'freeplay') {
+    if (_guestMode) {
+      homeScreenEl.classList.remove('active');
+      freeplayScreen.classList.add('active');
+    } else if (currentMode === 'freeplay') {
       homeScreenEl.classList.remove('active');
       freeplayScreen.classList.add('active');
     } else {
@@ -179,7 +235,8 @@ function setupGameCallbacks(ctx: AppContext): void {
   game.onResultsShown = () => wireMenuNoteInput(ctx);
 
   game.onResults = (scoring, song) => {
-    if (!song.id || game.usedLearningMode) return;
+    // Guests keep their run's on-screen score but nothing is persisted.
+    if (!song.id || game.usedLearningMode || _guestMode) return;
 
     recordBestScore(song.id, scoring.score)
       .then(({ bestScore, lastScore }) => {
@@ -222,7 +279,8 @@ async function startSong(
 
   let hasEnabledLoops = false;
 
-  if (fullSong.id !== undefined) {
+  // Guests have no server-side loops to load (loop saving needs an account).
+  if (fullSong.id !== undefined && !_guestMode) {
     try {
       const loops = await fetchLoops(fullSong.id);
       game.loadLoops(loops);
@@ -247,18 +305,33 @@ async function startSong(
   controls.updateLoopUI();
   songInfoPopup.show(fullSong);
 
-  if (song.id !== undefined) {
+  if (song.id !== undefined && !_guestMode) {
     markSongPlayed(song.id).catch((e) => console.warn('Failed to mark song played:', e));
   }
 }
 
 /** Wire up all Menu action callbacks: start, rename, delete, publish,
- *  community-start, bookmark, and back-to-home navigation. */
+ *  community-start, bookmark, and back-to-home navigation. Guest mode
+ *  swaps server-backed actions for local-shelf ones. */
 function setupMenuCallbacks(ctx: AppContext): void {
   const { menu } = ctx;
 
   menu.onStart = (song) => startSong(ctx, song, fetchSong);
   menu.onBackToHome = () => _homeScreen?.show();
+  menu.onShowcaseStart = (song) => startSong(ctx, song, fetchGuestShowcaseSong);
+  menu.onSignIn = signInFromGuest;
+
+  if (_guestMode) {
+    menu.onDelete = (song) => {
+      if (song.id === undefined) return;
+
+      removeGuestSong(song.id).then((removed) => {
+        if (removed) menu.removeSong(song.id!);
+      }).catch((err) => console.error('Failed to remove guest song:', err));
+    };
+
+    return;
+  }
 
   const renamePopup = new RenameSongPopup({
     onSave: async (id, title, artist) => {
@@ -309,6 +382,18 @@ function setupMenuCallbacks(ctx: AppContext): void {
     });
   };
 
+  menu.onToggleGuestShowcase = (song) => {
+    if (song.id === undefined) return;
+    const id = song.id;
+    const newValue = !(song.guestShowcase === true);
+    setSongGuestShowcase(id, newValue).then((updated) => {
+      menu.updateSong(songFullToSong(updated));
+    }).catch((err) => {
+      console.error('Failed to update guest showcase:', err);
+      alert('Failed to update guest showcase.');
+    });
+  };
+
   menu.onCommunityStart = (song) => startSong(ctx, song, fetchCommunitySong);
 
   menu.onBookmark = (song) => {
@@ -329,7 +414,7 @@ async function setupMidiStatus(ctx: AppContext): Promise<void> {
   const { menu, midiInput } = ctx;
   await midiInput.start();
   menu.setMidiStatus(midiInput.connected, midiInput.connected ? 'MIDI device connected' : 'No MIDI device - use keyboard');
-  _homeScreen!.updateMidiStatus(midiInput.connected, midiInput.connected ? 'MIDI device connected' : 'Computer keyboard (no MIDI keyboard detected)');
+  _homeScreen?.updateMidiStatus(midiInput.connected, midiInput.connected ? 'MIDI device connected' : 'Computer keyboard (no MIDI keyboard detected)');
   midiInput.onConnectionChange = (connected, message) => {
     menu.setMidiStatus(connected, message);
     _homeScreen?.updateMidiStatus(connected, connected ? message : 'Computer keyboard (no MIDI keyboard detected)');
@@ -365,24 +450,40 @@ function setupTrailingComponents(ctx: AppContext): void {
   game.onLoopAdvanced = () => controls.updateLoopUI();
 }
 
+/** Guest-mode chrome: no home screen (user-scoped stats/leaderboard), no
+ *  loop controls (loop persistence needs an account). */
+function setupGuestUi(): void {
+  document.querySelector('.brand-corner')?.classList.add('hidden');
+  document.getElementById('btn-guest-signin')?.classList.remove('hidden');
+  document.getElementById('btn-guest-signin')?.addEventListener('click', signInFromGuest);
+  document.getElementById('loop-control')?.classList.add('hidden');
+  document.getElementById('loops-panel')?.classList.add('hidden');
+}
+
 /** Initialize the app (HomeScreen, Game, Synth, etc.). Idempotent —
  *  subsequent calls just re-show the existing HomeScreen without
  *  duplicating event listeners or resource-heavy objects. */
 async function initApp(): Promise<void> {
   if (_appInitialized) {
-    _homeScreen?.show();
+    if (_guestMode) showFreeplay();
+    else _homeScreen?.show();
     return;
   }
   _appInitialized = true;
 
-  _homeScreen = new HomeScreen({
-    onNavigate: (mode: AppMode) => { currentMode = mode; },
-    onLogout: handleLogout,
-    onDeleteAccount: handleDeleteAccount,
-  });
-  _homeScreen.show();
+  if (_guestMode) {
+    setupGuestUi();
+  } else {
+    _homeScreen = new HomeScreen({
+      onNavigate: (mode: AppMode) => { currentMode = mode; },
+      onLogout: handleLogout,
+      onDeleteAccount: handleDeleteAccount,
+    });
+    _homeScreen.show();
+  }
 
   const ctx = createAppContext();
+  ctx.menu.setGuestMode(_guestMode);
   ctx.menu.setHomeActions((action) => _homeScreen?.cardAction(action));
   ctx.menu.setResultsActions((action) => ctx.game.runResultsAction(action));
   wireMenuNoteInput(ctx);

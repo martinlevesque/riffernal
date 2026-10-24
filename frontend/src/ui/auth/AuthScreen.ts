@@ -3,6 +3,7 @@ import { checkSetup, setupAdmin, register, login, type AuthUser } from "../../ap
 
 export interface AuthScreenOptions {
   onAuth: (user: AuthUser) => void;
+  onGuest?: () => void;
 }
 
 type Mode = "loading" | "setup" | "login" | "register";
@@ -95,6 +96,12 @@ export class AuthScreen {
            <button id="auth-toggle-btn">Already have an account? <span class="accent">Login</span></button>
          </div>`;
 
+    // On a fresh database the first visitor is the owner, who should create
+    // the admin account rather than wander into an empty app.
+    const guestHtml = mode === "setup" || !this._opts.onGuest ? "" : `<div class="auth-secondary">
+           <button id="auth-guest-btn" class="btn-ghost" type="button">Continue as guest</button>
+         </div>`;
+
     // Decoy field: it accepts a click only to swallow it with the no-spam
     // punchline, then locks itself so no email ever enters the app.
     const emailField = mode === "register"
@@ -128,6 +135,7 @@ export class AuthScreen {
             </div>
           </form>
           ${toggleHtml}
+          ${guestHtml}
         </div>
         <div class="auth-legal">
           <a class="btn-link" href="/terms.html">Terms</a>
@@ -154,6 +162,14 @@ export class AuthScreen {
       toggleBtn.addEventListener("click", () => {
         this._mode = this._mode === "login" ? "register" : "login";
         this._render();
+      });
+    }
+
+    const guestBtn = document.getElementById("auth-guest-btn");
+    if (guestBtn) {
+      guestBtn.addEventListener("click", () => {
+        playMenuSound("enter");
+        this._opts.onGuest?.();
       });
     }
 

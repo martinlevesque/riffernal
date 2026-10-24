@@ -19,6 +19,7 @@ export interface SongSummary {
   publicCommunity: boolean;
   communityBookmarked: boolean;
   bookmarkCount?: number;
+  guestShowcase: boolean;
 }
 
 /** A song in the library menu, with a flag distinguishing own songs from
@@ -259,6 +260,17 @@ export async function setSongPublicCommunity(id: number, value: boolean): Promis
   return res.json() as Promise<SongFull>;
 }
 
+/** Admin-only curation of the guest showcase. */
+export async function setSongGuestShowcase(id: number, value: boolean): Promise<SongFull> {
+  const res = await apiFetch(`/api/songs/${id}/guest-showcase`, {
+    method: "PUT",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ guestShowcase: value }),
+  });
+  if (!res.ok) throw new Error(await parseError(res));
+  return res.json() as Promise<SongFull>;
+}
+
 export async function toggleCommunityBookmark(id: number, value: boolean): Promise<void> {
   const res = await apiFetch(`/api/songs/${id}/community-bookmark`, {
     method: "PUT",
@@ -286,6 +298,7 @@ export function summaryToSong(s: SongSummary): Song {
     publicCommunity: s.publicCommunity,
     communityBookmarked: s.communityBookmarked,
     bookmarkCount: s.bookmarkCount,
+    guestShowcase: s.guestShowcase,
   };
 }
 
@@ -311,5 +324,6 @@ export function songFullToSong(full: SongFull): Song {
     lastScore: full.lastScore,
     publicCommunity: full.publicCommunity,
     communityBookmarked: full.communityBookmarked,
+    guestShowcase: full.guestShowcase,
   };
 }

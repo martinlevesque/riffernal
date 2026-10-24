@@ -36,3 +36,17 @@ export function withAuth(
     return handler(req, auth, params);
   };
 }
+
+/** User-or-null variant of `requireAuth`: routes open to guests treat
+ *  "no user" as a valid state. */
+export function optionalAuth(req: Request): AuthUser | null {
+  const token = extractToken(req);
+  if (!token) return null;
+  return validateSession(token);
+}
+
+export function withOptionalAuth(
+  handler: (req: Request, auth: AuthUser | null, params: Record<string, string>) => Promise<Response> | Response,
+): Handler {
+  return (req, params) => handler(req, optionalAuth(req), params);
+}

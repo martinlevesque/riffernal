@@ -17,6 +17,7 @@ export interface SongRow {
   imported: number;
   imported_by_user_id: number | null;
   public_community: number;
+  guest_showcase: number;
   created_at: string;
 }
 
@@ -32,6 +33,7 @@ export interface SongSummaryRow {
   category_id: number | null;
   imported_by_user_id: number | null;
   public_community: number;
+  guest_showcase: number;
   created_at: string;
 }
 
@@ -59,6 +61,7 @@ const SUMMARY_COLUMNS = [
   "category_id",
   "imported_by_user_id",
   "public_community",
+  "guest_showcase",
   "created_at",
 ];
 
@@ -133,20 +136,28 @@ export function deleteSong(id: number): void {
   db.run("DELETE FROM songs WHERE id = ?", [id]);
 }
 
-/** Count public community songs (for pagination totals), excluding songs
- *  the requesting user has bookmarked (those live in their own category
- *  groups instead of the community browse list). */
-export function countPublicCommunitySongs(userId: number): number {
+// Signed-in callers drop bookmarked songs (they appear in their category
+// groups instead) and their own shared songs (same reason). Anonymous
+// callers drop showcased songs so the Featured section never shows a locked
+// duplicate.
+function communityBrowseExclusion(userId: number | null): string {
+  return userId === null
+    ? "AND s.guest_showcase = 0"
+    : `AND NOT EXISTS (
+           SELECT 1 FROM user_songs bm
+           WHERE bm.user_id = ? AND bm.song_id = s.id AND bm.community_bookmarked = 1
+         )
+         AND (s.imported_by_user_id IS NULL OR s.imported_by_user_id != ?)`;
+}
+
+export function countPublicCommunitySongs(userId: number | null): number {
   const row = db
     .query(
-      `SELECT COUNT(*) AS count FROM songs s
-       WHERE s.public_community = 1
-         AND NOT EXISTS (
-           SELECT 1 FROM user_songs us
-           WHERE us.user_id = ? AND us.song_id = s.id AND us.community_bookmarked = 1
-         )`,
-    )
-    .get(userId) as { count: number };
+       `SELECT COUNT(*) AS count FROM songs s
+        WHERE s.public_community = 1
+          ${communityBrowseExclusion(userId)}`,
+     )
+    .get(...(userId === null ? [] : [userId, userId])) as { count: number };
   return row.count;
 }
 
@@ -157,14 +168,10 @@ export interface PublicCommunitySongRow extends SongSummaryRow {
   imported_by_username?: string | null;
 }
 
-/** Get public community songs ordered by bookmark popularity (most
- *  bookmarked first), then by creation date. Paginated via limit/offset.
- *  Excludes songs the requesting user has bookmarked (those appear in the
- *  user's category groups instead). */
 export function getPublicCommunitySongs(
   limit: number,
   offset: number,
-  userId: number,
+  userId: number | null,
 ): PublicCommunitySongRow[] {
   return db
     .query(
@@ -173,21 +180,14 @@ export function getPublicCommunitySongs(
        LEFT JOIN users u ON u.id = s.imported_by_user_id
        LEFT JOIN user_songs us ON us.song_id = s.id AND us.community_bookmarked = 1
        WHERE s.public_community = 1
-         AND NOT EXISTS (
-           SELECT 1 FROM user_songs us2
-           WHERE us2.user_id = ? AND us2.song_id = s.id AND us2.community_bookmarked = 1
-         )
+         ${communityBrowseExclusion(userId)}
        GROUP BY s.id
        ORDER BY bookmark_count DESC, s.created_at DESC
        LIMIT ? OFFSET ?`,
     )
-    .all(userId, limit, offset) as PublicCommunitySongRow[];
+    .all(...(userId === null ? [limit, offset] : [userId, userId, limit, offset])) as PublicCommunitySongRow[];
 }
 
-/** Get the public community songs the given user has bookmarked, ordered by
- *  the user's last-played time (most recent first, never-played last), then
- *  by song creation. These appear in the user's category groups in the
- *  freeplay menu rather than in the community browse list. */
 export function getBookmarkedSongs(userId: number): SongSummaryRow[] {
   return db
     .query(
@@ -204,4 +204,31 @@ export function getBookmarkedSongs(userId: number): SongSummaryRow[] {
 /** Set the public_community flag on a song. */
 export function updateSongPublicCommunity(id: number, value: number): void {
   db.run("UPDATE songs SET public_community = ? WHERE id = ?", [value, id]);
+}
+
+/** Get the admin-curated guest showcase songs (playable without an
+ *  account). */
+export function getGuestShowcaseSongs(): PublicCommunitySongRow[] {
+  return db
+    .query(
+      `SELECT ${columns(SUMMARY_COLUMNS, "s")}, COUNT(us.user_id) AS bookmark_count, u.username AS imported_by_username
+       FROM songs s
+       LEFT JOIN users u ON u.id = s.imported_by_user_id
+       LEFT JOIN user_songs us ON us.song_id = s.id AND us.community_bookmarked = 1
+       WHERE s.guest_showcase = 1
+       GROUP BY s.id
+       ORDER BY s.created_at DESC`,
+    )
+    .all() as PublicCommunitySongRow[];
+}
+
+export function countGuestShowcaseSongs(): number {
+  const row = db
+    .query("SELECT COUNT(*) AS count FROM songs WHERE guest_showcase = 1")
+    .get() as { count: number };
+  return row.count;
+}
+
+export function updateSongGuestShowcase(id: number, value: number): void {
+  db.run("UPDATE songs SET guest_showcase = ? WHERE id = ?", [value, id]);
 }
