@@ -190,28 +190,44 @@ input[type="text"]:focus {
 
 .btn-danger {
   background: none;
+  border: 1px solid var(--accent-red);
+  border-radius: 4px;
+  padding: 0.5rem 1.4rem;
+  color: var(--accent-red);
+  font-family: var(--font-ui);
+  font-size: var(--fs-smaller);
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+.btn-danger:hover {
+  background: var(--accent-red);
+  color: var(--text-on-accent);
+}
+
+.btn-danger:focus-visible {
+  outline: 1px solid var(--accent-red);
+  outline-offset: 2px;
+}
+
+.btn-danger-sm {
   border: 0;
   padding: 0.25rem 0.5rem;
-  margin: 0;
-  color: var(--accent-red);
   font-family: var(--font-mono);
   font-size: var(--fs-smallest);
   text-transform: none;
   letter-spacing: 0.04em;
   line-height: 1.4;
   white-space: nowrap;
-  cursor: pointer;
   transition: color 0.15s;
 }
 
-.btn-danger:hover {
+.btn-danger-sm:hover {
+  background: none;
   text-decoration: underline;
   text-underline-offset: 3px;
-}
-
-.btn-danger:focus-visible {
-  outline: 1px solid var(--accent-red);
-  outline-offset: 2px;
 }
 
 .shortcuts-hint {
