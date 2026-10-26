@@ -216,14 +216,12 @@ export class Renderer {
   private _haloGrad: CanvasGradient | null = null;
   private _haloKey = '';
 
-  private _isLowEnd: boolean;
   private _now = 0;
 
   constructor(canvas: HTMLCanvasElement) {
     this.canvas = canvas;
     this.ctx = canvas.getContext('2d')!;
     this.piano = new PianoRenderer();
-    this._isLowEnd = isLowEndDevice();
     this.resize();
   }
 
@@ -308,7 +306,7 @@ export class Renderer {
 
     ctx.strokeStyle = c.hitLine;
     ctx.lineWidth = 3;
-    if (!this._isLowEnd) {
+    if (!isLowEndDevice()) {
       ctx.shadowColor = c.hitLine;
       ctx.shadowBlur = 16;
     }
@@ -630,7 +628,7 @@ export class Renderer {
     ctx.lineWidth = Math.max(2, laneW * 0.10);
     ctx.lineCap = 'round';
     ctx.lineJoin = 'round';
-    if (!this._isLowEnd) {
+    if (!isLowEndDevice()) {
       ctx.shadowColor = this._rgba(rgb, 1);
       ctx.shadowBlur = 14 * pulse;
     }
@@ -646,7 +644,7 @@ export class Renderer {
 
     ctx.strokeStyle = this._rgba(rgb, 0.85 * pulse);
     ctx.lineWidth = Math.max(1, laneW * 0.05);
-    if (!this._isLowEnd) ctx.shadowBlur = 22 * pulse;
+    if (!isLowEndDevice()) ctx.shadowBlur = 22 * pulse;
     ctx.beginPath();
     ctx.moveTo(cx, hitZoneY);
     for (let i = 1; i <= segs; i++) {
@@ -687,7 +685,7 @@ export class Renderer {
     ctx.lineWidth = Math.max(2, laneW * 0.10);
     ctx.lineCap = 'round';
     ctx.lineJoin = 'round';
-    if (!this._isLowEnd) {
+    if (!isLowEndDevice()) {
       ctx.shadowColor = this._rgba(rgb, 1);
       ctx.shadowBlur = 16;
     }
@@ -710,7 +708,7 @@ export class Renderer {
     ctx.fillStyle = bgrad;
     ctx.fillRect(cx - burstR, hitZoneY - burstR, burstR * 2, burstR * 2);
 
-    if (this._isLowEnd) return;
+    if (isLowEndDevice()) return;
 
     for (let i = 0; i < GRIND_FLASH_SPARKS; i++) {
       const a = (i / GRIND_FLASH_SPARKS) * Math.PI * 2 + this._now / 200;
@@ -935,7 +933,7 @@ export class Renderer {
     ctx.lineTo(stemX, noteY + stemDir * stemLen);
     ctx.stroke();
 
-    if (note.duration < 0.3 && !this._isLowEnd) {
+    if (note.duration < 0.3 && !isLowEndDevice()) {
       const flagBaseY = noteY + stemDir * stemLen;
       ctx.beginPath();
       ctx.moveTo(stemX, flagBaseY);

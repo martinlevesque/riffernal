@@ -16,6 +16,7 @@ export interface KeyboardMenuShortcuts {
 export interface GameSettings {
   piano_show_used_keys_only?: boolean;
   octave_agnostic?: boolean;
+  low_end_device_mode?: boolean;
   keyboard_menu_shortcuts?: KeyboardMenuShortcuts;
 }
 

@@ -14,13 +14,19 @@ import {
   openSettings,
   themeOptions,
   themeOption,
+  authHeaders,
+  authJsonHeaders,
 } from '../helpers/index.js';
 
 test.describe('Menu Screen', () => {
   test.beforeEach(async ({ request }: { request: APIRequestContext }) => {
     await wipeDatabase(request);
-    // Reset user settings to defaults
-    await request.put('/api/user/settings', { data: { piano_show_used_keys_only: false } });
+    // Reset user settings to defaults (the e2e request fixture carries no
+    // auth, so headers must be attached explicitly)
+    await request.put('/api/user/settings', {
+      data: { piano_show_used_keys_only: false, low_end_device_mode: false },
+      headers: await authJsonHeaders(request),
+    });
   });
 
   test('displays title', async ({ page }) => {
@@ -72,6 +78,36 @@ test.describe('Menu Screen', () => {
     await expect(checkbox).toBeChecked();
     await checkbox.uncheck();
     await expect(checkbox).not.toBeChecked();
+  });
+
+  test('low-end device mode toggle is visible on settings popup', async ({ page }) => {
+    await page.goto('/');
+    await openSettings(page);
+    await expect(page.locator('#low-end-device-mode')).toBeVisible();
+    await expect(page.locator('.setting-toggle').nth(2)).toContainText('Low-end device mode (optimized graphics)');
+  });
+
+  test('low-end device mode toggle can be toggled and persists across reload', async ({ request, page }) => {
+    await page.goto('/');
+    await openSettings(page);
+    const checkbox = page.locator('#low-end-device-mode');
+    await expect(checkbox).not.toBeChecked();
+    await checkbox.check();
+    await expect(checkbox).toBeChecked();
+
+    // The save is fire-and-forget, so wait for it to land before reloading.
+    const headers = await authHeaders(request);
+    await expect.poll(async () => {
+      const res = await request.get('/api/user', { headers });
+      return (await res.json()).low_end_device_mode;
+    }).toBe(true);
+
+    await page.reload();
+    await openSettings(page);
+    await expect(page.locator('#low-end-device-mode')).toBeChecked();
+
+    await page.locator('#low-end-device-mode').uncheck();
+    await expect(page.locator('#low-end-device-mode')).not.toBeChecked();
   });
 
   test('logout card logs out and shows auth screen with the guest option', async ({ request, page }) => {

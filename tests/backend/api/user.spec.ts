@@ -57,6 +57,39 @@ test.describe("API: user settings", () => {
     expect(body.piano_show_used_keys_only).toBe(false);
   });
 
+  test("PUT /api/user/settings updates low_end_device_mode", async ({ request }) => {
+    const jsonHeaders = await authJsonHeaders(request);
+    const res = await request.put("/api/user/settings", {
+      data: { low_end_device_mode: true },
+      headers: jsonHeaders,
+    });
+    expect(res.ok()).toBeTruthy();
+    const body = await res.json();
+    expect(body.low_end_device_mode).toBe(true);
+
+    const headers = await authHeaders(request);
+    const getRes = await request.get("/api/user", { headers });
+    expect(getRes.ok()).toBeTruthy();
+    const getBody = await getRes.json();
+    expect(getBody.low_end_device_mode).toBe(true);
+  });
+
+  test("low_end_device_mode can be set back to false", async ({ request }) => {
+    const jsonHeaders = await authJsonHeaders(request);
+    await request.put("/api/user/settings", {
+      data: { low_end_device_mode: true },
+      headers: jsonHeaders,
+    });
+
+    const res = await request.put("/api/user/settings", {
+      data: { low_end_device_mode: false },
+      headers: jsonHeaders,
+    });
+    expect(res.ok()).toBeTruthy();
+    const body = await res.json();
+    expect(body.low_end_device_mode).toBe(false);
+  });
+
   test("PUT /api/user/settings handles empty body gracefully", async ({ request }) => {
     const jsonHeaders = await authJsonHeaders(request);
     const res = await request.put("/api/user/settings", {

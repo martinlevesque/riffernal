@@ -3,6 +3,7 @@ import { PracticeHand } from '../../utils/notes.js';
 import { fetchUserSettings, updateUserSettings } from '../../api/UserApi.js';
 import { themeManager } from '../../themes/ThemeManager.js';
 import { formatTime } from '../../utils/helpers.js';
+import { setLowEndDeviceMode } from '../../utils/device.js';
 import { BTN_DEFINE_LOOP_ID, BTN_LOOP_PLAY_ID, LOOP_STATUS_ID } from '../sheet/sheetElementIds.js';
 
 export class GameControls {
@@ -89,6 +90,7 @@ export class GameControls {
   private async _initUserSettings(): Promise<void> {
     const showUsedKeysCheckbox = document.getElementById('show-used-keys') as HTMLInputElement;
     const octaveAgnosticCheckbox = document.getElementById('octave-agnostic') as HTMLInputElement;
+    const lowEndModeCheckbox = document.getElementById('low-end-device-mode') as HTMLInputElement;
 
     try {
       const settings = await fetchUserSettings();
@@ -96,6 +98,9 @@ export class GameControls {
       showUsedKeysCheckbox.checked = this.game.showUsedKeys;
       this.game.octaveAgnostic = settings.octave_agnostic ?? false;
       octaveAgnosticCheckbox.checked = this.game.octaveAgnostic;
+      const lowEndMode = settings.low_end_device_mode ?? false;
+      setLowEndDeviceMode(lowEndMode);
+      lowEndModeCheckbox.checked = lowEndMode;
     } catch { /* ignore */ }
 
     showUsedKeysCheckbox.addEventListener('change', () => {
@@ -107,6 +112,12 @@ export class GameControls {
     octaveAgnosticCheckbox.addEventListener('change', () => {
       this.game.octaveAgnostic = octaveAgnosticCheckbox.checked;
       updateUserSettings({ octave_agnostic: octaveAgnosticCheckbox.checked })
+        .catch((e) => console.warn('Failed to save settings:', e));
+    });
+
+    lowEndModeCheckbox.addEventListener('change', () => {
+      setLowEndDeviceMode(lowEndModeCheckbox.checked);
+      updateUserSettings({ low_end_device_mode: lowEndModeCheckbox.checked })
         .catch((e) => console.warn('Failed to save settings:', e));
     });
   }
