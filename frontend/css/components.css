@@ -188,33 +188,46 @@ input[type="text"]:focus {
   margin-top: 1rem;
 }
 
-.setting-danger {
-  margin-top: 1.2rem;
-  padding-top: 1rem;
-  border-top: 1px solid var(--border-subtle);
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  gap: 0.5rem;
-}
-
-.setting-danger-label {
-  color: var(--text-secondary);
-  font-size: var(--fs-smallest);
-  letter-spacing: 0.05em;
-  user-select: none;
-}
-
 .btn-danger {
-  background: transparent;
-  border-color: var(--accent-red);
+  background: none;
+  border: 1px solid var(--accent-red);
+  border-radius: 4px;
+  padding: 0.5rem 1.4rem;
   color: var(--accent-red);
-  padding: 0.4rem 1.2rem;
+  font-family: var(--font-ui);
+  font-size: var(--fs-smaller);
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  cursor: pointer;
+  transition: all 0.2s ease;
 }
 
 .btn-danger:hover {
   background: var(--accent-red);
   color: var(--text-on-accent);
+}
+
+.btn-danger:focus-visible {
+  outline: 1px solid var(--accent-red);
+  outline-offset: 2px;
+}
+
+.btn-danger-sm {
+  border: 0;
+  padding: 0.25rem 0.5rem;
+  font-family: var(--font-mono);
+  font-size: var(--fs-smallest);
+  text-transform: none;
+  letter-spacing: 0.04em;
+  line-height: 1.4;
+  white-space: nowrap;
+  transition: color 0.15s;
+}
+
+.btn-danger-sm:hover {
+  background: none;
+  text-decoration: underline;
+  text-underline-offset: 3px;
 }
 
 .shortcuts-hint {
