@@ -188,33 +188,30 @@ input[type="text"]:focus {
   margin-top: 1rem;
 }
 
-.setting-danger {
-  margin-top: 1.2rem;
-  padding-top: 1rem;
-  border-top: 1px solid var(--border-subtle);
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  gap: 0.5rem;
-}
-
-.setting-danger-label {
-  color: var(--text-secondary);
-  font-size: var(--fs-smallest);
-  letter-spacing: 0.05em;
-  user-select: none;
-}
-
 .btn-danger {
-  background: transparent;
-  border-color: var(--accent-red);
+  background: none;
+  border: 0;
+  padding: 0.25rem 0.5rem;
+  margin: 0;
   color: var(--accent-red);
-  padding: 0.4rem 1.2rem;
+  font-family: var(--font-mono);
+  font-size: var(--fs-smallest);
+  text-transform: none;
+  letter-spacing: 0.04em;
+  line-height: 1.4;
+  white-space: nowrap;
+  cursor: pointer;
+  transition: color 0.15s;
 }
 
 .btn-danger:hover {
-  background: var(--accent-red);
-  color: var(--text-on-accent);
+  text-decoration: underline;
+  text-underline-offset: 3px;
+}
+
+.btn-danger:focus-visible {
+  outline: 1px solid var(--accent-red);
+  outline-offset: 2px;
 }
 
 .shortcuts-hint {

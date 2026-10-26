@@ -374,6 +374,7 @@
 }
 
 .popup-card {
+  position: relative;
   background: var(--bg-surface);
   border: 1px solid var(--border-medium);
   border-radius: 8px;
@@ -398,6 +399,12 @@
 .popup-actions {
   display: flex;
   justify-content: center;
+}
+
+#settings-popup .btn-danger {
+  position: absolute;
+  right: 0.75rem;
+  bottom: 0.6rem;
 }
 
 .clear-loops-message {
