@@ -20,10 +20,6 @@ export class Synth {
   private _initialized = false;
   private _patch: Patch = metalPatch;
   private _bgCount = 0;
-  // Bounded polyphony prevents runaway node counts when the audio thread
-  // can't keep up. Background (auto-played) voices are evicted first.
-  private _maxVoices = isLowEndDevice() ? 20 : 32;
-  private _maxBackgroundVoices = isLowEndDevice() ? 12 : 24;
 
   init(): void {
     if (this._initialized) return;
@@ -96,9 +92,15 @@ export class Synth {
     const isBackground = key.startsWith('auto_');
     const prio = isBackground ? PRIO_BACKGROUND : PRIO_FOREGROUND;
 
-    if (isBackground && this._bgCount >= this._maxBackgroundVoices) {
+    // Bounded polyphony prevents runaway node counts when the audio thread
+    // can't keep up. Background (auto-played) voices are evicted first.
+    // Caps are computed per note so toggling low-end device mode applies live.
+    const maxVoices = isLowEndDevice() ? 20 : 32;
+    const maxBackgroundVoices = isLowEndDevice() ? 12 : 24;
+
+    if (isBackground && this._bgCount >= maxBackgroundVoices) {
       this._stealOldestBackground();
-    } else if (this._activeNotes.size >= this._maxVoices) {
+    } else if (this._activeNotes.size >= maxVoices) {
       if (!this._stealOldestBackground()) {
         this._stealOldestAny();
       }
