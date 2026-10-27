@@ -178,7 +178,8 @@ function createAppContext(): AppContext {
 
 /** Load the user's library (own + bookmarked songs grouped by category) and
  *  fire off the community browse listing (not awaited — it can populate
- *  whenever ready). */
+ *  whenever ready). Runs on freeplay entry so newly shared songs appear
+ *  without a page reload. */
 async function loadMenuData(ctx: AppContext): Promise<void> {
   const { menu } = ctx;
 
@@ -229,7 +230,10 @@ function setupGameCallbacks(ctx: AppContext): void {
     }
 
     wireMenuNoteInput(ctx);
-    loadMenuData(ctx).catch((e) => console.error('Failed to refresh menu:', e));
+
+    if (_guestMode || currentMode === 'freeplay') {
+      loadMenuData(ctx).catch((e) => console.error('Failed to refresh menu:', e));
+    }
   };
 
   game.onResultsShown = () => wireMenuNoteInput(ctx);
@@ -460,6 +464,30 @@ function setupGuestUi(): void {
   document.getElementById('loops-panel')?.classList.add('hidden');
 }
 
+/** Boot the entry screen once the shared context exists: guests land
+ *  directly in freeplay (their shelf and listings load now), while
+ *  signed-in users see home and fetch the song lists only when entering
+ *  freeplay. */
+async function bootEntryScreen(ctx: AppContext): Promise<void> {
+  if (_guestMode) {
+    await loadMenuData(ctx);
+    return;
+  }
+
+  _homeScreen = new HomeScreen({
+    onNavigate: (mode: AppMode) => {
+      currentMode = mode;
+
+      if (mode === 'freeplay') {
+        loadMenuData(ctx).catch((e) => console.error('Failed to load menu:', e));
+      }
+    },
+    onLogout: handleLogout,
+    onDeleteAccount: handleDeleteAccount,
+  });
+  _homeScreen.show();
+}
+
 /** Initialize the app (HomeScreen, Game, Synth, etc.). Idempotent —
  *  subsequent calls just re-show the existing HomeScreen without
  *  duplicating event listeners or resource-heavy objects. */
@@ -473,13 +501,6 @@ async function initApp(): Promise<void> {
 
   if (_guestMode) {
     setupGuestUi();
-  } else {
-    _homeScreen = new HomeScreen({
-      onNavigate: (mode: AppMode) => { currentMode = mode; },
-      onLogout: handleLogout,
-      onDeleteAccount: handleDeleteAccount,
-    });
-    _homeScreen.show();
   }
 
   const ctx = createAppContext();
@@ -487,7 +508,9 @@ async function initApp(): Promise<void> {
   ctx.menu.setHomeActions((action) => _homeScreen?.cardAction(action));
   ctx.menu.setResultsActions((action) => ctx.game.runResultsAction(action));
   wireMenuNoteInput(ctx);
-  await loadMenuData(ctx);
+
+  await bootEntryScreen(ctx);
+
   setupGameCallbacks(ctx);
   setupMenuCallbacks(ctx);
   await setupMidiStatus(ctx);

@@ -16,6 +16,8 @@ import {
   themeOption,
   authHeaders,
   authJsonHeaders,
+  bearer,
+  clickFreeplay,
 } from '../helpers/index.js';
 
 test.describe('Menu Screen', () => {
@@ -47,6 +49,68 @@ test.describe('Menu Screen', () => {
       await expect(page.locator('.song-item').first()).toContainText('E2E Menu Song');
     } finally {
       await deleteSong(request, id);
+    }
+  });
+
+  test('loads song lists on freeplay entry, not on home', async ({ request, page }) => {
+    const publisher = await registerUser(request, uniqueUsername('songlist_pub'));
+    const publishedIds: number[] = [];
+    const publishAs = async (title: string): Promise<void> => {
+      const id = await seedSongWithNotes(request, title, [{ time: 0.5, key: 'C4', duration: 1 }], publisher.token);
+      publishedIds.push(id);
+      const res = await request.put(`/api/songs/${id}/public-community`, {
+        data: { publicCommunity: true },
+        headers: { ...bearer(publisher.token), 'Content-Type': 'application/json' },
+      });
+      expect(res.ok()).toBeTruthy();
+    };
+
+    try {
+      await publishAs('E2E-SongList-One');
+
+      const listPaths: string[] = [];
+      page.on('request', (req) => {
+        const path = new URL(req.url()).pathname;
+
+        if (req.method() === 'GET' && (path === '/api/library' || path === '/api/community/songs')) {
+          listPaths.push(path);
+        }
+      });
+
+      // The home screen boots without touching the song lists.
+      await page.goto('/');
+      await expectHomeScreenActive(page);
+      // setupMidiStatus runs after app init settles, so waiting for it proves
+      // any initial list load would have fired by now.
+      await page.waitForFunction(() => (document.getElementById('midi-status-home') as HTMLElement).textContent.length > 0);
+      expect(listPaths).toEqual([]);
+
+      await clickFreeplay(page);
+      await expect(
+        page.locator('.community-section .community-song', { hasText: 'E2E-SongList-One' }),
+      ).toBeVisible({ timeout: 5000 });
+      expect(listPaths).toHaveLength(2);
+
+      // Back on home nothing re-fetches the lists.
+      await page.locator('#freeplay-screen .brand-corner').click();
+      await expectHomeScreenActive(page);
+      expect(listPaths).toHaveLength(2);
+
+      // A song published while on home lands on the next freeplay entry.
+      await publishAs('E2E-SongList-Two');
+      expect(listPaths).toHaveLength(2);
+
+      await clickFreeplay(page);
+      await expect(
+        page.locator('.community-section .community-song', { hasText: 'E2E-SongList-Two' }),
+      ).toBeVisible({ timeout: 5000 });
+      expect(listPaths).toHaveLength(4);
+    } finally {
+      // Publisher-owned songs survive wipeDatabase (it only deletes the
+      // shared admin user's songs), so remove them explicitly.
+      for (const id of publishedIds) {
+        await request.delete(`/api/songs/${id}`, { headers: bearer(publisher.token) });
+      }
     }
   });
 
