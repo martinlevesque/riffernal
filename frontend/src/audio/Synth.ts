@@ -77,7 +77,14 @@ export class Synth {
     return this._patch;
   }
 
-  noteOn(noteName: string, patch?: Patch, id?: string, midiOverride?: number): void {
+  /** Current audio-clock time (seconds) — base for scheduling voices ahead. */
+  now(): number {
+    return this._ctx?.currentTime ?? 0;
+  }
+
+  /** `when` (audio-clock time) lets callers schedule a voice slightly ahead;
+   *  late values clamp to "now" like an immediate noteOn. */
+  noteOn(noteName: string, patch?: Patch, id?: string, midiOverride?: number, when?: number): void {
     this.init();
     this.resume();
 
@@ -108,10 +115,10 @@ export class Synth {
 
     const freq = 440 * 2 ** ((noteMidi - 69) / 12);
     const midi = midiOverride ?? noteMidi;
-    const now = this._ctx!.currentTime;
+    const start = Math.max(this._ctx!.currentTime, when ?? 0);
 
     const activePatch = patch ?? this._patch;
-    const patchNote = activePatch.build(this._ctx!, freq, now, midi);
+    const patchNote = activePatch.build(this._ctx!, freq, start, midi);
     patchNote.output.connect(this._masterGain!);
     this._activeNotes.set(key, { note: patchNote, backgroundPrio: prio });
     if (prio === PRIO_BACKGROUND) this._bgCount++;

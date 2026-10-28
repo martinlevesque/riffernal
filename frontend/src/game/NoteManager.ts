@@ -27,6 +27,11 @@ export const SCROLL_SPEED = 400;
 
 export const HIT_ZONE_Y_RATIO = 0.82;
 
+/** How far ahead of its audible time a background voice is built on the
+ *  audio clock. Spreads voice creation across frames so dense multi-track
+ *  passages never burst synth graphs into a single late frame. */
+const AUTO_SCHEDULE_AHEAD = 0.2;
+
 /** Safety margin for the time-window pre-filter in `findNearestNoteByClick`.
  *  1.5× ensures notes slightly beyond the exact pixel radius are still
  *  considered, accounting for stem/flag overshoot and rounding. */
@@ -52,6 +57,7 @@ export interface SongNote extends Note {
   accumulatedHeldDuration: number;
   earlyMultiplier: number;
   autoPlayed: boolean;
+  audioScheduled: boolean;
   track: number;
   hand: HandSide;
   selected: boolean;
@@ -103,6 +109,7 @@ export class NoteManager {
   onMiss: ((note: SongNote) => void) | null = null;
   onResolve: ((result: ResolveResult) => void) | null = null;
   onAutoPlayOn: ((note: SongNote) => void) | null = null;
+  onAutoPlaySchedule: ((note: SongNote) => void) | null = null;
   learningMode = false;
   practiceHand: PracticeHand = PracticeHand.Both;
   private _nextNoteIndex = 0;
@@ -147,6 +154,7 @@ export class NoteManager {
           accumulatedHeldDuration: 0,
           earlyMultiplier: 1,
           autoPlayed: false,
+          audioScheduled: false,
           track,
           hand,
           selected,
@@ -254,6 +262,7 @@ export class NoteManager {
       note.accumulatedHeldDuration = 0;
       note.earlyMultiplier = 1;
       note.autoPlayed = false;
+      note.audioScheduled = false;
       note.hitOffsetMs = 0;
     }
     this.activeNotes = [];
@@ -331,7 +340,7 @@ export class NoteManager {
         break;
       }
 
-      if (this._resolveAutoPlayNote(note, timeDiff)) continue;
+      if (this._resolveAutoPlayNote(note, timeDiff, currentTime)) continue;
 
       if (note.holding) {
         this._finishHold(note, currentTime);
@@ -355,9 +364,27 @@ export class NoteManager {
   /** Auto-played notes (background tracks / non-practiced hand) resolve
    *  themselves on schedule. Returns true when the note was handled and the
    *  scan should move on. */
-  private _resolveAutoPlayNote(note: SongNote, timeDiff: number): boolean {
-    if (!this._isAutoPlayNote(note) || note.autoPlayed || timeDiff > 0)
-      return false;
+  private _resolveAutoPlayNote(
+    note: SongNote,
+    timeDiff: number,
+    currentTime: number,
+  ): boolean {
+    if (!this._isAutoPlayNote(note) || note.autoPlayed) return false;
+
+    // Hand the voice to the synth slightly before it is due, scheduled on
+    // the audio clock. Learned-mode freeze holds the clock, so ahead-of-time
+    // scheduling must wait until the wait resolves to keep accompaniment in
+    // sync with the player.
+    const waitingFrozen =
+      this.learningMode && this._learningAnchor !== null
+      && currentTime === this._learningAnchor;
+
+    if (!note.audioScheduled && !waitingFrozen && timeDiff <= AUTO_SCHEDULE_AHEAD) {
+      note.audioScheduled = true;
+      if (this.onAutoPlaySchedule) this.onAutoPlaySchedule(note);
+    }
+
+    if (timeDiff > 0) return false;
 
     note.autoPlayed = true;
     if (this.onAutoPlayOn) this.onAutoPlayOn(note);
