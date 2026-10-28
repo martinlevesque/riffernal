@@ -20,6 +20,7 @@ export class Synth {
   private _initialized = false;
   private _patch: Patch = metalPatch;
   private _bgCount = 0;
+  private _totalBuilds = 0;
 
   init(): void {
     if (this._initialized) return;
@@ -82,6 +83,19 @@ export class Synth {
     return this._ctx?.currentTime ?? 0;
   }
 
+  /** Live voice counts + total noteOn builds (debug HUD diagnostics). */
+  get activeVoices(): number {
+    return this._activeNotes.size;
+  }
+
+  get backgroundVoices(): number {
+    return this._bgCount;
+  }
+
+  get totalBuilds(): number {
+    return this._totalBuilds;
+  }
+
   /** `when` (audio-clock time) lets callers schedule a voice slightly ahead;
    *  late values clamp to "now" like an immediate noteOn. */
   noteOn(noteName: string, patch?: Patch, id?: string, midiOverride?: number, when?: number): void {
@@ -122,6 +136,7 @@ export class Synth {
     patchNote.output.connect(this._masterGain!);
     this._activeNotes.set(key, { note: patchNote, backgroundPrio: prio });
     if (prio === PRIO_BACKGROUND) this._bgCount++;
+    this._totalBuilds++;
   }
 
   /** Release and remove the oldest background voice. Returns true on success. */

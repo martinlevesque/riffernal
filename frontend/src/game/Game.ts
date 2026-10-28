@@ -7,6 +7,8 @@ import { LoopDefinitionState } from './Loop.js';
 export { LoopDefinitionState };
 import { NoteManager, SCROLL_SPEED, HIT_ZONE_Y_RATIO } from './NoteManager.js';
 import type { HitResult, ResolveResult, SongNote } from './NoteManager.js';
+import { AutoVoiceScheduler, type AutoVoiceEntry } from './AutoVoiceScheduler.js';
+import { DebugHud } from './debugHud.js';
 import { NoteGrade, gradeLabel, TIMING_OFFSET_DISPLAY_THRESHOLD_MS, TAP_NOTE_THRESHOLD, SUCCESS_PARTICLE_HOLD_RATIO, comboBoost } from './scoring.js';
 import type { Scoring } from './scoring.js';
 import { NOTE_TO_LANE, handColor, getPianoKeyLayout, getVisibleRange, PracticeHand, GM_DRUM_CHANNEL } from '../utils/notes.js';
@@ -123,6 +125,8 @@ export class Game {
   private _completionTime: number | null = null;
   private _lastSheetBottom = -1;
   private _frameCount = 0;
+  private _autoScheduler: AutoVoiceScheduler;
+  private _debugHud = new DebugHud();
 
   constructor(canvas: HTMLCanvasElement, synth: Synth, keyboardInput: KeyboardInput, midiInput: MidiInput) {
     this.canvas = canvas;
@@ -131,6 +135,17 @@ export class Game {
     this._synth = synth;
     this._keyboardInput = keyboardInput;
     this._midiInput = midiInput;
+    this._autoScheduler = new AutoVoiceScheduler((entry) => this._buildAutoVoice(entry));
+
+    document.addEventListener('keydown', (e) => {
+      if (e.code === 'F8') {
+        e.preventDefault();
+        this._debugHud.toggle();
+      }
+    });
+    if (new URLSearchParams(location.search).get('debug') === '1') {
+      this._debugHud.show();
+    }
 
     this._playScreen = document.getElementById('play-screen')!;
     this._freeplayScreen = document.getElementById('freeplay-screen')!;
@@ -157,6 +172,7 @@ export class Game {
   private _mainLoop = (): void => {
     if (this._paused) return;
 
+    const frameStartMs = performance.now();
     const now = performance.now() / 1000;
     const delta = this._lastFrameTime ? now - this._lastFrameTime : 1 / 60;
     this._lastFrameTime = now;
@@ -184,7 +200,7 @@ export class Game {
     this.renderer.drawHighway(this.scrollOffset, this._pressedLanes, this.usedNoteRange);
 
     if (this.state === GameState.Playing) {
-      this._renderPlayingFrame();
+      this._renderPlayingFrame(delta);
     }
 
     if (this.renderer.sheetBottom !== this._lastSheetBottom) {
@@ -198,6 +214,20 @@ export class Game {
     this.renderer.drawHitZone(this._pressedLanes, this.usedNoteRange);
 
     if (this.state !== GameState.Menu) {
+      if (this._debugHud.visible) {
+        this._debugHud.update({
+          frameDeltaSec: delta,
+          workMs: performance.now() - frameStartMs,
+          audioNow: this._synth.now(),
+          wallNow: performance.now() / 1000,
+          currentTime: this.currentTime,
+          speedMultiplier: this.speedMultiplier,
+          voices: this._synth.activeVoices,
+          backgroundVoices: this._synth.backgroundVoices,
+          pendingBuilds: this._autoScheduler.pending,
+          totalBuilds: this._synth.totalBuilds,
+        });
+      }
       this._animationId = requestAnimationFrame(this._mainLoop);
     }
   };
@@ -403,9 +433,10 @@ export class Game {
 
   // -- Playing frame rendering ----------------------------------------------
 
-  private _renderPlayingFrame(): void {
+  private _renderPlayingFrame(deltaSec: number): void {
     const loopEndCutoff = this.loop.active ? this.loop.end : null;
     this.noteManager.update(this.currentTime, this.renderer.height, loopEndCutoff);
+    this._autoScheduler.drain(this._synth.now(), deltaSec);
 
     this.renderer.drawSheetMusic(
       this.noteManager.trebleNotes,
@@ -706,6 +737,7 @@ export class Game {
     this._midiInput.onNoteOn = null;
     this._midiInput.onNoteOff = null;
     this._synth.releaseAll();
+    this._autoScheduler.clear();
     this.onResultsShown?.();
   }
 
@@ -743,6 +775,7 @@ export class Game {
     document.title = this._baseDocTitle;
     this._keyboardInput.stop();
     this._synth.releaseAll();
+    this._autoScheduler.clear();
     this._keyboardInput.onNoteOn = null;
     this._keyboardInput.onNoteOff = null;
     this._midiInput.onNoteOn = null;
@@ -786,17 +819,28 @@ export class Game {
     setTimeout(() => this._synth.noteOff(id), realDuration);
   }
 
-  /** Builds a background voice slightly ahead of its audible time, scheduled
-   *  on the audio clock so it starts exactly on time even when a frame is
-   *  late. Spreads voice creation across frames in dense band sections. */
+  /** Queues a background voice to be built slightly ahead of its audible
+   *  time. The scheduler spreads builds across frames (see
+   *  AutoVoiceScheduler) so dense band entries never burst every synth
+   *  graph into the single frame that first crosses the schedule window. */
   private _scheduleAutoNote(note: SongNote): void {
     if (note.selected && this.mainTrackMuted) return;
-    const ahead = (note.time - this.currentTime) / this.speedMultiplier;
-    const id = `auto_${note.track}_${note.time}_${note.key}`;
-    const patch = this._patchForNote(note.program, note.channel);
-    this._synth.noteOn(note.key, patch, id, note.rawMidi, this._synth.now() + ahead);
-    const remainingMs = Math.max(0, ahead * 1000 + note.duration * 1000 / this.speedMultiplier);
-    setTimeout(() => this._synth.noteOff(id), remainingMs);
+    const aheadRealSec = (note.time - this.currentTime) / this.speedMultiplier;
+    this._autoScheduler.enqueue({
+      id: `auto_${note.track}_${note.time}_${note.key}`,
+      noteName: note.key,
+      midiOverride: note.rawMidi,
+      patch: this._patchForNote(note.program, note.channel),
+      when: this._synth.now() + aheadRealSec,
+      durationMs: note.duration * 1000 / this.speedMultiplier,
+    });
+  }
+
+  private _buildAutoVoice(entry: AutoVoiceEntry): void {
+    const audioNow = this._synth.now();
+    this._synth.noteOn(entry.noteName, entry.patch, entry.id, entry.midiOverride, entry.when);
+    const remainingMs = Math.max(0, (entry.when - audioNow) * 1000 + entry.durationMs);
+    setTimeout(() => this._synth.noteOff(entry.id), remainingMs);
   }
 
   // -- Playback controls ----------------------------------------------------
@@ -842,6 +886,7 @@ export class Game {
     // Kill sounding and lookahead-scheduled voices: nothing from the old
     // position may ring into the new one.
     this._synth.releaseAll();
+    this._autoScheduler.clear();
     this.noteManager.resetFromTime(clamped);
   }
 

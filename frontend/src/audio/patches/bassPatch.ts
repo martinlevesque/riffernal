@@ -1,4 +1,5 @@
 import type { Patch } from './Patch.js';
+import { cleanupOnEnded } from './shared.js';
 
 export const bassPatch: Patch = {
   name: 'Bass',
@@ -39,6 +40,7 @@ export const bassPatch: Patch = {
 
     osc1.start(startTime);
     osc2.start(startTime);
+    cleanupOnEnded([osc1, osc2], [osc1, osc2, gain1, gain2, filterNode, gainNode]);
 
     return {
       output: gainNode,

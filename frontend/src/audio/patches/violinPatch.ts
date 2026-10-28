@@ -1,4 +1,5 @@
 import type { Patch } from './Patch.js';
+import { cleanupOnEnded } from './shared.js';
 
 export const violinPatch: Patch = {
   name: 'Violin',
@@ -95,6 +96,10 @@ export const violinPatch: Patch = {
     osc2.start(startTime);
     osc3.start(startTime);
     lfo.start(startTime);
+    cleanupOnEnded(
+      [osc1, osc2, osc3, lfo],
+      [osc1, osc2, osc3, lfo, lfoGain, gain1, gain2, gain3, highpassNode, formant1, formant2, formant3, lowpassNode, gainNode],
+    );
 
     return {
       output: gainNode,
