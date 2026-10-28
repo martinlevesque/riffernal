@@ -532,7 +532,10 @@ export class Game {
 
   private _setupNoteCallbacks(): void {
     this.noteManager.onMiss = (note) => this._playNoteOnce(note);
-    this.noteManager.onAutoPlayOn = (note) => this._playNoteOnce(note);
+    // Background/accompaniment audio is scheduled ahead of its audible time
+    // (see _scheduleAutoNote); onAutoPlayOn no longer triggers audio here.
+    this.noteManager.onAutoPlayOn = null;
+    this.noteManager.onAutoPlaySchedule = (note) => this._scheduleAutoNote(note);
 
     this.noteManager.onResolve = (result) => {
       const grade = result.grade;
@@ -783,6 +786,19 @@ export class Game {
     setTimeout(() => this._synth.noteOff(id), realDuration);
   }
 
+  /** Builds a background voice slightly ahead of its audible time, scheduled
+   *  on the audio clock so it starts exactly on time even when a frame is
+   *  late. Spreads voice creation across frames in dense band sections. */
+  private _scheduleAutoNote(note: SongNote): void {
+    if (note.selected && this.mainTrackMuted) return;
+    const ahead = (note.time - this.currentTime) / this.speedMultiplier;
+    const id = `auto_${note.track}_${note.time}_${note.key}`;
+    const patch = this._patchForNote(note.program, note.channel);
+    this._synth.noteOn(note.key, patch, id, note.rawMidi, this._synth.now() + ahead);
+    const remainingMs = Math.max(0, ahead * 1000 + note.duration * 1000 / this.speedMultiplier);
+    setTimeout(() => this._synth.noteOff(id), remainingMs);
+  }
+
   // -- Playback controls ----------------------------------------------------
 
   togglePause(): void {
@@ -823,6 +839,9 @@ export class Game {
     this._completionTime = null;
     this._pressedLanes.clear();
     this.renderer.clearGrind();
+    // Kill sounding and lookahead-scheduled voices: nothing from the old
+    // position may ring into the new one.
+    this._synth.releaseAll();
     this.noteManager.resetFromTime(clamped);
   }
 

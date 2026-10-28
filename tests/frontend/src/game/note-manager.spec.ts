@@ -1,6 +1,6 @@
 import { test, expect } from 'bun:test';
 import { NoteGrade } from '../../../../frontend/src/game/scoring.ts';
-import { NoteManager } from '../../../../frontend/src/game/NoteManager.ts';
+import { NoteManager, type SongNote } from '../../../../frontend/src/game/NoteManager.ts';
 import { NOTE_TO_LANE, PracticeHand } from '../../../../frontend/src/utils/notes.ts';
 import { makeSong } from '../../../helpers/song.js';
 
@@ -357,4 +357,95 @@ test('findLoopBoundaryNotes counts resolved notes on extend', () => {
   nm.notes[1].resolved = true;
   const notes = nm.findLoopBoundaryNotes(1.0, 4.0, null);
   expect(notes.map((n) => n.key)).toEqual(['E3']);
+});
+
+// -- auto-play schedule-ahead --------------------------------------------------
+// Background voices are handed to the synth slightly ahead of their audible
+// time (on the audio clock) so dense multi-track sections never burst voice
+// creation into a late frame. State transitions still happen at due time.
+
+const loadWithBg = (
+  nm: NoteManager,
+  notes: Array<{ time: number; key: string; duration: number; track: number }>,
+  background: number[],
+): void => {
+  const song = makeSong(notes) as any;
+  song.tracks = [
+    { index: 0, name: 'Player', noteCount: 0 },
+    { index: 1, name: 'Bg', noteCount: 0 },
+  ];
+  song.selectedTrackIndices = [0];
+  song.backgroundTracks = background;
+  nm.loadSong(song);
+};
+
+test('auto-play note is handed to the synth ahead of its due time, exactly once', () => {
+  const nm = new NoteManager();
+  loadWithBg(nm, [
+    { time: 1.0, key: 'C3', duration: 0.25, track: 0 },
+    { time: 3.0, key: 'A2', duration: 0.25, track: 1 },
+  ], [1]);
+  const scheduled: SongNote[] = [];
+  let firedOn = 0;
+  nm.onAutoPlaySchedule = (n) => scheduled.push(n);
+  nm.onAutoPlayOn = () => { firedOn++; };
+
+  nm.update(2.7, H); // 0.3s ahead: outside the schedule window
+  expect(scheduled).toHaveLength(0);
+
+  nm.update(2.85, H); // 0.15s ahead: within the schedule window
+  expect(scheduled).toHaveLength(1);
+  expect(scheduled[0].key).toBe('A2');
+  expect(scheduled[0].audioScheduled).toBe(true);
+  // State transition has not happened yet — the note is not due.
+  expect(nm.notes[1].autoPlayed).toBe(false);
+
+  nm.update(2.95, H); // already scheduled — no rebuild
+  expect(scheduled).toHaveLength(1);
+
+  nm.update(3.0, H); // due now: state transition fires once
+  expect(firedOn).toBe(1);
+  expect(nm.notes[1].autoPlayed).toBe(true);
+  expect(nm.notes[1].resolved).toBe(true);
+  expect(scheduled).toHaveLength(1);
+});
+
+test('no schedule-ahead while learn-mode freeze holds the clock', () => {
+  const nm = new NoteManager();
+  loadWithBg(nm, [
+    { time: 1.0, key: 'C3', duration: 0.25, track: 0 }, // left hand: the practiced hand
+    { time: 1.1, key: 'A2', duration: 0.25, track: 1 }, // background track
+  ], [1]);
+  nm.learningMode = true;
+  nm.practiceHand = PracticeHand.Left;
+  const scheduled: SongNote[] = [];
+  nm.onAutoPlaySchedule = (n) => scheduled.push(n);
+
+  nm.getEarliestWaitTime(1.0); // pins the wait at the player note (1.0)
+  nm.update(1.0, H); // frozen: the 1.1 background note must not schedule early
+  expect(scheduled).toHaveLength(0);
+
+  nm.checkLearningHit(1.0, NOTE_TO_LANE.get('C3')!); // wait resolves
+  nm.update(1.02, H); // clock resumed: background note schedules now
+  expect(scheduled).toHaveLength(1);
+});
+
+test('resetFromTime clears audioScheduled so a seek replays background notes', () => {
+  const nm = new NoteManager();
+  loadWithBg(nm, [
+    { time: 1.0, key: 'C3', duration: 0.25, track: 0 },
+    { time: 3.0, key: 'A2', duration: 0.25, track: 1 },
+  ], [1]);
+  const scheduled: SongNote[] = [];
+  nm.onAutoPlaySchedule = (n) => scheduled.push(n);
+
+  nm.update(2.9, H);
+  expect(scheduled).toHaveLength(1);
+  expect(nm.notes[1].audioScheduled).toBe(true);
+
+  nm.resetFromTime(1.5);
+  expect(nm.notes[1].audioScheduled).toBe(false);
+
+  nm.update(2.85, H);
+  expect(scheduled).toHaveLength(2);
 });
