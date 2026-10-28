@@ -1,5 +1,5 @@
 import type { Patch, PatchNote } from './Patch.js';
-import { getDistortionCurve } from './shared.js';
+import { getDistortionCurve, cleanupOnEnded } from './shared.js';
 import { isLowEndDevice } from '../../utils/device.js';
 
 // On low-end devices the distortion waveshaper is skipped (a plain GainNode
@@ -87,25 +87,34 @@ function buildKick(ctx: AudioContext, _freq: number, startTime: number): PatchNo
   clickGain.connect(merger);
   subGain.connect(merger);
 
-  const harmOsc = lowEnd ? null : ((): OscillatorNode => {
+  let harmOsc: OscillatorNode | null = null;
+  let harmGain: GainNode | null = null;
+  if (!lowEnd) {
     // Harmonic layer — adds growl and body
-    const h = ctx.createOscillator();
-    h.type = 'triangle';
-    h.frequency.setValueAtTime(100, startTime);
-    h.frequency.exponentialRampToValueAtTime(35, startTime + 0.1);
-    const hg = ctx.createGain();
-    hg.gain.setValueAtTime(0.5, startTime);
-    hg.gain.exponentialRampToValueAtTime(0.001, startTime + 0.3);
-    h.connect(hg);
-    h.start(startTime);
-    h.stop(startTime + 0.35);
-    hg.connect(merger);
-    return h;
-  })();
+    harmOsc = ctx.createOscillator();
+    harmOsc.type = 'triangle';
+    harmOsc.frequency.setValueAtTime(100, startTime);
+    harmOsc.frequency.exponentialRampToValueAtTime(35, startTime + 0.1);
+    harmGain = ctx.createGain();
+    harmGain.gain.setValueAtTime(0.5, startTime);
+    harmGain.gain.exponentialRampToValueAtTime(0.001, startTime + 0.3);
+    harmOsc.connect(harmGain);
+    harmOsc.start(startTime);
+    harmOsc.stop(startTime + 0.35);
+    harmGain.connect(merger);
+  }
 
   // Distortion for grit
   const dist = buildDistortion(ctx, 3, lowEnd);
   merger.connect(dist);
+
+  const sources: AudioScheduledSourceNode[] = [clickOsc, subOsc];
+  const chain: AudioNode[] = [clickGain, subGain, merger, dist];
+  if (harmOsc && harmGain) {
+    sources.push(harmOsc);
+    chain.push(harmGain);
+  }
+  cleanupOnEnded(sources, chain);
 
   if (lowEnd) {
     return { output: dist, release(_ctx, t) { clickOsc.stop(t + 0.01); subOsc.stop(t + 0.01); } };
@@ -154,24 +163,33 @@ function buildSnare(ctx: AudioContext, _freq: number, startTime: number): PatchN
   hpFilter.connect(merger);
   bodyGain.connect(merger);
 
-  const ringOsc = lowEnd ? null : ((): OscillatorNode => {
+  let ringOsc: OscillatorNode | null = null;
+  let ringGain: GainNode | null = null;
+  if (!lowEnd) {
     // Ring — metallic resonant tone for character
-    const r = ctx.createOscillator();
-    r.type = 'sine';
-    r.frequency.value = 1850;
-    const rg = ctx.createGain();
-    rg.gain.setValueAtTime(0.15, startTime);
-    rg.gain.exponentialRampToValueAtTime(0.001, startTime + 0.08);
-    r.connect(rg);
-    r.start(startTime);
-    r.stop(startTime + 0.1);
-    rg.connect(merger);
-    return r;
-  })();
+    ringOsc = ctx.createOscillator();
+    ringOsc.type = 'sine';
+    ringOsc.frequency.value = 1850;
+    ringGain = ctx.createGain();
+    ringGain.gain.setValueAtTime(0.15, startTime);
+    ringGain.gain.exponentialRampToValueAtTime(0.001, startTime + 0.08);
+    ringOsc.connect(ringGain);
+    ringOsc.start(startTime);
+    ringOsc.stop(startTime + 0.1);
+    ringGain.connect(merger);
+  }
 
   merger.connect(dist);
   noise.source.start(startTime);
   noise.source.stop(startTime + 0.35);
+
+  const sources: AudioScheduledSourceNode[] = [noise.source, bodyOsc];
+  const chain: AudioNode[] = [noise.output, nGain, bpFilter, hpFilter, bodyGain, merger, dist];
+  if (ringOsc && ringGain) {
+    sources.push(ringOsc);
+    chain.push(ringGain);
+  }
+  cleanupOnEnded(sources, chain);
 
   if (lowEnd) {
     return { output: dist, release(_ctx, t) { bodyOsc.stop(t + 0.01); } };
@@ -202,6 +220,7 @@ function buildHH(ctx: AudioContext, _freq: number, startTime: number, open: bool
   bp2.connect(gain);
   noise.source.start(startTime);
   noise.source.stop(startTime + duration + 0.05);
+  cleanupOnEnded([noise.source], [noise.output, bp1, bp2, gain]);
 
   return { output: gain, release() {} };
 }
@@ -234,6 +253,7 @@ function buildTom(ctx: AudioContext, freq: number, startTime: number): PatchNote
   const merger = ctx.createGain();
   gain.connect(merger);
   clickGain.connect(merger);
+  cleanupOnEnded([osc, clickOsc], [osc, clickOsc, gain, clickGain, merger]);
 
   return { output: merger, release(_ctx, t) { osc.stop(t + 0.01); clickOsc.stop(t + 0.01); } };
 }
@@ -262,6 +282,7 @@ function buildCymbal(ctx: AudioContext, _freq: number, startTime: number): Patch
   hp.connect(gain);
   noise.source.start(startTime);
   noise.source.stop(startTime + dur + 0.05);
+  cleanupOnEnded([noise.source], [noise.output, bp, hp, gain]);
 
   return { output: gain, release() {} };
 }
@@ -288,6 +309,7 @@ function buildClap(ctx: AudioContext, _freq: number, startTime: number): PatchNo
   filter.connect(gain);
   noise.source.start(startTime);
   noise.source.stop(startTime + 0.25);
+  cleanupOnEnded([noise.source], [noise.output, filter, gain]);
 
   return { output: gain, release() {} };
 }
@@ -319,23 +341,32 @@ function buildRide(ctx: AudioContext, _freq: number, startTime: number): PatchNo
   const merger = ctx.createGain();
   washGain.connect(merger);
 
-  const pingOsc = lowEnd ? null : ((): OscillatorNode => {
+  let pingOsc: OscillatorNode | null = null;
+  let pingGain: GainNode | null = null;
+  if (!lowEnd) {
     // Ping — bright metallic attack
-    const p = ctx.createOscillator();
-    p.type = 'sine';
-    p.frequency.value = 8000;
-    const pg = ctx.createGain();
-    pg.gain.setValueAtTime(0.2, startTime);
-    pg.gain.exponentialRampToValueAtTime(0.001, startTime + 0.15);
-    p.connect(pg);
-    p.start(startTime);
-    p.stop(startTime + 0.2);
-    pg.connect(merger);
-    return p;
-  })();
+    pingOsc = ctx.createOscillator();
+    pingOsc.type = 'sine';
+    pingOsc.frequency.value = 8000;
+    pingGain = ctx.createGain();
+    pingGain.gain.setValueAtTime(0.2, startTime);
+    pingGain.gain.exponentialRampToValueAtTime(0.001, startTime + 0.15);
+    pingOsc.connect(pingGain);
+    pingOsc.start(startTime);
+    pingOsc.stop(startTime + 0.2);
+    pingGain.connect(merger);
+  }
 
   noise.source.start(startTime);
   noise.source.stop(startTime + (lowEnd ? 0.55 : 1.25));
+
+  const sources: AudioScheduledSourceNode[] = [noise.source];
+  const chain: AudioNode[] = [noise.output, bp, hp, washGain, merger];
+  if (pingOsc && pingGain) {
+    sources.push(pingOsc);
+    chain.push(pingGain);
+  }
+  cleanupOnEnded(sources, chain);
 
   if (lowEnd) {
     return { output: merger, release() {} };
@@ -353,6 +384,7 @@ function buildPerc(ctx: AudioContext, freq: number, startTime: number): PatchNot
   osc.connect(gain);
   osc.start(startTime);
   osc.stop(startTime + 0.15);
+  cleanupOnEnded([osc], [osc, gain]);
 
   return { output: gain, release(_ctx, t) { osc.stop(t + 0.01); } };
 }

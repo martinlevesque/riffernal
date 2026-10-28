@@ -1,4 +1,5 @@
 import type { Patch } from './Patch.js';
+import { cleanupOnEnded } from './shared.js';
 
 export const metalPatch: Patch = {
   name: 'Metal',
@@ -48,6 +49,7 @@ export const metalPatch: Patch = {
     osc1.start(startTime);
     osc2.start(startTime);
     osc3.start(startTime);
+    cleanupOnEnded([osc1, osc2, osc3], [osc1, osc2, osc3, gain1, gain2, gain3, filterNode, gainNode]);
 
     return {
       output: gainNode,
