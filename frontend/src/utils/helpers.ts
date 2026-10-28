@@ -33,12 +33,23 @@ export function formatScore(score: number): string {
   return score.toString().replace(/\B(?=(\d{3})+(?!\d))/g, ',');
 }
 
-export function noteNameToMidi(name: string): number {
-  const match = name.match(/^([A-G]#?)(\d)$/);
-  if (!match) return -1;
-  const noteMap: Record<string, number> = { 'C': 0, 'C#': 1, 'D': 2, 'D#': 3, 'E': 4, 'F': 5, 'F#': 6, 'G': 7, 'G#': 8, 'A': 9, 'A#': 10, 'B': 11 };
+// Memoized: noteOn runs this per voice build, dense sections build 20+
+// voices per second and the regex/parseInt cost is pure waste on slow CPUs.
+const _noteNameToMidi = new Map<string, number>();
 
-  return noteMap[match[1]] + (parseInt(match[2], 10) + 1) * 12;
+export function noteNameToMidi(name: string): number {
+  const cached = _noteNameToMidi.get(name);
+  if (cached !== undefined) return cached;
+
+  const match = name.match(/^([A-G]#?)(\d)$/);
+  if (!match) {
+    _noteNameToMidi.set(name, -1);
+    return -1;
+  }
+  const offsets: Record<string, number> = { 'C': 0, 'C#': 1, 'D': 2, 'D#': 3, 'E': 4, 'F': 5, 'F#': 6, 'G': 7, 'G#': 8, 'A': 9, 'A#': 10, 'B': 11 };
+  const midi = offsets[match[1]] + (parseInt(match[2], 10) + 1) * 12;
+  _noteNameToMidi.set(name, midi);
+  return midi;
 }
 
 export function midiToNoteName(midi: number): string {
