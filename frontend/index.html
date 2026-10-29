@@ -158,16 +158,19 @@
               <span>Difficulty</span>
               <div id="import-song-difficulty" class="pixel-chip-row"></div>
             </label>
+            <label class="field-label" id="import-song-category-field">
+              <span>Category</span>
+              <div class="pixel-select">
+                <select id="import-song-category"></select>
+              </div>
+            </label>
           </div>
-          <p id="category-select-count">No categories yet</p>
-          <ul id="category-list"></ul>
-          <div id="category-create">
+          <div id="category-create" class="hidden">
             <input type="text" id="new-category-name" placeholder="New category name..." maxlength="64">
             <button id="btn-create-category" class="btn btn-secondary" type="button">+ CREATE</button>
           </div>
           <div id="category-select-actions">
-            <button id="category-select-skip" class="btn btn-secondary" type="button">NO CATEGORY</button>
-            <button id="category-select-confirm" class="btn btn-primary" type="button" disabled>CONFIRM</button>
+            <button id="category-select-confirm" class="btn btn-primary" type="button">CONFIRM</button>
           </div>
         </div>
       </div>

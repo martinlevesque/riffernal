@@ -85,8 +85,8 @@ test.describe('Guest mode', () => {
     // Single-track file: straight to the metadata form. Guests have no
     // server categories, so the category UI is hidden.
     await page.waitForSelector('#category-select-screen.active', { timeout: 5000 });
-    await expect(page.locator('#category-list')).toBeHidden();
-    await expect(page.locator('#category-select-skip')).toBeHidden();
+    await expect(page.locator('#import-song-category-field')).toBeHidden();
+    await expect(page.locator('#category-create')).toBeHidden();
     await page.locator('#import-song-title').fill('Guest Song');
     await page.locator('#category-select-confirm').click();
 

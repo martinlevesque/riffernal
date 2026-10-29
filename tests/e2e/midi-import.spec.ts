@@ -1,5 +1,5 @@
 import { test, expect, type Page, type APIRequestContext } from '@playwright/test';
-import { wipeDatabase, goToSongList } from '../helpers/index.js';
+import { wipeDatabase, goToSongList, authJsonHeaders } from '../helpers/index.js';
 
 async function importMidiFile(page: Page, name: string, buffer: Buffer): Promise<void> {
   await page.waitForFunction(() => (document.getElementById('midi-status') as HTMLElement).textContent.length > 0);
@@ -12,7 +12,7 @@ async function importMidiFile(page: Page, name: string, buffer: Buffer): Promise
   // For invalid MIDIs, an alert() fires instead (handled by the test's dialog listener).
   try {
     await page.waitForSelector('#category-select-screen.active', { timeout: 4000 });
-    await page.locator('#category-select-skip').click();
+    await page.locator('#category-select-confirm').click();
     await page.waitForSelector('#category-select-screen:not(.active)', { timeout: 5000 });
   } catch {
     // No category modal — likely an error case handled elsewhere.
@@ -177,10 +177,66 @@ test.describe('MIDI Import', () => {
 
     await confirmBtn.click();
     await page.waitForSelector('#category-select-screen.active', { timeout: 5000 });
-    await page.locator('#category-select-skip').click();
+    await page.locator('#category-select-confirm').click();
 
     await expect(page.locator('.song-item.imported')).toHaveCount(1, { timeout: 5000 });
     await expect(page.locator('.song-item.imported')).toContainText('test-song');
+  });
+
+  test('importing with a category picked from the dropdown groups the song', async ({ request, page }) => {
+    const headers = await authJsonHeaders(request);
+    const catRes = await request.post('/api/categories', { data: { name: 'Synthwave' }, headers });
+    expect(catRes.ok()).toBeTruthy();
+
+    await goToSongList(page);
+
+    await page.waitForFunction(() => (document.getElementById('midi-status') as HTMLElement).textContent.length > 0);
+    const fileChooserPromise = page.waitForEvent('filechooser', { timeout: 5000 });
+    await page.locator('#btn-import-midi').click();
+    const fileChooser = await fileChooserPromise;
+    await fileChooser.setFiles({ name: 'categorized.mid', mimeType: 'audio/midi', buffer: buildMidiBuffer() });
+
+    await page.waitForSelector('#category-select-screen.active', { timeout: 5000 });
+    await expect(page.locator('#import-song-category option', { hasText: 'Synthwave' })).toHaveCount(1);
+    await page.locator('#import-song-title').fill('Categorized Import');
+    await page.locator('#import-song-category').selectOption({ label: 'Synthwave' });
+    await page.locator('#category-select-confirm').click();
+
+    const section = page.locator('.category-section:not(.community-section):not(.showcase-section)', {
+      hasText: 'Synthwave',
+    });
+    await expect(section).toBeVisible({ timeout: 5000 });
+    await expect(section.locator('.song-item.imported')).toHaveCount(1);
+    await expect(section.locator('.song-item.imported')).toContainText('Categorized Import');
+  });
+
+  test('creating a category from the dropdown assigns the import to it', async ({ page }) => {
+    await goToSongList(page);
+
+    await page.waitForFunction(() => (document.getElementById('midi-status') as HTMLElement).textContent.length > 0);
+    const fileChooserPromise = page.waitForEvent('filechooser', { timeout: 5000 });
+    await page.locator('#btn-import-midi').click();
+    const fileChooser = await fileChooserPromise;
+    await fileChooser.setFiles({ name: 'fresh-category.mid', mimeType: 'audio/midi', buffer: buildMidiBuffer() });
+
+    await page.waitForSelector('#category-select-screen.active', { timeout: 5000 });
+    await expect(page.locator('#category-create')).toBeHidden();
+    await page.locator('#import-song-category').selectOption({ label: 'Create category' });
+    await expect(page.locator('#category-create')).toBeVisible();
+    await page.locator('#import-song-title').fill('Fresh Category Import');
+    await page.locator('#new-category-name').fill('Shoegaze');
+    await page.locator('#btn-create-category').click();
+
+    await expect(page.locator('#category-create')).toBeHidden();
+    await expect(page.locator('#import-song-category option:checked')).toHaveText('Shoegaze');
+    await page.locator('#category-select-confirm').click();
+
+    const section = page.locator('.category-section:not(.community-section):not(.showcase-section)', {
+      hasText: 'Shoegaze',
+    });
+    await expect(section).toBeVisible({ timeout: 5000 });
+    await expect(section.locator('.song-item.imported')).toHaveCount(1);
+    await expect(section.locator('.song-item.imported')).toContainText('Fresh Category Import');
   });
 
   test('importing multiple MIDI files adds all to the list', async ({ page }) => {

@@ -10,6 +10,8 @@
    .pixel-btn        chunky pressable button
    .pixel-chip       small selectable chip (row: .pixel-chip-row);
                      coloring comes from the component
+   .pixel-select     native <select> dressed as a pixel input (the
+                     wrapper div draws the caret)
    .pixel-tooltip    floating label; JS sets left/top, toggles `hidden`
    Custom properties below control the shared look.
    ============================================ */
@@ -89,6 +91,50 @@
 .pixel-chip.selected {
   outline: 2px solid var(--accent-purple);
   outline-offset: -2px;
+}
+
+/* Native select styled into the pixel language. Wrap the <select> in a
+   .pixel-select div — the caret is drawn on the wrapper since replaced
+   elements cannot host pseudo-elements reliably. */
+.pixel-select {
+  position: relative;
+  display: block;
+}
+
+.pixel-select select {
+  appearance: none;
+  -webkit-appearance: none;
+  width: 100%;
+  background: var(--bg-dark);
+  border: var(--pixel-border) solid var(--border-medium);
+  border-radius: 0;
+  padding: 0.5rem 2.2rem 0.5rem 0.7rem;
+  color: var(--text-primary);
+  font-family: var(--font-ui);
+  font-size: var(--fs-smaller);
+  cursor: pointer;
+  outline: none;
+}
+
+.pixel-select select:focus {
+  box-shadow: var(--pixel-shadow-offset-sm) var(--pixel-shadow-offset-sm) 0 rgba(51, 187, 255, 0.45);
+}
+
+.pixel-select::after {
+  content: "▾";
+  position: absolute;
+  right: 0.7rem;
+  top: 50%;
+  transform: translateY(-50%);
+  pointer-events: none;
+  color: var(--text-secondary);
+  font-family: var(--font-mono);
+  font-size: var(--fs-smaller);
+}
+
+.pixel-select option {
+  background: var(--bg-dark);
+  color: var(--text-primary);
 }
 
 .pixel-tooltip[hidden] {
@@ -181,7 +227,6 @@ body {
 .auth-error,
 .auth-field-label,
 #track-select-hint,
-#category-select-count,
 #result-stats,
 #sheet-hint,
 .bg-panel-title,
@@ -437,13 +482,11 @@ input[type="text"]:focus,
   box-shadow: var(--pixel-shadow-offset-sm) var(--pixel-shadow-offset-sm) 0 rgba(51, 187, 255, 0.45);
 }
 
-.track-item,
-.category-item {
+.track-item {
   border-width: 2px;
 }
 
-.track-item:hover,
-.category-item:hover {
+.track-item:hover {
   transform: translate(-1px, -1px);
 }
 
