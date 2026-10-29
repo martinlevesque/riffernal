@@ -32,6 +32,7 @@
     "start": "bun run scripts/serve.ts",
     "start:http": "bun run scripts/serve.ts --http",
     "build": "bun run scripts/build.ts",
+    "logo": "bun run public/images/logo/generate.ts",
     "test": "bun x playwright test",
     "test:ui": "bun x playwright test --ui",
     "test:report": "bun x playwright show-report",

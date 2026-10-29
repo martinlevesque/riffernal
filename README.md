@@ -1,6 +1,21 @@
-# Riffernal
+<p align="center">
+  <img src="public/images/logo-light.svg" alt="Riffernal" width="780">
+</p>
 
-Keyboard Hero - Metal Edition. Play piano along to metal songs.
+**Keyboard Hero, minus the guitar and the gatekeeping.**
+
+Piano notes rain down the screen and your job is to catch them — with your
+MIDI piano keyboard. Load any MIDI file (jazz ballads, metal riffs, prog
+epics, that one 20-minute suite with eight movements nobody asked for).
+It's a little community too: share the MIDI songs you import and browse
+what other players are sharing.
+
+LEARN mode meets you where you are: the song freezes mid-air while you sort
+out your fingers, and practice loops let you grind that one evil bar forever.
+
+PLAY mode turns it all into a proper rhythm game, with grades, combos and a
+leaderboard — all served up in a charming pixel-art UI. Warm, low-stakes, and
+completely judgment-free — even when you miss thirty notes in a row.
 
 ## Setup
 
