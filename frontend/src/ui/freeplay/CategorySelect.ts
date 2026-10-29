@@ -3,6 +3,10 @@ import type { Song } from "../../utils/MidiParser.js";
 import { reportError } from "../../utils/helpers.js";
 import { DIFFICULTY_LEVELS, isDifficulty, DEFAULT_DIFFICULTY, type Difficulty } from "../../game/difficulty.js";
 
+/** Sentinel option value — reveals the inline create-category row. Category
+ *  ids are numeric strings, so this can never collide with a real option. */
+const CREATE_OPTION_VALUE = "create";
+
 export interface CategorySelectDeps {
   onConfirm: (categoryId: number | null, title: string, artist: string, difficulty: Difficulty) => void;
   onCancel: () => void;
@@ -15,11 +19,11 @@ export interface CategorySelectShowOptions {
 
 export class CategorySelect {
   private _screen: HTMLElement;
-  private _listEl: HTMLElement;
+  private _selectEl: HTMLSelectElement;
+  private _createRow: HTMLElement;
   private _newCategoryInput: HTMLInputElement;
   private _createBtn: HTMLButtonElement;
   private _confirmBtn: HTMLButtonElement;
-  private _skipBtn: HTMLButtonElement;
   private _titleInput: HTMLInputElement;
   private _artistInput: HTMLInputElement;
   private _difficultyEl: HTMLElement;
@@ -30,11 +34,11 @@ export class CategorySelect {
 
   constructor() {
     this._screen = document.getElementById("category-select-screen")!;
-    this._listEl = document.getElementById("category-list")!;
+    this._selectEl = document.getElementById("import-song-category") as HTMLSelectElement;
+    this._createRow = document.getElementById("category-create")!;
     this._newCategoryInput = document.getElementById("new-category-name") as HTMLInputElement;
     this._createBtn = document.getElementById("btn-create-category") as HTMLButtonElement;
     this._confirmBtn = document.getElementById("category-select-confirm") as HTMLButtonElement;
-    this._skipBtn = document.getElementById("category-select-skip") as HTMLButtonElement;
     this._titleInput = document.getElementById("import-song-title") as HTMLInputElement;
     this._artistInput = document.getElementById("import-song-artist") as HTMLInputElement;
     this._difficultyEl = document.getElementById("import-song-difficulty")!;
@@ -46,11 +50,18 @@ export class CategorySelect {
         this._createNew();
       }
     });
-    this._confirmBtn.addEventListener("click", () => this._confirm());
-    this._skipBtn.addEventListener("click", () => {
-      this._selectedCategoryId = null;
-      this._confirm();
+    this._selectEl.addEventListener("change", () => {
+      if (this._selectEl.value === CREATE_OPTION_VALUE) {
+        this._selectedCategoryId = null;
+        this._createRow.classList.remove("hidden");
+        this._newCategoryInput.focus();
+        return;
+      }
+
+      this._selectedCategoryId = this._selectEl.value === "" ? null : Number(this._selectEl.value);
+      this._createRow.classList.add("hidden");
     });
+    this._confirmBtn.addEventListener("click", () => this._confirm());
     this._screen.addEventListener("click", (e) => {
       if (e.target === this._screen) this._cancel();
     });
@@ -60,13 +71,10 @@ export class CategorySelect {
     this._deps = deps;
     this._selectedCategoryId = null;
     this._newCategoryInput.value = "";
-    this._confirmBtn.disabled = !opts.hideCategories;
 
     const hideCats = opts.hideCategories;
-    document.getElementById("category-list")!.classList.toggle("hidden", hideCats);
-    document.getElementById("category-create")!.classList.toggle("hidden", hideCats);
-    document.getElementById("category-select-count")!.classList.toggle("hidden", hideCats);
-    document.getElementById("category-select-skip")!.classList.toggle("hidden", hideCats);
+    document.getElementById("import-song-category-field")!.classList.toggle("hidden", hideCats);
+    this._createRow.classList.add("hidden");
 
     if (song) {
       this._titleInput.value = song.title;
@@ -80,7 +88,7 @@ export class CategorySelect {
     this._renderDifficultyOptions();
 
     if (!hideCats) await this._loadCategories();
-    this._renderList();
+    this._renderOptions();
     this._screen.classList.add("active");
     this._titleInput.focus();
   }
@@ -105,24 +113,28 @@ export class CategorySelect {
     }
   }
 
-  private _renderList(): void {
-    this._listEl.innerHTML = "";
-    document.getElementById("category-select-count")!.textContent =
-      this._categories.length === 0 ? "No categories yet" : `${this._categories.length} categor${this._categories.length === 1 ? "y" : "ies"}`;
+  private _renderOptions(): void {
+    this._selectEl.innerHTML = "";
+
+    const none = document.createElement("option");
+    none.value = "";
+    none.textContent = "No category";
+    this._selectEl.appendChild(none);
+
+    const create = document.createElement("option");
+    create.value = CREATE_OPTION_VALUE;
+    create.textContent = "Create category";
+    this._selectEl.appendChild(create);
 
     for (const cat of this._categories) {
-      const li = document.createElement("li");
-      li.className = "category-item";
-      if (cat.id === this._selectedCategoryId) li.classList.add("selected");
-      li.textContent = cat.name;
-      li.addEventListener("click", () => {
-        this._selectedCategoryId = cat.id;
-        this._listEl.querySelectorAll(".category-item").forEach((el) => { el.classList.remove("selected"); });
-        li.classList.add("selected");
-        this._confirmBtn.disabled = false;
-      });
-      this._listEl.appendChild(li);
+      const opt = document.createElement("option");
+      opt.value = String(cat.id);
+      opt.textContent = cat.name;
+      this._selectEl.appendChild(opt);
     }
+
+    const selected = this._selectedCategoryId;
+    this._selectEl.value = selected !== null && this._categories.some((c) => c.id === selected) ? String(selected) : "";
   }
 
   private async _createNew(): Promise<void> {
@@ -136,8 +148,8 @@ export class CategorySelect {
       }
       this._selectedCategoryId = created.id;
       this._newCategoryInput.value = "";
-      this._renderList();
-      this._confirmBtn.disabled = false;
+      this._createRow.classList.add("hidden");
+      this._renderOptions();
     } catch (err) {
       reportError("Failed to create category", err, { alert: true });
     }
