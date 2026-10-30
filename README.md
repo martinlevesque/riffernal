@@ -2,7 +2,7 @@
   <img src="public/images/logo-light.svg" alt="Riffernal" width="780">
 </p>
 
-**Keyboard Hero, minus the guitar and the gatekeeping.**
+**A rhythm game for your MIDI keyboard — learn, play, share.**
 
 Piano notes rain down the screen and your job is to catch them — with your
 MIDI piano keyboard. Load any MIDI file (jazz ballads, metal riffs, prog
