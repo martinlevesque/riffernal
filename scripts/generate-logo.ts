@@ -1,5 +1,8 @@
 // Rebuilds public/images/logo-{dark,light}.svg. Run: bun run logo
 //
+
+import path from "node:path";
+
 // Pixel-for-pixel recreation of the wordmark the home and login pages
 // render (.home-title in frontend/css/home.css, .auth-brand in
 // frontend/css/auth.css). All coordinates are CSS pixels of an 80px
@@ -106,7 +109,7 @@ ${markup}
 `;
 }
 
-const base = import.meta.dir + "/..";
+const base = path.resolve(import.meta.dir, "..", "public", "images");
 await Bun.write(`${base}/logo-light.svg`, svg("light"));
 await Bun.write(`${base}/logo-dark.svg`, svg("dark"));
 console.log("wrote public/images/logo-light.svg");
