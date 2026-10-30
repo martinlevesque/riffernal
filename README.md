@@ -17,6 +17,10 @@ PLAY mode turns it all into a proper rhythm game, with grades, combos and a
 leaderboard — all served up in a charming pixel-art UI. Warm, low-stakes, and
 completely judgment-free — even when you miss thirty notes in a row.
 
+<p align="center">
+  <img src="public/images/demo.gif" alt="Riffernal — logging in, browsing the freeplay song list, and playing two songs on the computer keyboard" width="1000">
+</p>
+
 ## Setup
 
 ```bash
