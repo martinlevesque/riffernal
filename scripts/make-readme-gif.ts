@@ -58,7 +58,7 @@ const MAX_COLORS = 255;
  *  categories by last play time, which every run updates, so picking rows
  *  positionally flips which song is first between runs. */
 const FIRST_SONG_MATCH = 'Where is my mind?';
-const SECOND_SONG_MATCH = 'BWV menuet in c';
+const SECOND_SONG_MATCH = 'BWV menuet inc';
 
 const OUTPUT_PATH = path.resolve(import.meta.dir, '..', 'public', 'images', 'demo.gif');
 
