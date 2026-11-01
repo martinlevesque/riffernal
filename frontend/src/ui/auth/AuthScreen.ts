@@ -32,9 +32,9 @@ const INTRO_HTML = `
     <p class="intro-lead">Your favorite songs as a keyboard rhythm game. Damn right.</p>
     <ul class="intro-list">
       <li>Drop in a MIDI, kick some ass</li>
-      <li>The song waits while you suck (learn)</li>
+      <li>The song waits while you learn</li>
       <li>Practice left, right, or both</li>
-      <li>Steal songs from the community, chip in if you like</li>
+      <li>Grab songs from the community, share yours if you like</li>
     </ul>
   </div>
 `;
