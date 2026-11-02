@@ -8,6 +8,42 @@ export interface AuthUser {
   id: number;
   username: string;
   tagline: string;
+  /** Set by the server for the session user only; admin-only UI gates on
+   *  this instead of a locally derived user id. */
+  isAdmin: boolean;
+}
+
+/** Ask the server for the current profile, overwriting the stored one. The
+ *  server decides admin-ness, so a stale stored copy (and a changed admin
+ *  rule) can't leave the UI guessing. 401 means the stored token died:
+ *  clear both keys so the visitor sees the auth screen. */
+export async function refreshSession(): Promise<void> {
+  const token = getAuthToken();
+
+  if (!token) return;
+
+  try {
+    const res = await fetch('/api/auth/me', {
+      headers: { Authorization: `Bearer ${token}` },
+    });
+
+    if (res.status === 401) {
+      clearAuth();
+      return;
+    }
+
+    if (!res.ok) throw new Error(`/api/auth/me answered ${res.status}`);
+
+    const data = (await res.json()) as { user: AuthUser };
+    setAuth(token, data.user);
+  } catch (err) {
+    console.error('Failed to refresh session:', err);
+  }
+}
+
+/** Whether the stored user is the account the server reports as admin. */
+export function isAdmin(): boolean {
+  return getStoredUser()?.isAdmin === true;
 }
 
 export function getAuthToken(): string | null {

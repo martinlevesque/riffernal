@@ -14,6 +14,13 @@ export interface AuthUser {
   id: number;
   username: string;
   tagline: string;
+  isAdmin: boolean;
+}
+
+/** Session/profile slicing: admin-ness rides along on the user's own
+ *  payload only — the admin id itself is never sent client-side. */
+function toAuthUser(id: number, username: string, tagline: string): AuthUser {
+  return { id, username, tagline, isAdmin: dbIsAdminUser(id) };
 }
 
 /** The setup admin is the first account created (no role column); wrapped
@@ -80,7 +87,7 @@ export async function setupAdmin(
   const user = createUser(trimmed, tagline.trim(), hash);
   const token = generateToken();
   createSession(token, user.id);
-  return { user: { id: user.id, username: user.username, tagline: user.tagline }, token };
+  return { user: toAuthUser(user.id, user.username, user.tagline), token };
 }
 
 export async function register(
@@ -99,7 +106,7 @@ export async function register(
   const user = createUser(trimmed, tagline.trim(), hash);
   const token = generateToken();
   createSession(token, user.id);
-  return { user: { id: user.id, username: user.username, tagline: user.tagline }, token };
+  return { user: toAuthUser(user.id, user.username, user.tagline), token };
 }
 
 export async function login(
@@ -117,7 +124,7 @@ export async function login(
   const token = generateToken();
   createSession(token, row.id);
   return {
-    user: { id: row.id, username: row.username, tagline: row.tagline },
+    user: toAuthUser(row.id, row.username, row.tagline),
     token,
   };
 }
@@ -131,5 +138,5 @@ export function validateSession(token: string): AuthUser | null {
   if (!session) return null;
   const user = getUserRow(session.user_id);
   if (!user) return null;
-  return { id: user.id, username: user.username, tagline: user.tagline };
+  return toAuthUser(user.id, user.username, user.tagline);
 }

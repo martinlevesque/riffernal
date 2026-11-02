@@ -6,6 +6,7 @@ import {
   logout as authLogout,
 } from "../models/auth.ts";
 import { json, parseJson, type Handler } from "./router.ts";
+import { requireAuth } from "./middleware/index.ts";
 
 export const authRoutes = [
   {
@@ -41,6 +42,15 @@ export const authRoutes = [
       const result = await authLogin(body.username, body.password);
 
       return json(result);
+    }) as Handler,
+  },
+  {
+    method: "GET",
+    path: "/api/auth/me",
+    handler: ((req: Request) => {
+      const auth = requireAuth(req);
+      if (auth instanceof Response) return auth;
+      return json({ user: auth });
     }) as Handler,
   },
   {

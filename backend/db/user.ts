@@ -35,13 +35,20 @@ export function userNeedsSetup(): boolean {
   return !row || row.cnt === 0;
 }
 
-/** Basic admin check: the setup admin is the first account ever created
- *  (no role column). Empty user table → nobody is admin. */
-export function isAdminUser(userId: number): boolean {
+/** Id of the setup admin: the first account ever created (no role column),
+ *  so it stays the lowest id across deletes. Null when the table is empty. */
+export function getAdminUserId(): number | null {
   const row = db.query("SELECT MIN(id) AS admin_id FROM users").get() as
     | { admin_id: number | null }
     | undefined;
-  return row?.admin_id != null && userId === row.admin_id;
+  return row?.admin_id ?? null;
+}
+
+/** Basic admin check: the setup admin is the first account ever created
+ *  (no role column). Empty user table → nobody is admin. */
+export function isAdminUser(userId: number): boolean {
+  const adminId = getAdminUserId();
+  return adminId != null && userId === adminId;
 }
 
 export function deleteSessionsForUser(userId: number): void {
