@@ -39,8 +39,6 @@ const INTRO_HTML = `
   </div>
 `;
 
-const NO_EMAIL_PUNCHLINE = "Just kidding, no email needed! We don't want to spam you.";
-
 export class AuthScreen {
   private _screen: HTMLElement;
   private _opts: AuthScreenOptions;
@@ -102,15 +100,6 @@ export class AuthScreen {
            <button id="auth-guest-btn" class="btn-ghost" type="button">Continue as guest</button>
          </div>`;
 
-    // Decoy field: it accepts a click only to swallow it with the no-spam
-    // punchline, then locks itself so no email ever enters the app.
-    const emailField = mode === "register"
-      ? `<div class="auth-field auth-field-joke">
-           <span class="auth-field-label">Email</span>
-           <input type="email" class="auth-input" id="auth-email" placeholder="Go on, click me.">
-         </div>`
-      : "";
-
     this._screen.innerHTML = `
       <div class="auth-panel">
         <div class="auth-brand"><span class="accent">RIFF</span>ERNAL</div>
@@ -128,7 +117,6 @@ export class AuthScreen {
               <span class="auth-field-label">Password</span>
               <input type="password" class="auth-input" id="auth-password" placeholder="Password..." minlength="4" autocomplete="${PASSWORD_AUTOCOMPLETE[mode]}" required>
             </label>
-            ${emailField}
             <div class="auth-error" id="auth-error"></div>
             <div class="auth-actions">
               <button type="submit" class="btn btn-primary" id="auth-submit">${SUBMIT_LABEL[mode]}</button>
@@ -170,14 +158,6 @@ export class AuthScreen {
       guestBtn.addEventListener("click", () => {
         playMenuSound("enter");
         this._opts.onGuest?.();
-      });
-    }
-
-    const email = document.getElementById("auth-email") as HTMLInputElement | null;
-    if (email) {
-      email.addEventListener("click", () => {
-        email.value = NO_EMAIL_PUNCHLINE;
-        email.disabled = true;
       });
     }
   }

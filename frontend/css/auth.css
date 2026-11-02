@@ -70,19 +70,6 @@
   margin-bottom: 0.55rem;
 }
 
-/* The register-only decoy email field: it looks like the other inputs until
-   clicked, when it fills itself with the no-spam punchline and locks. */
-
-.auth-field-joke {
-  margin-bottom: 0.2rem;
-}
-
-.auth-field-joke .auth-input:disabled {
-  color: var(--text-secondary);
-  opacity: 0.6;
-  cursor: not-allowed;
-}
-
 .auth-field-label {
   font-size: var(--fs-smallest);
   color: var(--text-secondary);

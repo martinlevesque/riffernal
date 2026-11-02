@@ -10,7 +10,7 @@ test.describe('Auth screen introduction', () => {
     await page.goto('/');
   });
 
-  test('presents the app on login and sells the no-email form on register', async ({ page }) => {
+  test('presents the app on login and keeps email out of the register form', async ({ page }) => {
     await expectAuthScreenActive(page);
 
     const intro = page.locator('.intro');
@@ -26,12 +26,7 @@ test.describe('Auth screen introduction', () => {
     await expectAuthScreenActive(page);
     await expect(intro).toBeVisible();
 
-    const email = page.locator('#auth-email');
-    await expect(email).toBeEnabled();
-    await expect(email).toHaveValue('');
-
-    await email.click();
-    await expect(email).toBeDisabled();
-    await expect(email).toHaveValue(/Just kidding, no email needed/);
+    await expect(page.locator('#auth-email')).toHaveCount(0);
+    await expect(page.locator('.auth-card')).not.toContainText('Email');
   });
 });
