@@ -103,6 +103,40 @@
   pointer-events: auto;
 }
 
+/* -- github source link (top-right) --------------------------------------- */
+
+.home-github {
+  position: absolute;
+  top: 1rem;
+  right: 1rem;
+  z-index: 2;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 2.4rem;
+  height: 2.4rem;
+  color: var(--text-secondary);
+  opacity: 0.6;
+  pointer-events: auto;
+  transition: opacity 0.15s steps(1), color 0.15s steps(1);
+}
+
+.home-github:hover {
+  color: var(--text-primary);
+  opacity: 1;
+}
+
+.home-github:focus-visible {
+  outline: 1px solid var(--accent-red);
+  outline-offset: 3px;
+}
+
+.home-github-icon {
+  width: 1.6rem;
+  height: 1.6rem;
+  display: block;
+}
+
 /* -- daily leaderboard (bottom-right) ------------------------------------- */
 
 .home-leaderboard {
@@ -188,6 +222,11 @@
 /* -- mobile: shrink the panel so it never crowds the centered cards ------- */
 
 @media (max-width: 640px) {
+  .home-github {
+    top: 0.5rem;
+    right: 0.5rem;
+  }
+
   /* Anchor the legal links bottom-left: a centered row would collide with
      the bottom-right leaderboard, which is 168px wide at this width. */
   .home-legal {

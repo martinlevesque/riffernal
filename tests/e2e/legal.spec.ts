@@ -12,6 +12,17 @@ test.describe('Legal pages', () => {
     await expect(privacy).toBeVisible();
   });
 
+  test('home screen shows a github link to the source repo', async ({ page }) => {
+    await page.goto('/');
+    await expectHomeScreenActive(page);
+
+    const github = page.locator('.home-github');
+    await expect(github).toBeVisible();
+    await expect(github).toHaveAttribute('href', 'https://github.com/martinlevesque/riffernal');
+    await expect(github).toHaveAttribute('target', '_blank');
+    await expect(github.locator('svg')).toBeVisible();
+  });
+
   test('terms page opens from the home footer and back returns home', async ({ page }) => {
     await page.goto('/');
     await expectHomeScreenActive(page);
