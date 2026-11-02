@@ -13,12 +13,8 @@ import {
 } from "./songListKeys.js";
 import { RESULTS_SCREEN_ID } from "../../game/rendering/resultsScreenElementIds.js";
 import { playMenuSound } from "../../audio/MenuSounds.js";
-import { getStoredUser } from "../../api/AuthApi.js";
+import { isAdmin } from "../../api/AuthApi.js";
 import { FOCUS_CLASS, NAV_ITEM_CLASS, setFocused, stepFocus } from "../navFocus.js";
-
-/** Mirrors the backend's isAdminUser: the setup admin is the first
- *  account, so the frontend grants admin affordances to that user id. */
-const ADMIN_USER_ID = 1;
 
 interface GroupedItem {
   song: Song;
@@ -570,7 +566,7 @@ export class Menu {
 
     // Admins keep a menu on other users' songs so they can recalculate the
     // auto difficulty there (Set difficulty is their only option).
-    if (!this._guestMode && getStoredUser()?.id === ADMIN_USER_ID && song.importedByUserId != null) {
+    if (!this._guestMode && isAdmin() && song.importedByUserId != null) {
       this._renderSongActions(song, el, { adminRecalc: true });
     }
 
@@ -717,7 +713,7 @@ export class Menu {
     }));
 
     // Admin curation: feature any song for guest play, own or not.
-    if (getStoredUser()?.id === ADMIN_USER_ID && this.onToggleGuestShowcase) {
+    if (isAdmin() && this.onToggleGuestShowcase) {
       const isFeatured = song.guestShowcase === true;
       actionsMenu.appendChild(this._actionOption(
         isFeatured ? "Remove from guest showcase" : "Feature for guests",

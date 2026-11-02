@@ -34,7 +34,7 @@ import { fetchGuestShowcaseSong } from './api/GuestApi.js';
 import { loadGuestSongs, removeGuestSong } from './utils/guestStore.js';
 import { themeManager } from './themes/ThemeManager.js';
 import { AuthScreen } from './ui/auth/AuthScreen.js';
-import { getStoredUser, logout, clearAuth, isGuestMode, setGuestMode } from './api/AuthApi.js';
+import { getStoredUser, logout, clearAuth, isGuestMode, setGuestMode, refreshSession } from './api/AuthApi.js';
 import { deleteAccount } from './api/UserApi.js';
 
 export type AppMode = 'home' | 'freeplay' | 'settings';
@@ -120,6 +120,10 @@ async function handleDeleteAccount(): Promise<void> {
 async function init(): Promise<void> {
   themeManager.init();
   installUserGestureTracking();
+
+  // Admin-only UI gates on the server's verdict for this session; refresh
+  // before anything that renders song rows.
+  await refreshSession();
 
   const authScreen = new AuthScreen({
     onAuth: () => {

@@ -44,4 +44,30 @@ test.describe("API: auth session cleanup", () => {
     const after = await request.get("/api/user", { headers: bearer(token) });
     expect(after.status()).toBe(401);
   });
+
+  test("GET /api/auth/me returns the session profile with the admin flag", async ({ request }) => {
+    const res = await request.get("/api/auth/me");
+    expect(res.status()).toBe(401);
+
+    const token = await register(request, uniqueUsername("me_probe"));
+    const me = await request.get("/api/auth/me", { headers: bearer(token) });
+    expect(me.status()).toBe(200);
+    const body = (await me.json()) as {
+      user: { id: number; username: string; tagline: string; isAdmin: boolean };
+    };
+    // A freshly registered account is never the setup admin (the shared
+    // test db already holds lower ids), but the flag must be present.
+    expect(typeof body.user.isAdmin).toBe("boolean");
+    expect(body.user.isAdmin).toBe(false);
+  });
+
+  test("login responds with the admin flag for the session user", async ({ request }) => {
+    const username = uniqueUsername("admin_flag_probe");
+    await register(request, username);
+    const data = (await request
+      .post("/api/auth/login", { data: { username, password: "test1234" } })
+      .then((r) => r.json())) as { user: { isAdmin: boolean } };
+    expect(typeof data.user.isAdmin).toBe("boolean");
+    expect(data.user.isAdmin).toBe(false);
+  });
 });

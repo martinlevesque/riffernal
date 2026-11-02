@@ -1,14 +1,10 @@
 import { reportError } from '../../utils/helpers.js';
 import { DIFFICULTY_LEVELS, isDifficulty } from '../../game/difficulty.js';
-import { getStoredUser } from '../../api/AuthApi.js';
+import { getStoredUser, isAdmin } from '../../api/AuthApi.js';
 
 /** Popup options meaning "re-estimate from the stored playable notes" —
  *  understood by the backend, not a Difficulty itself. */
 const AUTO_OPTION = 'auto';
-
-/** The admin is the first account created at setup; mirrors the backend's
- *  isAdminUser (no role column, so the id rule is the shared definition). */
-const ADMIN_USER_ID = 1;
 
 export interface DifficultySelectPopupCallbacks {
   onSave: (id: number, difficulty: string) => Promise<void>;
@@ -49,9 +45,8 @@ export class DifficultySelectPopup {
 
     const me = getStoredUser();
     const isOwner = item.ownerId != null && item.ownerId === me?.id;
-    const isAdmin = me?.id === ADMIN_USER_ID;
     this._ownerAutoAvailable = isOwner;
-    this._adminCalculateAvailable = isAdmin && !isOwner;
+    this._adminCalculateAvailable = isAdmin() && !isOwner;
 
     // An unrecognised stored value (e.g. legacy free-form text) maps to
     // AUTO so a plain SAVE re-estimates and normalizes it.
