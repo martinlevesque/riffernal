@@ -16,50 +16,56 @@ import {
 test.describe('Results Screen', () => {
   test('long missed note does not block game completion', async ({ page }) => {
     await page.goto('/');
-    const songData = makeSong([
-      { time: 1.0, key: 'C3', duration: 5.0 },
-      { time: 2.0, key: 'E3', duration: 0.25 },
-    ], 'Long Miss');
+    const songData = makeSong(
+      [
+        { time: 1.0, key: 'C3', duration: 5.0 },
+        { time: 2.0, key: 'E3', duration: 0.25 },
+      ],
+      'Long Miss',
+    );
 
-    const result = await page.evaluate(async ({ song, H }) => {
-      // @ts-expect-error browser-side dynamic import
-      const { NoteManager } = await import('/js/game/NoteManager.js');
+    const result = await page.evaluate(
+      async ({ song, H }) => {
+        // @ts-expect-error browser-side dynamic import
+        const { NoteManager } = await import('/js/game/NoteManager.js');
 
-      const nm = new NoteManager();
-      nm.loadSong(song);
+        const nm = new NoteManager();
+        nm.loadSong(song);
 
-      // Activate both notes
-      nm.update(0.5, H);
-      // Both notes now missed (failing, NOT resolved)
-      nm.update(1.2, H);
-      nm.update(2.2, H);
+        // Activate both notes
+        nm.update(0.5, H);
+        // Both notes now missed (failing, NOT resolved)
+        nm.update(1.2, H);
+        nm.update(2.2, H);
 
-      // Short note (E3) should resolve at 2.25 — before long note ends at 6.0
-      nm.update(2.3, H);
+        // Short note (E3) should resolve at 2.25 — before long note ends at 6.0
+        nm.update(2.3, H);
 
-      const afterShortResolves = {
-        isComplete: nm.isComplete(),
-        totalNotes: nm.notes.length,
-        longNoteResolved: nm.notes[0].resolved,
-        longNoteFailing: nm.notes[0].failing,
-        shortNoteResolved: nm.notes[1].resolved,
-      };
+        const afterShortResolves = {
+          isComplete: nm.isComplete(),
+          totalNotes: nm.notes.length,
+          longNoteResolved: nm.notes[0].resolved,
+          longNoteFailing: nm.notes[0].failing,
+          shortNoteResolved: nm.notes[1].resolved,
+        };
 
-      // Intermediate frame — this is where _nextNoteIndex advances past
-      // the unresolved long note (index 0) because the short note (index 1)
-      // is already resolved, causing _nextNoteIndex to skip it
-      nm.update(4.0, H);
+        // Intermediate frame — this is where _nextNoteIndex advances past
+        // the unresolved long note (index 0) because the short note (index 1)
+        // is already resolved, causing _nextNoteIndex to skip it
+        nm.update(4.0, H);
 
-      // Run past the long note's end
-      nm.update(6.5, H);
+        // Run past the long note's end
+        nm.update(6.5, H);
 
-      const afterLongEnds = {
-        isComplete: nm.isComplete(),
-        longNoteResolved: nm.notes[0].resolved,
-      };
+        const afterLongEnds = {
+          isComplete: nm.isComplete(),
+          longNoteResolved: nm.notes[0].resolved,
+        };
 
-      return { afterShortResolves, afterLongEnds };
-    }, { song: songData, H: CANVAS_HEIGHT });
+        return { afterShortResolves, afterLongEnds };
+      },
+      { song: songData, H: CANVAS_HEIGHT },
+    );
 
     // After the short note resolves, the long note should still be unresolved
     expect(result.afterShortResolves.shortNoteResolved).toBe(true);
@@ -164,7 +170,7 @@ test.describe('Results Screen', () => {
     await expect(page.locator('#mode-learn')).not.toHaveClass(/active/);
   });
 
-  test('practice mode results show accuracy and note breakdown', async ({ page }) => {
+  test('practice mode results show the core stats', async ({ page }) => {
     await startGame(page);
     await expectPlayScreenActive(page);
 
@@ -178,15 +184,11 @@ test.describe('Results Screen', () => {
 
     await expect(page.locator('#result-grade')).toHaveText('PRACTICE');
     const stats = page.locator('#result-stats');
+    await expect(stats).toContainText('Score');
+    await expect(stats).toContainText('Max Combo');
     await expect(stats).toContainText('Accuracy');
     await expect(stats).toContainText('%');
-    await expect(stats).toContainText('Perfect');
-    await expect(stats).toContainText('/');
-    await expect(stats).toContainText('Great');
-    await expect(stats).toContainText('Good');
-    await expect(stats).toContainText('Miss');
-    await expect(stats).toContainText('Max Combo');
-    await expect(stats).toContainText('Score');
+    await expect(stats).toContainText('Timing');
   });
 
   test('play mode results show stats without practice label', async ({ page }) => {
@@ -203,7 +205,9 @@ test.describe('Results Screen', () => {
 
     const stats = page.locator('#result-stats');
     await expect(stats).toContainText('Score');
+    await expect(stats).toContainText('Max Combo');
     await expect(stats).toContainText('Accuracy');
+    await expect(stats).toContainText('Timing');
   });
 
   test('new best banner is suppressed on a 0-score first play', async ({ page }) => {
@@ -285,7 +289,9 @@ test.describe('Results Screen', () => {
       await expect(page.locator('#play-screen')).not.toHaveClass(/active/);
     });
 
-    test('PLAY button is focused first after practice and switches to PLAY mode', async ({ page }) => {
+    test('PLAY button is focused first after practice and switches to PLAY mode', async ({
+      page,
+    }) => {
       await startGame(page);
       await expectPlayScreenActive(page);
       await toggleLearnMode(page);
@@ -303,7 +309,9 @@ test.describe('Results Screen', () => {
       await expect(page.locator('#mode-learn')).not.toHaveClass(/active/);
     });
 
-    test('Tab, Shift+Tab and Enter on the computer keyboard navigate the buttons', async ({ page }) => {
+    test('Tab, Shift+Tab and Enter on the computer keyboard navigate the buttons', async ({
+      page,
+    }) => {
       await startGame(page);
       await expectPlayScreenActive(page);
       await speedUp(page);
