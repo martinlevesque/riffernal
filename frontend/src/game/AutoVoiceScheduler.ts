@@ -67,7 +67,7 @@ export class AutoVoiceScheduler {
 
     const budget = Math.max(
       1,
-      Math.min(MAX_BUILDS_PER_FRAME, Math.ceil(this._queue.length * frameDeltaSec / windowSec)),
+      Math.min(MAX_BUILDS_PER_FRAME, Math.ceil((this._queue.length * frameDeltaSec) / windowSec)),
     );
     this.lastBudget = budget;
 

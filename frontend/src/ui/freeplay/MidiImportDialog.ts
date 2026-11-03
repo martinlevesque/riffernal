@@ -18,7 +18,12 @@ export class MidiImportDialog {
   private _trackSelect: TrackSelect;
   private _categorySelect: CategorySelect;
 
-  constructor(menu: Menu, midiInput: MidiInput, trackSelect: TrackSelect, categorySelect: CategorySelect) {
+  constructor(
+    menu: Menu,
+    midiInput: MidiInput,
+    trackSelect: TrackSelect,
+    categorySelect: CategorySelect,
+  ) {
     this._menu = menu;
     this._midiInput = midiInput;
     this._trackSelect = trackSelect;
@@ -96,8 +101,7 @@ export class MidiImportDialog {
   }
 
   private _needsTrackSelection(song: Song): boolean {
-    return (song.tracks?.length ?? 0) > 2
-      && (song.selectedTrackIndices?.length ?? 0) === 0;
+    return (song.tracks?.length ?? 0) > 2 && (song.selectedTrackIndices?.length ?? 0) === 0;
   }
 
   private _pickCategory(song: Song, midiFile: File): void {
@@ -110,12 +114,16 @@ export class MidiImportDialog {
       (song.tracks?.length ?? 0) > 0,
     );
 
-    this._categorySelect.show({
-      onConfirm: (categoryId, title, artist, difficulty) => {
-        void this._saveImportedSong(song, midiFile, categoryId, title, artist, difficulty);
+    this._categorySelect.show(
+      {
+        onConfirm: (categoryId, title, artist, difficulty) => {
+          void this._saveImportedSong(song, midiFile, categoryId, title, artist, difficulty);
+        },
+        onCancel: () => this._reportCancelled(),
       },
-      onCancel: () => this._reportCancelled(),
-    }, song, { hideCategories: isGuestMode() });
+      song,
+      { hideCategories: isGuestMode() },
+    );
   }
 
   private async _saveImportedSong(

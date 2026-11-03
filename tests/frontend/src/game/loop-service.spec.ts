@@ -118,7 +118,7 @@ test('displayName falls back to a 1-based positional label for unnamed loops', (
 
   expect(svc.displayName(svc.loops[0])).toBe('intro');
   expect(svc.displayName(svc.loops[1])).toBe('Loop 2');
-});;
+});
 
 // -- extension bound: nextStartAfter ------------------------------------------
 

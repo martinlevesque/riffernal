@@ -49,13 +49,18 @@ function spanX(pixels, bg, xStart, xEnd, yStart, yEnd) {
 test('chord notes have heads at same vertical position', async ({ page }) => {
   await page.goto('/');
 
-  const songJson = JSON.stringify(makeSong([
-    { time: 1.0, key: 'C3', duration: 0.05 },
-    { time: 1.0, key: 'E3', duration: 0.5 },
-    { time: 1.0, key: 'G3', duration: 1.0 },
-  ], 'Head Alignment Test'));
+  const songJson = JSON.stringify(
+    makeSong(
+      [
+        { time: 1.0, key: 'C3', duration: 0.05 },
+        { time: 1.0, key: 'E3', duration: 0.5 },
+        { time: 1.0, key: 'G3', duration: 1.0 },
+      ],
+      'Head Alignment Test',
+    ),
+  );
 
-  const bottoms = await page.evaluate(`(async () => {
+  const bottoms = (await page.evaluate(`(async () => {
     const { NoteManager } = await import('/js/game/NoteManager.js');
     const { getPianoKeyLayout } = await import('/js/utils/notes.js');
 ${indent(RENDERER_SCAFFOLD, 4)}
@@ -85,10 +90,12 @@ ${indent(RENDERER_SCAFFOLD, 4)}
       }
       return null;
     });
-  })()`) as Array<number | null>;
+  })()`)) as Array<number | null>;
 
   expect(bottoms.every((b) => b !== null)).toBe(true);
-  expect(Math.max(...(bottoms as number[])) - Math.min(...(bottoms as number[]))).toBeLessThanOrEqual(1.5);
+  expect(
+    Math.max(...(bottoms as number[])) - Math.min(...(bottoms as number[])),
+  ).toBeLessThanOrEqual(1.5);
 });
 
 // -- lane width ----------------------------------------------------------------
@@ -103,7 +110,7 @@ interface SpanMeasure {
 test('notes dock flush inside their key at the hit line', async ({ page }) => {
   await page.goto('/');
 
-  const result = await page.evaluate(`(async () => {
+  const result = (await page.evaluate(`(async () => {
     const { getPianoKeyLayout } = await import('/js/utils/notes.js');
     const { HIT_ZONE_Y_RATIO } = await import('/js/game/NoteManager.js');
 ${indent(RENDERER_SCAFFOLD, 4)}
@@ -127,7 +134,7 @@ ${indent(RENDERER_SCAFFOLD, 4)}
     };
 
     return { white: measureDocked('C4'), black: measureDocked('C#4') };
-  })()`) as { white: SpanMeasure; black: SpanMeasure };
+  })()`)) as { white: SpanMeasure; black: SpanMeasure };
 
   for (const m of [result.white, result.black]) {
     expect(m.minX).not.toBeNull();
@@ -143,7 +150,7 @@ ${indent(RENDERER_SCAFFOLD, 4)}
 test('up-screen notes keep most of their key width', async ({ page }) => {
   await page.goto('/');
 
-  const result = await page.evaluate(`(async () => {
+  const result = (await page.evaluate(`(async () => {
     const { getPianoKeyLayout } = await import('/js/utils/notes.js');
 ${indent(RENDERER_SCAFFOLD, 4)}
 
@@ -160,7 +167,7 @@ ${indent(RENDERER_SCAFFOLD, 4)}
     const span = spanX(pixels, bg,
       Math.floor(layout.x - 8), Math.ceil(layout.x + layout.width + 8), 55, 85);
     return { ...span, keyW: layout.width };
-  })()`) as SpanMeasure;
+  })()`)) as SpanMeasure;
 
   expect(result.minX).not.toBeNull();
   expect(result.maxX).not.toBeNull();

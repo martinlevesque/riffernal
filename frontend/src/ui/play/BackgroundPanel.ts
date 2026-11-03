@@ -31,7 +31,11 @@ export class BackgroundPanel {
     });
 
     document.addEventListener('click', (e) => {
-      if (this._bgPanelOpen && !this._bgPanel.contains(e.target as Node) && e.target !== this._toggleBgBtn) {
+      if (
+        this._bgPanelOpen &&
+        !this._bgPanel.contains(e.target as Node) &&
+        e.target !== this._toggleBgBtn
+      ) {
         this._bgPanelOpen = false;
         this._bgPanel.classList.add('hidden');
       }
@@ -115,9 +119,8 @@ export class BackgroundPanel {
   private _mainTrackName(song: Song): string {
     const tracks = song.tracks ?? [];
     const firstSelected = song.selectedTrackIndices?.[0];
-    const picked = firstSelected !== undefined
-      ? tracks.find((t) => t.index === firstSelected)
-      : undefined;
+    const picked =
+      firstSelected !== undefined ? tracks.find((t) => t.index === firstSelected) : undefined;
 
     return picked?.name ?? tracks[0]?.name ?? 'Main (piano)';
   }
@@ -134,8 +137,9 @@ export class BackgroundPanel {
       const preferences = song.trackPreferences;
 
       if (!preferences) return;
-      saveSongTrackPreferences(songId, preferences)
-        .catch((e) => console.warn('Failed to save track preferences:', e));
+      saveSongTrackPreferences(songId, preferences).catch((e) =>
+        console.warn('Failed to save track preferences:', e),
+      );
     }, 500);
   }
 }

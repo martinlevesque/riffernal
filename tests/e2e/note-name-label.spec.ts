@@ -10,14 +10,17 @@ test('getActiveNotes returns key property for label rendering', async ({ page })
     { time: 2.0, key: 'B5', duration: 0.3 },
   ]);
 
-  const result = await page.evaluate(async ({ song, H }) => {
-    // @ts-expect-error browser-side dynamic import
-    const { NoteManager } = (await import('/js/game/NoteManager.js'));
-    const nm = new NoteManager();
-    nm.loadSong(song);
-    nm.update(1.0, H);
-    return nm.getActiveNotes(1.0, H).map((n: any) => n.key);
-  }, { song: songData, H: CANVAS_HEIGHT });
+  const result = await page.evaluate(
+    async ({ song, H }) => {
+      // @ts-expect-error browser-side dynamic import
+      const { NoteManager } = await import('/js/game/NoteManager.js');
+      const nm = new NoteManager();
+      nm.loadSong(song);
+      nm.update(1.0, H);
+      return nm.getActiveNotes(1.0, H).map((n: any) => n.key);
+    },
+    { song: songData, H: CANVAS_HEIGHT },
+  );
 
   expect(result).toEqual(['C2', 'F#4', 'B5']);
 });

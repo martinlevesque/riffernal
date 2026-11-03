@@ -21,10 +21,7 @@ declare module 'gifenc' {
     bytes(): Uint8Array;
   }
 
-  export function GIFEncoder(options?: {
-    auto?: boolean;
-    initialCapacity?: number;
-  }): GifEncoder;
+  export function GIFEncoder(options?: { auto?: boolean; initialCapacity?: number }): GifEncoder;
 
   export function quantize(
     data: Uint8Array | Uint8ClampedArray,

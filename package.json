@@ -7,9 +7,9 @@
     "url": "git+https://github.com/martinlevesque/riffernal.git"
   },
   "devDependencies": {
-    "@biomejs/biome": "^2.5.15",
-    "@playwright/test": "^1.63.0",
-    "@types/bun": "^1.4.2",
+    "@biomejs/biome": "^2.6.4",
+    "@playwright/test": "^1.64.1",
+    "@types/bun": "^1.4.4",
     "gifenc": "^1.0.3",
     "pngjs": "^7.0.0",
     "typescript": "^7.0.2"

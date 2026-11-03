@@ -2,7 +2,9 @@ import { test, expect, type Page, type APIRequestContext } from '@playwright/tes
 import { wipeDatabase, goToSongList, authJsonHeaders } from '../helpers/index.js';
 
 async function importMidiFile(page: Page, name: string, buffer: Buffer): Promise<void> {
-  await page.waitForFunction(() => (document.getElementById('midi-status') as HTMLElement).textContent.length > 0);
+  await page.waitForFunction(
+    () => (document.getElementById('midi-status') as HTMLElement).textContent.length > 0,
+  );
   const fileChooserPromise = page.waitForEvent('filechooser', { timeout: 5000 });
   await page.locator('#btn-import-midi').click();
   const fileChooser = await fileChooserPromise;
@@ -21,27 +23,24 @@ async function importMidiFile(page: Page, name: string, buffer: Buffer): Promise
 
 function buildMidiBuffer(): Buffer {
   const header = [
-    0x4D, 0x54, 0x68, 0x64,
-    0x00, 0x00, 0x00, 0x06,
-    0x00, 0x00,
-    0x00, 0x01,
-    0x01, 0xE0,
+    0x4d, 0x54, 0x68, 0x64, 0x00, 0x00, 0x00, 0x06, 0x00, 0x00, 0x00, 0x01, 0x01, 0xe0,
   ];
 
   const trackEvents = [
-    0x00, 0xFF, 0x51, 0x03, 0x07, 0xA1, 0x20,
-    0x78, 0x90, 0x3C, 0x64,
-    0x78, 0x3C, 0x00,
-    0x00, 0xFF, 0x2F, 0x00,
+    0x00, 0xff, 0x51, 0x03, 0x07, 0xa1, 0x20, 0x78, 0x90, 0x3c, 0x64, 0x78, 0x3c, 0x00, 0x00, 0xff,
+    0x2f, 0x00,
   ];
 
   const trackLength = trackEvents.length;
   const trackHeader = [
-    0x4D, 0x54, 0x72, 0x6B,
-    (trackLength >> 24) & 0xFF,
-    (trackLength >> 16) & 0xFF,
-    (trackLength >> 8) & 0xFF,
-    trackLength & 0xFF,
+    0x4d,
+    0x54,
+    0x72,
+    0x6b,
+    (trackLength >> 24) & 0xff,
+    (trackLength >> 16) & 0xff,
+    (trackLength >> 8) & 0xff,
+    trackLength & 0xff,
   ];
 
   return Buffer.from([...header, ...trackHeader, ...trackEvents]);
@@ -49,26 +48,34 @@ function buildMidiBuffer(): Buffer {
 
 function buildMidiBufferWithNotes(noteEvents: number[]): Buffer {
   const header = [
-    0x4D, 0x54, 0x68, 0x64,
-    0x00, 0x00, 0x00, 0x06,
-    0x00, 0x00,
-    0x00, 0x01,
-    0x01, 0xE0,
+    0x4d, 0x54, 0x68, 0x64, 0x00, 0x00, 0x00, 0x06, 0x00, 0x00, 0x00, 0x01, 0x01, 0xe0,
   ];
 
   const trackEvents = [
-    0x00, 0xFF, 0x51, 0x03, 0x07, 0xA1, 0x20,
+    0x00,
+    0xff,
+    0x51,
+    0x03,
+    0x07,
+    0xa1,
+    0x20,
     ...noteEvents,
-    0x00, 0xFF, 0x2F, 0x00,
+    0x00,
+    0xff,
+    0x2f,
+    0x00,
   ];
 
   const trackLength = trackEvents.length;
   const trackHeader = [
-    0x4D, 0x54, 0x72, 0x6B,
-    (trackLength >> 24) & 0xFF,
-    (trackLength >> 16) & 0xFF,
-    (trackLength >> 8) & 0xFF,
-    trackLength & 0xFF,
+    0x4d,
+    0x54,
+    0x72,
+    0x6b,
+    (trackLength >> 24) & 0xff,
+    (trackLength >> 16) & 0xff,
+    (trackLength >> 8) & 0xff,
+    trackLength & 0xff,
   ];
 
   return Buffer.from([...header, ...trackHeader, ...trackEvents]);
@@ -76,28 +83,41 @@ function buildMidiBufferWithNotes(noteEvents: number[]): Buffer {
 
 function buildMultiTrackMidiBuffer(): Buffer {
   const header = [
-    0x4D, 0x54, 0x68, 0x64,
-    0x00, 0x00, 0x00, 0x06,
-    0x00, 0x00,
-    0x00, 0x03,
-    0x01, 0xE0,
+    0x4d, 0x54, 0x68, 0x64, 0x00, 0x00, 0x00, 0x06, 0x00, 0x00, 0x00, 0x03, 0x01, 0xe0,
   ];
 
-  const trackChunks = [0x3C, 0x40, 0x45].map((note) => {
+  const trackChunks = [0x3c, 0x40, 0x45].map((note) => {
     const trackEvents = [
-      0x00, 0xFF, 0x51, 0x03, 0x07, 0xA1, 0x20,
-      0x78, 0x90, note, 0x64,
-      0x78, note, 0x00,
-      0x00, 0xFF, 0x2F, 0x00,
+      0x00,
+      0xff,
+      0x51,
+      0x03,
+      0x07,
+      0xa1,
+      0x20,
+      0x78,
+      0x90,
+      note,
+      0x64,
+      0x78,
+      note,
+      0x00,
+      0x00,
+      0xff,
+      0x2f,
+      0x00,
     ];
 
     const trackLength = trackEvents.length;
     const trackHeader = [
-      0x4D, 0x54, 0x72, 0x6B,
-      (trackLength >> 24) & 0xFF,
-      (trackLength >> 16) & 0xFF,
-      (trackLength >> 8) & 0xFF,
-      trackLength & 0xFF,
+      0x4d,
+      0x54,
+      0x72,
+      0x6b,
+      (trackLength >> 24) & 0xff,
+      (trackLength >> 16) & 0xff,
+      (trackLength >> 8) & 0xff,
+      trackLength & 0xff,
     ];
 
     return [...trackHeader, ...trackEvents];
@@ -131,10 +151,10 @@ test.describe('MIDI Import', () => {
     const chooser = await chooserPromise;
     const second = chooser.element();
 
-    const sameNode = await page.evaluate(
-      ([a, b]) => a === b,
-      [first, second] as unknown as [Element | null, Element | null],
-    );
+    const sameNode = await page.evaluate(([a, b]) => a === b, [first, second] as unknown as [
+      Element | null,
+      Element | null,
+    ]);
 
     expect(await first.evaluate((el) => el !== null)).toBe(true);
     expect(sameNode).toBe(false);
@@ -143,12 +163,18 @@ test.describe('MIDI Import', () => {
   test('importing a valid MIDI file adds a song to the list', async ({ page }) => {
     await goToSongList(page);
 
-    await page.waitForFunction(() => (document.getElementById('midi-status') as HTMLElement).textContent.length > 0);
+    await page.waitForFunction(
+      () => (document.getElementById('midi-status') as HTMLElement).textContent.length > 0,
+    );
 
     const fileChooserPromise = page.waitForEvent('filechooser', { timeout: 5000 });
     await page.locator('#btn-import-midi').click();
     const fileChooser = await fileChooserPromise;
-    await fileChooser.setFiles({ name: 'test-song.mid', mimeType: 'audio/midi', buffer: buildMultiTrackMidiBuffer() });
+    await fileChooser.setFiles({
+      name: 'test-song.mid',
+      mimeType: 'audio/midi',
+      buffer: buildMultiTrackMidiBuffer(),
+    });
 
     // Multi-track files go through track selection; the whole row (body as
     // well as track name) selects or unselects, while the hand and
@@ -183,28 +209,42 @@ test.describe('MIDI Import', () => {
     await expect(page.locator('.song-item.imported')).toContainText('test-song');
   });
 
-  test('importing with a category picked from the dropdown groups the song', async ({ request, page }) => {
+  test('importing with a category picked from the dropdown groups the song', async ({
+    request,
+    page,
+  }) => {
     const headers = await authJsonHeaders(request);
     const catRes = await request.post('/api/categories', { data: { name: 'Synthwave' }, headers });
     expect(catRes.ok()).toBeTruthy();
 
     await goToSongList(page);
 
-    await page.waitForFunction(() => (document.getElementById('midi-status') as HTMLElement).textContent.length > 0);
+    await page.waitForFunction(
+      () => (document.getElementById('midi-status') as HTMLElement).textContent.length > 0,
+    );
     const fileChooserPromise = page.waitForEvent('filechooser', { timeout: 5000 });
     await page.locator('#btn-import-midi').click();
     const fileChooser = await fileChooserPromise;
-    await fileChooser.setFiles({ name: 'categorized.mid', mimeType: 'audio/midi', buffer: buildMidiBuffer() });
+    await fileChooser.setFiles({
+      name: 'categorized.mid',
+      mimeType: 'audio/midi',
+      buffer: buildMidiBuffer(),
+    });
 
     await page.waitForSelector('#category-select-screen.active', { timeout: 5000 });
-    await expect(page.locator('#import-song-category option', { hasText: 'Synthwave' })).toHaveCount(1);
+    await expect(
+      page.locator('#import-song-category option', { hasText: 'Synthwave' }),
+    ).toHaveCount(1);
     await page.locator('#import-song-title').fill('Categorized Import');
     await page.locator('#import-song-category').selectOption({ label: 'Synthwave' });
     await page.locator('#category-select-confirm').click();
 
-    const section = page.locator('.category-section:not(.community-section):not(.showcase-section)', {
-      hasText: 'Synthwave',
-    });
+    const section = page.locator(
+      '.category-section:not(.community-section):not(.showcase-section)',
+      {
+        hasText: 'Synthwave',
+      },
+    );
     await expect(section).toBeVisible({ timeout: 5000 });
     await expect(section.locator('.song-item.imported')).toHaveCount(1);
     await expect(section.locator('.song-item.imported')).toContainText('Categorized Import');
@@ -213,11 +253,17 @@ test.describe('MIDI Import', () => {
   test('creating a category from the dropdown assigns the import to it', async ({ page }) => {
     await goToSongList(page);
 
-    await page.waitForFunction(() => (document.getElementById('midi-status') as HTMLElement).textContent.length > 0);
+    await page.waitForFunction(
+      () => (document.getElementById('midi-status') as HTMLElement).textContent.length > 0,
+    );
     const fileChooserPromise = page.waitForEvent('filechooser', { timeout: 5000 });
     await page.locator('#btn-import-midi').click();
     const fileChooser = await fileChooserPromise;
-    await fileChooser.setFiles({ name: 'fresh-category.mid', mimeType: 'audio/midi', buffer: buildMidiBuffer() });
+    await fileChooser.setFiles({
+      name: 'fresh-category.mid',
+      mimeType: 'audio/midi',
+      buffer: buildMidiBuffer(),
+    });
 
     await page.waitForSelector('#category-select-screen.active', { timeout: 5000 });
     await expect(page.locator('#category-create')).toBeHidden();
@@ -231,9 +277,12 @@ test.describe('MIDI Import', () => {
     await expect(page.locator('#import-song-category option:checked')).toHaveText('Shoegaze');
     await page.locator('#category-select-confirm').click();
 
-    const section = page.locator('.category-section:not(.community-section):not(.showcase-section)', {
-      hasText: 'Shoegaze',
-    });
+    const section = page.locator(
+      '.category-section:not(.community-section):not(.showcase-section)',
+      {
+        hasText: 'Shoegaze',
+      },
+    );
     await expect(section).toBeVisible({ timeout: 5000 });
     await expect(section.locator('.song-item.imported')).toHaveCount(1);
     await expect(section.locator('.song-item.imported')).toContainText('Fresh Category Import');
@@ -309,18 +358,24 @@ test.describe('MIDI Import', () => {
     await featuredLabel.click();
     await importedItem.locator('.song-actions-btn').click();
     await expect(
-      page.locator('.song-actions-menu:not(.hidden) .song-action-option', { hasText: 'Feature for guests' }),
+      page.locator('.song-actions-menu:not(.hidden) .song-action-option', {
+        hasText: 'Feature for guests',
+      }),
     ).toBeVisible();
   });
 
   test('shows error alert for invalid file', async ({ page }) => {
     await goToSongList(page);
 
-    page.on('dialog', async dialog => {
+    page.on('dialog', async (dialog) => {
       await dialog.dismiss();
     });
 
-    await importMidiFile(page, 'bad.mid', Buffer.from([0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00]));
+    await importMidiFile(
+      page,
+      'bad.mid',
+      Buffer.from([0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00]),
+    );
 
     await expect(page.locator('.song-item.imported')).toHaveCount(0, { timeout: 3000 });
   });
@@ -328,31 +383,31 @@ test.describe('MIDI Import', () => {
   test('shows error alert for MIDI with no playable notes', async ({ page }) => {
     await goToSongList(page);
 
-    page.on('dialog', async dialog => {
+    page.on('dialog', async (dialog) => {
       await dialog.dismiss();
     });
 
     const header = [
-      0x4D, 0x54, 0x68, 0x64,
-      0x00, 0x00, 0x00, 0x06,
-      0x00, 0x00,
-      0x00, 0x01,
-      0x01, 0xE0,
+      0x4d, 0x54, 0x68, 0x64, 0x00, 0x00, 0x00, 0x06, 0x00, 0x00, 0x00, 0x01, 0x01, 0xe0,
     ];
-    const trackEvents = [
-      0x00, 0xFF, 0x51, 0x03, 0x07, 0xA1, 0x20,
-      0x00, 0xFF, 0x2F, 0x00,
-    ];
+    const trackEvents = [0x00, 0xff, 0x51, 0x03, 0x07, 0xa1, 0x20, 0x00, 0xff, 0x2f, 0x00];
     const trackLength = trackEvents.length;
     const trackHeader = [
-      0x4D, 0x54, 0x72, 0x6B,
-      (trackLength >> 24) & 0xFF,
-      (trackLength >> 16) & 0xFF,
-      (trackLength >> 8) & 0xFF,
-      trackLength & 0xFF,
+      0x4d,
+      0x54,
+      0x72,
+      0x6b,
+      (trackLength >> 24) & 0xff,
+      (trackLength >> 16) & 0xff,
+      (trackLength >> 8) & 0xff,
+      trackLength & 0xff,
     ];
 
-    await importMidiFile(page, 'empty.mid', Buffer.from([...header, ...trackHeader, ...trackEvents]));
+    await importMidiFile(
+      page,
+      'empty.mid',
+      Buffer.from([...header, ...trackHeader, ...trackEvents]),
+    );
 
     await expect(page.locator('.song-item.imported')).toHaveCount(0, { timeout: 3000 });
   });
@@ -360,10 +415,7 @@ test.describe('MIDI Import', () => {
   test('out-of-range notes are transposed into playable range', async ({ page }) => {
     await goToSongList(page);
 
-    const noteOnOff = [
-      0x78, 0x90, 0x0C, 0x64,
-      0x78, 0x0C, 0x00,
-    ];
+    const noteOnOff = [0x78, 0x90, 0x0c, 0x64, 0x78, 0x0c, 0x00];
 
     await importMidiFile(page, 'low-notes.mid', buildMidiBufferWithNotes(noteOnOff));
 

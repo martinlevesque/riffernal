@@ -103,7 +103,7 @@
   pointer-events: auto;
 }
 
-/* -- github source link (top-right) --------------------------------------- */
+/* -- github source link (top-right corner of the home and auth screens) -- */
 
 .home-github {
   position: absolute;

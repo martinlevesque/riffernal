@@ -45,6 +45,9 @@ export async function startGame(page: Page, options: StartGameOptions = {}): Pro
   await page.locator('#play-screen').waitFor({ state: 'attached', timeout: 5000 });
   if (!keepSong) {
     const headers = await authHeaders(page.context().request);
-    page.context().request.delete(`/api/songs/${id}`, { headers }).catch(() => {});
+    page
+      .context()
+      .request.delete(`/api/songs/${id}`, { headers })
+      .catch(() => {});
   }
 }

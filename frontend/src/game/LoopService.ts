@@ -62,8 +62,12 @@ export class LoopService {
 
   // -- Single-loop forwarding (kept for Renderer/Game compat) ---------------
 
-  get start(): number | null { return this.current?.startTime ?? null; }
-  get end(): number | null { return this.current?.endTime ?? null; }
+  get start(): number | null {
+    return this.current?.startTime ?? null;
+  }
+  get end(): number | null {
+    return this.current?.endTime ?? null;
+  }
 
   displayName(loop: SavedLoop): string {
     if (loop.name) return loop.name;
@@ -186,9 +190,7 @@ export class LoopService {
       this.currentIndex = null;
       return null;
     }
-    this.currentIndex = this.currentIndex === null
-      ? 0
-      : (this.currentIndex + 1) % chain.length;
+    this.currentIndex = this.currentIndex === null ? 0 : (this.currentIndex + 1) % chain.length;
     return chain[this.currentIndex];
   }
 

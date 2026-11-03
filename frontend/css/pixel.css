@@ -191,6 +191,10 @@ body {
   text-shadow: 2px 2px 0 var(--pixel-shadow-color);
 }
 
+#result-stats .stat-value {
+  text-shadow: 2px 2px 0 var(--pixel-shadow-color);
+}
+
 /* Accent half of the wordmark: same-color halo thickens the glyphs into
    chunky blocks, then a hard black drop — replaces the soft rgba glows
    from home/auth/freeplay css (loaded earlier, so this wins). */
@@ -488,14 +492,6 @@ input[type="text"]:focus,
 
 .track-item:hover {
   transform: translate(-1px, -1px);
-}
-
-/* ============================================
-   RESULTS SCREEN
-   ============================================ */
-
-#results-screen.active {
-  background: rgba(5, 5, 10, 0.94);
 }
 
 /* ============================================

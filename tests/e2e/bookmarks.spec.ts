@@ -8,19 +8,25 @@ import {
   goToSongList,
 } from '../helpers/index.js';
 
-const MIDI_HEADER = [0x4d, 0x54, 0x68, 0x64, 0x00, 0x00, 0x00, 0x06, 0x00, 0x00, 0x00, 0x01, 0x01, 0xe0];
+const MIDI_HEADER = [
+  0x4d, 0x54, 0x68, 0x64, 0x00, 0x00, 0x00, 0x06, 0x00, 0x00, 0x00, 0x01, 0x01, 0xe0,
+];
 const MIDI_TRACK = [
-  0x00, 0xff, 0x51, 0x03, 0x07, 0xa1, 0x20,
-  0x78, 0x90, 0x3c, 0x64,
-  0x78, 0x3c, 0x00,
-  0x00, 0xff, 0x2f, 0x00,
+  0x00, 0xff, 0x51, 0x03, 0x07, 0xa1, 0x20, 0x78, 0x90, 0x3c, 0x64, 0x78, 0x3c, 0x00, 0x00, 0xff,
+  0x2f, 0x00,
 ];
 
 function buildMidi(): Buffer {
   const len = MIDI_TRACK.length;
   const trackHeader = [
-    0x4d, 0x54, 0x72, 0x6b,
-    (len >> 24) & 0xff, (len >> 16) & 0xff, (len >> 8) & 0xff, len & 0xff,
+    0x4d,
+    0x54,
+    0x72,
+    0x6b,
+    (len >> 24) & 0xff,
+    (len >> 16) & 0xff,
+    (len >> 8) & 0xff,
+    len & 0xff,
   ];
   return Buffer.from([...MIDI_HEADER, ...trackHeader, ...MIDI_TRACK]);
 }
@@ -50,7 +56,12 @@ async function seedOwnSongInCategory(
 ): Promise<number> {
   const headers = await authHeaders(request);
   const res = await request.post('/api/songs', {
-    multipart: { ...FORM_FIELDS, title, category_id: String(categoryId), midi: { name: 'seed.mid', mimeType: 'audio/midi', buffer: buildMidi() } },
+    multipart: {
+      ...FORM_FIELDS,
+      title,
+      category_id: String(categoryId),
+      midi: { name: 'seed.mid', mimeType: 'audio/midi', buffer: buildMidi() },
+    },
     headers,
   });
   expect(res.ok()).toBeTruthy();
@@ -64,7 +75,12 @@ async function uploadAndPublishWith(
   categoryId: number,
 ): Promise<number> {
   const res = await request.post('/api/songs', {
-    multipart: { ...FORM_FIELDS, title, category_id: String(categoryId), midi: { name: 'seed.mid', mimeType: 'audio/midi', buffer: buildMidi() } },
+    multipart: {
+      ...FORM_FIELDS,
+      title,
+      category_id: String(categoryId),
+      midi: { name: 'seed.mid', mimeType: 'audio/midi', buffer: buildMidi() },
+    },
     headers: { Authorization: `Bearer ${token}` },
   });
   expect(res.ok()).toBeTruthy();
@@ -80,7 +96,10 @@ async function deleteWith(request: APIRequestContext, token: string, id: number)
   await request.delete(`/api/songs/${id}`, { headers: { Authorization: `Bearer ${token}` } });
 }
 
-async function categorySectionByTitle(page: Page, title: string): Promise<import('@playwright/test').Locator> {
+async function categorySectionByTitle(
+  page: Page,
+  title: string,
+): Promise<import('@playwright/test').Locator> {
   const headers = page.locator('.category-section:not(.community-section) .category-header');
   const count = await headers.count();
   for (let i = 0; i < count; i++) {
@@ -97,18 +116,28 @@ test.describe('Bookmarked songs in categories', () => {
     await wipeDatabase(request);
   });
 
-  test('bookmarked community song appears in its category with Community label', async ({ request, page }) => {
+  test('bookmarked community song appears in its category with Community label', async ({
+    request,
+    page,
+  }) => {
     const publisher = await registerUser(request, uniqueUsername('bm_uicat'));
     let publishedId = -1;
 
     try {
       const catId = await createCategory(request, 'Metal');
       await seedOwnSongInCategory(request, 'E2E-BM-Own-Metal', catId);
-      publishedId = await uploadAndPublishWith(request, publisher.token, 'E2E-BM-Comm-Metal', catId);
+      publishedId = await uploadAndPublishWith(
+        request,
+        publisher.token,
+        'E2E-BM-Comm-Metal',
+        catId,
+      );
 
       await goToSongList(page);
 
-      const communitySong = page.locator(`.community-section .community-song[data-song-id="${publishedId}"]`);
+      const communitySong = page.locator(
+        `.community-section .community-song[data-song-id="${publishedId}"]`,
+      );
       await expect(communitySong).toBeVisible({ timeout: 5000 });
 
       const bookmarkBtn = communitySong.locator('.bookmark-btn');
@@ -141,7 +170,9 @@ test.describe('Bookmarked songs in categories', () => {
 
       await goToSongList(page);
 
-      const communitySong = page.locator(`.community-section .community-song[data-song-id="${publishedId}"]`);
+      const communitySong = page.locator(
+        `.community-section .community-song[data-song-id="${publishedId}"]`,
+      );
       await expect(communitySong).toBeVisible({ timeout: 5000 });
 
       await communitySong.locator('.bookmark-btn').click({ force: true });
@@ -155,7 +186,9 @@ test.describe('Bookmarked songs in categories', () => {
 
       await expect(movedSong).toHaveCount(0, { timeout: 5000 });
 
-      const backInCommunity = page.locator(`.community-section .community-song[data-song-id="${publishedId}"]`);
+      const backInCommunity = page.locator(
+        `.community-section .community-song[data-song-id="${publishedId}"]`,
+      );
       await expect(backInCommunity).toBeVisible({ timeout: 5000 });
     } finally {
       if (publishedId !== -1) await deleteWith(request, publisher.token, publishedId);

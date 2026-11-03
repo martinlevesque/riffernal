@@ -37,7 +37,9 @@ import { LoopDefinitionState } from '../../frontend/src/game/Loop.js';
 // -- NoteManager.resetFromTime tests -----------------------------------------
 
 test.describe('Loops - NoteManager.resetFromTime', () => {
-  test('clears gameplay state for notes at/after time; preserves already-played earlier notes', async ({ page }) => {
+  test('clears gameplay state for notes at/after time; preserves already-played earlier notes', async ({
+    page,
+  }) => {
     const song = makeSong([
       { time: 1.0, key: 'C3', duration: 0.25 },
       { time: 2.0, key: 'E3', duration: 0.25 },
@@ -81,7 +83,9 @@ test.describe('Loops - NoteManager.resetFromTime', () => {
     expect(result.activeNotesAfter).toBe(0);
   });
 
-  test('forward seek marks unplayed earlier notes as resolved (skipped) so learning mode does not freeze on them', async ({ page }) => {
+  test('forward seek marks unplayed earlier notes as resolved (skipped) so learning mode does not freeze on them', async ({
+    page,
+  }) => {
     const song = makeSong([
       { time: 0.5, key: 'C3', duration: 0.25 },
       { time: 2.0, key: 'E3', duration: 0.25 },
@@ -147,11 +151,14 @@ test.describe('Loops - NoteManager.resetFromTime', () => {
 
 test.describe('Loops - Game.seekTo & loop wrap', () => {
   test('seekTo re-anchors currentTime and clears note state from that point', async ({ page }) => {
-    const song = makeSong([
-      { time: 0.5, key: 'C3', duration: 0.25 },
-      { time: 5.0, key: 'E3', duration: 0.25 },
-      { time: 8.0, key: 'G3', duration: 0.25 },
-    ], 'SeekTest');
+    const song = makeSong(
+      [
+        { time: 0.5, key: 'C3', duration: 0.25 },
+        { time: 5.0, key: 'E3', duration: 0.25 },
+        { time: 8.0, key: 'G3', duration: 0.25 },
+      ],
+      'SeekTest',
+    );
     await bootGame(page, song);
     const result = await page.evaluate(async () => {
       const game = (window as any)._testGame;
@@ -173,11 +180,14 @@ test.describe('Loops - Game.seekTo & loop wrap', () => {
   });
 
   test('loop wrap rewinds currentTime to loopStart when reaching loopEnd', async ({ page }) => {
-    const song = makeSong([
-      { time: 0.5, key: 'C3', duration: 0.25 },
-      { time: 2.0, key: 'E3', duration: 0.25 },
-      { time: 4.0, key: 'G3', duration: 0.25 },
-    ], 'LoopWrap');
+    const song = makeSong(
+      [
+        { time: 0.5, key: 'C3', duration: 0.25 },
+        { time: 2.0, key: 'E3', duration: 0.25 },
+        { time: 4.0, key: 'G3', duration: 0.25 },
+      ],
+      'LoopWrap',
+    );
     await bootGame(page, song);
     const result = await page.evaluate(async () => {
       const game = (window as any)._testGame;
@@ -199,12 +209,17 @@ test.describe('Loops - Game.seekTo & loop wrap', () => {
     expect(result.active).toBe(true);
   });
 
-  test('loop wrap waits for the last note in the loop to finish before rewinding', async ({ page }) => {
-    const song = makeSong([
-      { time: 0.5, key: 'C3', duration: 0.25 },
-      { time: 2.0, key: 'E3', duration: 1.0 },
-      { time: 4.0, key: 'G3', duration: 0.25 },
-    ], 'LoopWrapLong');
+  test('loop wrap waits for the last note in the loop to finish before rewinding', async ({
+    page,
+  }) => {
+    const song = makeSong(
+      [
+        { time: 0.5, key: 'C3', duration: 0.25 },
+        { time: 2.0, key: 'E3', duration: 1.0 },
+        { time: 4.0, key: 'G3', duration: 0.25 },
+      ],
+      'LoopWrapLong',
+    );
     await bootGame(page, song);
     const result = await page.evaluate(async () => {
       const game = (window as any)._testGame;
@@ -224,14 +239,19 @@ test.describe('Loops - Game.seekTo & loop wrap', () => {
     expect(result.currentTime).toBeGreaterThanOrEqual(1.0);
   });
 
-  test('active loop does not activate or auto-play notes past loopEnd during the tail-out', async ({ page }) => {
-    const song = makeSong([
-      { time: 0.5, key: 'C3', duration: 0.25 },
-      { time: 2.0, key: 'E3', duration: 1.0 },
-      { time: 2.7, key: 'G3', duration: 0.1 },
-      { time: 2.9, key: 'A3', duration: 0.1 },
-      { time: 6.0, key: 'C4', duration: 0.25 },
-    ], 'LoopTailSuppress');
+  test('active loop does not activate or auto-play notes past loopEnd during the tail-out', async ({
+    page,
+  }) => {
+    const song = makeSong(
+      [
+        { time: 0.5, key: 'C3', duration: 0.25 },
+        { time: 2.0, key: 'E3', duration: 1.0 },
+        { time: 2.7, key: 'G3', duration: 0.1 },
+        { time: 2.9, key: 'A3', duration: 0.1 },
+        { time: 6.0, key: 'C4', duration: 0.25 },
+      ],
+      'LoopTailSuppress',
+    );
     await bootGame(page, song);
     const result = await page.evaluate(async () => {
       const game = (window as any)._testGame;
@@ -271,10 +291,13 @@ test.describe('Loops - Game.seekTo & loop wrap', () => {
   });
 
   test('active loop in learn mode does not freeze on notes past loopEnd', async ({ page }) => {
-    const song = makeSong([
-      { time: 2.0, key: 'C3', duration: 0.2 },
-      { time: 2.6, key: 'E3', duration: 0.2 },
-    ], 'LoopLearnNoFreeze');
+    const song = makeSong(
+      [
+        { time: 2.0, key: 'C3', duration: 0.2 },
+        { time: 2.6, key: 'E3', duration: 0.2 },
+      ],
+      'LoopLearnNoFreeze',
+    );
     await bootGame(page, song);
     const result = await page.evaluate(async () => {
       // @ts-expect-error browser-side dynamic import
@@ -294,9 +317,7 @@ test.describe('Loops - Game.seekTo & loop wrap', () => {
         }
       }
       const lane = NOTE_TO_LANE.get('C3');
-      const outcome = game.noteManager.checkLearningHit(
-        2.0, lane, performance.now(), false,
-      );
+      const outcome = game.noteManager.checkLearningHit(2.0, lane, performance.now(), false);
       let wrapped = false;
       for (let i = 0; i < 60; i++) {
         await new Promise((r) => setTimeout(r, 50));
@@ -327,7 +348,9 @@ test.describe('Loops - Game.seekTo & loop wrap', () => {
     expect(result.finalCurrentTime).toBeLessThan(2.5);
   });
 
-  test('setLoopBoundary fills draft boundaries and swaps if end < start; does not auto-activate', async ({ page }) => {
+  test('setLoopBoundary fills draft boundaries and swaps if end < start; does not auto-activate', async ({
+    page,
+  }) => {
     const song = makeSong([
       { time: 1.0, key: 'C3', duration: 0.25 },
       { time: 3.0, key: 'E3', duration: 0.25 },
@@ -359,13 +382,16 @@ test.describe('Loops - Game.seekTo & loop wrap', () => {
     expect(result.phase1).toBe(LoopDefinitionState.End);
     expect(result.phase2).toBe(LoopDefinitionState.Off);
     expect(result.first).toEqual({ draftStart: 2.0, draftEnd: 4.0, hasDraft: true, active: false });
-    expect(result.swapped).toEqual({ draftStart: 1.0, draftEnd: 5.0, hasDraft: true, active: false });
+    expect(result.swapped).toEqual({
+      draftStart: 1.0,
+      draftEnd: 5.0,
+      hasDraft: true,
+      active: false,
+    });
   });
 
   test('deactivateLoop keeps saved loops, clearLoop removes them', async ({ page }) => {
-    const song = makeSong([
-      { time: 1.0, key: 'C3', duration: 0.25 },
-    ]);
+    const song = makeSong([{ time: 1.0, key: 'C3', duration: 0.25 }]);
     await bootGame(page, song);
     const result = await page.evaluate(async () => {
       const game = (window as any)._testGame;
@@ -388,11 +414,16 @@ test.describe('Loops - Game.seekTo & loop wrap', () => {
     expect(result.afterClear).toEqual({ active: false, loopsCount: 0 });
   });
 
-  test('activating a loop in LEARN mode disables scoring; in PLAY mode scoring stays on', async ({ page }) => {
-    const song = makeSong([
-      { time: 1.0, key: 'C3', duration: 0.25 },
-      { time: 3.0, key: 'E3', duration: 0.25 },
-    ], 'LoopScoring');
+  test('activating a loop in LEARN mode disables scoring; in PLAY mode scoring stays on', async ({
+    page,
+  }) => {
+    const song = makeSong(
+      [
+        { time: 1.0, key: 'C3', duration: 0.25 },
+        { time: 3.0, key: 'E3', duration: 0.25 },
+      ],
+      'LoopScoring',
+    );
     await bootGame(page, song);
     const result = await page.evaluate(async () => {
       const game = (window as any)._testGame;
@@ -433,10 +464,13 @@ test.describe('Loops - Game.seekTo & loop wrap', () => {
   });
 
   test('retry with an engaged chain keeps scoring disabled', async ({ page }) => {
-    const song = makeSong([
-      { time: 0.5, key: 'C3', duration: 0.25 },
-      { time: 5.0, key: 'E3', duration: 0.25 },
-    ], 'RetryLoopScoring');
+    const song = makeSong(
+      [
+        { time: 0.5, key: 'C3', duration: 0.25 },
+        { time: 5.0, key: 'E3', duration: 0.25 },
+      ],
+      'RetryLoopScoring',
+    );
     await bootGame(page, song);
     const result = await page.evaluate(async () => {
       const game = (window as any)._testGame;
@@ -458,9 +492,7 @@ test.describe('Loops - Game.seekTo & loop wrap', () => {
   });
 
   test('retry without a loop leaves scoring enabled', async ({ page }) => {
-    const song = makeSong([
-      { time: 0.5, key: 'C3', duration: 0.25 },
-    ], 'RetryNoLoopScoring');
+    const song = makeSong([{ time: 0.5, key: 'C3', duration: 0.25 }], 'RetryNoLoopScoring');
     await bootGame(page, song);
     const result = await page.evaluate(async () => {
       const game = (window as any)._testGame;
@@ -474,11 +506,14 @@ test.describe('Loops - Game.seekTo & loop wrap', () => {
   });
 
   test('retry with an engaged chain restarts at the first loop (with buffer)', async ({ page }) => {
-    const song = makeSong([
-      { time: 0.5, key: 'C3', duration: 0.25 },
-      { time: 5.0, key: 'E3', duration: 0.25 },
-      { time: 8.0, key: 'G3', duration: 0.25 },
-    ], 'RetryLoop');
+    const song = makeSong(
+      [
+        { time: 0.5, key: 'C3', duration: 0.25 },
+        { time: 5.0, key: 'E3', duration: 0.25 },
+        { time: 8.0, key: 'G3', duration: 0.25 },
+      ],
+      'RetryLoop',
+    );
     await bootGame(page, song);
     const result = await page.evaluate(async () => {
       const game = (window as any)._testGame;
@@ -512,12 +547,17 @@ test.describe('Loops - Game.seekTo & loop wrap', () => {
     expect(result.currentTime).toBeGreaterThan(3.0);
   });
 
-  test('retry re-engages the chain at the first loop even when it was disengaged', async ({ page }) => {
-    const song = makeSong([
-      { time: 0.5, key: 'C3', duration: 0.25 },
-      { time: 5.0, key: 'E3', duration: 0.25 },
-      { time: 8.0, key: 'G3', duration: 0.25 },
-    ], 'RetryStored');
+  test('retry re-engages the chain at the first loop even when it was disengaged', async ({
+    page,
+  }) => {
+    const song = makeSong(
+      [
+        { time: 0.5, key: 'C3', duration: 0.25 },
+        { time: 5.0, key: 'E3', duration: 0.25 },
+        { time: 8.0, key: 'G3', duration: 0.25 },
+      ],
+      'RetryStored',
+    );
     await bootGame(page, song);
     const result = await page.evaluate(async () => {
       const game = (window as any)._testGame;
@@ -546,10 +586,13 @@ test.describe('Loops - Game.seekTo & loop wrap', () => {
   });
 
   test('retry with saved-but-all-disabled loops does not engage the chain', async ({ page }) => {
-    const song = makeSong([
-      { time: 0.5, key: 'C3', duration: 0.25 },
-      { time: 5.0, key: 'E3', duration: 0.25 },
-    ], 'RetryAllDisabled');
+    const song = makeSong(
+      [
+        { time: 0.5, key: 'C3', duration: 0.25 },
+        { time: 5.0, key: 'E3', duration: 0.25 },
+      ],
+      'RetryAllDisabled',
+    );
     await bootGame(page, song);
     const result = await page.evaluate(async () => {
       const game = (window as any)._testGame;
@@ -573,11 +616,16 @@ test.describe('Loops - Game.seekTo & loop wrap', () => {
     expect(result.currentTime).toBeLessThan(1.0);
   });
 
-  test('retry in PLAY mode does not re-engage the chain even when loops are enabled', async ({ page }) => {
-    const song = makeSong([
-      { time: 0.5, key: 'C3', duration: 0.25 },
-      { time: 5.0, key: 'E3', duration: 0.25 },
-    ], 'RetryPlayMode');
+  test('retry in PLAY mode does not re-engage the chain even when loops are enabled', async ({
+    page,
+  }) => {
+    const song = makeSong(
+      [
+        { time: 0.5, key: 'C3', duration: 0.25 },
+        { time: 5.0, key: 'E3', duration: 0.25 },
+      ],
+      'RetryPlayMode',
+    );
     await bootGame(page, song);
     const result = await page.evaluate(async () => {
       const game = (window as any)._testGame;
@@ -603,10 +651,13 @@ test.describe('Loops - Game.seekTo & loop wrap', () => {
   });
 
   test('retry without any saved loop starts at the song beginning', async ({ page }) => {
-    const song = makeSong([
-      { time: 0.5, key: 'C3', duration: 0.25 },
-      { time: 5.0, key: 'E3', duration: 0.25 },
-    ], 'RetryNoLoop');
+    const song = makeSong(
+      [
+        { time: 0.5, key: 'C3', duration: 0.25 },
+        { time: 5.0, key: 'E3', duration: 0.25 },
+      ],
+      'RetryNoLoop',
+    );
     await bootGame(page, song);
     const result = await page.evaluate(async () => {
       const game = (window as any)._testGame;
@@ -629,12 +680,17 @@ test.describe('Loops - Game.seekTo & loop wrap', () => {
 // -- Chain (multiple saved loops) tests --------------------------------------
 
 test.describe('Loops - chain', () => {
-  test('game.start engages the chain when loops were loaded and seeks to first loop', async ({ page }) => {
-    const song = makeSong([
-      { time: 0.5, key: 'C3', duration: 0.25 },
-      { time: 5.0, key: 'E3', duration: 0.25 },
-      { time: 8.0, key: 'G3', duration: 0.25 },
-    ], 'ChainStart');
+  test('game.start engages the chain when loops were loaded and seeks to first loop', async ({
+    page,
+  }) => {
+    const song = makeSong(
+      [
+        { time: 0.5, key: 'C3', duration: 0.25 },
+        { time: 5.0, key: 'E3', duration: 0.25 },
+        { time: 8.0, key: 'G3', duration: 0.25 },
+      ],
+      'ChainStart',
+    );
     await bootGame(page, song, {
       learningMode: true,
       loops: [{ id: 1, startTime: 5.0, endTime: 8.0, enabled: true }],
@@ -660,14 +716,19 @@ test.describe('Loops - chain', () => {
     expect(result.currentTime).toBeGreaterThan(3.0);
   });
 
-  test('chain advances through multiple loops in time order and wraps back to the first', async ({ page }) => {
-    const song = makeSong([
-      { time: 0.5, key: 'C3', duration: 0.25 },
-      { time: 2.0, key: 'E3', duration: 0.25 },
-      { time: 6.0, key: 'G3', duration: 0.25 },
-      { time: 8.0, key: 'A3', duration: 0.25 },
-      { time: 11.0, key: 'C4', duration: 0.25 },
-    ], 'ChainAdvance');
+  test('chain advances through multiple loops in time order and wraps back to the first', async ({
+    page,
+  }) => {
+    const song = makeSong(
+      [
+        { time: 0.5, key: 'C3', duration: 0.25 },
+        { time: 2.0, key: 'E3', duration: 0.25 },
+        { time: 6.0, key: 'G3', duration: 0.25 },
+        { time: 8.0, key: 'A3', duration: 0.25 },
+        { time: 11.0, key: 'C4', duration: 0.25 },
+      ],
+      'ChainAdvance',
+    );
     await bootGame(page, song);
     const result = await page.evaluate(async () => {
       const game = (window as any)._testGame;
@@ -716,12 +777,15 @@ test.describe('Loops - chain', () => {
   });
 
   test('adjacent loops transition seamlessly without a buffer', async ({ page }) => {
-    const song = makeSong([
-      { time: 0.5, key: 'C3', duration: 0.25 },
-      { time: 2.0, key: 'E3', duration: 0.25 },
-      { time: 3.5, key: 'G3', duration: 0.25 },
-      { time: 5.0, key: 'A3', duration: 0.25 },
-    ], 'AdjacentLoops');
+    const song = makeSong(
+      [
+        { time: 0.5, key: 'C3', duration: 0.25 },
+        { time: 2.0, key: 'E3', duration: 0.25 },
+        { time: 3.5, key: 'G3', duration: 0.25 },
+        { time: 5.0, key: 'A3', duration: 0.25 },
+      ],
+      'AdjacentLoops',
+    );
     await bootGame(page, song);
     const result = await page.evaluate(async () => {
       const game = (window as any)._testGame;
@@ -756,10 +820,13 @@ test.describe('Loops - chain', () => {
   });
 
   test('zero enabled loops means no chaining and normal play (completion)', async ({ page }) => {
-    const song = makeSong([
-      { time: 0.5, key: 'C3', duration: 0.25 },
-      { time: 1.0, key: 'E3', duration: 0.25 },
-    ], 'ZeroLoops');
+    const song = makeSong(
+      [
+        { time: 0.5, key: 'C3', duration: 0.25 },
+        { time: 1.0, key: 'E3', duration: 0.25 },
+      ],
+      'ZeroLoops',
+    );
     await bootGame(page, song);
     const result = await page.evaluate(async () => {
       const game = (window as any)._testGame;
@@ -822,7 +889,9 @@ test.describe('Loops - UI', () => {
     await expectLoopStatus(page, 'Click start note');
   });
 
-  test('clear all loops button resets draft status to "No loops" without a confirmation', async ({ page }) => {
+  test('clear all loops button resets draft status to "No loops" without a confirmation', async ({
+    page,
+  }) => {
     await startGame(page);
     await page.locator(DEFINE_LOOP_BTN).click();
     await page.locator(ADD_LOOP_BTN).click();
@@ -832,7 +901,9 @@ test.describe('Loops - UI', () => {
     await expect(page.locator(CLEAR_LOOPS_POPUP)).toBeHidden();
   });
 
-  test('clear all loops button requires confirmation and removes saved loops from the UI and the database', async ({ page }) => {
+  test('clear all loops button requires confirmation and removes saved loops from the UI and the database', async ({
+    page,
+  }) => {
     await startGame(page, {
       keepSong: true,
       notes: [
@@ -899,7 +970,7 @@ test.describe('Loops - UI', () => {
 
     const rect = await page.locator(SHEET_CANVAS).boundingBox();
     expect(rect).not.toBeNull();
-    const clickX = rect!.x + rect!.width * 0.40;
+    const clickX = rect!.x + rect!.width * 0.4;
     const clickY = rect!.y + 120;
     await page.mouse.click(clickX, clickY);
 
@@ -908,7 +979,9 @@ test.describe('Loops - UI', () => {
     await expect(page.locator(SHEET_PAGE_INFO)).toContainText('2 /');
   });
 
-  test('clicking a note on the game-screen sheet seeks the game without opening the full sheet', async ({ page }) => {
+  test('clicking a note on the game-screen sheet seeks the game without opening the full sheet', async ({
+    page,
+  }) => {
     await startGame(page);
     await closeSongInfoPopup(page);
     await page.waitForFunction(() => {
@@ -931,7 +1004,9 @@ test.describe('Loops - UI', () => {
     expect(state.currentTime).toBeGreaterThanOrEqual(target.time);
   });
 
-  test('hovering a note on the game-screen sheet shows its time and hides it off-note', async ({ page }) => {
+  test('hovering a note on the game-screen sheet shows its time and hides it off-note', async ({
+    page,
+  }) => {
     await startGame(page);
     await closeSongInfoPopup(page);
     await page.waitForFunction(() => {
@@ -948,8 +1023,12 @@ test.describe('Loops - UI', () => {
     });
     const tooltip = page.locator('.pixel-tooltip');
     const m = Math.floor(target.time / 60);
-    const sec = Math.floor(target.time % 60).toString().padStart(2, '0');
-    const ms = Math.round((target.time % 1) * 1000).toString().padStart(3, '0');
+    const sec = Math.floor(target.time % 60)
+      .toString()
+      .padStart(2, '0');
+    const ms = Math.round((target.time % 1) * 1000)
+      .toString()
+      .padStart(3, '0');
 
     await page.mouse.move(target.x, target.y);
     await expect(tooltip).toBeVisible();
@@ -968,7 +1047,7 @@ test.describe('Loops - UI', () => {
     await expect(page.locator(SHEET_PAGE_INFO)).toContainText('2 /');
 
     const rect = await page.locator(SHEET_CANVAS).boundingBox();
-    await page.mouse.move(rect!.x + rect!.width * 0.40, rect!.y + 120);
+    await page.mouse.move(rect!.x + rect!.width * 0.4, rect!.y + 120);
     await expect(page.locator('.pixel-tooltip')).toBeVisible();
     await expect(page.locator('.pixel-tooltip')).toHaveText(/^\d+:\d{2}\.\d{3}$/);
   });
@@ -996,7 +1075,9 @@ test.describe('Loops - UI', () => {
     expect(after).toBe(before);
   });
 
-  test('next sheet page does not retain the previous page loop overlay or highlighted notes', async ({ page }) => {
+  test('next sheet page does not retain the previous page loop overlay or highlighted notes', async ({
+    page,
+  }) => {
     const notes: Array<{ time: number; key: string; duration: number }> = [];
     const keys = ['C4', 'D4', 'E4', 'F4', 'G4', 'A4', 'B4', 'C5'];
 
@@ -1126,7 +1207,9 @@ test.describe('Loops - UI', () => {
     expect(loops[0].endTime).toBeCloseTo(5.0);
   });
 
-  test('extend button grows the earlier loop onto the next note between loops, even when already played', async ({ page }) => {
+  test('extend button grows the earlier loop onto the next note between loops, even when already played', async ({
+    page,
+  }) => {
     await startGame(page, {
       keepSong: true,
       songTitle: 'ExtendLoopBetween',
@@ -1222,7 +1305,9 @@ test.describe('Loops - end-to-end restart', () => {
     await expectLoopStatus(page, '1/2·Loop 0:03-0:07');
   });
 
-  test('clicking restart with 1 enabled loop seeks to the loop start, not the song beginning', async ({ page }) => {
+  test('clicking restart with 1 enabled loop seeks to the loop start, not the song beginning', async ({
+    page,
+  }) => {
     await startGame(page, {
       keepSong: true,
       songTitle: 'RestartOneLoop',
@@ -1262,7 +1347,9 @@ test.describe('Loops - end-to-end restart', () => {
 
 // -- e2e: toggle enabled via panel then restart ------------------------------
 test.describe('Loops - end-to-end toggle + restart', () => {
-  test('toggling saved loops ON via the panel then clicking restart seeks to the first loop', async ({ page }) => {
+  test('toggling saved loops ON via the panel then clicking restart seeks to the first loop', async ({
+    page,
+  }) => {
     await startGame(page, {
       keepSong: true,
       songTitle: 'ToggleRestart',
@@ -1300,13 +1387,18 @@ test.describe('Loops - end-to-end toggle + restart', () => {
 
 // -- e2e: create loop via define flow, then restart ----------------------------
 test.describe('Loops - end-to-end create + restart', () => {
-  test('loop created via setBoundary + addSavedLoop re-engages on retry and slots into start order', async ({ page }) => {
-    const song = makeSong([
-      { time: 0.5, key: 'C3', duration: 0.25 },
-      { time: 3.0, key: 'E3', duration: 0.25 },
-      { time: 8.0, key: 'G3', duration: 0.25 },
-      { time: 12.0, key: 'A3', duration: 0.25 },
-    ], 'CreateRestart');
+  test('loop created via setBoundary + addSavedLoop re-engages on retry and slots into start order', async ({
+    page,
+  }) => {
+    const song = makeSong(
+      [
+        { time: 0.5, key: 'C3', duration: 0.25 },
+        { time: 3.0, key: 'E3', duration: 0.25 },
+        { time: 8.0, key: 'G3', duration: 0.25 },
+        { time: 12.0, key: 'A3', duration: 0.25 },
+      ],
+      'CreateRestart',
+    );
     await bootGame(page, song);
     const result = await page.evaluate(async () => {
       const game = (window as any)._testGame;

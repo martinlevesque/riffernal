@@ -2,9 +2,9 @@
 // windows, and combo/accuracy tracking.
 
 export enum NoteGrade {
-  PERFECT = "PERFECT",
-  GREAT = "GREAT",
-  GOOD = "GOOD",
+  PERFECT = 'PERFECT',
+  GREAT = 'GREAT',
+  GOOD = 'GOOD',
 }
 
 export const TIMING: Record<NoteGrade, number> = {
@@ -34,7 +34,7 @@ export const WRONG_PRESS_PENALTY = 50;
 // Minimum hold ratio for a failing note to emit a satisfying particle burst at its end
 export const SUCCESS_PARTICLE_HOLD_RATIO = 0.75;
 
-export const SCORE_VALUES: Record<NoteGrade | "MISS", number> = {
+export const SCORE_VALUES: Record<NoteGrade | 'MISS', number> = {
   [NoteGrade.PERFECT]: 300,
   [NoteGrade.GREAT]: 200,
   [NoteGrade.GOOD]: 100,
@@ -63,7 +63,7 @@ export const GRADE_THRESHOLDS = {
 export type OffsetDirection = 'early' | 'late' | 'on time' | 'mixed';
 
 export function gradeLabel(grade: NoteGrade): string {
-  if (grade === NoteGrade.GOOD) return "Good!";
+  if (grade === NoteGrade.GOOD) return 'Good!';
   return grade.charAt(0) + grade.slice(1).toLowerCase();
 }
 
@@ -94,11 +94,11 @@ export function accuracyWeight(grade: NoteGrade): number {
 }
 
 export function letterGrade(accuracy: number): Grade {
-  if (accuracy >= GRADE_THRESHOLDS.S) return { grade: "S", class: "grade-s" };
-  if (accuracy >= GRADE_THRESHOLDS.A) return { grade: "A", class: "grade-a" };
-  if (accuracy >= GRADE_THRESHOLDS.B) return { grade: "B", class: "grade-b" };
-  if (accuracy >= GRADE_THRESHOLDS.C) return { grade: "C", class: "grade-c" };
-  return { grade: "D", class: "grade-d" };
+  if (accuracy >= GRADE_THRESHOLDS.S) return { grade: 'S', class: 'grade-s' };
+  if (accuracy >= GRADE_THRESHOLDS.A) return { grade: 'A', class: 'grade-a' };
+  if (accuracy >= GRADE_THRESHOLDS.B) return { grade: 'B', class: 'grade-b' };
+  if (accuracy >= GRADE_THRESHOLDS.C) return { grade: 'C', class: 'grade-c' };
+  return { grade: 'D', class: 'grade-d' };
 }
 
 export interface Grade {
@@ -186,11 +186,7 @@ export class Scoring {
     return this._totalOffsetMs > 0 ? 'late' : 'early';
   }
 
-  finalizeNote(
-    grade: NoteGrade | null,
-    heldRatio: number,
-    earlyMultiplier = 1,
-  ): number {
+  finalizeNote(grade: NoteGrade | null, heldRatio: number, earlyMultiplier = 1): number {
     if (grade === null || heldRatio <= 0) {
       this.resetCombo();
       if (this.enabled) {
@@ -227,10 +223,6 @@ export class Scoring {
       this.goods * accuracyWeight(NoteGrade.GOOD) +
       this.failureWeight;
     return Math.round((weighted / total) * 10) / 10;
-  }
-
-  get totalResolvedNotes(): number {
-    return this.perfects + this.greats + this.goods + this.misses + this.failures;
   }
 
   getGrade(): Grade {

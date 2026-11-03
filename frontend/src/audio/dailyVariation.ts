@@ -106,11 +106,7 @@ export function deriveDailyVariation(salt: string, day: number): DayVariation {
 
   const draw = (): DayFactor => {
     const octave = drawOctave(prng);
-    const semitones = clamp(
-      daySemitones + octave,
-      DAY_MIN_SEMITONES,
-      DAY_MAX_SEMITONES,
-    );
+    const semitones = clamp(daySemitones + octave, DAY_MIN_SEMITONES, DAY_MAX_SEMITONES);
 
     return {
       pitch: semitonesToPitch(semitones),

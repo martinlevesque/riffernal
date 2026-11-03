@@ -15,14 +15,30 @@ function buildDistortion(ctx: AudioContext, amount: number, lowEnd: boolean): Au
   return ws;
 }
 
-function isKick(midi: number): boolean { return midi === 35 || midi === 36; }
-function isSnare(midi: number): boolean { return midi === 38 || midi === 40 || midi === 37; }
-function isClosedHH(midi: number): boolean { return midi === 42 || midi === 44; }
-function isOpenHH(midi: number): boolean { return midi === 46; }
-function isTom(midi: number): boolean { return (midi >= 41 && midi <= 48) || (midi >= 50 && midi <= 51); }
-function isCymbal(midi: number): boolean { return midi === 49 || midi === 52 || midi === 55 || midi === 57; }
-function isClap(midi: number): boolean { return midi === 39; }
-function isRide(midi: number): boolean { return midi === 51 || midi === 53 || midi === 59; }
+function isKick(midi: number): boolean {
+  return midi === 35 || midi === 36;
+}
+function isSnare(midi: number): boolean {
+  return midi === 38 || midi === 40 || midi === 37;
+}
+function isClosedHH(midi: number): boolean {
+  return midi === 42 || midi === 44;
+}
+function isOpenHH(midi: number): boolean {
+  return midi === 46;
+}
+function isTom(midi: number): boolean {
+  return (midi >= 41 && midi <= 48) || (midi >= 50 && midi <= 51);
+}
+function isCymbal(midi: number): boolean {
+  return midi === 49 || midi === 52 || midi === 55 || midi === 57;
+}
+function isClap(midi: number): boolean {
+  return midi === 39;
+}
+function isRide(midi: number): boolean {
+  return midi === 51 || midi === 53 || midi === 59;
+}
 
 const _noiseBufferCache = new WeakMap<AudioContext, Map<number, AudioBuffer>>();
 
@@ -46,7 +62,10 @@ function _getNoiseBuffer(ctx: AudioContext, duration: number): AudioBuffer {
   return buffer;
 }
 
-function buildNoise(ctx: AudioContext, duration: number): { source: AudioBufferSourceNode; output: GainNode } {
+function buildNoise(
+  ctx: AudioContext,
+  duration: number,
+): { source: AudioBufferSourceNode; output: GainNode } {
   const buffer = _getNoiseBuffer(ctx, duration);
   const source = ctx.createBufferSource();
   source.buffer = buffer;
@@ -54,7 +73,6 @@ function buildNoise(ctx: AudioContext, duration: number): { source: AudioBufferS
   source.connect(output);
   return { source, output };
 }
-
 
 function buildKick(ctx: AudioContext, _freq: number, startTime: number): PatchNote {
   const lowEnd = isLowEndDevice();
@@ -117,9 +135,22 @@ function buildKick(ctx: AudioContext, _freq: number, startTime: number): PatchNo
   cleanupOnEnded(sources, chain);
 
   if (lowEnd) {
-    return { output: dist, release(_ctx, t) { clickOsc.stop(t + 0.01); subOsc.stop(t + 0.01); } };
+    return {
+      output: dist,
+      release(_ctx, t) {
+        clickOsc.stop(t + 0.01);
+        subOsc.stop(t + 0.01);
+      },
+    };
   }
-  return { output: dist, release(_ctx, t) { clickOsc.stop(t + 0.01); subOsc.stop(t + 0.01); harmOsc!.stop(t + 0.01); } };
+  return {
+    output: dist,
+    release(_ctx, t) {
+      clickOsc.stop(t + 0.01);
+      subOsc.stop(t + 0.01);
+      harmOsc!.stop(t + 0.01);
+    },
+  };
 }
 
 function buildSnare(ctx: AudioContext, _freq: number, startTime: number): PatchNote {
@@ -192,9 +223,20 @@ function buildSnare(ctx: AudioContext, _freq: number, startTime: number): PatchN
   cleanupOnEnded(sources, chain);
 
   if (lowEnd) {
-    return { output: dist, release(_ctx, t) { bodyOsc.stop(t + 0.01); } };
+    return {
+      output: dist,
+      release(_ctx, t) {
+        bodyOsc.stop(t + 0.01);
+      },
+    };
   }
-  return { output: dist, release(_ctx, t) { bodyOsc.stop(t + 0.01); ringOsc!.stop(t + 0.01); } };
+  return {
+    output: dist,
+    release(_ctx, t) {
+      bodyOsc.stop(t + 0.01);
+      ringOsc!.stop(t + 0.01);
+    },
+  };
 }
 
 function buildHH(ctx: AudioContext, _freq: number, startTime: number, open: boolean): PatchNote {
@@ -255,7 +297,13 @@ function buildTom(ctx: AudioContext, freq: number, startTime: number): PatchNote
   clickGain.connect(merger);
   cleanupOnEnded([osc, clickOsc], [osc, clickOsc, gain, clickGain, merger]);
 
-  return { output: merger, release(_ctx, t) { osc.stop(t + 0.01); clickOsc.stop(t + 0.01); } };
+  return {
+    output: merger,
+    release(_ctx, t) {
+      osc.stop(t + 0.01);
+      clickOsc.stop(t + 0.01);
+    },
+  };
 }
 
 function buildCymbal(ctx: AudioContext, _freq: number, startTime: number): PatchNote {
@@ -371,7 +419,12 @@ function buildRide(ctx: AudioContext, _freq: number, startTime: number): PatchNo
   if (lowEnd) {
     return { output: merger, release() {} };
   }
-  return { output: merger, release(_ctx, t) { pingOsc!.stop(t + 0.01); } };
+  return {
+    output: merger,
+    release(_ctx, t) {
+      pingOsc!.stop(t + 0.01);
+    },
+  };
 }
 
 function buildPerc(ctx: AudioContext, freq: number, startTime: number): PatchNote {
@@ -386,7 +439,12 @@ function buildPerc(ctx: AudioContext, freq: number, startTime: number): PatchNot
   osc.stop(startTime + 0.15);
   cleanupOnEnded([osc], [osc, gain]);
 
-  return { output: gain, release(_ctx, t) { osc.stop(t + 0.01); } };
+  return {
+    output: gain,
+    release(_ctx, t) {
+      osc.stop(t + 0.01);
+    },
+  };
 }
 
 export const drumPatch: Patch = {

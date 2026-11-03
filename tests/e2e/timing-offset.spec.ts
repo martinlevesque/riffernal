@@ -32,7 +32,7 @@ async function waitForFreeze(page: Page, label: string): Promise<void> {
 
 /** Read the "N ms late" value from the hit feedback, 0 when absent. */
 async function readLateMs(page: Page): Promise<number> {
-  const text = await page.locator(FEEDBACK).textContent() ?? '';
+  const text = (await page.locator(FEEDBACK).textContent()) ?? '';
   return Number(text.match(/(\d+) ms late/)?.[1] ?? 0);
 }
 
@@ -153,10 +153,12 @@ test.describe('Timing feedback in play mode', () => {
   });
 
   test('hit shows grade but no per-note offset', async ({ page }) => {
-    await startGame(page, { notes: [
-      { time: 1.5, key: 'C3', duration: 0.4 },
-      { time: 10.0, key: 'E3', duration: 0.4 },
-    ] });
+    await startGame(page, {
+      notes: [
+        { time: 1.5, key: 'C3', duration: 0.4 },
+        { time: 10.0, key: 'E3', duration: 0.4 },
+      ],
+    });
     await expectPlayScreenActive(page);
 
     // The note reaches the hit zone around the "0:01" display tick; press
@@ -166,7 +168,7 @@ test.describe('Timing feedback in play mode', () => {
     let hitFeedback = '';
     for (let i = 0; i < 8; i++) {
       await page.keyboard.press('KeyA');
-      const fb = await page.locator(FEEDBACK).textContent() ?? '';
+      const fb = (await page.locator(FEEDBACK).textContent()) ?? '';
       if (/Perfect|Great|Good/.test(fb)) {
         hitFeedback = fb;
         break;

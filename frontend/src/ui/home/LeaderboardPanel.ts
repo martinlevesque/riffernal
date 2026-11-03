@@ -32,7 +32,9 @@ export class LeaderboardPanel {
       .map((e) => {
         const isYou = me != null && e.userId === me.id;
         const songLabel = e.lastSong
-          ? (e.lastSongArtist ? `${e.lastSongArtist} — ${e.lastSong}` : e.lastSong)
+          ? e.lastSongArtist
+            ? `${e.lastSongArtist} — ${e.lastSong}`
+            : e.lastSong
           : null;
         const userCell =
           this._escapeHtml(e.username) +

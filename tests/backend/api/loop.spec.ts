@@ -1,5 +1,11 @@
-import { test, expect, type APIRequestContext } from "@playwright/test";
-import { wipeDatabase, seedSong, deleteSong, authHeaders, authJsonHeaders } from "../../helpers/index.js";
+import { test, expect, type APIRequestContext } from '@playwright/test';
+import {
+  wipeDatabase,
+  seedSong,
+  deleteSong,
+  authHeaders,
+  authJsonHeaders,
+} from '../../helpers/index.js';
 
 test.beforeEach(async ({ request }: { request: APIRequestContext }) => {
   await wipeDatabase(request);
@@ -10,9 +16,9 @@ async function seed(request: APIRequestContext, title: string): Promise<number> 
   return id;
 }
 
-test.describe("API: loops persistence", () => {
-  test("GET /api/songs/:id/loops returns [] for a song with no loops", async ({ request }) => {
-    const songId = await seed(request, "Loops-Empty");
+test.describe('API: loops persistence', () => {
+  test('GET /api/songs/:id/loops returns [] for a song with no loops', async ({ request }) => {
+    const songId = await seed(request, 'Loops-Empty');
     const headers = await authHeaders(request);
     const res = await request.get(`/api/songs/${songId}/loops`, { headers });
     expect(res.ok()).toBeTruthy();
@@ -20,8 +26,10 @@ test.describe("API: loops persistence", () => {
     await deleteSong(request, songId);
   });
 
-  test("POST /api/songs/:id/loops persists a loop and returns the DTO with id", async ({ request }) => {
-    const songId = await seed(request, "Loops-Create");
+  test('POST /api/songs/:id/loops persists a loop and returns the DTO with id', async ({
+    request,
+  }) => {
+    const songId = await seed(request, 'Loops-Create');
     const jsonHeaders = await authJsonHeaders(request);
     const res = await request.post(`/api/songs/${songId}/loops`, {
       data: { startTime: 1.5, endTime: 4.25, enabled: true },
@@ -42,8 +50,8 @@ test.describe("API: loops persistence", () => {
     await deleteSong(request, songId);
   });
 
-  test("loop boundaries are validated (startTime < endTime, non-negative)", async ({ request }) => {
-    const songId = await seed(request, "Loops-Validate");
+  test('loop boundaries are validated (startTime < endTime, non-negative)', async ({ request }) => {
+    const songId = await seed(request, 'Loops-Validate');
     const jsonHeaders = await authJsonHeaders(request);
     for (const bad of [
       { startTime: 5, endTime: 5, enabled: true },
@@ -60,8 +68,8 @@ test.describe("API: loops persistence", () => {
     await deleteSong(request, songId);
   });
 
-  test("POST defaults `enabled` to true when omitted", async ({ request }) => {
-    const songId = await seed(request, "Loops-Default");
+  test('POST defaults `enabled` to true when omitted', async ({ request }) => {
+    const songId = await seed(request, 'Loops-Default');
     const jsonHeaders = await authJsonHeaders(request);
     const res = await request.post(`/api/songs/${songId}/loops`, {
       data: { startTime: 1, endTime: 2 },
@@ -72,8 +80,8 @@ test.describe("API: loops persistence", () => {
     await deleteSong(request, songId);
   });
 
-  test("PATCH /api/loops/:id toggles the enabled flag", async ({ request }) => {
-    const songId = await seed(request, "Loops-Patch");
+  test('PATCH /api/loops/:id toggles the enabled flag', async ({ request }) => {
+    const songId = await seed(request, 'Loops-Patch');
     const jsonHeaders = await authJsonHeaders(request);
     const createRes = await request.post(`/api/songs/${songId}/loops`, {
       data: { startTime: 1, endTime: 3, enabled: true },
@@ -96,34 +104,34 @@ test.describe("API: loops persistence", () => {
     await deleteSong(request, songId);
   });
 
-  test("POST returns name null for a fresh loop and PATCH names it", async ({ request }) => {
-    const songId = await seed(request, "Loops-Rename");
+  test('POST returns name null for a fresh loop and PATCH names it', async ({ request }) => {
+    const songId = await seed(request, 'Loops-Rename');
     const jsonHeaders = await authJsonHeaders(request);
-    const created = await (
+    const created = (await (
       await request.post(`/api/songs/${songId}/loops`, {
         data: { startTime: 1, endTime: 3, enabled: true },
         headers: jsonHeaders,
       })
-    ).json() as { id: number; name: null };
+    ).json()) as { id: number; name: null };
     expect(created.name).toBeNull();
 
     const patchRes = await request.patch(`/api/loops/${created.id}`, {
-      data: { name: "Solo" },
+      data: { name: 'Solo' },
       headers: jsonHeaders,
     });
     expect(patchRes.status()).toBe(200);
-    expect((await patchRes.json()).name).toBe("Solo");
+    expect((await patchRes.json()).name).toBe('Solo');
 
     const headers = await authHeaders(request);
-    const list = await (
-      await request.get(`/api/songs/${songId}/loops`, { headers })
-    ).json();
-    expect((list as Array<{ id: number; name: null }>).map((l) => l.name)).toEqual(["Solo"]);
+    const list = await (await request.get(`/api/songs/${songId}/loops`, { headers })).json();
+    expect((list as Array<{ id: number; name: null }>).map((l) => l.name)).toEqual(['Solo']);
     await deleteSong(request, songId);
   });
 
-  test("PATCH /api/loops/:id names are trimmed, capped and emptied to null", async ({ request }) => {
-    const songId = await seed(request, "Loops-Name-Validate");
+  test('PATCH /api/loops/:id names are trimmed, capped and emptied to null', async ({
+    request,
+  }) => {
+    const songId = await seed(request, 'Loops-Name-Validate');
     const jsonHeaders = await authJsonHeaders(request);
     const created = await (
       await request.post(`/api/songs/${songId}/loops`, {
@@ -132,7 +140,7 @@ test.describe("API: loops persistence", () => {
       })
     ).json();
 
-    const pad = (n: number) => "x".repeat(n);
+    const pad = (n: number) => 'x'.repeat(n);
 
     const res = await request.patch(`/api/loops/${created.id}`, {
       data: { name: `  ${pad(80)}  ` },
@@ -142,16 +150,16 @@ test.describe("API: loops persistence", () => {
     expect((await res.json()).name).toBe(pad(64));
 
     const cleared = await request.patch(`/api/loops/${created.id}`, {
-      data: { name: "   " },
+      data: { name: '   ' },
       headers: jsonHeaders,
     });
     expect((await cleared.json()).name).toBeNull();
 
     const clearedByNull = await request.patch(`/api/loops/${created.id}`, {
-      data: { name: "named" },
+      data: { name: 'named' },
       headers: jsonHeaders,
     });
-    expect((await clearedByNull.json()).name).toBe("named");
+    expect((await clearedByNull.json()).name).toBe('named');
     const cleared2 = await request.patch(`/api/loops/${created.id}`, {
       data: { name: null },
       headers: jsonHeaders,
@@ -160,8 +168,10 @@ test.describe("API: loops persistence", () => {
     await deleteSong(request, songId);
   });
 
-  test("PATCH /api/loops/:id rejects a non-string non-null name without applying", async ({ request }) => {
-    const songId = await seed(request, "Loops-Name-Type");
+  test('PATCH /api/loops/:id rejects a non-string non-null name without applying', async ({
+    request,
+  }) => {
+    const songId = await seed(request, 'Loops-Name-Type');
     const jsonHeaders = await authJsonHeaders(request);
     const created = await (
       await request.post(`/api/songs/${songId}/loops`, {
@@ -177,15 +187,13 @@ test.describe("API: loops persistence", () => {
     expect(res.status()).toBe(400);
 
     const headers = await authHeaders(request);
-    const list = await (
-      await request.get(`/api/songs/${songId}/loops`, { headers })
-    ).json();
+    const list = await (await request.get(`/api/songs/${songId}/loops`, { headers })).json();
     expect((list as Array<{ id: number; name: null }>).map((l) => l.name)).toEqual([null]);
     await deleteSong(request, songId);
   });
 
-  test("DELETE /api/loops/:id removes the loop", async ({ request }) => {
-    const songId = await seed(request, "Loops-Delete");
+  test('DELETE /api/loops/:id removes the loop', async ({ request }) => {
+    const songId = await seed(request, 'Loops-Delete');
     const jsonHeaders = await authJsonHeaders(request);
     const createRes = await request.post(`/api/songs/${songId}/loops`, {
       data: { startTime: 1, endTime: 2, enabled: true },
@@ -202,23 +210,29 @@ test.describe("API: loops persistence", () => {
     await deleteSong(request, songId);
   });
 
-  test("GET / PATCH / DELETE on a missing loops id return 404", async ({ request }) => {
+  test('GET / PATCH / DELETE on a missing loops id return 404', async ({ request }) => {
     const headers = await authHeaders(request);
-    const delRes = await request.delete("/api/loops/999999", { headers });
+    const delRes = await request.delete('/api/loops/999999', { headers });
     expect(delRes.status()).toBe(404);
     const jsonHeaders = await authJsonHeaders(request);
-    const patchRes = await request.patch("/api/loops/999999", {
+    const patchRes = await request.patch('/api/loops/999999', {
       data: { enabled: false },
       headers: jsonHeaders,
     });
     expect(patchRes.status()).toBe(404);
   });
 
-  test("loops are returned ordered by start_time ascending, ties by id", async ({ request }) => {
-    const songId = await seed(request, "Loops-Order");
+  test('loops are returned ordered by start_time ascending, ties by id', async ({ request }) => {
+    const songId = await seed(request, 'Loops-Order');
     const jsonHeaders = await authJsonHeaders(request);
     const createdIds: number[] = [];
-    for (const [s, e] of [[7, 9] as const, [1, 3] as const, [4, 6] as const, [2, 3] as const, [2, 6] as const]) {
+    for (const [s, e] of [
+      [7, 9] as const,
+      [1, 3] as const,
+      [4, 6] as const,
+      [2, 3] as const,
+      [2, 6] as const,
+    ]) {
       const res = await request.post(`/api/songs/${songId}/loops`, {
         data: { startTime: s, endTime: e, enabled: true },
         headers: jsonHeaders,
@@ -235,15 +249,17 @@ test.describe("API: loops persistence", () => {
     await deleteSong(request, songId);
   });
 
-  test("deleting a song cascades to its loops", async ({ request }) => {
-    const songId = await seed(request, "Loops-Cascade");
+  test('deleting a song cascades to its loops', async ({ request }) => {
+    const songId = await seed(request, 'Loops-Cascade');
     const jsonHeaders = await authJsonHeaders(request);
     await request.post(`/api/songs/${songId}/loops`, {
       data: { startTime: 1, endTime: 2, enabled: true },
       headers: jsonHeaders,
     });
     const headers = await authHeaders(request);
-    const beforeDelete = await (await request.get(`/api/songs/${songId}/loops`, { headers })).json();
+    const beforeDelete = await (
+      await request.get(`/api/songs/${songId}/loops`, { headers })
+    ).json();
     expect(beforeDelete).toHaveLength(1);
     await deleteSong(request, songId);
     const res = await request.get(`/api/songs/${songId}/loops`, { headers });

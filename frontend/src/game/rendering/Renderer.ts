@@ -1,7 +1,16 @@
 // Main canvas renderer: highway, notes, sheet music, particles,
 // and playback cursor. Delegates piano rendering to PianoRenderer.
 
-import { NOTE_NAMES, getPianoKeyLayout, WHITE_KEY_COUNT, handColor, HandSide, NOTE_SHORT_NAMES, whiteKeyWidth, countWhiteKeysInRange } from '../../utils/notes.js';
+import {
+  NOTE_NAMES,
+  getPianoKeyLayout,
+  WHITE_KEY_COUNT,
+  handColor,
+  HandSide,
+  NOTE_SHORT_NAMES,
+  whiteKeyWidth,
+  countWhiteKeysInRange,
+} from '../../utils/notes.js';
 import type { VisibleRange } from '../../utils/notes.js';
 import { HIT_ZONE_Y_RATIO } from '../NoteManager.js';
 import { LoopDefinitionState } from '../Loop.js';
@@ -29,51 +38,188 @@ export const CLEF_TYPES = {
 } as const;
 
 export const BASS_STAFF_POSITIONS: Record<string, number> = {
-  'A0': -12, 'A#0': -12, 'B0': -11,
-  'C1': -10, 'C#1': -10, 'D1': -9, 'D#1': -9, 'E1': -8, 'F1': -7, 'F#1': -7,
-  'G1': -6, 'G#1': -6, 'A1': -5, 'A#1': -5, 'B1': -4,
-  'C2': -3, 'C#2': -3, 'D2': -2, 'D#2': -2, 'E2': -1, 'F2': 0, 'F#2': 0,
-  'G2': 1, 'G#2': 1, 'A2': 2, 'A#2': 2, 'B2': 3,
-  'C3': 4, 'C#3': 4, 'D3': 5, 'D#3': 5, 'E3': 6, 'F3': 7, 'F#3': 7,
-  'G3': 8, 'G#3': 8, 'A3': 9, 'A#3': 9, 'B3': 10,
+  A0: -12,
+  'A#0': -12,
+  B0: -11,
+  C1: -10,
+  'C#1': -10,
+  D1: -9,
+  'D#1': -9,
+  E1: -8,
+  F1: -7,
+  'F#1': -7,
+  G1: -6,
+  'G#1': -6,
+  A1: -5,
+  'A#1': -5,
+  B1: -4,
+  C2: -3,
+  'C#2': -3,
+  D2: -2,
+  'D#2': -2,
+  E2: -1,
+  F2: 0,
+  'F#2': 0,
+  G2: 1,
+  'G#2': 1,
+  A2: 2,
+  'A#2': 2,
+  B2: 3,
+  C3: 4,
+  'C#3': 4,
+  D3: 5,
+  'D#3': 5,
+  E3: 6,
+  F3: 7,
+  'F#3': 7,
+  G3: 8,
+  'G#3': 8,
+  A3: 9,
+  'A#3': 9,
+  B3: 10,
 };
 
 export const TREBLE_STAFF_POSITIONS: Record<string, number> = {
-  'C4': 1, 'C#4': 1, 'D4': 2, 'D#4': 2, 'E4': 3, 'F4': 4, 'F#4': 4,
-  'G4': 5, 'G#4': 5, 'A4': 6, 'A#4': 6, 'B4': 7,
-  'C5': 8, 'C#5': 8, 'D5': 9, 'D#5': 9, 'E5': 10, 'F5': 11, 'F#5': 11,
-  'G5': 12, 'G#5': 12, 'A5': 13, 'A#5': 13, 'B5': 14,
-  'C6': 15, 'C#6': 15, 'D6': 16, 'D#6': 16, 'E6': 17, 'F6': 18, 'F#6': 18,
-  'G6': 19, 'G#6': 19, 'A6': 20, 'A#6': 20, 'B6': 21,
-  'C7': 22, 'C#7': 22, 'D7': 23, 'D#7': 23, 'E7': 24, 'F7': 25, 'F#7': 25,
-  'G7': 26, 'G#7': 26, 'A7': 27, 'A#7': 27, 'B7': 28,
-  'C8': 29,
+  C4: 1,
+  'C#4': 1,
+  D4: 2,
+  'D#4': 2,
+  E4: 3,
+  F4: 4,
+  'F#4': 4,
+  G4: 5,
+  'G#4': 5,
+  A4: 6,
+  'A#4': 6,
+  B4: 7,
+  C5: 8,
+  'C#5': 8,
+  D5: 9,
+  'D#5': 9,
+  E5: 10,
+  F5: 11,
+  'F#5': 11,
+  G5: 12,
+  'G#5': 12,
+  A5: 13,
+  'A#5': 13,
+  B5: 14,
+  C6: 15,
+  'C#6': 15,
+  D6: 16,
+  'D#6': 16,
+  E6: 17,
+  F6: 18,
+  'F#6': 18,
+  G6: 19,
+  'G#6': 19,
+  A6: 20,
+  'A#6': 20,
+  B6: 21,
+  C7: 22,
+  'C#7': 22,
+  D7: 23,
+  'D#7': 23,
+  E7: 24,
+  F7: 25,
+  'F#7': 25,
+  G7: 26,
+  'G#7': 26,
+  A7: 27,
+  'A#7': 27,
+  B7: 28,
+  C8: 29,
 };
 
 export const NOTE_TO_CLEF: Record<string, string> = {
-  'A0': CLEF_TYPES.BASS, 'A#0': CLEF_TYPES.BASS, 'B0': CLEF_TYPES.BASS,
-  'C1': CLEF_TYPES.BASS, 'C#1': CLEF_TYPES.BASS, 'D1': CLEF_TYPES.BASS, 'D#1': CLEF_TYPES.BASS,
-  'E1': CLEF_TYPES.BASS, 'F1': CLEF_TYPES.BASS, 'F#1': CLEF_TYPES.BASS, 'G1': CLEF_TYPES.BASS,
-  'G#1': CLEF_TYPES.BASS, 'A1': CLEF_TYPES.BASS, 'A#1': CLEF_TYPES.BASS, 'B1': CLEF_TYPES.BASS,
-  'C2': CLEF_TYPES.BASS, 'C#2': CLEF_TYPES.BASS, 'D2': CLEF_TYPES.BASS, 'D#2': CLEF_TYPES.BASS,
-  'E2': CLEF_TYPES.BASS, 'F2': CLEF_TYPES.BASS, 'F#2': CLEF_TYPES.BASS, 'G2': CLEF_TYPES.BASS,
-  'G#2': CLEF_TYPES.BASS, 'A2': CLEF_TYPES.BASS, 'A#2': CLEF_TYPES.BASS, 'B2': CLEF_TYPES.BASS,
-  'C3': CLEF_TYPES.BASS, 'C#3': CLEF_TYPES.BASS, 'D3': CLEF_TYPES.BASS, 'D#3': CLEF_TYPES.BASS,
-  'E3': CLEF_TYPES.BASS, 'F3': CLEF_TYPES.BASS, 'F#3': CLEF_TYPES.BASS, 'G3': CLEF_TYPES.BASS,
-  'G#3': CLEF_TYPES.BASS, 'A3': CLEF_TYPES.BASS, 'A#3': CLEF_TYPES.BASS, 'B3': CLEF_TYPES.BASS,
-  'C4': CLEF_TYPES.TREBLE, 'C#4': CLEF_TYPES.TREBLE, 'D4': CLEF_TYPES.TREBLE, 'D#4': CLEF_TYPES.TREBLE,
-  'E4': CLEF_TYPES.TREBLE, 'F4': CLEF_TYPES.TREBLE, 'F#4': CLEF_TYPES.TREBLE, 'G4': CLEF_TYPES.TREBLE,
-  'G#4': CLEF_TYPES.TREBLE, 'A4': CLEF_TYPES.TREBLE, 'A#4': CLEF_TYPES.TREBLE, 'B4': CLEF_TYPES.TREBLE,
-  'C5': CLEF_TYPES.TREBLE, 'C#5': CLEF_TYPES.TREBLE, 'D5': CLEF_TYPES.TREBLE, 'D#5': CLEF_TYPES.TREBLE,
-  'E5': CLEF_TYPES.TREBLE, 'F5': CLEF_TYPES.TREBLE, 'F#5': CLEF_TYPES.TREBLE, 'G5': CLEF_TYPES.TREBLE,
-  'G#5': CLEF_TYPES.TREBLE, 'A5': CLEF_TYPES.TREBLE, 'A#5': CLEF_TYPES.TREBLE, 'B5': CLEF_TYPES.TREBLE,
-  'C6': CLEF_TYPES.TREBLE, 'C#6': CLEF_TYPES.TREBLE, 'D6': CLEF_TYPES.TREBLE, 'D#6': CLEF_TYPES.TREBLE,
-  'E6': CLEF_TYPES.TREBLE, 'F6': CLEF_TYPES.TREBLE, 'F#6': CLEF_TYPES.TREBLE, 'G6': CLEF_TYPES.TREBLE,
-  'G#6': CLEF_TYPES.TREBLE, 'A6': CLEF_TYPES.TREBLE, 'A#6': CLEF_TYPES.TREBLE, 'B6': CLEF_TYPES.TREBLE,
-  'C7': CLEF_TYPES.TREBLE, 'C#7': CLEF_TYPES.TREBLE, 'D7': CLEF_TYPES.TREBLE, 'D#7': CLEF_TYPES.TREBLE,
-  'E7': CLEF_TYPES.TREBLE, 'F7': CLEF_TYPES.TREBLE, 'F#7': CLEF_TYPES.TREBLE, 'G7': CLEF_TYPES.TREBLE,
-  'G#7': CLEF_TYPES.TREBLE, 'A7': CLEF_TYPES.TREBLE, 'A#7': CLEF_TYPES.TREBLE, 'B7': CLEF_TYPES.TREBLE,
-  'C8': CLEF_TYPES.TREBLE,
+  A0: CLEF_TYPES.BASS,
+  'A#0': CLEF_TYPES.BASS,
+  B0: CLEF_TYPES.BASS,
+  C1: CLEF_TYPES.BASS,
+  'C#1': CLEF_TYPES.BASS,
+  D1: CLEF_TYPES.BASS,
+  'D#1': CLEF_TYPES.BASS,
+  E1: CLEF_TYPES.BASS,
+  F1: CLEF_TYPES.BASS,
+  'F#1': CLEF_TYPES.BASS,
+  G1: CLEF_TYPES.BASS,
+  'G#1': CLEF_TYPES.BASS,
+  A1: CLEF_TYPES.BASS,
+  'A#1': CLEF_TYPES.BASS,
+  B1: CLEF_TYPES.BASS,
+  C2: CLEF_TYPES.BASS,
+  'C#2': CLEF_TYPES.BASS,
+  D2: CLEF_TYPES.BASS,
+  'D#2': CLEF_TYPES.BASS,
+  E2: CLEF_TYPES.BASS,
+  F2: CLEF_TYPES.BASS,
+  'F#2': CLEF_TYPES.BASS,
+  G2: CLEF_TYPES.BASS,
+  'G#2': CLEF_TYPES.BASS,
+  A2: CLEF_TYPES.BASS,
+  'A#2': CLEF_TYPES.BASS,
+  B2: CLEF_TYPES.BASS,
+  C3: CLEF_TYPES.BASS,
+  'C#3': CLEF_TYPES.BASS,
+  D3: CLEF_TYPES.BASS,
+  'D#3': CLEF_TYPES.BASS,
+  E3: CLEF_TYPES.BASS,
+  F3: CLEF_TYPES.BASS,
+  'F#3': CLEF_TYPES.BASS,
+  G3: CLEF_TYPES.BASS,
+  'G#3': CLEF_TYPES.BASS,
+  A3: CLEF_TYPES.BASS,
+  'A#3': CLEF_TYPES.BASS,
+  B3: CLEF_TYPES.BASS,
+  C4: CLEF_TYPES.TREBLE,
+  'C#4': CLEF_TYPES.TREBLE,
+  D4: CLEF_TYPES.TREBLE,
+  'D#4': CLEF_TYPES.TREBLE,
+  E4: CLEF_TYPES.TREBLE,
+  F4: CLEF_TYPES.TREBLE,
+  'F#4': CLEF_TYPES.TREBLE,
+  G4: CLEF_TYPES.TREBLE,
+  'G#4': CLEF_TYPES.TREBLE,
+  A4: CLEF_TYPES.TREBLE,
+  'A#4': CLEF_TYPES.TREBLE,
+  B4: CLEF_TYPES.TREBLE,
+  C5: CLEF_TYPES.TREBLE,
+  'C#5': CLEF_TYPES.TREBLE,
+  D5: CLEF_TYPES.TREBLE,
+  'D#5': CLEF_TYPES.TREBLE,
+  E5: CLEF_TYPES.TREBLE,
+  F5: CLEF_TYPES.TREBLE,
+  'F#5': CLEF_TYPES.TREBLE,
+  G5: CLEF_TYPES.TREBLE,
+  'G#5': CLEF_TYPES.TREBLE,
+  A5: CLEF_TYPES.TREBLE,
+  'A#5': CLEF_TYPES.TREBLE,
+  B5: CLEF_TYPES.TREBLE,
+  C6: CLEF_TYPES.TREBLE,
+  'C#6': CLEF_TYPES.TREBLE,
+  D6: CLEF_TYPES.TREBLE,
+  'D#6': CLEF_TYPES.TREBLE,
+  E6: CLEF_TYPES.TREBLE,
+  F6: CLEF_TYPES.TREBLE,
+  'F#6': CLEF_TYPES.TREBLE,
+  G6: CLEF_TYPES.TREBLE,
+  'G#6': CLEF_TYPES.TREBLE,
+  A6: CLEF_TYPES.TREBLE,
+  'A#6': CLEF_TYPES.TREBLE,
+  B6: CLEF_TYPES.TREBLE,
+  C7: CLEF_TYPES.TREBLE,
+  'C#7': CLEF_TYPES.TREBLE,
+  D7: CLEF_TYPES.TREBLE,
+  'D#7': CLEF_TYPES.TREBLE,
+  E7: CLEF_TYPES.TREBLE,
+  F7: CLEF_TYPES.TREBLE,
+  'F#7': CLEF_TYPES.TREBLE,
+  G7: CLEF_TYPES.TREBLE,
+  'G#7': CLEF_TYPES.TREBLE,
+  A7: CLEF_TYPES.TREBLE,
+  'A#7': CLEF_TYPES.TREBLE,
+  B7: CLEF_TYPES.TREBLE,
+  C8: CLEF_TYPES.TREBLE,
 };
 
 export interface Particle {
@@ -86,7 +232,11 @@ export interface Particle {
   life: number;
 }
 
-interface RGB { r: number; g: number; b: number; }
+interface RGB {
+  r: number;
+  g: number;
+  b: number;
+}
 
 interface GrindBeam {
   lane: number;
@@ -114,7 +264,14 @@ function pixelSnap(v: number, unit: number): number {
   return Math.round(v / unit) * unit;
 }
 
-function pixelRect(ctx: CanvasRenderingContext2D, x: number, y: number, w: number, h: number, unit: number): void {
+function pixelRect(
+  ctx: CanvasRenderingContext2D,
+  x: number,
+  y: number,
+  w: number,
+  h: number,
+  unit: number,
+): void {
   x = pixelSnap(x, unit);
   y = pixelSnap(y, unit);
   w = Math.max(unit, pixelSnap(w, unit));
@@ -125,7 +282,17 @@ function pixelRect(ctx: CanvasRenderingContext2D, x: number, y: number, w: numbe
 // Block with a hard border, drawn as two rects so the outline is
 // `borderUnit` thick on every side. Position snaps to `snapUnit`, kept
 // separate from the border thickness.
-function pixelBox(ctx: CanvasRenderingContext2D, x: number, y: number, w: number, h: number, snapUnit: number, borderUnit: number, borderColor: string, fillColor: string): void {
+function pixelBox(
+  ctx: CanvasRenderingContext2D,
+  x: number,
+  y: number,
+  w: number,
+  h: number,
+  snapUnit: number,
+  borderUnit: number,
+  borderColor: string,
+  fillColor: string,
+): void {
   ctx.fillStyle = borderColor;
   pixelRect(ctx, x - borderUnit, y - borderUnit, w + borderUnit * 2, h + borderUnit * 2, snapUnit);
   ctx.fillStyle = fillColor;
@@ -134,10 +301,10 @@ function pixelBox(ctx: CanvasRenderingContext2D, x: number, y: number, w: number
 
 const SHEET_NOTE_POSITIONS: Record<string, number> = Object.assign(
   Object.fromEntries(Object.entries(BASS_STAFF_POSITIONS).map(([k, v]) => [k, v - 3])),
-  TREBLE_STAFF_POSITIONS
+  TREBLE_STAFF_POSITIONS,
 );
 
-const TAIL_HIGHLIGHT_ALPHA = 0.10;
+const TAIL_HIGHLIGHT_ALPHA = 0.1;
 const HEAD_HIGHLIGHT_ALPHA = 0.28;
 
 const GRIND_FLASH_MS = 320;
@@ -194,7 +361,10 @@ export class Renderer {
   particles: Particle[] = [];
   private _grindBeams = new Map<number, GrindBeam>();
   private _grindFlashes: GrindFlash[] = [];
-  private _glowGradCache = new Map<number, { top: number; bottom: number; rgb: RGB; intensity: number; grad: CanvasGradient }>();
+  private _glowGradCache = new Map<
+    number,
+    { top: number; bottom: number; rgb: RGB; intensity: number; grad: CanvasGradient }
+  >();
   sheetBottom = 0;
   sheetScale = 1.0;
   sheetBarX = 0;
@@ -247,7 +417,11 @@ export class Renderer {
     this._now = nowMs;
   }
 
-  drawHighway(_scrollOffset: number, pressedLanes: Map<number, number>, visibleRange?: VisibleRange | null): void {
+  drawHighway(
+    _scrollOffset: number,
+    pressedLanes: Map<number, number>,
+    visibleRange?: VisibleRange | null,
+  ): void {
     const ctx = this.ctx;
     const c = themeManager.canvas;
     const hitZoneY = this.height * HIT_ZONE_Y_RATIO;
@@ -261,9 +435,7 @@ export class Renderer {
     ctx.strokeStyle = c.highwayLane;
     ctx.lineWidth = 1;
     ctx.beginPath();
-    const laneCount = visibleRange
-      ? countWhiteKeysInRange(visibleRange)
-      : WHITE_KEY_COUNT;
+    const laneCount = visibleRange ? countWhiteKeysInRange(visibleRange) : WHITE_KEY_COUNT;
     for (let i = 1; i < laneCount; i++) {
       const x = i * keyWidth;
       ctx.moveTo(x, highwayTop);
@@ -271,7 +443,7 @@ export class Renderer {
     }
     ctx.stroke();
 
-    const sheetBottom = this.sheetBottom > 0 ? this.sheetBottom : 0;
+    const sheetBottom = Math.max(this.sheetBottom, 0);
     const glowTop = Math.max(sheetBottom, hitZoneY - LANE_GLOW_HEIGHT);
 
     if (pressedLanes.size > 0) {
@@ -334,11 +506,24 @@ export class Renderer {
     return this._rgba(this._parseRgb(color), alpha);
   }
 
-  private _laneGlowGrad(lane: number, color: string, top: number, bottom: number, intensity: number): CanvasGradient {
+  private _laneGlowGrad(
+    lane: number,
+    color: string,
+    top: number,
+    bottom: number,
+    intensity: number,
+  ): CanvasGradient {
     const rgb = this._parseRgb(color);
     const entry = this._glowGradCache.get(lane);
-    if (entry && entry.top === top && entry.bottom === bottom && entry.intensity === intensity
-        && entry.rgb.r === rgb.r && entry.rgb.g === rgb.g && entry.rgb.b === rgb.b) {
+    if (
+      entry &&
+      entry.top === top &&
+      entry.bottom === bottom &&
+      entry.intensity === intensity &&
+      entry.rgb.r === rgb.r &&
+      entry.rgb.g === rgb.g &&
+      entry.rgb.b === rgb.b
+    ) {
       return entry.grad;
     }
     const grad = this.ctx.createLinearGradient(0, top, 0, bottom);
@@ -349,7 +534,14 @@ export class Renderer {
   }
 
   drawHitZone(pressedLanes: Map<number, number>, visibleRange?: VisibleRange | null): void {
-    this.piano.drawHitZone(this.ctx, this.width, this.height, pressedLanes, visibleRange, this._now);
+    this.piano.drawHitZone(
+      this.ctx,
+      this.width,
+      this.height,
+      pressedLanes,
+      visibleRange,
+      this._now,
+    );
   }
 
   drawPiano(pressedLanes: Map<number, number>, visibleRange?: VisibleRange | null): void {
@@ -377,8 +569,18 @@ export class Renderer {
     return { x, y };
   }
 
-  private _noteLayout(laneIndex: number, y: number, noteHeight: number, noteName?: string, visibleRange?: VisibleRange | null): NoteLayout {
-    const layout = getPianoKeyLayout(noteName ?? NOTE_NAMES[laneIndex] ?? 'C4', this.width, visibleRange);
+  private _noteLayout(
+    laneIndex: number,
+    y: number,
+    noteHeight: number,
+    noteName?: string,
+    visibleRange?: VisibleRange | null,
+  ): NoteLayout {
+    const layout = getPianoKeyLayout(
+      noteName ?? NOTE_NAMES[laneIndex] ?? 'C4',
+      this.width,
+      visibleRange,
+    );
     const keyWidth = layout.width;
     const centerX = layout.x + keyWidth / 2;
 
@@ -413,11 +615,32 @@ export class Renderer {
     };
   }
 
-  private _drawNotePart(ctx: CanvasRenderingContext2D, drawX: number, drawY: number, w: number, h: number, snapUnit: number, borderUnit: number, fillColor: string, borderColor: string): void {
+  private _drawNotePart(
+    ctx: CanvasRenderingContext2D,
+    drawX: number,
+    drawY: number,
+    w: number,
+    h: number,
+    snapUnit: number,
+    borderUnit: number,
+    fillColor: string,
+    borderColor: string,
+  ): void {
     pixelBox(ctx, drawX, drawY, w, h, snapUnit, borderUnit, borderColor, fillColor);
   }
 
-  drawNote(laneIndex: number, y: number, noteHeight: number, color: string, alpha: number, _combo: number, noteName?: string, holding?: boolean, waiting?: boolean, visibleRange?: VisibleRange | null): void {
+  drawNote(
+    laneIndex: number,
+    y: number,
+    noteHeight: number,
+    color: string,
+    alpha: number,
+    _combo: number,
+    noteName?: string,
+    holding?: boolean,
+    waiting?: boolean,
+    visibleRange?: VisibleRange | null,
+  ): void {
     const ctx = this.ctx;
     const c = themeManager.canvas;
     const L = this._noteLayout(laneIndex, y, noteHeight, noteName, visibleRange);
@@ -430,16 +653,33 @@ export class Renderer {
     const borderUnit = NOTE_PIXEL;
 
     if (waiting) {
-      const pulse = 0.5 + 0.5 * Math.sin(this._now / 200 * 3.2);
+      const pulse = 0.5 + 0.5 * Math.sin((this._now / 200) * 3.2);
       const glowUnits = Math.max(borderUnit, pixelSnap(4 + pulse * 8, snapUnit));
       ctx.globalAlpha = alpha * 0.25;
       ctx.fillStyle = color;
-      pixelRect(ctx, L.drawX - glowUnits, L.drawY - glowUnits, L.scaledWidth + glowUnits * 2, L.scaledHeadHeight + L.scaledTailHeight + glowUnits * 2, snapUnit);
+      pixelRect(
+        ctx,
+        L.drawX - glowUnits,
+        L.drawY - glowUnits,
+        L.scaledWidth + glowUnits * 2,
+        L.scaledHeadHeight + L.scaledTailHeight + glowUnits * 2,
+        snapUnit,
+      );
       ctx.globalAlpha = alpha;
     }
 
     if (L.scaledTailHeight > 0.5) {
-      this._drawNotePart(ctx, L.drawX, L.drawY, L.scaledWidth, L.scaledTailHeight, snapUnit, borderUnit, color, borderColor);
+      this._drawNotePart(
+        ctx,
+        L.drawX,
+        L.drawY,
+        L.scaledWidth,
+        L.scaledTailHeight,
+        snapUnit,
+        borderUnit,
+        color,
+        borderColor,
+      );
       ctx.globalAlpha = alpha * TAIL_HIGHLIGHT_ALPHA;
       ctx.fillStyle = c.noteHighlight;
       pixelRect(ctx, L.drawX, L.drawY, L.scaledWidth, L.scaledTailHeight, snapUnit);
@@ -447,7 +687,17 @@ export class Renderer {
     }
 
     const headDrawY = L.drawY + L.scaledTailHeight;
-    this._drawNotePart(ctx, L.drawX, headDrawY, L.scaledWidth, L.scaledHeadHeight, snapUnit, borderUnit, color, borderColor);
+    this._drawNotePart(
+      ctx,
+      L.drawX,
+      headDrawY,
+      L.scaledWidth,
+      L.scaledHeadHeight,
+      snapUnit,
+      borderUnit,
+      color,
+      borderColor,
+    );
     ctx.globalAlpha = alpha * HEAD_HIGHLIGHT_ALPHA;
     ctx.fillStyle = c.noteHighlight;
     pixelRect(ctx, L.drawX, headDrawY, L.scaledWidth, L.scaledHeadHeight, snapUnit);
@@ -460,7 +710,14 @@ export class Renderer {
     }
 
     if (noteName) {
-      this._drawNoteBadge(ctx, noteName, L.drawX + L.scaledWidth / 2, headDrawY + L.scaledHeadHeight, color, L.baseWidth);
+      this._drawNoteBadge(
+        ctx,
+        noteName,
+        L.drawX + L.scaledWidth / 2,
+        headDrawY + L.scaledHeadHeight,
+        color,
+        L.baseWidth,
+      );
     }
 
     ctx.globalAlpha = 1;
@@ -472,11 +729,16 @@ export class Renderer {
    *  the name stays legible where the condensed VT323 would look small.
    *  The badge is its own box — dark fill, note-border color, white
    *  text. */
-  private _drawNoteBadge(ctx: CanvasRenderingContext2D, noteName: string, centerX: number, bottomY: number, borderColor: string, noteWidth: number): void {
+  private _drawNoteBadge(
+    ctx: CanvasRenderingContext2D,
+    noteName: string,
+    centerX: number,
+    bottomY: number,
+    borderColor: string,
+    noteWidth: number,
+  ): void {
     const shortName = NOTE_SHORT_NAMES[noteName] ?? noteName;
-    const fontSize = Math.round(
-      Math.min(Math.max(12, noteWidth * 0.55), 24),
-    );
+    const fontSize = Math.round(Math.min(Math.max(12, noteWidth * 0.55), 24));
     const ui = themeManager.fonts.ui;
     if (ui !== this._labelFontUi) {
       this._labelFontUi = ui;
@@ -534,7 +796,12 @@ export class Renderer {
     this._flameSprites = { outer: make(FLAME_COLORS), core: make(FLAME_CORE_COLORS) };
   }
 
-  private _drawFlame(ctx: CanvasRenderingContext2D, cx: number, baseY: number, width: number): void {
+  private _drawFlame(
+    ctx: CanvasRenderingContext2D,
+    cx: number,
+    baseY: number,
+    width: number,
+  ): void {
     this._ensureFlameSprites();
     const t = this._now / 1000;
     const pulse = 0.8 + 0.2 * Math.sin(t * 5);
@@ -571,7 +838,7 @@ export class Renderer {
   drawGrind(currentTime: number, visibleRange?: VisibleRange | null): void {
     const ctx = this.ctx;
     const hitZoneY = this.height * HIT_ZONE_Y_RATIO;
-    const sheetBottom = this.sheetBottom > 0 ? this.sheetBottom : 0;
+    const sheetBottom = Math.max(this.sheetBottom, 0);
 
     for (const [lane, beam] of this._grindBeams) {
       if (currentTime >= beam.endTime) {
@@ -581,9 +848,20 @@ export class Renderer {
       const noteName = NOTE_NAMES[lane];
       const layout = getPianoKeyLayout(noteName ?? 'C4', this.width, visibleRange);
       if (layout.width === 0) continue;
-      const beamEndY = Math.max(sheetBottom, hitZoneY - (beam.endTime - currentTime) * GRIND_BEAM_SCROLL_PX_PER_SEC);
+      const beamEndY = Math.max(
+        sheetBottom,
+        hitZoneY - (beam.endTime - currentTime) * GRIND_BEAM_SCROLL_PX_PER_SEC,
+      );
       const ramp = Math.min(1, (this._now - beam.startMs) / GRIND_BEAM_RAMP_MS);
-      this._drawGrindBeam(ctx, layout.x + layout.width / 2, hitZoneY, beamEndY, layout.width * 0.9, beam.rgb, ramp);
+      this._drawGrindBeam(
+        ctx,
+        layout.x + layout.width / 2,
+        hitZoneY,
+        beamEndY,
+        layout.width * 0.9,
+        beam.rgb,
+        ramp,
+      );
     }
 
     for (let i = this._grindFlashes.length - 1; i >= 0; i--) {
@@ -596,17 +874,39 @@ export class Renderer {
       const noteName = NOTE_NAMES[f.lane];
       const layout = getPianoKeyLayout(noteName ?? 'C4', this.width, visibleRange);
       if (layout.width === 0) continue;
-      this._drawGrindFlash(ctx, layout.x + layout.width / 2, hitZoneY, f.rgb, elapsed, layout.width * 0.9);
+      this._drawGrindFlash(
+        ctx,
+        layout.x + layout.width / 2,
+        hitZoneY,
+        f.rgb,
+        elapsed,
+        layout.width * 0.9,
+      );
     }
   }
 
-  private _jitterX(cx: number, halfW: number, sFreq: number, cFreq: number, i: number, phase: number): number {
+  private _jitterX(
+    cx: number,
+    halfW: number,
+    sFreq: number,
+    cFreq: number,
+    i: number,
+    phase: number,
+  ): number {
     const jitter = halfW * 2 * GRIND_JAGGER;
     const j = jitter * (Math.sin(sFreq + i * 1.7 + phase) + Math.cos(cFreq + i * 2.3 + phase));
     return cx + Math.max(-halfW + 2, Math.min(halfW - 2, j));
   }
 
-  private _drawGrindBeam(ctx: CanvasRenderingContext2D, cx: number, hitZoneY: number, beamTop: number, laneW: number, rgb: RGB, ramp: number): void {
+  private _drawGrindBeam(
+    ctx: CanvasRenderingContext2D,
+    cx: number,
+    hitZoneY: number,
+    beamTop: number,
+    laneW: number,
+    rgb: RGB,
+    ramp: number,
+  ): void {
     const t = this._now / 1000;
     const pulse = 0.7 + 0.3 * Math.sin(t * 12);
     const beamH = hitZoneY - beamTop;
@@ -625,7 +925,7 @@ export class Renderer {
     ctx.save();
     ctx.globalAlpha = intensity;
     ctx.strokeStyle = GRIND_HIGHLIGHT_COLOR;
-    ctx.lineWidth = Math.max(2, laneW * 0.10);
+    ctx.lineWidth = Math.max(2, laneW * 0.1);
     ctx.lineCap = 'round';
     ctx.lineJoin = 'round';
     if (!isLowEndDevice()) {
@@ -666,7 +966,14 @@ export class Renderer {
     }
   }
 
-  private _drawGrindFlash(ctx: CanvasRenderingContext2D, cx: number, hitZoneY: number, rgb: RGB, elapsed: number, laneW: number): void {
+  private _drawGrindFlash(
+    ctx: CanvasRenderingContext2D,
+    cx: number,
+    hitZoneY: number,
+    rgb: RGB,
+    elapsed: number,
+    laneW: number,
+  ): void {
     const p = elapsed / GRIND_FLASH_MS;
     const alpha = 1 - p;
     const streakH = p * GRIND_FLASH_HEIGHT;
@@ -682,7 +989,7 @@ export class Renderer {
     ctx.save();
     ctx.globalAlpha = alpha;
     ctx.strokeStyle = GRIND_HIGHLIGHT_COLOR;
-    ctx.lineWidth = Math.max(2, laneW * 0.10);
+    ctx.lineWidth = Math.max(2, laneW * 0.1);
     ctx.lineCap = 'round';
     ctx.lineJoin = 'round';
     if (!isLowEndDevice()) {
@@ -741,7 +1048,11 @@ export class Renderer {
   /** Time-sorted note closest to `t` across two sorted staff arrays.
    *  Binary search instead of a linear scan: the loop overlay calls this
    *  for every visible marker on every frame. */
-  private _nearestNoteAtTime(t: number, trebleNotes: SongNote[], bassNotes: SongNote[]): SongNote | null {
+  private _nearestNoteAtTime(
+    t: number,
+    trebleNotes: SongNote[],
+    bassNotes: SongNote[],
+  ): SongNote | null {
     let best: SongNote | null = null;
     let bestDiff = Infinity;
     for (const list of [trebleNotes, bassNotes]) {
@@ -758,7 +1069,15 @@ export class Renderer {
     return best;
   }
 
-  private _renderStaffCache(sheetTop: number, trebleTop: number, bassTop: number, staffLineSpacing: number, _clefW: number, margin: number, sheetBottom: number): void {
+  private _renderStaffCache(
+    sheetTop: number,
+    trebleTop: number,
+    bassTop: number,
+    staffLineSpacing: number,
+    _clefW: number,
+    margin: number,
+    sheetBottom: number,
+  ): void {
     const c = themeManager.canvas;
     const w = this.canvas.width;
     const h = sheetBottom;
@@ -812,7 +1131,7 @@ export class Renderer {
     bpm = 120,
     selectedLoop?: { startTime: number; endTime: number },
   ): void {
-    if (!trebleNotes.length && !bassNotes.length || songDuration <= 0) return;
+    if ((!trebleNotes.length && !bassNotes.length) || songDuration <= 0) return;
     const ctx = this.ctx;
     const sheetTop = SHEET_TOP_OFFSET;
     const staffLineSpacing = SHEET_STAFF_LINE_SPACING * this.sheetScale;
@@ -829,8 +1148,20 @@ export class Renderer {
     this.sheetBassTop = bassTop;
     this.sheetBassBottom = bassTop + staffH;
 
-    if (!this._staffCache || this._cachedStaffScale !== this.sheetScale || this._cachedStaffWidth !== this.width) {
-      this._renderStaffCache(sheetTop, trebleTop, bassTop, staffLineSpacing, clefW, margin, sheetBottom);
+    if (
+      !this._staffCache ||
+      this._cachedStaffScale !== this.sheetScale ||
+      this._cachedStaffWidth !== this.width
+    ) {
+      this._renderStaffCache(
+        sheetTop,
+        trebleTop,
+        bassTop,
+        staffLineSpacing,
+        clefW,
+        margin,
+        sheetBottom,
+      );
     }
     ctx.drawImage(this._staffCache!, 0, 0);
 
@@ -843,7 +1174,16 @@ export class Renderer {
     this.sheetViewStart = viewStart;
     this.sheetViewEnd = viewEnd;
 
-    const L: SheetLayout = { ctx, sheetTop, sheetBottom, barX, barW, viewStart, viewEnd, staffLineSpacing };
+    const L: SheetLayout = {
+      ctx,
+      sheetTop,
+      sheetBottom,
+      barX,
+      barW,
+      viewStart,
+      viewEnd,
+      staffLineSpacing,
+    };
 
     this._drawBeatLines(L, bpm);
     this._drawSheetNotes(trebleNotes, trebleTop, L);
@@ -937,7 +1277,12 @@ export class Renderer {
       const flagBaseY = noteY + stemDir * stemLen;
       ctx.beginPath();
       ctx.moveTo(stemX, flagBaseY);
-      ctx.quadraticCurveTo(stemX + 6 * this.sheetScale, flagBaseY + stemDir * 4 * this.sheetScale, stemX + 2 * this.sheetScale, flagBaseY + stemDir * 9 * this.sheetScale);
+      ctx.quadraticCurveTo(
+        stemX + 6 * this.sheetScale,
+        flagBaseY + stemDir * 4 * this.sheetScale,
+        stemX + 2 * this.sheetScale,
+        flagBaseY + stemDir * 9 * this.sheetScale,
+      );
       ctx.stroke();
     }
   }
@@ -951,12 +1296,14 @@ export class Renderer {
     }
   }
 
-  private _drawPlaybackCursor(L: SheetLayout, currentTime: number, viewWindow?: { start: number; end: number }): void {
+  private _drawPlaybackCursor(
+    L: SheetLayout,
+    currentTime: number,
+    viewWindow?: { start: number; end: number },
+  ): void {
     const { ctx, barX, barW, viewStart, viewEnd, sheetTop, sheetBottom } = L;
     const cursorColor = themeManager.canvas.playbackCursor;
-    const showCursor = viewWindow
-      ? currentTime >= viewStart && currentTime <= viewEnd
-      : true;
+    const showCursor = viewWindow ? currentTime >= viewStart && currentTime <= viewEnd : true;
     if (!showCursor) return;
     const cursorX = viewWindow
       ? barX + ((currentTime - viewStart) / (viewEnd - viewStart)) * barW
@@ -977,13 +1324,15 @@ export class Renderer {
 
   private _drawLoopRegion(
     L: SheetLayout,
-    loop: {
-      chain: ReadonlyArray<{ startTime: number; endTime: number }>;
-      currentIndex: number | null;
-      draftStart: number | null;
-      draftEnd: number | null;
-      defining: LoopDefinitionState;
-    } | undefined,
+    loop:
+      | {
+          chain: ReadonlyArray<{ startTime: number; endTime: number }>;
+          currentIndex: number | null;
+          draftStart: number | null;
+          draftEnd: number | null;
+          defining: LoopDefinitionState;
+        }
+      | undefined,
     trebleNotes: SongNote[],
     bassNotes: SongNote[],
     selectedLoop?: { startTime: number; endTime: number },

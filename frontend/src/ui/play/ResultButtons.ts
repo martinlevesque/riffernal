@@ -19,7 +19,14 @@ export interface ResultButtonsDeps {
 
 export class ResultButtons {
   constructor(game: Game, deps: ResultButtonsDeps) {
-    const { closeSongInfoPopup, closeSheetView, setMode, applyPracticeHandButtons, updateLoopUI, updatePauseBtn } = deps;
+    const {
+      closeSongInfoPopup,
+      closeSheetView,
+      setMode,
+      applyPracticeHandButtons,
+      updateLoopUI,
+      updatePauseBtn,
+    } = deps;
 
     const reset = () => {
       closeSongInfoPopup();

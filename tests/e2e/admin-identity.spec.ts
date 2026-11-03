@@ -39,11 +39,15 @@ test.describe('admin curation identity', () => {
     await item.waitFor({ timeout: 5000 });
     await item.locator('.song-actions-btn').click();
     await expect(
-      page.locator('.song-actions-menu:not(.hidden) .song-action-option', { hasText: 'Feature for guests' }),
+      page.locator('.song-actions-menu:not(.hidden) .song-action-option', {
+        hasText: 'Feature for guests',
+      }),
     ).toBeVisible();
   });
 
-  test('curation actions stay hidden when the server says the session is not admin', async ({ page }) => {
+  test('curation actions stay hidden when the server says the session is not admin', async ({
+    page,
+  }) => {
     const request = page.context().request;
     await wipeDatabase(request);
     await seedSong(request, 'Admin Identity Off');
@@ -56,10 +60,14 @@ test.describe('admin curation identity', () => {
     await item.waitFor({ timeout: 5000 });
     await item.locator('.song-actions-btn').click();
     await expect(
-      page.locator('.song-actions-menu:not(.hidden) .song-action-option', { hasText: 'Set difficulty' }),
+      page.locator('.song-actions-menu:not(.hidden) .song-action-option', {
+        hasText: 'Set difficulty',
+      }),
     ).toBeVisible();
     await expect(
-      page.locator('.song-actions-menu:not(.hidden) .song-action-option', { hasText: 'Feature for guests' }),
+      page.locator('.song-actions-menu:not(.hidden) .song-action-option', {
+        hasText: 'Feature for guests',
+      }),
     ).toHaveCount(0);
   });
 });

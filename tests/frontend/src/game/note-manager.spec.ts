@@ -6,7 +6,10 @@ import { makeSong } from '../../../helpers/song.js';
 
 // NoteManager only reads the note fields these tests exercise; the SongData
 // helper lacks TrackInfo extras that Song declares.
-const load = (nm: NoteManager, notes: Array<{ time: number; key: string; duration: number }>): void => {
+const load = (
+  nm: NoteManager,
+  notes: Array<{ time: number; key: string; duration: number }>,
+): void => {
   nm.loadSong(makeSong(notes) as any);
 };
 
@@ -48,13 +51,13 @@ test('recovered failing note does not double-record its offset', () => {
   const laneE = NOTE_TO_LANE.get('E3')!;
 
   nm.update(1.9, H);
-  nm.checkHit(1.9, laneC);        // fresh hit, offset -100ms
-  nm.checkRelease(2.05, laneC);   // drop early -> failing
+  nm.checkHit(1.9, laneC); // fresh hit, offset -100ms
+  nm.checkRelease(2.05, laneC); // drop early -> failing
   const recovered = nm.checkHit(2.2, laneC);
   expect(recovered).not.toBeNull();
 
   nm.update(4.95, H);
-  nm.checkHit(5.0, laneE);        // fresh hit, offset 0ms
+  nm.checkHit(5.0, laneE); // fresh hit, offset 0ms
 
   // Only the two fresh hits count: (100 + 0) / 2 = 50
   expect(nm.scoring.getAverageOffsetMs()).toBe(50);
@@ -381,14 +384,20 @@ const loadWithBg = (
 
 test('auto-play note is handed to the synth ahead of its due time, exactly once', () => {
   const nm = new NoteManager();
-  loadWithBg(nm, [
-    { time: 1.0, key: 'C3', duration: 0.25, track: 0 },
-    { time: 3.0, key: 'A2', duration: 0.25, track: 1 },
-  ], [1]);
+  loadWithBg(
+    nm,
+    [
+      { time: 1.0, key: 'C3', duration: 0.25, track: 0 },
+      { time: 3.0, key: 'A2', duration: 0.25, track: 1 },
+    ],
+    [1],
+  );
   const scheduled: SongNote[] = [];
   let firedOn = 0;
   nm.onAutoPlaySchedule = (n) => scheduled.push(n);
-  nm.onAutoPlayOn = () => { firedOn++; };
+  nm.onAutoPlayOn = () => {
+    firedOn++;
+  };
 
   nm.update(2.7, H); // 0.3s ahead: outside the schedule window
   expect(scheduled).toHaveLength(0);
@@ -412,10 +421,14 @@ test('auto-play note is handed to the synth ahead of its due time, exactly once'
 
 test('no schedule-ahead while learn-mode freeze holds the clock', () => {
   const nm = new NoteManager();
-  loadWithBg(nm, [
-    { time: 1.0, key: 'C3', duration: 0.25, track: 0 }, // left hand: the practiced hand
-    { time: 1.1, key: 'A2', duration: 0.25, track: 1 }, // background track
-  ], [1]);
+  loadWithBg(
+    nm,
+    [
+      { time: 1.0, key: 'C3', duration: 0.25, track: 0 }, // left hand: the practiced hand
+      { time: 1.1, key: 'A2', duration: 0.25, track: 1 }, // background track
+    ],
+    [1],
+  );
   nm.learningMode = true;
   nm.practiceHand = PracticeHand.Left;
   const scheduled: SongNote[] = [];
@@ -432,10 +445,14 @@ test('no schedule-ahead while learn-mode freeze holds the clock', () => {
 
 test('resetFromTime clears audioScheduled so a seek replays background notes', () => {
   const nm = new NoteManager();
-  loadWithBg(nm, [
-    { time: 1.0, key: 'C3', duration: 0.25, track: 0 },
-    { time: 3.0, key: 'A2', duration: 0.25, track: 1 },
-  ], [1]);
+  loadWithBg(
+    nm,
+    [
+      { time: 1.0, key: 'C3', duration: 0.25, track: 0 },
+      { time: 3.0, key: 'A2', duration: 0.25, track: 1 },
+    ],
+    [1],
+  );
   const scheduled: SongNote[] = [];
   nm.onAutoPlaySchedule = (n) => scheduled.push(n);
 

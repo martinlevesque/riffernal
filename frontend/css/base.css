@@ -106,7 +106,6 @@ body {
 }
 
 #results-screen.active {
-  background: rgba(10, 10, 10, 0.92);
   pointer-events: auto;
   align-items: center;
   justify-content: center;

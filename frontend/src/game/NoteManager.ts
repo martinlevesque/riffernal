@@ -9,9 +9,9 @@ import {
   handColor,
   HandSide,
   PracticeHand,
-} from "../utils/notes.js";
-import type { Song, Note } from "../utils/MidiParser.js";
-import type { Renderer } from "./rendering/Renderer.js";
+} from '../utils/notes.js';
+import type { Song, Note } from '../utils/MidiParser.js';
+import type { Renderer } from './rendering/Renderer.js';
 import {
   Scoring,
   TIMING,
@@ -21,7 +21,7 @@ import {
   LEARNING_CHORD_WINDOW,
   gradeFromDiff,
   NoteGrade,
-} from "./scoring.js";
+} from './scoring.js';
 
 export const SCROLL_SPEED = 400;
 
@@ -143,7 +143,7 @@ export class NoteManager {
           hit: false,
           missed: false,
           lane: NOTE_TO_LANE.get(n.key) ?? -1,
-          pitchClass: n.key.replace(/\d/g, ""),
+          pitchClass: n.key.replace(/\d/g, ''),
           holding: false,
           pressStartTime: 0,
           failing: false,
@@ -196,8 +196,7 @@ export class NoteManager {
 
   private _isAutoPlayNote(note: SongNote): boolean {
     if (!note.selected) return this.backgroundTracks.has(note.track);
-    if (!this.learningMode || this.practiceHand === PracticeHand.Both)
-      return false;
+    if (!this.learningMode || this.practiceHand === PracticeHand.Both) return false;
     const hand = note.hand;
     if (this.practiceHand === PracticeHand.Left) return hand === HandSide.Right;
     return hand === HandSide.Left;
@@ -267,10 +266,7 @@ export class NoteManager {
     }
     this.activeNotes = [];
     let firstUnresolved = 0;
-    while (
-      firstUnresolved < this.notes.length &&
-      this.notes[firstUnresolved].resolved
-    ) {
+    while (firstUnresolved < this.notes.length && this.notes[firstUnresolved].resolved) {
       firstUnresolved++;
     }
     this._nextNoteIndex = firstUnresolved;
@@ -285,11 +281,7 @@ export class NoteManager {
    *  notes, resolves completed holds and failures, marks missed notes,
    *  activates notes entering the hittable window, then prunes the active
    *  render list. */
-  update(
-    currentTime: number,
-    height: number,
-    loopEndCutoff: number | null = null,
-  ): void {
+  update(currentTime: number, height: number, loopEndCutoff: number | null = null): void {
     const hitZoneY = height * HIT_ZONE_Y_RATIO;
     const lookAhead = hitZoneY / SCROLL_SPEED;
 
@@ -299,10 +291,7 @@ export class NoteManager {
   }
 
   private _skipResolvedNotes(): void {
-    while (
-      this._nextNoteIndex < this.notes.length &&
-      this.notes[this._nextNoteIndex].resolved
-    ) {
+    while (this._nextNoteIndex < this.notes.length && this.notes[this._nextNoteIndex].resolved) {
       this._nextNoteIndex++;
     }
   }
@@ -322,12 +311,7 @@ export class NoteManager {
       // whose start is past the loop end. Notes are sorted by time, so once
       // one is past the cutoff every later note is too — break out. Notes
       // already holding/failing from inside the loop still drain below.
-      if (
-        loopEndCutoff !== null &&
-        note.time > loopEndCutoff &&
-        !note.holding &&
-        !note.failing
-      ) {
+      if (loopEndCutoff !== null && note.time > loopEndCutoff && !note.holding && !note.failing) {
         break;
       }
 
@@ -364,11 +348,7 @@ export class NoteManager {
   /** Auto-played notes (background tracks / non-practiced hand) resolve
    *  themselves on schedule. Returns true when the note was handled and the
    *  scan should move on. */
-  private _resolveAutoPlayNote(
-    note: SongNote,
-    timeDiff: number,
-    currentTime: number,
-  ): boolean {
+  private _resolveAutoPlayNote(note: SongNote, timeDiff: number, currentTime: number): boolean {
     if (!this._isAutoPlayNote(note) || note.autoPlayed) return false;
 
     // Hand the voice to the synth slightly before it is due, scheduled on
@@ -376,8 +356,7 @@ export class NoteManager {
     // scheduling must wait until the wait resolves to keep accompaniment in
     // sync with the player.
     const waitingFrozen =
-      this.learningMode && this._learningAnchor !== null
-      && currentTime === this._learningAnchor;
+      this.learningMode && this._learningAnchor !== null && currentTime === this._learningAnchor;
 
     if (!note.audioScheduled && !waitingFrozen && timeDiff <= AUTO_SCHEDULE_AHEAD) {
       note.audioScheduled = true;
@@ -406,10 +385,7 @@ export class NoteManager {
     const noteEnd = note.time + note.duration;
     const finalSegment = noteEnd - note.pressStartTime;
     note.accumulatedHeldDuration += Math.max(0, finalSegment);
-    note.accumulatedHeldDuration = Math.min(
-      note.accumulatedHeldDuration,
-      note.duration,
-    );
+    note.accumulatedHeldDuration = Math.min(note.accumulatedHeldDuration, note.duration);
     const cumulativeRatio = note.accumulatedHeldDuration / note.duration;
     note.hit = true;
     note.holding = false;
@@ -451,8 +427,7 @@ export class NoteManager {
         });
     } else {
       this.scoring.finalizeNote(null, 0);
-      if (this.onResolve)
-        this.onResolve({ note, score: 0, grade: null, offsetMs: 0 });
+      if (this.onResolve) this.onResolve({ note, score: 0, grade: null, offsetMs: 0 });
     }
   }
 
@@ -468,11 +443,7 @@ export class NoteManager {
     }
   }
 
-  private _activateNote(
-    note: SongNote,
-    timeDiff: number,
-    lookAhead: number,
-  ): void {
+  private _activateNote(note: SongNote, timeDiff: number, lookAhead: number): void {
     if (timeDiff > lookAhead || note.activated) return;
 
     note.activated = true;
@@ -482,11 +453,7 @@ export class NoteManager {
   }
 
   /** Drop resolved and fully-scrolled-off notes from the active render list. */
-  private _pruneActiveNotes(
-    currentTime: number,
-    hitZoneY: number,
-    height: number,
-  ): void {
+  private _pruneActiveNotes(currentTime: number, hitZoneY: number, height: number): void {
     let writeIdx = 0;
     for (let i = 0; i < this.activeNotes.length; i++) {
       const n = this.activeNotes[i];
@@ -511,10 +478,7 @@ export class NoteManager {
     const result =
       this._tryRecoverFailingNote(currentTime, lane, octaveAgnostic) ??
       this._tryNormalHit(currentTime, lane, octaveAgnostic, pressOffsetMs);
-    if (
-      result === null &&
-      !this.hasUnresolvedNoteInLane(lane, currentTime, octaveAgnostic)
-    ) {
+    if (result === null && !this.hasUnresolvedNoteInLane(lane, currentTime, octaveAgnostic)) {
       this.scoring.recordWrongPress();
     }
     return result;
@@ -523,12 +487,8 @@ export class NoteManager {
   /** Returns true if there is an unresolved note in the given lane within
    *  the hittable window of `currentTime`. Pressing a key for a note beyond
    *  that is a wrong key press. */
-  hasUnresolvedNoteInLane(
-    lane: number,
-    currentTime: number,
-    octaveAgnostic = false,
-  ): boolean {
-    const targetPitchClass = octaveAgnostic ? pitchClassForLane(lane) : "";
+  hasUnresolvedNoteInLane(lane: number, currentTime: number, octaveAgnostic = false): boolean {
+    const targetPitchClass = octaveAgnostic ? pitchClassForLane(lane) : '';
     return this.activeNotes.some(
       (n) =>
         this._noteMatchesLane(n, lane, octaveAgnostic, targetPitchClass) &&
@@ -542,20 +502,12 @@ export class NoteManager {
     note.pressStartTime = currentTime;
   }
 
-  private _resolveTapNote(
-    note: SongNote,
-    grade: NoteGrade,
-    ratio: number,
-  ): void {
+  private _resolveTapNote(note: SongNote, grade: NoteGrade, ratio: number): void {
     const clampedRatio = Math.max(0, Math.min(1, ratio));
     note.hit = true;
     note.holding = false;
     this._markResolved(note);
-    note.earnedScore = this.scoring.finalizeNote(
-      grade,
-      clampedRatio,
-      note.earlyMultiplier,
-    );
+    note.earnedScore = this.scoring.finalizeNote(grade, clampedRatio, note.earlyMultiplier);
     if (this.onResolve)
       this.onResolve({
         note,
@@ -570,11 +522,10 @@ export class NoteManager {
     lane: number,
     octaveAgnostic = false,
   ): HitResult | null {
-    const targetPitchClass = octaveAgnostic ? pitchClassForLane(lane) : "";
+    const targetPitchClass = octaveAgnostic ? pitchClassForLane(lane) : '';
     for (const note of this.activeNotes) {
       if (!note.failing || note.holding || note.resolved) continue;
-      if (!this._noteMatchesLane(note, lane, octaveAgnostic, targetPitchClass))
-        continue;
+      if (!this._noteMatchesLane(note, lane, octaveAgnostic, targetPitchClass)) continue;
 
       const noteEnd = note.time + note.duration;
       if (currentTime >= noteEnd) continue;
@@ -610,11 +561,7 @@ export class NoteManager {
       this._beginHold(note, currentTime);
 
       if (note.duration <= TAP_NOTE_THRESHOLD) {
-        this._resolveTapNote(
-          note,
-          grade,
-          (noteEnd - currentTime) / note.duration,
-        );
+        this._resolveTapNote(note, grade, (noteEnd - currentTime) / note.duration);
       }
 
       return { note, result: grade, offsetMs: note.hitOffsetMs };
@@ -631,12 +578,11 @@ export class NoteManager {
     let bestNote: SongNote | null = null;
     let bestDiff = Infinity;
     let isEarlyHit = false;
-    const targetPitchClass = octaveAgnostic ? pitchClassForLane(lane) : "";
+    const targetPitchClass = octaveAgnostic ? pitchClassForLane(lane) : '';
 
     for (const note of this.activeNotes) {
       if (note.hit || note.missed || note.holding || note.failing) continue;
-      if (!this._noteMatchesLane(note, lane, octaveAgnostic, targetPitchClass))
-        continue;
+      if (!this._noteMatchesLane(note, lane, octaveAgnostic, targetPitchClass)) continue;
       if (this._isAutoPlayNote(note)) continue;
       const diff = Math.abs(note.time - currentTime);
       const isEarly = currentTime < note.time;
@@ -656,8 +602,7 @@ export class NoteManager {
     this.scoring.recordNotePress();
     bestNote.grade = grade;
 
-    const offsetMs =
-      pressOffsetMs ?? Math.round((currentTime - bestNote.time) * 1000);
+    const offsetMs = pressOffsetMs ?? Math.round((currentTime - bestNote.time) * 1000);
     bestNote.hitOffsetMs = offsetMs;
     this.scoring.recordOffset(offsetMs);
 
@@ -670,18 +615,11 @@ export class NoteManager {
     return { note: bestNote, result: grade, offsetMs };
   }
 
-  checkRelease(
-    currentTime: number,
-    lane: number,
-    octaveAgnostic = false,
-  ): ReleaseResult | null {
+  checkRelease(currentTime: number, lane: number, octaveAgnostic = false): ReleaseResult | null {
     let holdingNote: SongNote | null = null;
-    const targetPitchClass = octaveAgnostic ? pitchClassForLane(lane) : "";
+    const targetPitchClass = octaveAgnostic ? pitchClassForLane(lane) : '';
     for (const note of this.activeNotes) {
-      if (
-        note.holding &&
-        this._noteMatchesLane(note, lane, octaveAgnostic, targetPitchClass)
-      ) {
+      if (note.holding && this._noteMatchesLane(note, lane, octaveAgnostic, targetPitchClass)) {
         if (note.autoPlayed) return null;
         holdingNote = note;
         break;
@@ -728,7 +666,7 @@ export class NoteManager {
   }
 
   private _isAutoPlayLane(lane: number, octaveAgnostic = false): boolean {
-    const targetPitchClass = octaveAgnostic ? pitchClassForLane(lane) : "";
+    const targetPitchClass = octaveAgnostic ? pitchClassForLane(lane) : '';
     return this.activeNotes.some(
       (n) =>
         this._noteMatchesLane(n, lane, octaveAgnostic, targetPitchClass) &&
@@ -743,9 +681,7 @@ export class NoteManager {
     octaveAgnostic: boolean,
     targetPitchClass: string,
   ): boolean {
-    return octaveAgnostic
-      ? note.pitchClass === targetPitchClass
-      : note.lane === lane;
+    return octaveAgnostic ? note.pitchClass === targetPitchClass : note.lane === lane;
   }
 
   private _hasPlayableNote(
@@ -774,10 +710,7 @@ export class NoteManager {
     return false;
   }
 
-  getEarliestWaitTime(
-    rawTime: number,
-    loopEndCutoff: number | null = null,
-  ): number | null {
+  getEarliestWaitTime(rawTime: number, loopEndCutoff: number | null = null): number | null {
     if (this._learningAnchor !== null) {
       let allEngaged = true;
       for (let i = this._nextNoteIndex; i < this.notes.length; i++) {
@@ -832,16 +765,12 @@ export class NoteManager {
     octaveAgnostic = false,
     pressOffsetMs: number | null = null,
   ): LearningHitOutcome {
-    const recoverResult = this._tryRecoverFailingNote(
-      currentTime,
-      lane,
-      octaveAgnostic,
-    );
+    const recoverResult = this._tryRecoverFailingNote(currentTime, lane, octaveAgnostic);
     if (recoverResult) {
       return { results: [recoverResult], wrong: false };
     }
 
-    const targetPitchClass = octaveAgnostic ? pitchClassForLane(lane) : "";
+    const targetPitchClass = octaveAgnostic ? pitchClassForLane(lane) : '';
     const hasPlayableNote = this._hasPlayableNote(
       currentTime,
       lane,
@@ -858,12 +787,7 @@ export class NoteManager {
     if (this._learningAnchor === null) {
       // Unreachable: hasPlayableNote already confirmed a note exists within
       // TIMING.GOOD, so _tryNormalHit will always find it.
-      const result = this._tryNormalHit(
-        currentTime,
-        lane,
-        octaveAgnostic,
-        pressOffsetMs,
-      );
+      const result = this._tryNormalHit(currentTime, lane, octaveAgnostic, pressOffsetMs);
       return { results: result ? [result] : [], wrong: false };
     }
     const inChord = octaveAgnostic
@@ -896,12 +820,7 @@ export class NoteManager {
 
     const results: HitResult[] = [];
     for (const pressedLane of this._learningChordPresses) {
-      const r = this.checkHit(
-        currentTime,
-        pressedLane,
-        octaveAgnostic,
-        pressOffsetMs,
-      );
+      const r = this.checkHit(currentTime, pressedLane, octaveAgnostic, pressOffsetMs);
       if (r) results.push(r);
     }
     this._learningChordPresses.clear();
@@ -1020,10 +939,8 @@ export class NoteManager {
     const vs = renderer.sheetViewStart;
     if (ve <= vs) return null;
 
-    const clickTime =
-      vs + ((clickX - renderer.sheetBarX) / renderer.sheetBarW) * (ve - vs);
-    const timeWindow =
-      (maxRadius / renderer.sheetBarW) * (ve - vs) * CLICK_TIME_WINDOW_RATIO;
+    const clickTime = vs + ((clickX - renderer.sheetBarX) / renderer.sheetBarW) * (ve - vs);
+    const timeWindow = (maxRadius / renderer.sheetBarW) * (ve - vs) * CLICK_TIME_WINDOW_RATIO;
 
     let bestNote: SongNote | null = null;
     let bestDist = maxRadius * maxRadius;
@@ -1077,17 +994,10 @@ export class NoteManager {
   }
 
   isComplete(): boolean {
-    return (
-      this._selectedResolvedCount >= this._selectedNoteCount &&
-      this._selectedNoteCount > 0
-    );
+    return this._selectedResolvedCount >= this._selectedNoteCount && this._selectedNoteCount > 0;
   }
 
-  getActiveNotes(
-    currentTime: number,
-    height: number,
-    learningMode = false,
-  ): ActiveNoteRender[] {
+  getActiveNotes(currentTime: number, height: number, learningMode = false): ActiveNoteRender[] {
     const hitZoneY = height * HIT_ZONE_Y_RATIO;
     let writeIdx = 0;
 
@@ -1100,10 +1010,10 @@ export class NoteManager {
           lane: 0,
           y: 0,
           height: 0,
-          color: "",
+          color: '',
           alpha: 0,
           duration: 0,
-          key: "",
+          key: '',
           holding: false,
           waiting: false,
           selected: false,
@@ -1112,10 +1022,7 @@ export class NoteManager {
       const r = this._notePool[writeIdx];
 
       if (note.holding) {
-        const remaining = Math.max(
-          12,
-          (note.time + note.duration - currentTime) * SCROLL_SPEED,
-        );
+        const remaining = Math.max(12, (note.time + note.duration - currentTime) * SCROLL_SPEED);
         const y = hitZoneY - remaining;
         r.lane = note.lane;
         r.y = y;

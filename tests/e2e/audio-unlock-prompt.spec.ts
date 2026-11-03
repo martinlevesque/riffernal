@@ -36,7 +36,9 @@ async function emulateLockedAudio(page: Page): Promise<void> {
 async function startSongWithoutUserGesture(page: Page): Promise<void> {
   await page.goto('/');
   await page.locator('#home-screen').waitFor();
-  await page.evaluate(() => (document.querySelector('[data-mode="freeplay"]') as HTMLElement).click());
+  await page.evaluate(() =>
+    (document.querySelector('[data-mode="freeplay"]') as HTMLElement).click(),
+  );
   await page.locator('.song-item').first().waitFor();
   await page.evaluate(() => {
     const el = document.querySelector('.song-item') as HTMLElement;
@@ -50,11 +52,14 @@ test.describe('Song start audio unlock prompt', () => {
     await wipeDatabase(request);
     const notes = [];
     const keys = ['C4', 'D4', 'E4', 'F4', 'G4', 'A4', 'B4', 'C5'];
-    for (let i = 0; i < 16; i++) notes.push({ time: 5.0 + i * 0.75, key: keys[i % keys.length], duration: 0.4 });
+    for (let i = 0; i < 16; i++)
+      notes.push({ time: 5.0 + i * 0.75, key: keys[i % keys.length], duration: 0.4 });
     await seedSongWithNotes(request, 'AudioPromptTest', notes);
   });
 
-  test('shows the prompt for a session that used no mouse key or keyboard key', async ({ page }) => {
+  test('shows the prompt for a session that used no mouse key or keyboard key', async ({
+    page,
+  }) => {
     await emulateLockedAudio(page);
     await startSongWithoutUserGesture(page);
 
@@ -97,7 +102,9 @@ test.describe('Song start audio unlock prompt', () => {
     await expect(page.locator('#song-info-popup')).toHaveClass(/hidden/);
   });
 
-  test('does not show the prompt when a key is pressed while audio is being probed', async ({ page }) => {
+  test('does not show the prompt when a key is pressed while audio is being probed', async ({
+    page,
+  }) => {
     await emulateLockedAudio(page);
     await startSongWithoutUserGesture(page);
 
@@ -112,7 +119,9 @@ test.describe('Song start audio unlock prompt', () => {
     await expect(page.locator('#song-info-popup')).toHaveClass(/hidden/);
   });
 
-  test('hides the prompt on a mouse click even when the context reports slowly', async ({ page }) => {
+  test('hides the prompt on a mouse click even when the context reports slowly', async ({
+    page,
+  }) => {
     await emulateLockedAudio(page);
     await startSongWithoutUserGesture(page);
 
@@ -183,7 +192,9 @@ test.describe('Song start audio unlock prompt', () => {
     await page.mouse.click(512, 300);
 
     await page.locator('#home-screen').waitFor();
-    await page.evaluate(() => (document.querySelector('[data-mode="freeplay"]') as HTMLElement).click());
+    await page.evaluate(() =>
+      (document.querySelector('[data-mode="freeplay"]') as HTMLElement).click(),
+    );
     await page.locator('.song-item').first().waitFor();
     await page.evaluate(() => {
       const el = document.querySelector('.song-item') as HTMLElement;

@@ -67,7 +67,8 @@ export class DebugStatsTracker {
       const elapsed = s.wallNow - this._wallAnchor;
       // Positive drift = wall time outgrew audio time = the audio thread
       // consumed less than real time (starved or saturated).
-      this.driftMsPerSec = Math.round(((elapsed - (s.audioNow - this._audioAnchor)) * 1000 / elapsed) * 100) / 100;
+      this.driftMsPerSec =
+        Math.round((((elapsed - (s.audioNow - this._audioAnchor)) * 1000) / elapsed) * 100) / 100;
       this.buildsPerSec = Math.round((s.totalBuilds - this._buildsAnchor) / elapsed);
       this._wallAnchor = s.wallNow;
       this._audioAnchor = s.audioNow;

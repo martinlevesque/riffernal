@@ -9,15 +9,33 @@ import { NoteManager, SCROLL_SPEED, HIT_ZONE_Y_RATIO } from './NoteManager.js';
 import type { HitResult, ResolveResult, SongNote } from './NoteManager.js';
 import { AutoVoiceScheduler, type AutoVoiceEntry } from './AutoVoiceScheduler.js';
 import { DebugHud } from './debugHud.js';
-import { NoteGrade, gradeLabel, TIMING_OFFSET_DISPLAY_THRESHOLD_MS, TAP_NOTE_THRESHOLD, SUCCESS_PARTICLE_HOLD_RATIO, comboBoost } from './scoring.js';
+import {
+  NoteGrade,
+  gradeLabel,
+  TIMING_OFFSET_DISPLAY_THRESHOLD_MS,
+  TAP_NOTE_THRESHOLD,
+  SUCCESS_PARTICLE_HOLD_RATIO,
+  comboBoost,
+} from './scoring.js';
 import type { Scoring } from './scoring.js';
-import { NOTE_TO_LANE, handColor, getPianoKeyLayout, getVisibleRange, PracticeHand, GM_DRUM_CHANNEL } from '../utils/notes.js';
+import {
+  NOTE_TO_LANE,
+  handColor,
+  getPianoKeyLayout,
+  getVisibleRange,
+  PracticeHand,
+  GM_DRUM_CHANNEL,
+} from '../utils/notes.js';
 import { formatTime } from '../utils/helpers.js';
 import { hasMeaningfulScore } from './scoring.js';
 import type { VisibleRange } from '../utils/notes.js';
 import type { Synth } from '../audio/Synth.js';
 import type { Patch } from '../audio/patches/Patch.js';
-import { guitarCleanPatch, guitarOverdrivenPatch, guitarDistortionPatch } from '../audio/patches/guitarPatch.js';
+import {
+  guitarCleanPatch,
+  guitarOverdrivenPatch,
+  guitarDistortionPatch,
+} from '../audio/patches/guitarPatch.js';
 import { bassPatch } from '../audio/patches/bassPatch.js';
 import { violinPatch } from '../audio/patches/violinPatch.js';
 import { drumPatch } from '../audio/patches/drumPatch.js';
@@ -92,9 +110,15 @@ export class Game {
 
   // -- public accessors ---------------------------------------------------
 
-  get song(): Song | null { return this._currentSong; }
-  get usedLearningMode(): boolean { return this._usedLearningMode; }
-  get paused(): boolean { return this._paused; }
+  get song(): Song | null {
+    return this._currentSong;
+  }
+  get usedLearningMode(): boolean {
+    return this._usedLearningMode;
+  }
+  get paused(): boolean {
+    return this._paused;
+  }
 
   // -- private properties -------------------------------------------------
 
@@ -128,7 +152,12 @@ export class Game {
   private _autoScheduler: AutoVoiceScheduler;
   private _debugHud = new DebugHud();
 
-  constructor(canvas: HTMLCanvasElement, synth: Synth, keyboardInput: KeyboardInput, midiInput: MidiInput) {
+  constructor(
+    canvas: HTMLCanvasElement,
+    synth: Synth,
+    keyboardInput: KeyboardInput,
+    midiInput: MidiInput,
+  ) {
     this.canvas = canvas;
     this.renderer = new Renderer(canvas);
     this.noteManager = new NoteManager();
@@ -183,8 +212,11 @@ export class Game {
     this._updateFrameTime(now, delta);
     // Track freeze transitions so the real-time anchor is captured exactly
     // once per freeze (at its start) and survives wrong/partial presses.
-    const frozenNow = this.learningMode && !this.loopPlay && this.state === GameState.Playing
-      && this.currentTime === prevTime;
+    const frozenNow =
+      this.learningMode &&
+      !this.loopPlay &&
+      this.state === GameState.Playing &&
+      this.currentTime === prevTime;
 
     if (frozenNow && !this._learningFrozen) {
       this._learningFrozenRealTime = this._preFrameRealTime;
@@ -209,7 +241,8 @@ export class Game {
     }
 
     this.renderer.drawParticles();
-    this.renderer.piano.showComputerKeys = this._midiInput.device.type === InputDeviceType.ComputerKeyboard;
+    this.renderer.piano.showComputerKeys =
+      this._midiInput.device.type === InputDeviceType.ComputerKeyboard;
     this.renderer.drawPiano(this._pressedLanes, this.usedNoteRange);
     this.renderer.drawHitZone(this._pressedLanes, this.usedNoteRange);
 
@@ -235,25 +268,47 @@ export class Game {
   // -- Loop forwarding ------------------------------------------------------
 
   /** Current (playing) loop's start, or null when the chain is idle. */
-  get loopStart(): number | null { return this.loop.start; }
+  get loopStart(): number | null {
+    return this.loop.start;
+  }
   /** Current loop's end, or null when the chain is idle. */
-  get loopEnd(): number | null { return this.loop.end; }
+  get loopEnd(): number | null {
+    return this.loop.end;
+  }
   /** True when the chain is engaged (≥1 enabled loop, currentIndex set). */
-  get loopActive(): boolean { return this.loop.active; }
-  get loopDefinitionState(): LoopDefinitionState { return this.loop.definitionState; }
-  set loopDefinitionState(v: LoopDefinitionState) { this.loop.definitionState = v; }
+  get loopActive(): boolean {
+    return this.loop.active;
+  }
+  get loopDefinitionState(): LoopDefinitionState {
+    return this.loop.definitionState;
+  }
+  set loopDefinitionState(v: LoopDefinitionState) {
+    this.loop.definitionState = v;
+  }
 
-  beginLoopDefine(): void { this.loop.beginDefine(); }
+  beginLoopDefine(): void {
+    this.loop.beginDefine();
+  }
   setLoopBoundary(time: number): LoopDefinitionState {
     return this.loop.setBoundary(time);
   }
   /** Abort the in-progress define draft. */
-  cancelLoopDraft(): void { this.loop.cancelDraft(); }
+  cancelLoopDraft(): void {
+    this.loop.cancelDraft();
+  }
   /** Disengage the chain (e.g. when switching to PLAY mode). Saved loops
    *  are kept; only the active playback position is cleared. */
-  deactivateLoop(): void { this.loop.disengage(); this.loopPlay = false; this._applyScoringEnabled(); }
+  deactivateLoop(): void {
+    this.loop.disengage();
+    this.loopPlay = false;
+    this._applyScoringEnabled();
+  }
   /** Fully reset loop state — used by `start()` on a fresh game. */
-  clearLoop(): void { this.loop.clear(); this.loopPlay = false; this._applyScoringEnabled(); }
+  clearLoop(): void {
+    this.loop.clear();
+    this.loopPlay = false;
+    this._applyScoringEnabled();
+  }
 
   /** Engage the chain from the first enabled loop and seek to it with the
    *  countdown buffer. Returns true when engaged (≥1 enabled loop). Called
@@ -273,7 +328,15 @@ export class Game {
    *  chain engagement or seek). Call before `start()` so `start()` can
    *  engage the chain with the countdown buffer. Also disengages any
    *  stale chain state from a previous song. */
-  loadLoops(loops: Array<{ id: number; startTime: number; endTime: number; enabled: boolean; name: string | null }>): void {
+  loadLoops(
+    loops: Array<{
+      id: number;
+      startTime: number;
+      endTime: number;
+      enabled: boolean;
+      name: string | null;
+    }>,
+  ): void {
     this.loop.setLoops(loops);
     this.loop.disengage();
     this.loop.cancelDraft();
@@ -282,7 +345,13 @@ export class Game {
   /** Add a saved loop (already persisted) to the controller's local set.
    *  If the chain is engaged the new loop participates in the next chain
    *  recompute. If the chain is idle and the new loop is enabled, engage. */
-  addSavedLoop(loop: { id: number; startTime: number; endTime: number; enabled: boolean; name: string | null }): void {
+  addSavedLoop(loop: {
+    id: number;
+    startTime: number;
+    endTime: number;
+    enabled: boolean;
+    name: string | null;
+  }): void {
     this.loop.addLoop(loop);
     if (!this.loop.active && this.loop.chain.length > 0) {
       this.loop.engage();
@@ -311,7 +380,8 @@ export class Game {
     }
 
     const outOfBounds = this.loop.currentIndex !== null && this.loop.currentIndex >= chainLen;
-    const needReengage = this.loop.currentIndex === null || (updates.enabled === false && wasCurrent) || outOfBounds;
+    const needReengage =
+      this.loop.currentIndex === null || (updates.enabled === false && wasCurrent) || outOfBounds;
     if (needReengage && this.state === GameState.Playing) {
       this.loop.engage();
       const first = this.loop.current;
@@ -448,10 +518,25 @@ export class Game {
       this.songBpm,
     );
 
-    const activeNotes = this.noteManager.getActiveNotes(this.currentTime, this.renderer.height, this.learningMode);
+    const activeNotes = this.noteManager.getActiveNotes(
+      this.currentTime,
+      this.renderer.height,
+      this.learningMode,
+    );
     const combo = this.noteManager.scoring.combo;
     for (const note of activeNotes) {
-      this.renderer.drawNote(note.lane, note.y, note.height, note.selected ? note.color : themeManager.canvas.backingNote, note.alpha, combo, note.key, note.holding, note.waiting, this.usedNoteRange);
+      this.renderer.drawNote(
+        note.lane,
+        note.y,
+        note.height,
+        note.selected ? note.color : themeManager.canvas.backingNote,
+        note.alpha,
+        combo,
+        note.key,
+        note.holding,
+        note.waiting,
+        this.usedNoteRange,
+      );
     }
 
     this.renderer.drawGrind(this.currentTime, this.usedNoteRange);
@@ -551,7 +636,8 @@ export class Game {
   }
 
   private _setupInputHandlers(): void {
-    this._keyboardInput.onNoteOn = (note, keyCode, velocity) => this._handleNoteOn(note, keyCode, velocity);
+    this._keyboardInput.onNoteOn = (note, keyCode, velocity) =>
+      this._handleNoteOn(note, keyCode, velocity);
     this._keyboardInput.onNoteOff = (note, keyCode) => this._handleNoteOff(note, keyCode);
     this._midiInput.onNoteOn = (note, id, velocity) => this._handleNoteOn(note, id, velocity);
     this._midiInput.onNoteOff = (note, id) => this._handleNoteOff(note, id);
@@ -588,12 +674,7 @@ export class Game {
         const noteColor = handColor(note.key);
         const combo = this.noteManager.scoring.combo;
         const count = 10 + Math.floor(comboBoost(combo) * 20);
-        this.renderer.spawnParticles(
-          keyLayout.x + keyLayout.width / 2,
-          hitZoneY,
-          noteColor,
-          count,
-        );
+        this.renderer.spawnParticles(keyLayout.x + keyLayout.width / 2, hitZoneY, noteColor, count);
       }
     };
   }
@@ -644,10 +725,18 @@ export class Game {
       let pressOffsetMs: number | null = null;
 
       if (this._learningFrozen) {
-        pressOffsetMs = Math.round((performance.now() - this._learningFrozenRealTime * 1000) * this.speedMultiplier);
+        pressOffsetMs = Math.round(
+          (performance.now() - this._learningFrozenRealTime * 1000) * this.speedMultiplier,
+        );
       }
 
-      const outcome = this.noteManager.checkLearningHit(this.currentTime, lane, performance.now(), this.octaveAgnostic, pressOffsetMs);
+      const outcome = this.noteManager.checkLearningHit(
+        this.currentTime,
+        lane,
+        performance.now(),
+        this.octaveAgnostic,
+        pressOffsetMs,
+      );
       if (outcome.wrong) {
         this.renderer.flashWrongKey(lane);
         this.scoreDisplay?.showFeedback('Wrong', getFeedbackColors().MISS);
@@ -655,7 +744,10 @@ export class Game {
       return outcome.results;
     }
     const r = this.noteManager.checkHit(this.currentTime, lane, this.octaveAgnostic);
-    if (r === null && !this.noteManager.hasUnresolvedNoteInLane(lane, this.currentTime, this.octaveAgnostic)) {
+    if (
+      r === null &&
+      !this.noteManager.hasUnresolvedNoteInLane(lane, this.currentTime, this.octaveAgnostic)
+    ) {
       this.scoreDisplay?.showFeedback('Wrong', getFeedbackColors().MISS);
     }
     return r ? [r] : [];
@@ -668,7 +760,11 @@ export class Game {
     for (const result of results) {
       if (result.result === NoteGrade.PERFECT) {
         const noteColor = handColor(result.note.key);
-        const keyLayout = getPianoKeyLayout(result.note.key, this.renderer.width, this.usedNoteRange);
+        const keyLayout = getPianoKeyLayout(
+          result.note.key,
+          this.renderer.width,
+          this.usedNoteRange,
+        );
         this.renderer.spawnParticles(
           keyLayout.x + keyLayout.width / 2,
           hitZoneY,
@@ -812,7 +908,7 @@ export class Game {
     // PLAY mode. Background-accompaniment notes are governed by their own
     // per-track toggle and must keep playing.
     if (note.selected && this.mainTrackMuted) return;
-    const realDuration = note.duration * 1000 / this.speedMultiplier;
+    const realDuration = (note.duration * 1000) / this.speedMultiplier;
     const id = `auto_${note.track}_${note.time}_${note.key}`;
     const patch = this._patchForNote(note.program, note.channel);
     this._synth.noteOn(note.key, patch, id, note.rawMidi);
@@ -832,7 +928,7 @@ export class Game {
       midiOverride: note.rawMidi,
       patch: this._patchForNote(note.program, note.channel),
       when: this._synth.now() + aheadRealSec,
-      durationMs: note.duration * 1000 / this.speedMultiplier,
+      durationMs: (note.duration * 1000) / this.speedMultiplier,
     });
   }
 
@@ -928,7 +1024,9 @@ export class Game {
         }
       } else {
         if (this._currentSong.backgroundTracks) {
-          this._currentSong.backgroundTracks = this._currentSong.backgroundTracks.filter((i) => i !== trackIndex);
+          this._currentSong.backgroundTracks = this._currentSong.backgroundTracks.filter(
+            (i) => i !== trackIndex,
+          );
         }
       }
       this._syncTrackPreferences();

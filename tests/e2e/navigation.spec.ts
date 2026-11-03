@@ -1,5 +1,11 @@
 import { test } from '@playwright/test';
-import { startGame, expectPlayScreenActive, clickRestart, clickBackToHome, expectMenuScreenActive } from '../helpers/index.js';
+import {
+  startGame,
+  expectPlayScreenActive,
+  clickRestart,
+  clickBackToHome,
+  expectMenuScreenActive,
+} from '../helpers/index.js';
 
 test.describe('Navigation', () => {
   test('retry restarts the game and shows play screen', async ({ page }) => {

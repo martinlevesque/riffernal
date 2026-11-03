@@ -20,7 +20,8 @@ import {
 import { reportError } from '../../utils/helpers.js';
 
 const SHEET_STAFF_LINE_SPACING = 10;
-export const BASE_SHEET_HEIGHT = 5 + 4 * SHEET_STAFF_LINE_SPACING + 8 + 4 * SHEET_STAFF_LINE_SPACING + 5;
+export const BASE_SHEET_HEIGHT =
+  5 + 4 * SHEET_STAFF_LINE_SPACING + 8 + 4 * SHEET_STAFF_LINE_SPACING + 5;
 
 export interface SheetViewDeps {
   setMode: (learning: boolean) => void;
@@ -60,10 +61,10 @@ export class SheetView {
         if (selectedLoop) {
           const pageDur = this._pageDuration();
           const targetTime = opts?.scrollToEnd ? selectedLoop.endTime : selectedLoop.startTime;
-          this._sheetCurrentPage = Math.max(0, Math.min(
-            Math.floor(targetTime / pageDur),
-            this._sheetPageCount() - 1,
-          ));
+          this._sheetCurrentPage = Math.max(
+            0,
+            Math.min(Math.floor(targetTime / pageDur), this._sheetPageCount() - 1),
+          );
         }
 
         this.renderSheetPage();
@@ -94,14 +95,22 @@ export class SheetView {
     sheetCloseBtn.addEventListener('click', () => this.closeSheetView());
 
     this._sheetPrevBtn.addEventListener('click', () => {
-      if (this._sheetCurrentPage > 0) { this._sheetCurrentPage--; this.renderSheetPage(); }
+      if (this._sheetCurrentPage > 0) {
+        this._sheetCurrentPage--;
+        this.renderSheetPage();
+      }
     });
 
     this._sheetNextBtn.addEventListener('click', () => {
-      if (this._sheetCurrentPage < this._sheetPageCount() - 1) { this._sheetCurrentPage++; this.renderSheetPage(); }
+      if (this._sheetCurrentPage < this._sheetPageCount() - 1) {
+        this._sheetCurrentPage++;
+        this.renderSheetPage();
+      }
     });
 
-    this._sheetCanvas.addEventListener('click', (e) => this._handleCanvasClick(e, this._sheetCanvas, this._sheetRenderer));
+    this._sheetCanvas.addEventListener('click', (e) =>
+      this._handleCanvasClick(e, this._sheetCanvas, this._sheetRenderer),
+    );
 
     defineLoopBtn.addEventListener('click', () => {
       if (!this._game.learningMode) this._deps.setMode(true);
@@ -144,15 +153,22 @@ export class SheetView {
         const y = e.clientY - rect.top;
         const minSheetHeight = BASE_SHEET_HEIGHT * 0.5;
         const maxSheetHeight = this._canvas.height * 0.35;
-        const targetHeight = Math.max(minSheetHeight, Math.min(maxSheetHeight, y - SHEET_TOP_OFFSET));
+        const targetHeight = Math.max(
+          minSheetHeight,
+          Math.min(maxSheetHeight, y - SHEET_TOP_OFFSET),
+        );
         this._game.renderer.sheetScale = targetHeight / BASE_SHEET_HEIGHT;
         resizeRAF = false;
       });
     });
 
-    window.addEventListener('pointerup', () => { resizing = false; });
+    window.addEventListener('pointerup', () => {
+      resizing = false;
+    });
 
-    this._canvas.addEventListener('click', (e) => this._handleCanvasClick(e, this._canvas, this._game.renderer));
+    this._canvas.addEventListener('click', (e) =>
+      this._handleCanvasClick(e, this._canvas, this._game.renderer),
+    );
 
     document.addEventListener('keydown', (e) => {
       if (!this._sheetOpen) return;
@@ -160,11 +176,17 @@ export class SheetView {
       if (e.code === 'ArrowLeft') {
         e.preventDefault();
 
-        if (this._sheetCurrentPage > 0) { this._sheetCurrentPage--; this.renderSheetPage(); }
+        if (this._sheetCurrentPage > 0) {
+          this._sheetCurrentPage--;
+          this.renderSheetPage();
+        }
       } else if (e.code === 'ArrowRight') {
         e.preventDefault();
 
-        if (this._sheetCurrentPage < this._sheetPageCount() - 1) { this._sheetCurrentPage++; this.renderSheetPage(); }
+        if (this._sheetCurrentPage < this._sheetPageCount() - 1) {
+          this._sheetCurrentPage++;
+          this.renderSheetPage();
+        }
       } else if (e.code === 'Escape') {
         e.preventDefault();
         this.closeSheetView();
@@ -183,7 +205,9 @@ export class SheetView {
     this._sheetScreen.classList.remove('active');
   }
 
-  private _pageDuration(): number { return SHEET_BEATS_VISIBLE * (60 / this._game.songBpm); }
+  private _pageDuration(): number {
+    return SHEET_BEATS_VISIBLE * (60 / this._game.songBpm);
+  }
 
   private _sheetPageCount(): number {
     return Math.max(1, Math.ceil(this._game.noteManager.getSongDuration() / this._pageDuration()));
@@ -223,7 +247,10 @@ export class SheetView {
 
     this._sheetPageInfo.textContent = `${this._sheetCurrentPage + 1} / ${this._sheetPageCount()}`;
     this._sheetPrevBtn.toggleAttribute('disabled', this._sheetCurrentPage <= 0);
-    this._sheetNextBtn.toggleAttribute('disabled', this._sheetCurrentPage >= this._sheetPageCount() - 1);
+    this._sheetNextBtn.toggleAttribute(
+      'disabled',
+      this._sheetCurrentPage >= this._sheetPageCount() - 1,
+    );
 
     const phase = this._game.loopDefinitionState;
 
@@ -238,9 +265,13 @@ export class SheetView {
 
   private _jumpSheetToCurrent(): void {
     const dur = this._game.noteManager.getSongDuration();
-    this._sheetCurrentPage = dur <= 0
-      ? 0
-      : Math.min(Math.floor(this._game.currentTime / this._pageDuration()), this._sheetPageCount() - 1);
+    this._sheetCurrentPage =
+      dur <= 0
+        ? 0
+        : Math.min(
+            Math.floor(this._game.currentTime / this._pageDuration()),
+            this._sheetPageCount() - 1,
+          );
 
     if (this._sheetCurrentPage < 0) this._sheetCurrentPage = 0;
     this.renderSheetPage();
@@ -273,8 +304,11 @@ export class SheetView {
   }
 
   private _noteFromClick(
-    rect: DOMRect, clientX: number, clientY: number,
-    renderer: Renderer, maxRadius = 30,
+    rect: DOMRect,
+    clientX: number,
+    clientY: number,
+    renderer: Renderer,
+    maxRadius = 30,
   ): SongNote | null {
     const x = clientX - rect.left;
     const y = clientY - rect.top;
@@ -287,16 +321,23 @@ export class SheetView {
     return this._game.noteManager.findNearestNoteByClick(x, y, r, maxRadius);
   }
 
-  private async _handleCanvasClick(e: MouseEvent, targetCanvas: HTMLCanvasElement, renderer: Renderer): Promise<void> {
+  private async _handleCanvasClick(
+    e: MouseEvent,
+    targetCanvas: HTMLCanvasElement,
+    renderer: Renderer,
+  ): Promise<void> {
     if (this._game.state !== GameState.Playing) return;
 
-    const inLoopDefine
-      = this._game.loopDefinitionState === LoopDefinitionState.Start
-      || this._game.loopDefinitionState === LoopDefinitionState.End;
+    const inLoopDefine =
+      this._game.loopDefinitionState === LoopDefinitionState.Start ||
+      this._game.loopDefinitionState === LoopDefinitionState.End;
 
     const note = this._noteFromClick(
-      targetCanvas.getBoundingClientRect(), e.clientX, e.clientY,
-      renderer, inLoopDefine ? 50 : 30,
+      targetCanvas.getBoundingClientRect(),
+      e.clientX,
+      e.clientY,
+      renderer,
+      inLoopDefine ? 50 : 30,
     );
 
     if (!note) return;

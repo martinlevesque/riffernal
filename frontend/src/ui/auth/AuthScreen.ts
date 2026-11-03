@@ -1,30 +1,30 @@
-import { playMenuSound } from "../../audio/MenuSounds.js";
-import { checkSetup, setupAdmin, register, login, type AuthUser } from "../../api/AuthApi.js";
+import { playMenuSound } from '../../audio/MenuSounds.js';
+import { checkSetup, setupAdmin, register, login, type AuthUser } from '../../api/AuthApi.js';
 
 export interface AuthScreenOptions {
   onAuth: (user: AuthUser) => void;
   onGuest?: () => void;
 }
 
-type Mode = "loading" | "setup" | "login" | "register";
-type AuthMode = Exclude<Mode, "loading">;
+type Mode = 'loading' | 'setup' | 'login' | 'register';
+type AuthMode = Exclude<Mode, 'loading'>;
 
 const MODE_LABEL: Record<AuthMode, string> = {
-  setup: "SETUP",
-  login: "LOGIN",
-  register: "REGISTER",
+  setup: 'SETUP',
+  login: 'LOGIN',
+  register: 'REGISTER',
 };
 
 const SUBMIT_LABEL: Record<AuthMode, string> = {
-  setup: "CREATE ACCOUNT",
-  login: "LOGIN",
-  register: "REGISTER",
+  setup: 'CREATE ACCOUNT',
+  login: 'LOGIN',
+  register: 'REGISTER',
 };
 
 const PASSWORD_AUTOCOMPLETE: Record<AuthMode, string> = {
-  setup: "new-password",
-  login: "current-password",
-  register: "new-password",
+  setup: 'new-password',
+  login: 'current-password',
+  register: 'new-password',
 };
 
 const INTRO_HTML = `
@@ -41,62 +41,72 @@ const INTRO_HTML = `
 
 export class AuthScreen {
   private _screen: HTMLElement;
+  private _githubLink: HTMLElement | null;
   private _opts: AuthScreenOptions;
-  private _mode: Mode = "loading";
+  private _mode: Mode = 'loading';
   private _errorEl: HTMLElement | null = null;
 
   constructor(opts: AuthScreenOptions) {
     this._opts = opts;
-    this._screen = document.getElementById("auth-screen")!;
+    this._screen = document.getElementById('auth-screen')!;
+    this._githubLink = this._screen.querySelector('.home-github');
   }
 
   async show(): Promise<void> {
-    this._screen.classList.add("active");
+    this._screen.classList.add('active');
     try {
       const { needed } = await checkSetup();
-      this._mode = needed ? "setup" : "login";
+      this._mode = needed ? 'setup' : 'login';
     } catch {
-      this._mode = "login";
+      this._mode = 'login';
     }
     this._render();
   }
 
   hide(): void {
-    this._screen.classList.remove("active");
+    this._screen.classList.remove('active');
   }
 
   private _render(): void {
-    if (this._mode === "loading") {
+    if (this._mode === 'loading') {
       this._screen.innerHTML = `<div class="auth-card"><p class="auth-error">Loading...</p></div>`;
+      this._restoreGithubLink();
       return;
     }
 
     const mode = this._mode as AuthMode;
-    const hasTagline = mode === "setup" || mode === "register";
+    const hasTagline = mode === 'setup' || mode === 'register';
     const taglineField = hasTagline
       ? `<label class="auth-field">
            <span class="auth-field-label">Tagline <span class="optional">(optional)</span></span>
            <input type="text" class="auth-input" id="auth-tagline" placeholder="Your motto..." maxlength="128">
          </label>`
-      : "";
+      : '';
 
-    const intro = mode === "setup" ? "" : INTRO_HTML;
+    const intro = mode === 'setup' ? '' : INTRO_HTML;
 
-    const subtitle = mode === "setup"
-      ? `<p class="auth-subtitle">Create your admin account to get started</p>`
-      : "";
+    const subtitle =
+      mode === 'setup'
+        ? `<p class="auth-subtitle">Create your admin account to get started</p>`
+        : '';
 
-    const toggleHtml = mode === "setup" ? "" : mode === "login"
-      ? `<div class="auth-toggle">
+    const toggleHtml =
+      mode === 'setup'
+        ? ''
+        : mode === 'login'
+          ? `<div class="auth-toggle">
            <button id="auth-toggle-btn">No account? <span class="accent">Register</span></button>
          </div>`
-      : `<div class="auth-toggle">
+          : `<div class="auth-toggle">
            <button id="auth-toggle-btn">Already have an account? <span class="accent">Login</span></button>
          </div>`;
 
     // On a fresh database the first visitor is the owner, who should create
     // the admin account rather than wander into an empty app.
-    const guestHtml = mode === "setup" || !this._opts.onGuest ? "" : `<div class="auth-secondary">
+    const guestHtml =
+      mode === 'setup' || !this._opts.onGuest
+        ? ''
+        : `<div class="auth-secondary">
            <button id="auth-guest-btn" class="btn-ghost" type="button">Continue as guest</button>
          </div>`;
 
@@ -132,31 +142,38 @@ export class AuthScreen {
       </div>
     `;
 
-    this._errorEl = document.getElementById("auth-error");
+    this._errorEl = document.getElementById('auth-error');
     this._wireEvents();
+    this._restoreGithubLink();
+  }
+
+  /** Each render replaces the screen's children; the static corner link from
+   *  index.html is preserved by re-attaching it (appendChild moves the node). */
+  private _restoreGithubLink(): void {
+    if (this._githubLink) this._screen.appendChild(this._githubLink);
   }
 
   private _wireEvents(): void {
-    const form = document.getElementById("auth-form") as HTMLFormElement;
-    const toggleBtn = document.getElementById("auth-toggle-btn");
+    const form = document.getElementById('auth-form') as HTMLFormElement;
+    const toggleBtn = document.getElementById('auth-toggle-btn');
 
-    form.addEventListener("submit", (e) => {
+    form.addEventListener('submit', (e) => {
       e.preventDefault();
-      playMenuSound("enter");
+      playMenuSound('enter');
       this._handleSubmit();
     });
 
     if (toggleBtn) {
-      toggleBtn.addEventListener("click", () => {
-        this._mode = this._mode === "login" ? "register" : "login";
+      toggleBtn.addEventListener('click', () => {
+        this._mode = this._mode === 'login' ? 'register' : 'login';
         this._render();
       });
     }
 
-    const guestBtn = document.getElementById("auth-guest-btn");
+    const guestBtn = document.getElementById('auth-guest-btn');
     if (guestBtn) {
-      guestBtn.addEventListener("click", () => {
-        playMenuSound("enter");
+      guestBtn.addEventListener('click', () => {
+        playMenuSound('enter');
         this._opts.onGuest?.();
       });
     }
@@ -167,30 +184,31 @@ export class AuthScreen {
   }
 
   private async _handleSubmit(): Promise<void> {
-    const username = (document.getElementById("auth-username") as HTMLInputElement).value.trim();
-    const tagline = (document.getElementById("auth-tagline") as HTMLInputElement | null)?.value.trim() ?? "";
-    const password = (document.getElementById("auth-password") as HTMLInputElement).value;
-    const submitBtn = document.getElementById("auth-submit") as HTMLButtonElement;
+    const username = (document.getElementById('auth-username') as HTMLInputElement).value.trim();
+    const tagline =
+      (document.getElementById('auth-tagline') as HTMLInputElement | null)?.value.trim() ?? '';
+    const password = (document.getElementById('auth-password') as HTMLInputElement).value;
+    const submitBtn = document.getElementById('auth-submit') as HTMLButtonElement;
 
-    this._setError("");
+    this._setError('');
 
     if (!username) {
-      this._setError("Username is required");
+      this._setError('Username is required');
       return;
     }
     if (!password) {
-      this._setError("Password is required");
+      this._setError('Password is required');
       return;
     }
 
     submitBtn.disabled = true;
-    submitBtn.textContent = "...";
+    submitBtn.textContent = '...';
 
     try {
-      if (this._mode === "setup") {
+      if (this._mode === 'setup') {
         const result = await setupAdmin(username, tagline, password);
         this._opts.onAuth(result.user);
-      } else if (this._mode === "login") {
+      } else if (this._mode === 'login') {
         const result = await login(username, password);
         this._opts.onAuth(result.user);
       } else {
@@ -198,7 +216,7 @@ export class AuthScreen {
         this._opts.onAuth(result.user);
       }
     } catch (err) {
-      this._setError(err instanceof Error ? err.message : "An error occurred");
+      this._setError(err instanceof Error ? err.message : 'An error occurred');
       submitBtn.disabled = false;
       submitBtn.textContent = SUBMIT_LABEL[this._mode as AuthMode];
     }

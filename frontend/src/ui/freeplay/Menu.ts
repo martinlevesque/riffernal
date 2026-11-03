@@ -1,20 +1,17 @@
-import type { Song } from "../../utils/MidiParser.js";
-import { formatScore, formatRelativeTime, reportError } from "../../utils/helpers.js";
+import type { Song } from '../../utils/MidiParser.js';
+import { formatScore, formatRelativeTime, reportError } from '../../utils/helpers.js';
 import {
   fetchCommunitySongs,
   fetchLibrary,
   fetchLibraryCategorySongs,
   type SongSummary,
-} from "../../api/SongApi.js";
-import { fetchGuestShowcaseSongs } from "../../api/GuestApi.js";
-import {
-  getSongListKeys,
-  matchSongListAction,
-} from "./songListKeys.js";
-import { RESULTS_SCREEN_ID } from "../../game/rendering/resultsScreenElementIds.js";
-import { playMenuSound } from "../../audio/MenuSounds.js";
-import { isAdmin } from "../../api/AuthApi.js";
-import { FOCUS_CLASS, NAV_ITEM_CLASS, setFocused, stepFocus } from "../navFocus.js";
+} from '../../api/SongApi.js';
+import { fetchGuestShowcaseSongs } from '../../api/GuestApi.js';
+import { getSongListKeys, matchSongListAction } from './songListKeys.js';
+import { RESULTS_SCREEN_ID } from '../../game/rendering/resultsScreenElementIds.js';
+import { playMenuSound } from '../../audio/MenuSounds.js';
+import { isAdmin } from '../../api/AuthApi.js';
+import { FOCUS_CLASS, NAV_ITEM_CLASS, setFocused, stepFocus } from '../navFocus.js';
 
 interface GroupedItem {
   song: Song;
@@ -29,7 +26,7 @@ interface MenuGroup {
   loading: boolean;
 }
 
-const COLLAPSED_KEY = "riffernal:collapsed-categories";
+const COLLAPSED_KEY = 'riffernal:collapsed-categories';
 const COMMUNITY_PAGE_SIZE = 10;
 const CATEGORY_PAGE_SIZE = 10;
 
@@ -61,27 +58,27 @@ export class Menu {
     this._guestMode = guest;
   }
   /** Home main-menu action for a matched shortcut chord (home screen). */
-  private _runHomeAction: ((action: "prev" | "next" | "enter") => void) | null = null;
+  private _runHomeAction: ((action: 'prev' | 'next' | 'enter') => void) | null = null;
 
   /** Register how a matched shortcut behaves on the home main menu. */
-  setHomeActions(run: ((action: "prev" | "next" | "enter") => void) | null): void {
+  setHomeActions(run: ((action: 'prev' | 'next' | 'enter') => void) | null): void {
     this._runHomeAction = run;
   }
 
-  private _runResultsAction: ((action: "prev" | "next" | "enter") => void) | null = null;
+  private _runResultsAction: ((action: 'prev' | 'next' | 'enter') => void) | null = null;
 
   /** Register how a matched shortcut behaves on the end-of-game results screen. */
-  setResultsActions(run: ((action: "prev" | "next" | "enter") => void) | null): void {
+  setResultsActions(run: ((action: 'prev' | 'next' | 'enter') => void) | null): void {
     this._runResultsAction = run;
   }
 
-  private _runSongListAction(action: "prev" | "next" | "enter"): void {
-    if (action === "enter") {
+  private _runSongListAction(action: 'prev' | 'next' | 'enter'): void {
+    if (action === 'enter') {
       this._startSelected();
       return;
     }
 
-    this._moveSelection(action === "next" ? 1 : -1);
+    this._moveSelection(action === 'next' ? 1 : -1);
   }
   private _songListEl: HTMLElement;
   private _startBtn: HTMLButtonElement;
@@ -92,15 +89,15 @@ export class Menu {
   private _heldMenuNotes = new Set<string>();
 
   constructor() {
-    this._songListEl = document.getElementById("song-list")!;
-    this._startBtn = document.getElementById("btn-start") as HTMLButtonElement;
-    this._freeplayScreen = document.getElementById("freeplay-screen")!;
-    this._midiStatusEl = document.getElementById("midi-status")!;
-    this._controlsHintEl = this._freeplayScreen.querySelector(".controls-hint");
+    this._songListEl = document.getElementById('song-list')!;
+    this._startBtn = document.getElementById('btn-start') as HTMLButtonElement;
+    this._freeplayScreen = document.getElementById('freeplay-screen')!;
+    this._midiStatusEl = document.getElementById('midi-status')!;
+    this._controlsHintEl = this._freeplayScreen.querySelector('.controls-hint');
     this._render();
     // Same path as the keyboard Enter chord: the routing that picks
     // community/showcase/sign-in (and guest handling) lives in _startSong.
-    this._startBtn.addEventListener("click", () => {
+    this._startBtn.addEventListener('click', () => {
       this._startSelected();
     });
 
@@ -112,7 +109,7 @@ export class Menu {
       });
     }
 
-    document.addEventListener("click", () => {
+    document.addEventListener('click', () => {
       this._closeAllActionMenus();
     });
   }
@@ -129,19 +126,21 @@ export class Menu {
       }));
       this._render();
     } catch (err) {
-      reportError("Failed to load library", err);
+      reportError('Failed to load library', err);
     }
   }
 
   /** The songs arrive pre-parsed (with negative ids) from the guest store. */
   loadGuestLibrary(songs: Song[]): void {
-    this._groups = [{
-      id: null,
-      name: "My Imports",
-      items: songs.map((song) => ({ song, isCommunity: false })),
-      total: songs.length,
-      loading: false,
-    }];
+    this._groups = [
+      {
+        id: null,
+        name: 'My Imports',
+        items: songs.map((song) => ({ song, isCommunity: false })),
+        total: songs.length,
+        loading: false,
+      },
+    ];
     this._render();
   }
 
@@ -154,7 +153,7 @@ export class Menu {
     } else {
       this._groups.push({
         id: null,
-        name: "My Imports",
+        name: 'My Imports',
         items: [{ song, isCommunity: false }],
         total: 1,
         loading: false,
@@ -170,7 +169,7 @@ export class Menu {
       this._showcaseSongs = songs.map((s) => this._itemToSong(s));
       this._render();
     } catch (err) {
-      reportError("Failed to load guest showcase", err);
+      reportError('Failed to load guest showcase', err);
     }
   }
 
@@ -242,7 +241,7 @@ export class Menu {
     return {
       id: s.id,
       title: s.title,
-      artist: s.artist || "",
+      artist: s.artist || '',
       bpm: s.bpm,
       difficulty: s.difficulty,
       notes: [],
@@ -273,7 +272,7 @@ export class Menu {
       this._communityTotal = result.total;
       this._render();
     } catch (err) {
-      reportError("Failed to load community songs", err);
+      reportError('Failed to load community songs', err);
     } finally {
       this._communityLoading = false;
     }
@@ -285,7 +284,11 @@ export class Menu {
     group.loading = true;
 
     try {
-      const result = await fetchLibraryCategorySongs(categoryId, CATEGORY_PAGE_SIZE, group.items.length);
+      const result = await fetchLibraryCategorySongs(
+        categoryId,
+        CATEGORY_PAGE_SIZE,
+        group.items.length,
+      );
       group.items = [
         ...group.items,
         ...result.songs.map((s) => ({ song: this._itemToSong(s), isCommunity: s.isCommunity })),
@@ -293,7 +296,7 @@ export class Menu {
       group.total = result.total;
       this._render();
     } catch (err) {
-      reportError("Failed to load more songs", err);
+      reportError('Failed to load more songs', err);
     } finally {
       group.loading = false;
     }
@@ -304,27 +307,27 @@ export class Menu {
       this._communitySongs = this._communitySongs.filter((s) => s.id !== id);
       this._communityTotal = Math.max(0, this._communityTotal - 1);
       this._render();
-      this.loadLibrary().catch((err) => reportError("Failed to reload library", err));
+      this.loadLibrary().catch((err) => reportError('Failed to reload library', err));
 
       return;
     }
 
-    this.loadLibrary().catch((err) => reportError("Failed to reload library", err));
-    this.loadCommunitySongs().catch((err) => reportError("Failed to reload community songs", err));
+    this.loadLibrary().catch((err) => reportError('Failed to reload library', err));
+    this.loadCommunitySongs().catch((err) => reportError('Failed to reload community songs', err));
   }
 
   refreshAfterPublishChange(unpublished: boolean): void {
-    this.loadCommunitySongs().catch((err) => reportError("Failed to reload community songs", err));
+    this.loadCommunitySongs().catch((err) => reportError('Failed to reload community songs', err));
 
     if (unpublished) {
-      this.loadLibrary().catch((err) => reportError("Failed to reload library", err));
+      this.loadLibrary().catch((err) => reportError('Failed to reload library', err));
     }
   }
 
   private _closeAllActionMenus(): void {
-    const menus = this._songListEl.querySelectorAll(".song-actions-menu:not(.hidden)");
+    const menus = this._songListEl.querySelectorAll('.song-actions-menu:not(.hidden)');
     for (const menu of menus) {
-      menu.classList.add("hidden");
+      menu.classList.add('hidden');
     }
   }
 
@@ -338,7 +341,7 @@ export class Menu {
 
       return new Set(JSON.parse(raw) as string[]);
     } catch (err) {
-      console.warn("Failed to load collapsed state:", err);
+      console.warn('Failed to load collapsed state:', err);
       return new Set();
     }
   }
@@ -347,19 +350,19 @@ export class Menu {
     try {
       localStorage.setItem(COLLAPSED_KEY, JSON.stringify(Array.from(set)));
     } catch (err) {
-      console.warn("Failed to save collapsed state:", err);
+      console.warn('Failed to save collapsed state:', err);
     }
   }
 
   private _render(): void {
-    this._songListEl.innerHTML = "";
+    this._songListEl.innerHTML = '';
 
     const hasGroups = this._groups.some((g) => g.items.length > 0);
 
     if (!hasGroups && this._communitySongs.length === 0 && this._showcaseSongs.length === 0) {
-      const empty = document.createElement("p");
-      empty.className = "empty-song-list";
-      empty.textContent = "No songs yet. Import a MIDI to get started.";
+      const empty = document.createElement('p');
+      empty.className = 'empty-song-list';
+      empty.textContent = 'No songs yet. Import a MIDI to get started.';
       this._songListEl.appendChild(empty);
       this._startBtn.disabled = true;
       this._selectedSong = null;
@@ -404,18 +407,18 @@ export class Menu {
 
   private _renderGroup(group: MenuGroup): HTMLElement {
     const collapsedSet = this._loadCollapsed();
-    const key = group.id === null ? "uncategorized" : `cat:${group.id}`;
+    const key = group.id === null ? 'uncategorized' : `cat:${group.id}`;
     const isCollapsed = collapsedSet.has(key);
 
-    const section = document.createElement("div");
-    section.className = `category-section${isCollapsed ? " collapsed" : ""}`;
+    const section = document.createElement('div');
+    section.className = `category-section${isCollapsed ? ' collapsed' : ''}`;
     section.dataset.categoryKey = key;
 
-    const header = document.createElement("div");
-    header.className = "category-header";
+    const header = document.createElement('div');
+    header.className = 'category-header';
     header.innerHTML = `<span>${group.name}</span><span><span class="category-count">${group.total}</span><span class="category-collapse-icon"></span></span>`;
-    header.addEventListener("click", () => {
-      const collapsedNow = section.classList.toggle("collapsed");
+    header.addEventListener('click', () => {
+      const collapsedNow = section.classList.toggle('collapsed');
 
       if (collapsedNow) {
         collapsedSet.add(key);
@@ -425,20 +428,27 @@ export class Menu {
       this._saveCollapsed(collapsedSet);
     });
 
-    const songsWrap = document.createElement("div");
-    songsWrap.className = "category-songs";
+    const songsWrap = document.createElement('div');
+    songsWrap.className = 'category-songs';
 
     for (const { song, isCommunity } of group.items) {
-      songsWrap.appendChild(isCommunity ? this._renderCommunitySong(song, { showCommunityLabel: true }) : this._renderSong(song));
+      songsWrap.appendChild(
+        isCommunity
+          ? this._renderCommunitySong(song, { showCommunityLabel: true })
+          : this._renderSong(song),
+      );
     }
 
     section.appendChild(header);
     section.appendChild(songsWrap);
 
     if (group.items.length < group.total) {
-      const loadMoreBtn = this._el("button", "btn-link category-load-more",
-        `Load more (${group.total - group.items.length} remaining)`) as HTMLButtonElement;
-      loadMoreBtn.addEventListener("click", (e) => {
+      const loadMoreBtn = this._el(
+        'button',
+        'btn-link category-load-more',
+        `Load more (${group.total - group.items.length} remaining)`,
+      ) as HTMLButtonElement;
+      loadMoreBtn.addEventListener('click', (e) => {
         e.stopPropagation();
         this._loadMoreCategory(group.id);
       });
@@ -449,21 +459,21 @@ export class Menu {
   }
 
   private _renderShowcaseSection(): HTMLElement {
-    const showcaseKey = "guest-showcase";
+    const showcaseKey = 'guest-showcase';
     const collapsedSet = this._loadCollapsed();
     const isCollapsed = collapsedSet.has(showcaseKey);
 
-    const section = document.createElement("div");
-    section.className = `category-section showcase-section${isCollapsed ? " collapsed" : ""}`;
+    const section = document.createElement('div');
+    section.className = `category-section showcase-section${isCollapsed ? ' collapsed' : ''}`;
     section.dataset.categoryKey = showcaseKey;
 
-    const header = document.createElement("div");
-    header.className = "category-header showcase-header";
+    const header = document.createElement('div');
+    header.className = 'category-header showcase-header';
     header.innerHTML = `<span>Featured</span><span><span class="category-collapse-icon"></span></span>`;
 
-    header.addEventListener("click", () => {
+    header.addEventListener('click', () => {
       const set = this._loadCollapsed();
-      const collapsed = section.classList.toggle("collapsed");
+      const collapsed = section.classList.toggle('collapsed');
 
       if (collapsed) {
         set.add(showcaseKey);
@@ -474,8 +484,8 @@ export class Menu {
       this._saveCollapsed(set);
     });
 
-    const songsWrap = document.createElement("div");
-    songsWrap.className = "category-songs";
+    const songsWrap = document.createElement('div');
+    songsWrap.className = 'category-songs';
 
     for (const song of this._showcaseSongs) {
       songsWrap.appendChild(this._renderCommunitySong(song, { showcase: true }));
@@ -488,21 +498,21 @@ export class Menu {
   }
 
   private _renderCommunitySection(): HTMLElement {
-    const communityKey = "community";
+    const communityKey = 'community';
     const collapsedSet = this._loadCollapsed();
     const isCollapsed = collapsedSet.has(communityKey);
 
-    const section = document.createElement("div");
-    section.className = `category-section community-section${isCollapsed ? " collapsed" : ""}`;
+    const section = document.createElement('div');
+    section.className = `category-section community-section${isCollapsed ? ' collapsed' : ''}`;
     section.dataset.categoryKey = communityKey;
 
-    const header = document.createElement("div");
-    header.className = "category-header community-header";
+    const header = document.createElement('div');
+    header.className = 'category-header community-header';
     header.innerHTML = `<span>Community</span><span><span class="category-count">${this._communityTotal}</span><span class="category-collapse-icon"></span></span>`;
 
-    header.addEventListener("click", () => {
+    header.addEventListener('click', () => {
       const set = this._loadCollapsed();
-      const collapsed = section.classList.toggle("collapsed");
+      const collapsed = section.classList.toggle('collapsed');
 
       if (collapsed) {
         set.add(communityKey);
@@ -513,8 +523,8 @@ export class Menu {
       this._saveCollapsed(set);
     });
 
-    const songsWrap = document.createElement("div");
-    songsWrap.className = "category-songs";
+    const songsWrap = document.createElement('div');
+    songsWrap.className = 'category-songs';
     for (const song of this._communitySongs) {
       songsWrap.appendChild(this._renderCommunitySong(song));
     }
@@ -523,9 +533,12 @@ export class Menu {
     section.appendChild(songsWrap);
 
     if (this._communitySongs.length < this._communityTotal) {
-      const loadMoreBtn = this._el("button", "btn-link community-load-more",
-        `Load more (${this._communityTotal - this._communitySongs.length} remaining)`) as HTMLButtonElement;
-      loadMoreBtn.addEventListener("click", (e) => {
+      const loadMoreBtn = this._el(
+        'button',
+        'btn-link community-load-more',
+        `Load more (${this._communityTotal - this._communitySongs.length} remaining)`,
+      ) as HTMLButtonElement;
+      loadMoreBtn.addEventListener('click', (e) => {
         e.stopPropagation();
         this._loadMoreCommunity();
       });
@@ -543,13 +556,16 @@ export class Menu {
     opts: { showCommunityLabel?: boolean; showcase?: boolean } = {},
   ): HTMLElement {
     const { showCommunityLabel, showcase } = opts;
-    const el = this._el("div", `song-item community-song${showcase ? " showcase-song" : ""} ${NAV_ITEM_CLASS}`);
-    el.dataset.songId = song.id !== undefined ? String(song.id) : "";
+    const el = this._el(
+      'div',
+      `song-item community-song${showcase ? ' showcase-song' : ''} ${NAV_ITEM_CLASS}`,
+    );
+    el.dataset.songId = song.id !== undefined ? String(song.id) : '';
 
     this._renderSongMeta(song, el, showCommunityLabel);
 
     if (song.importedByUsername && (!showCommunityLabel || showcase)) {
-      el.appendChild(this._el("div", "song-origin-user", `Shared by ${song.importedByUsername}`));
+      el.appendChild(this._el('div', 'song-origin-user', `Shared by ${song.importedByUsername}`));
     }
 
     this._renderSongStats(song, el);
@@ -561,7 +577,7 @@ export class Menu {
     }
 
     if (showcase) {
-      el.appendChild(this._el("span", "song-community-label showcase-label", "Featured"));
+      el.appendChild(this._el('span', 'song-community-label showcase-label', 'Featured'));
     }
 
     // Admins keep a menu on other users' songs so they can recalculate the
@@ -570,51 +586,61 @@ export class Menu {
       this._renderSongActions(song, el, { adminRecalc: true });
     }
 
-    el.addEventListener("click", () => this._onSongClick(song, el));
-    el.addEventListener("dblclick", () => this._startSong(song, true));
+    el.addEventListener('click', () => this._onSongClick(song, el));
+    el.addEventListener('dblclick', () => this._startSong(song, true));
 
     return el;
   }
 
   /** The lock replacement on community rows. */
   private _renderSignInChip(el: HTMLElement): void {
-    const chip = this._el("button", "btn-ghost sign-in-chip", "\u{1F512} Sign in to play") as HTMLButtonElement;
-    chip.type = "button";
-    chip.title = "Create an account (or log in) to play community songs";
-    chip.addEventListener("click", (e) => {
+    const chip = this._el(
+      'button',
+      'btn-ghost sign-in-chip',
+      '\u{1F512} Sign in to play',
+    ) as HTMLButtonElement;
+    chip.type = 'button';
+    chip.title = 'Create an account (or log in) to play community songs';
+    chip.addEventListener('click', (e) => {
       e.stopPropagation();
       e.preventDefault();
       if (this.onSignIn) this.onSignIn();
     });
-    chip.addEventListener("dblclick", (e) => { e.stopPropagation(); });
+    chip.addEventListener('dblclick', (e) => {
+      e.stopPropagation();
+    });
     el.appendChild(chip);
   }
 
   private _renderBookmarkButton(song: Song, el: HTMLElement): void {
     const bookmarked = song.communityBookmarked === true;
-    const btn = this._el("button",
-      `bookmark-btn${bookmarked ? " bookmarked" : ""}`,
-      bookmarked ? "\u2605" : "\u2606") as HTMLButtonElement;
-    btn.title = bookmarked ? "Remove bookmark" : "Bookmark this song";
-    btn.addEventListener("click", (e) => {
+    const btn = this._el(
+      'button',
+      `bookmark-btn${bookmarked ? ' bookmarked' : ''}`,
+      bookmarked ? '\u2605' : '\u2606',
+    ) as HTMLButtonElement;
+    btn.title = bookmarked ? 'Remove bookmark' : 'Bookmark this song';
+    btn.addEventListener('click', (e) => {
       e.stopPropagation();
       e.preventDefault();
       if (this.onBookmark) this.onBookmark(song);
     });
-    btn.addEventListener("dblclick", (e) => { e.stopPropagation(); });
+    btn.addEventListener('dblclick', (e) => {
+      e.stopPropagation();
+    });
     el.appendChild(btn);
   }
 
   private _renderSong(song: Song): HTMLElement {
-    const el = this._el("div", `song-item ${NAV_ITEM_CLASS}${song.imported ? " imported" : ""}`);
-    el.dataset.songId = song.id !== undefined ? String(song.id) : "";
+    const el = this._el('div', `song-item ${NAV_ITEM_CLASS}${song.imported ? ' imported' : ''}`);
+    el.dataset.songId = song.id !== undefined ? String(song.id) : '';
 
     this._renderSongMeta(song, el);
     this._renderSongStats(song, el);
     this._renderSongActions(song, el, this._guestMode ? { guestLocal: true } : {});
 
-    el.addEventListener("click", () => this._onSongClick(song, el));
-    el.addEventListener("dblclick", () => this._startSong(song, false));
+    el.addEventListener('click', () => this._onSongClick(song, el));
+    el.addEventListener('dblclick', () => this._startSong(song, false));
 
     return el;
   }
@@ -627,21 +653,28 @@ export class Menu {
   }
 
   private _actionOption(text: string, className: string, onClick: () => void): HTMLButtonElement {
-    const btn = this._el("button", className, text) as HTMLButtonElement;
-    btn.addEventListener("click", (e) => { e.stopPropagation(); onClick(); });
-    btn.addEventListener("dblclick", (e) => { e.stopPropagation(); });
+    const btn = this._el('button', className, text) as HTMLButtonElement;
+    btn.addEventListener('click', (e) => {
+      e.stopPropagation();
+      onClick();
+    });
+    btn.addEventListener('dblclick', (e) => {
+      e.stopPropagation();
+    });
     return btn;
   }
 
   private _renderSongMeta(song: Song, el: HTMLElement, showCommunityLabel = false): void {
-    const titleDiv = this._el("div", "song-title", song.title);
+    const titleDiv = this._el('div', 'song-title', song.title);
 
     el.appendChild(titleDiv);
-    el.appendChild(this._el("div", "song-artist", song.artist || ""));
-    el.appendChild(this._el("span", `song-difficulty difficulty-${song.difficulty}`, song.difficulty));
+    el.appendChild(this._el('div', 'song-artist', song.artist || ''));
+    el.appendChild(
+      this._el('span', `song-difficulty difficulty-${song.difficulty}`, song.difficulty),
+    );
 
     if (showCommunityLabel) {
-      el.appendChild(this._el("span", "song-community-label", "Community"));
+      el.appendChild(this._el('span', 'song-community-label', 'Community'));
     }
   }
 
@@ -649,7 +682,7 @@ export class Menu {
     const lastPlayed = this._formatLastPlayed(song.lastPlayedAt);
 
     if (lastPlayed) {
-      el.appendChild(this._el("div", "song-last-played", lastPlayed));
+      el.appendChild(this._el('div', 'song-last-played', lastPlayed));
     }
 
     if (song.bestScore != null || song.lastScore != null) {
@@ -663,12 +696,17 @@ export class Menu {
         parts.push(`Best: ${formatScore(song.bestScore)}`);
       }
 
-      el.appendChild(this._el("div", "song-scores", parts.join(" | ")));
+      el.appendChild(this._el('div', 'song-scores', parts.join(' | ')));
     }
 
     if (song.bookmarkCount != null && song.bookmarkCount > 0) {
-      el.appendChild(this._el("div", "song-bookmark-count",
-        `${song.bookmarkCount} bookmark${song.bookmarkCount === 1 ? "" : "s"}`));
+      el.appendChild(
+        this._el(
+          'div',
+          'song-bookmark-count',
+          `${song.bookmarkCount} bookmark${song.bookmarkCount === 1 ? '' : 's'}`,
+        ),
+      );
     }
   }
 
@@ -682,71 +720,85 @@ export class Menu {
     opts: { adminRecalc?: boolean; guestLocal?: boolean } = {},
   ): void {
     const { adminRecalc, guestLocal } = opts;
-    const actionsMenu = this._el("div", "song-actions-menu hidden");
+    const actionsMenu = this._el('div', 'song-actions-menu hidden');
 
-    const actionsBtn = this._el("button", "song-actions-btn", "\u2026") as HTMLButtonElement;
-    actionsBtn.title = "Song actions";
-    actionsBtn.addEventListener("click", (e) => {
+    const actionsBtn = this._el('button', 'song-actions-btn', '\u2026') as HTMLButtonElement;
+    actionsBtn.title = 'Song actions';
+    actionsBtn.addEventListener('click', (e) => {
       e.stopPropagation();
       e.preventDefault();
-      const wasHidden = actionsMenu.classList.contains("hidden");
+      const wasHidden = actionsMenu.classList.contains('hidden');
       this._closeAllActionMenus();
       if (wasHidden) {
-        actionsMenu.classList.remove("hidden");
+        actionsMenu.classList.remove('hidden');
       }
     });
-    actionsBtn.addEventListener("dblclick", (e) => { e.stopPropagation(); });
+    actionsBtn.addEventListener('dblclick', (e) => {
+      e.stopPropagation();
+    });
 
     if (guestLocal) {
-      actionsMenu.appendChild(this._actionOption("Delete", "song-action-option danger", () => {
-        actionsMenu.classList.add("hidden");
-        if (this.onDelete) this.onDelete(song);
-      }));
+      actionsMenu.appendChild(
+        this._actionOption('Delete', 'song-action-option danger', () => {
+          actionsMenu.classList.add('hidden');
+          if (this.onDelete) this.onDelete(song);
+        }),
+      );
       el.appendChild(actionsBtn);
       el.appendChild(actionsMenu);
       return;
     }
 
-    actionsMenu.appendChild(this._actionOption("Set difficulty", "song-action-option", () => {
-      actionsMenu.classList.add("hidden");
-      if (this.onSetDifficulty) this.onSetDifficulty(song);
-    }));
+    actionsMenu.appendChild(
+      this._actionOption('Set difficulty', 'song-action-option', () => {
+        actionsMenu.classList.add('hidden');
+        if (this.onSetDifficulty) this.onSetDifficulty(song);
+      }),
+    );
 
     // Admin curation: feature any song for guest play, own or not.
     if (isAdmin() && this.onToggleGuestShowcase) {
       const isFeatured = song.guestShowcase === true;
-      actionsMenu.appendChild(this._actionOption(
-        isFeatured ? "Remove from guest showcase" : "Feature for guests",
-        "song-action-option",
-        () => {
-          actionsMenu.classList.add("hidden");
-          if (this.onToggleGuestShowcase) this.onToggleGuestShowcase(song);
-        },
-      ));
+      actionsMenu.appendChild(
+        this._actionOption(
+          isFeatured ? 'Remove from guest showcase' : 'Feature for guests',
+          'song-action-option',
+          () => {
+            actionsMenu.classList.add('hidden');
+            if (this.onToggleGuestShowcase) this.onToggleGuestShowcase(song);
+          },
+        ),
+      );
     }
 
     if (!adminRecalc) {
-      actionsMenu.appendChild(this._actionOption("Edit", "song-action-option", () => {
-        actionsMenu.classList.add("hidden");
-        if (this.onRename) this.onRename(song);
-      }));
+      actionsMenu.appendChild(
+        this._actionOption('Edit', 'song-action-option', () => {
+          actionsMenu.classList.add('hidden');
+          if (this.onRename) this.onRename(song);
+        }),
+      );
     }
 
     if (song.importedByUserId != null && !adminRecalc) {
       const isPublic = song.publicCommunity === true;
-      actionsMenu.appendChild(this._actionOption(
-        isPublic ? "Unpublish from community" : "Publish to community",
-        "song-action-option",
-        () => {
-          actionsMenu.classList.add("hidden");
-          if (this.onPublishCommunity) this.onPublishCommunity(song);
-        },
-      ));
+      actionsMenu.appendChild(
+        this._actionOption(
+          isPublic ? 'Unpublish from community' : 'Publish to community',
+          'song-action-option',
+          () => {
+            actionsMenu.classList.add('hidden');
+            if (this.onPublishCommunity) this.onPublishCommunity(song);
+          },
+        ),
+      );
 
-      actionsMenu.appendChild(this._actionOption("Delete", "song-action-option danger", () => {
-        actionsMenu.classList.add("hidden");
-        if (this.onDelete) this.onDelete(song);
-      }));
+      actionsMenu.appendChild(
+        this._actionOption('Delete', 'song-action-option danger', () => {
+          actionsMenu.classList.add('hidden');
+          if (this.onDelete) this.onDelete(song);
+        }),
+      );
     }
 
     el.appendChild(actionsBtn);
@@ -774,19 +826,21 @@ export class Menu {
       return;
     }
 
-    if (document.querySelector(".popup:not(.hidden)")) return;
+    if (document.querySelector('.popup:not(.hidden)')) return;
 
     const action = matchSongListAction(getSongListKeys(), [...this._heldMenuNotes]);
 
     if (!action) return;
 
-    if (document.getElementById(RESULTS_SCREEN_ID)?.classList.contains("active")) {
+    if (document.getElementById(RESULTS_SCREEN_ID)?.classList.contains('active')) {
       this._runResultsAction?.(action);
       return;
     }
 
-    if (this._freeplayScreen.classList.contains("active")
-      && !document.querySelector(".screen.active:not(#freeplay-screen)")) {
+    if (
+      this._freeplayScreen.classList.contains('active') &&
+      !document.querySelector('.screen.active:not(#freeplay-screen)')
+    ) {
       this._runSongListAction(action);
       return;
     }
@@ -804,7 +858,7 @@ export class Menu {
 
   private _onSongClick(song: Song, el: HTMLElement): void {
     if (!el.classList.contains(FOCUS_CLASS)) {
-      playMenuSound("next");
+      playMenuSound('next');
     }
 
     this._selectSong(song, el);
@@ -817,7 +871,7 @@ export class Menu {
   }
 
   private _startSong(song: Song, isCommunity: boolean): void {
-    playMenuSound("enter");
+    playMenuSound('enter');
 
     if (this._guestMode) {
       if (!isCommunity) {
@@ -842,7 +896,7 @@ export class Menu {
   }
 
   private _songItems(): HTMLElement[] {
-    return Array.from(this._songListEl.querySelectorAll<HTMLElement>(".song-item"));
+    return Array.from(this._songListEl.querySelectorAll<HTMLElement>('.song-item'));
   }
 
   private _visibleItems(): HTMLElement[] {
@@ -859,7 +913,7 @@ export class Menu {
     if (!song) return;
 
     this._selectSong(song, el);
-    el.scrollIntoView({ block: "nearest" });
+    el.scrollIntoView({ block: 'nearest' });
   }
 
   private _startSelected(): void {
@@ -871,7 +925,7 @@ export class Menu {
 
     if (!song) return;
 
-    this._startSong(song, el.classList.contains("community-song"));
+    this._startSong(song, el.classList.contains('community-song'));
   }
 
   private _findSong(id: number): Song | null {
@@ -880,27 +934,27 @@ export class Menu {
 
       if (item) return item.song;
     }
-    return this._showcaseSongs.find((s) => s.id === id)
-      ?? this._communitySongs.find((s) => s.id === id)
-      ?? null;
+    return (
+      this._showcaseSongs.find((s) => s.id === id) ??
+      this._communitySongs.find((s) => s.id === id) ??
+      null
+    );
   }
 
   private _autoSelect(song: Song): void {
     this._selectedSong = song;
-    const firstItem = this._songListEl.querySelector(
-      ".song-item",
-    ) as HTMLElement | null;
+    const firstItem = this._songListEl.querySelector('.song-item') as HTMLElement | null;
     firstItem?.classList.add(FOCUS_CLASS);
     this._startBtn.disabled = false;
   }
 
   private _reapplySelection(): void {
-    const items = this._songListEl.querySelectorAll(".song-item");
+    const items = this._songListEl.querySelectorAll('.song-item');
 
     for (const item of items) {
       const el = item as HTMLElement;
 
-      if (el.dataset.songId === String(this._selectedSong?.id ?? "")) {
+      if (el.dataset.songId === String(this._selectedSong?.id ?? '')) {
         el.classList.add(FOCUS_CLASS);
         return;
       }
@@ -908,21 +962,21 @@ export class Menu {
   }
 
   private _formatLastPlayed(ts: string | null | undefined): string {
-    return formatRelativeTime(ts, "Last played ");
+    return formatRelativeTime(ts, 'Last played ');
   }
 
   show(): void {
-    this._freeplayScreen.classList.add("active");
+    this._freeplayScreen.classList.add('active');
   }
 
   hide(): void {
-    this._freeplayScreen.classList.remove("active");
+    this._freeplayScreen.classList.remove('active');
   }
 
   setMidiStatus(connected: boolean, message: string): void {
     this._midiStatusEl.textContent = message;
-    this._midiStatusEl.className = `midi-status${connected ? " connected" : ""}`;
+    this._midiStatusEl.className = `midi-status${connected ? ' connected' : ''}`;
 
-    this._controlsHintEl?.classList.toggle("hidden", connected);
+    this._controlsHintEl?.classList.toggle('hidden', connected);
   }
 }

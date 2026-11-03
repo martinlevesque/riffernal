@@ -1,8 +1,8 @@
-import { parseError } from "./helpers.js";
+import { parseError } from './helpers.js';
 
-const TOKEN_KEY = "riffernal_token";
-const USER_KEY = "riffernal_user";
-const GUEST_KEY = "riffernal_guest";
+const TOKEN_KEY = 'riffernal_token';
+const USER_KEY = 'riffernal_user';
+const GUEST_KEY = 'riffernal_guest';
 
 export interface AuthUser {
   id: number;
@@ -74,11 +74,11 @@ export function clearAuth(): void {
 /** True while the visitor chose "continue as guest"; cleared by any
  *  successful login/register/setup. */
 export function isGuestMode(): boolean {
-  return localStorage.getItem(GUEST_KEY) === "1";
+  return localStorage.getItem(GUEST_KEY) === '1';
 }
 
 export function setGuestMode(): void {
-  localStorage.setItem(GUEST_KEY, "1");
+  localStorage.setItem(GUEST_KEY, '1');
 }
 
 export function clearGuestMode(): void {
@@ -86,7 +86,7 @@ export function clearGuestMode(): void {
 }
 
 export async function checkSetup(): Promise<{ needed: boolean }> {
-  const res = await fetch("/api/auth/setup");
+  const res = await fetch('/api/auth/setup');
   if (!res.ok) throw new Error(await parseError(res));
   return res.json() as Promise<{ needed: boolean }>;
 }
@@ -96,9 +96,9 @@ export async function setupAdmin(
   tagline: string,
   password: string,
 ): Promise<{ user: AuthUser; token: string }> {
-  const res = await fetch("/api/auth/setup", {
-    method: "POST",
-    headers: { "Content-Type": "application/json" },
+  const res = await fetch('/api/auth/setup', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({ username, tagline, password }),
   });
   if (!res.ok) throw new Error(await parseError(res));
@@ -112,9 +112,9 @@ export async function register(
   tagline: string,
   password: string,
 ): Promise<{ user: AuthUser; token: string }> {
-  const res = await fetch("/api/auth/register", {
-    method: "POST",
-    headers: { "Content-Type": "application/json" },
+  const res = await fetch('/api/auth/register', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({ username, tagline, password }),
   });
   if (!res.ok) throw new Error(await parseError(res));
@@ -127,9 +127,9 @@ export async function login(
   username: string,
   password: string,
 ): Promise<{ user: AuthUser; token: string }> {
-  const res = await fetch("/api/auth/login", {
-    method: "POST",
-    headers: { "Content-Type": "application/json" },
+  const res = await fetch('/api/auth/login', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({ username, password }),
   });
   if (!res.ok) throw new Error(await parseError(res));
@@ -141,8 +141,8 @@ export async function login(
 export async function logout(): Promise<void> {
   const token = getAuthToken();
   if (token) {
-    await fetch("/api/auth/logout", {
-      method: "POST",
+    await fetch('/api/auth/logout', {
+      method: 'POST',
       headers: { Authorization: `Bearer ${token}` },
     }).catch(() => {});
   }

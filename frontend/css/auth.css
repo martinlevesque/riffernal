@@ -16,6 +16,13 @@
   background: var(--bg-dark);
 }
 
+/* The corner link is static markup outside the rendered panel (AuthScreen
+   re-attaches it after every render). Fixed keeps the scrollable panel from
+   dragging it out of view on short viewports. */
+#auth-screen .home-github {
+  position: fixed;
+}
+
 /* Column of brand + intro + card. margin:auto centers it and collapses to 0
    when content outgrows the viewport, so the parent's overflow-y can scroll
    instead of clipping the top. */

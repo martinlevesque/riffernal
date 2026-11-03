@@ -1,18 +1,95 @@
 export const NOTE_NAMES: string[] = [
-  'A0', 'A#0', 'B0',
-  'C1', 'C#1', 'D1', 'D#1', 'E1', 'F1', 'F#1', 'G1', 'G#1', 'A1', 'A#1', 'B1',
-  'C2', 'C#2', 'D2', 'D#2', 'E2', 'F2', 'F#2', 'G2', 'G#2', 'A2', 'A#2', 'B2',
-  'C3', 'C#3', 'D3', 'D#3', 'E3', 'F3', 'F#3', 'G3', 'G#3', 'A3', 'A#3', 'B3',
-  'C4', 'C#4', 'D4', 'D#4', 'E4', 'F4', 'F#4', 'G4', 'G#4', 'A4', 'A#4', 'B4',
-  'C5', 'C#5', 'D5', 'D#5', 'E5', 'F5', 'F#5', 'G5', 'G#5', 'A5', 'A#5', 'B5',
-  'C6', 'C#6', 'D6', 'D#6', 'E6', 'F6', 'F#6', 'G6', 'G#6', 'A6', 'A#6', 'B6',
-  'C7', 'C#7', 'D7', 'D#7', 'E7', 'F7', 'F#7', 'G7', 'G#7', 'A7', 'A#7', 'B7',
+  'A0',
+  'A#0',
+  'B0',
+  'C1',
+  'C#1',
+  'D1',
+  'D#1',
+  'E1',
+  'F1',
+  'F#1',
+  'G1',
+  'G#1',
+  'A1',
+  'A#1',
+  'B1',
+  'C2',
+  'C#2',
+  'D2',
+  'D#2',
+  'E2',
+  'F2',
+  'F#2',
+  'G2',
+  'G#2',
+  'A2',
+  'A#2',
+  'B2',
+  'C3',
+  'C#3',
+  'D3',
+  'D#3',
+  'E3',
+  'F3',
+  'F#3',
+  'G3',
+  'G#3',
+  'A3',
+  'A#3',
+  'B3',
+  'C4',
+  'C#4',
+  'D4',
+  'D#4',
+  'E4',
+  'F4',
+  'F#4',
+  'G4',
+  'G#4',
+  'A4',
+  'A#4',
+  'B4',
+  'C5',
+  'C#5',
+  'D5',
+  'D#5',
+  'E5',
+  'F5',
+  'F#5',
+  'G5',
+  'G#5',
+  'A5',
+  'A#5',
+  'B5',
+  'C6',
+  'C#6',
+  'D6',
+  'D#6',
+  'E6',
+  'F6',
+  'F#6',
+  'G6',
+  'G#6',
+  'A6',
+  'A#6',
+  'B6',
+  'C7',
+  'C#7',
+  'D7',
+  'D#7',
+  'E7',
+  'F7',
+  'F#7',
+  'G7',
+  'G#7',
+  'A7',
+  'A#7',
+  'B7',
   'C8',
 ];
 
-export const NOTE_TO_LANE: Map<string, number> = new Map(
-  NOTE_NAMES.map((name, i) => [name, i])
-);
+export const NOTE_TO_LANE: Map<string, number> = new Map(NOTE_NAMES.map((name, i) => [name, i]));
 
 export const WHITE_KEY_COUNT = 52;
 export const BLACK_KEY_WIDTH_RATIO = 0.6;
@@ -36,13 +113,29 @@ export const GM_DRUM_CHANNEL = 9;
 const LEFT_HAND_COLORS = ['#2288ff', '#4466ff', '#6644ff', '#8844ff', '#aa44ff', '#22ddaa'];
 const RIGHT_HAND_COLORS = ['#ff2244', '#ff6622', '#ffaa22', '#ffdd22', '#ddff22', '#22ff66'];
 
-const _chromaticMap: Record<string, number> = { C: 0, 'C#': 1, D: 2, 'D#': 3, E: 4, F: 5, 'F#': 6, G: 7, 'G#': 8, A: 9, 'A#': 10, B: 11 };
+const _chromaticMap: Record<string, number> = {
+  C: 0,
+  'C#': 1,
+  D: 2,
+  'D#': 3,
+  E: 4,
+  F: 5,
+  'F#': 6,
+  G: 7,
+  'G#': 8,
+  A: 9,
+  'A#': 10,
+  B: 11,
+};
 
 const _handSideCache = new Map<string, HandSide>();
 
 for (const name of NOTE_NAMES) {
   const match = name.match(/^([A-G]#?)(\d)$/);
-  if (!match) { _handSideCache.set(name, HandSide.Right); continue; }
+  if (!match) {
+    _handSideCache.set(name, HandSide.Right);
+    continue;
+  }
   const midi = _chromaticMap[match[1]] + (parseInt(match[2], 10) + 1) * 12;
   _handSideCache.set(name, midi <= HAND_SPLIT_MIDI ? HandSide.Left : HandSide.Right);
 }
@@ -162,7 +255,11 @@ const _layoutCache = new Map<string, PianoKeyLayout>();
 let _cachedWidth = -1;
 let _cachedRangeKey = '';
 
-export function getPianoKeyLayout(noteName: string, totalWidth: number, visibleRange?: VisibleRange | null): PianoKeyLayout {
+export function getPianoKeyLayout(
+  noteName: string,
+  totalWidth: number,
+  visibleRange?: VisibleRange | null,
+): PianoKeyLayout {
   const rangeKey = visibleRange ? `${visibleRange.minNoteIdx}:${visibleRange.maxNoteIdx}` : '';
   if (totalWidth !== _cachedWidth || rangeKey !== _cachedRangeKey) {
     _layoutCache.clear();
@@ -188,7 +285,11 @@ export function getPianoKeyLayout(noteName: string, totalWidth: number, visibleR
 
     if (!noteName.includes('#')) {
       const idx = WHITE_KEY_INDEX[noteName] ?? 0;
-      const result = { x: (idx - minWhiteIdx) * visibleKeyWidth, width: visibleKeyWidth, isBlack: false };
+      const result = {
+        x: (idx - minWhiteIdx) * visibleKeyWidth,
+        width: visibleKeyWidth,
+        isBlack: false,
+      };
       _layoutCache.set(cacheKey, result);
       return result;
     } else {

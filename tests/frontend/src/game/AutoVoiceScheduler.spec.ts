@@ -1,8 +1,14 @@
 import { test, expect } from 'bun:test';
-import { AutoVoiceScheduler, type AutoVoiceEntry } from '../../../../frontend/src/game/AutoVoiceScheduler.js';
+import {
+  AutoVoiceScheduler,
+  type AutoVoiceEntry,
+} from '../../../../frontend/src/game/AutoVoiceScheduler.js';
 import type { Patch } from '../../../../frontend/src/audio/patches/Patch.js';
 
-const dummyPatch: Patch = { name: 'dummy', build: () => ({ output: {} as AudioNode, release() {} }) };
+const dummyPatch: Patch = {
+  name: 'dummy',
+  build: () => ({ output: {} as AudioNode, release() {} }),
+};
 
 const makeEntry = (id: string, when: number): AutoVoiceEntry => ({
   id,
@@ -59,7 +65,14 @@ test('drains the whole burst before the earliest voice is due', () => {
 test('build callback receives the full entry', () => {
   const built: AutoVoiceEntry[] = [];
   const s = new AutoVoiceScheduler((e) => built.push(e));
-  s.enqueue({ id: 'auto_1_2.5_A2', noteName: 'A2', midiOverride: 45, patch: dummyPatch, when: 12.3, durationMs: 400 });
+  s.enqueue({
+    id: 'auto_1_2.5_A2',
+    noteName: 'A2',
+    midiOverride: 45,
+    patch: dummyPatch,
+    when: 12.3,
+    durationMs: 400,
+  });
 
   s.drain(10, 1 / 60);
   expect(built[0].id).toBe('auto_1_2.5_A2');

@@ -2,7 +2,12 @@ import type { Patch } from './Patch.js';
 import { getDistortionCurve, cleanupOnEnded } from './shared.js';
 import { isLowEndDevice } from '../../utils/device.js';
 
-function buildGuitar(ctx: AudioContext, freq: number, startTime: number, distortion: number): { output: GainNode; release: (ctx: AudioContext, stopTime: number) => void } {
+function buildGuitar(
+  ctx: AudioContext,
+  freq: number,
+  startTime: number,
+  distortion: number,
+): { output: GainNode; release: (ctx: AudioContext, stopTime: number) => void } {
   const osc1 = ctx.createOscillator();
   const osc2 = ctx.createOscillator();
   const gainNode = ctx.createGain();

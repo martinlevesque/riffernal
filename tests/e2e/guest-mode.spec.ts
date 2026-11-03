@@ -12,23 +12,20 @@ const SEED_NOTES = [{ time: 0, key: 'C4', duration: 1 }];
 
 function buildMidiBuffer(): Buffer {
   const header = [
-    0x4d, 0x54, 0x68, 0x64,
-    0x00, 0x00, 0x00, 0x06,
-    0x00, 0x00,
-    0x00, 0x01,
-    0x01, 0xe0,
+    0x4d, 0x54, 0x68, 0x64, 0x00, 0x00, 0x00, 0x06, 0x00, 0x00, 0x00, 0x01, 0x01, 0xe0,
   ];
 
   const trackEvents = [
-    0x00, 0xff, 0x51, 0x03, 0x07, 0xa1, 0x20,
-    0x78, 0x90, 0x3c, 0x64,
-    0x78, 0x3c, 0x00,
-    0x00, 0xff, 0x2f, 0x00,
+    0x00, 0xff, 0x51, 0x03, 0x07, 0xa1, 0x20, 0x78, 0x90, 0x3c, 0x64, 0x78, 0x3c, 0x00, 0x00, 0xff,
+    0x2f, 0x00,
   ];
 
   const trackLength = trackEvents.length;
   const trackHeader = [
-    0x4d, 0x54, 0x72, 0x6b,
+    0x4d,
+    0x54,
+    0x72,
+    0x6b,
     (trackLength >> 24) & 0xff,
     (trackLength >> 16) & 0xff,
     (trackLength >> 8) & 0xff,
@@ -76,11 +73,17 @@ test.describe('Guest mode', () => {
   test('guest can import a MIDI, keep it across a refresh, and play it', async ({ browser }) => {
     const { context, page } = await continueAsGuest(browser);
 
-    await page.waitForFunction(() => (document.getElementById('midi-status') as HTMLElement).textContent.length > 0);
+    await page.waitForFunction(
+      () => (document.getElementById('midi-status') as HTMLElement).textContent.length > 0,
+    );
     const fileChooserPromise = page.waitForEvent('filechooser', { timeout: 5000 });
     await page.locator('#btn-import-midi').click();
     const fileChooser = await fileChooserPromise;
-    await fileChooser.setFiles({ name: 'guest-song.mid', mimeType: 'audio/midi', buffer: buildMidiBuffer() });
+    await fileChooser.setFiles({
+      name: 'guest-song.mid',
+      mimeType: 'audio/midi',
+      buffer: buildMidiBuffer(),
+    });
 
     // Single-track file: straight to the metadata form. Guests have no
     // server categories, so the category UI is hidden.
@@ -110,7 +113,10 @@ test.describe('Guest mode', () => {
     await context.close();
   });
 
-  test('community rows are locked for guests and the chip leads to auth', async ({ browser, request }) => {
+  test('community rows are locked for guests and the chip leads to auth', async ({
+    browser,
+    request,
+  }) => {
     await cleanupSongs(request, /^E2E-Guest-Comm$/);
     const id = await seedSongWithNotes(request, 'E2E-Guest-Comm', SEED_NOTES);
     await publishSong(request, id);
@@ -155,7 +161,9 @@ test.describe('Guest mode', () => {
     await expect(page.locator('.showcase-section', { hasText: 'Featured' })).toBeVisible();
 
     // Featured songs are not duplicated as locked rows in the community list.
-    await expect(page.locator('.community-section .song-item', { hasText: 'E2E-Guest-Feat' })).toHaveCount(0);
+    await expect(
+      page.locator('.community-section .song-item', { hasText: 'E2E-Guest-Feat' }),
+    ).toHaveCount(0);
 
     // Both start paths (row dblclick and the PLAY button) must load the
     // featured song: a duration of 0:00 means the game started with no
@@ -171,7 +179,10 @@ test.describe('Guest mode', () => {
     await cleanupSongs(request, /^E2E-Guest-Feat$/);
   });
 
-  test('PLAY button on a locked community song leads to the auth screen', async ({ browser, request }) => {
+  test('PLAY button on a locked community song leads to the auth screen', async ({
+    browser,
+    request,
+  }) => {
     await cleanupSongs(request, /^E2E-Guest-Comm-Play$/);
     const id = await seedSongWithNotes(request, 'E2E-Guest-Comm-Play', SEED_NOTES);
     await publishSong(request, id);

@@ -1,16 +1,16 @@
-import { cpSync, existsSync, mkdirSync, rmSync } from "node:fs";
-import { join } from "node:path";
+import { cpSync, existsSync, mkdirSync, rmSync } from 'node:fs';
+import { join } from 'node:path';
 
-const ROOT = join(import.meta.dir, "..");
-const SRC = join(ROOT, "frontend");
-const DIST = join(ROOT, "dist");
+const ROOT = join(import.meta.dir, '..');
+const SRC = join(ROOT, 'frontend');
+const DIST = join(ROOT, 'dist');
 
-const STATIC_ASSETS = ["index.html", "terms.html", "privacy.html", "css", "assets"];
+const STATIC_ASSETS = ['index.html', 'terms.html', 'privacy.html', 'css', 'assets'];
 
 /** Drop stale build output from dist/js so the dev server's on-the-fly
  *  /js/*.js transpiler serves current source instead of a stale build. */
 export function resetTranspiledJs(): void {
-  const distJs = join(DIST, "js");
+  const distJs = join(DIST, 'js');
   if (existsSync(distJs)) rmSync(distJs, { recursive: true, force: true });
 }
 

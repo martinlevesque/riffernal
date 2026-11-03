@@ -21,20 +21,35 @@ export class GameControls {
 
     modePlay.addEventListener('click', () => this.setMode(false));
     modeLearn.addEventListener('click', () => this.setMode(true));
-    loopPlayBtn.addEventListener('click', () => { this.game.loopPlay = !this.game.loopPlay; this.updateLoopUI(); });
-    handLeft.addEventListener('click', () => this.setPracticeHand(
-      this.game.practiceHand === PracticeHand.Left ? PracticeHand.Both : PracticeHand.Left));
-    handRight.addEventListener('click', () => this.setPracticeHand(
-      this.game.practiceHand === PracticeHand.Right ? PracticeHand.Both : PracticeHand.Right));
+    loopPlayBtn.addEventListener('click', () => {
+      this.game.loopPlay = !this.game.loopPlay;
+      this.updateLoopUI();
+    });
+    handLeft.addEventListener('click', () =>
+      this.setPracticeHand(
+        this.game.practiceHand === PracticeHand.Left ? PracticeHand.Both : PracticeHand.Left,
+      ),
+    );
+    handRight.addEventListener('click', () =>
+      this.setPracticeHand(
+        this.game.practiceHand === PracticeHand.Right ? PracticeHand.Both : PracticeHand.Right,
+      ),
+    );
     pauseBtn.addEventListener('click', () => {
-      if (this.game.state === GameState.Playing) { this.game.togglePause(); this.updatePauseBtn(); }
+      if (this.game.state === GameState.Playing) {
+        this.game.togglePause();
+        this.updatePauseBtn();
+      }
     });
 
     document.addEventListener('keydown', (e) => {
       if (this.game.state !== GameState.Playing) return;
 
-      if (e.code === 'Space') { e.preventDefault(); this.game.togglePause(); this.updatePauseBtn(); }
-      else if (e.code === 'KeyN') this.game.seekToNextNote();
+      if (e.code === 'Space') {
+        e.preventDefault();
+        this.game.togglePause();
+        this.updatePauseBtn();
+      } else if (e.code === 'KeyN') this.game.seekToNextNote();
     });
 
     document.getElementById('btn-next-note')!.addEventListener('click', () => {
@@ -47,8 +62,12 @@ export class GameControls {
     if (btnSettings) {
       btnSettings.addEventListener('click', () => settingsPopup.classList.remove('hidden'));
     }
-    document.getElementById('btn-close-settings')!.addEventListener('click', () => settingsPopup.classList.add('hidden'));
-    settingsPopup.addEventListener('click', (e) => { if (e.target === settingsPopup) settingsPopup.classList.add('hidden'); });
+    document
+      .getElementById('btn-close-settings')!
+      .addEventListener('click', () => settingsPopup.classList.add('hidden'));
+    settingsPopup.addEventListener('click', (e) => {
+      if (e.target === settingsPopup) settingsPopup.classList.add('hidden');
+    });
 
     // Theme dropdown
     const btnTheme = document.getElementById('btn-theme');
@@ -101,24 +120,29 @@ export class GameControls {
       const lowEndMode = settings.low_end_device_mode ?? false;
       setLowEndDeviceMode(lowEndMode);
       lowEndModeCheckbox.checked = lowEndMode;
-    } catch { /* ignore */ }
+    } catch {
+      /* ignore */
+    }
 
     showUsedKeysCheckbox.addEventListener('change', () => {
       this.game.setShowUsedKeys(showUsedKeysCheckbox.checked);
-      updateUserSettings({ piano_show_used_keys_only: showUsedKeysCheckbox.checked })
-        .catch((e) => console.warn('Failed to save settings:', e));
+      updateUserSettings({ piano_show_used_keys_only: showUsedKeysCheckbox.checked }).catch((e) =>
+        console.warn('Failed to save settings:', e),
+      );
     });
 
     octaveAgnosticCheckbox.addEventListener('change', () => {
       this.game.octaveAgnostic = octaveAgnosticCheckbox.checked;
-      updateUserSettings({ octave_agnostic: octaveAgnosticCheckbox.checked })
-        .catch((e) => console.warn('Failed to save settings:', e));
+      updateUserSettings({ octave_agnostic: octaveAgnosticCheckbox.checked }).catch((e) =>
+        console.warn('Failed to save settings:', e),
+      );
     });
 
     lowEndModeCheckbox.addEventListener('change', () => {
       setLowEndDeviceMode(lowEndModeCheckbox.checked);
-      updateUserSettings({ low_end_device_mode: lowEndModeCheckbox.checked })
-        .catch((e) => console.warn('Failed to save settings:', e));
+      updateUserSettings({ low_end_device_mode: lowEndModeCheckbox.checked }).catch((e) =>
+        console.warn('Failed to save settings:', e),
+      );
     });
   }
 
@@ -165,7 +189,7 @@ export class GameControls {
 
     const enabledCount = this.game.loop.chain.length;
     const savedCount = this.game.loop.loops.length;
-    loopPlayBtn.style.display = (this.game.loopActive && this.game.learningMode) ? '' : 'none';
+    loopPlayBtn.style.display = this.game.loopActive && this.game.learningMode ? '' : 'none';
     loopPlayBtn.classList.toggle('play-active', this.game.loopPlay);
     loopPlayBtn.textContent = this.game.loopPlay ? '\u23F8' : '\u25B6';
 
@@ -186,9 +210,10 @@ export class GameControls {
           : `${pos}Loop ${bounds}`;
       } else loopStatus.textContent = 'Chain active';
     } else if (savedCount > 0) {
-      loopStatus.textContent = enabledCount > 0
-        ? `${enabledCount} of ${savedCount} loops enabled`
-        : `${savedCount} loop${savedCount === 1 ? '' : 's'} saved`;
+      loopStatus.textContent =
+        enabledCount > 0
+          ? `${enabledCount} of ${savedCount} loops enabled`
+          : `${savedCount} loop${savedCount === 1 ? '' : 's'} saved`;
     } else loopStatus.textContent = 'No loops';
   }
 
