@@ -29,4 +29,18 @@ test.describe('Auth screen introduction', () => {
     await expect(page.locator('#auth-email')).toHaveCount(0);
     await expect(page.locator('.auth-card')).not.toContainText('Email');
   });
+
+  test('shows the github corner link on the auth screen and keeps it across re-renders', async ({
+    page,
+  }) => {
+    await expectAuthScreenActive(page);
+
+    const github = page.locator('#auth-screen .home-github');
+    await expect(github).toBeVisible();
+    await expect(github).toHaveAttribute('href', 'https://github.com/martinlevesque/riffernal');
+
+    await page.locator('#auth-toggle-btn').click();
+    await expectAuthScreenActive(page);
+    await expect(github).toBeVisible();
+  });
 });

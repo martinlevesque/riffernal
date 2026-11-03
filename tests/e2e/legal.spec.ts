@@ -16,7 +16,7 @@ test.describe('Legal pages', () => {
     await page.goto('/');
     await expectHomeScreenActive(page);
 
-    const github = page.locator('.home-github');
+    const github = page.locator('#home-screen .home-github');
     await expect(github).toBeVisible();
     await expect(github).toHaveAttribute('href', 'https://github.com/martinlevesque/riffernal');
     await expect(github).toHaveAttribute('target', '_blank');
