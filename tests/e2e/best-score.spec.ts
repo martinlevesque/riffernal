@@ -35,7 +35,7 @@ test.describe('Best Score', () => {
     await expect(page.locator('#song-info-best-score')).toHaveText('No record yet');
   });
 
-  test('pre-game popup closes when LET\'S GO is clicked', async ({ page }) => {
+  test("pre-game popup closes when LET'S GO is clicked", async ({ page }) => {
     await startGame(page, { keepSong: true, songTitle: 'BestScoreTest' });
 
     await expect(page.locator('#song-info-popup')).not.toHaveClass(/hidden/);
@@ -83,7 +83,9 @@ test.describe('Best Score', () => {
     await expect(page.locator('.song-scores')).toHaveCount(0, { timeout: 5000 });
   });
 
-  test('best score is NOT recorded when learn mode was auto-enabled by saved loops at startup', async ({ page }) => {
+  test('best score is NOT recorded when learn mode was auto-enabled by saved loops at startup', async ({
+    page,
+  }) => {
     await startGame(page, {
       keepSong: true,
       songTitle: 'LoopAutoLearnScore',
@@ -108,7 +110,7 @@ test.describe('Best Score', () => {
     await expect(page.locator('.song-scores')).toHaveCount(0, { timeout: 5000 });
   });
 
-test('best score in song list updates after a better run', async ({ page }) => {
+  test('best score in song list updates after a better run', async ({ page }) => {
     // First run
     await startGame(page, { keepSong: true, songTitle: 'BestScoreTest' });
     await expectPlayScreenActive(page);

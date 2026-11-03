@@ -76,16 +76,27 @@ export async function expectLoopStatus(page: Page, text: string): Promise<void> 
 // -- practice hand -----------------------------------------------------------
 
 /** Assert which practice hand button has the `active` class. */
-export async function expectPracticeHand(page: Page, hand: 'left' | 'right' | 'both'): Promise<void> {
-  await expect(page.locator('#hand-left')).toHaveClass(hand === 'left' ? /active/ : /^(?!.*\bactive\b).*$/);
-  await expect(page.locator('#hand-right')).toHaveClass(hand === 'right' ? /active/ : /^(?!.*\bactive\b).*$/);
+export async function expectPracticeHand(
+  page: Page,
+  hand: 'left' | 'right' | 'both',
+): Promise<void> {
+  await expect(page.locator('#hand-left')).toHaveClass(
+    hand === 'left' ? /active/ : /^(?!.*\bactive\b).*$/,
+  );
+  await expect(page.locator('#hand-right')).toHaveClass(
+    hand === 'right' ? /active/ : /^(?!.*\bactive\b).*$/,
+  );
 }
 
 // -- browser evaluate helpers -------------------------------------------------
 
 /** Run code inside a page-side NoteManager. `code` is a function body with
  *  `nm`, `H`, and `NOTE_TO_LANE` in scope. Use `return` to return a value. */
-export async function evaluateWithNoteManager(page: Page, song: SongData, code: string): Promise<any> {
+export async function evaluateWithNoteManager(
+  page: Page,
+  song: SongData,
+  code: string,
+): Promise<any> {
   const songJson = JSON.stringify(song);
   const body = `(async () => {
     const { NoteManager } = await import('/js/game/NoteManager.js');

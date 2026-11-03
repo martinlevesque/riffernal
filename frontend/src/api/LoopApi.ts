@@ -1,4 +1,4 @@
-import { parseError, apiFetch } from "./helpers.js";
+import { parseError, apiFetch } from './helpers.js';
 
 export interface Loop {
   id: number;
@@ -27,8 +27,8 @@ export async function createLoop(
   enabled = true,
 ): Promise<Loop> {
   const res = await apiFetch(`/api/songs/${songId}/loops`, {
-    method: "POST",
-    headers: { "Content-Type": "application/json" },
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({ startTime, endTime, enabled }),
   });
   if (!res.ok) throw new Error(await parseError(res));
@@ -37,8 +37,8 @@ export async function createLoop(
 
 export async function updateLoop(loopId: number, updates: LoopUpdates): Promise<Loop> {
   const res = await apiFetch(`/api/loops/${loopId}`, {
-    method: "PATCH",
-    headers: { "Content-Type": "application/json" },
+    method: 'PATCH',
+    headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify(updates),
   });
   if (!res.ok) throw new Error(await parseError(res));
@@ -46,6 +46,6 @@ export async function updateLoop(loopId: number, updates: LoopUpdates): Promise<
 }
 
 export async function deleteLoop(loopId: number): Promise<void> {
-  const res = await apiFetch(`/api/loops/${loopId}`, { method: "DELETE" });
+  const res = await apiFetch(`/api/loops/${loopId}`, { method: 'DELETE' });
   if (!res.ok) throw new Error(await parseError(res));
 }

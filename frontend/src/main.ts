@@ -23,10 +23,17 @@ import { PracticeHand } from './utils/notes.js';
 import type { Song } from './utils/MidiParser.js';
 import {
   PlayMode,
-  fetchSong, songFullToSong, markSongPlayed,
-  recordBestScore, updateSongTitle, deleteSong,
-  updateSongDifficulty, setSongGuestShowcase,
-  fetchCommunitySong, setSongPublicCommunity, toggleCommunityBookmark,
+  fetchSong,
+  songFullToSong,
+  markSongPlayed,
+  recordBestScore,
+  updateSongTitle,
+  deleteSong,
+  updateSongDifficulty,
+  setSongGuestShowcase,
+  fetchCommunitySong,
+  setSongPublicCommunity,
+  toggleCommunityBookmark,
   type SongFull,
 } from './api/SongApi.js';
 import { fetchLoops } from './api/LoopApi.js';
@@ -34,7 +41,14 @@ import { fetchGuestShowcaseSong } from './api/GuestApi.js';
 import { loadGuestSongs, removeGuestSong } from './utils/guestStore.js';
 import { themeManager } from './themes/ThemeManager.js';
 import { AuthScreen } from './ui/auth/AuthScreen.js';
-import { getStoredUser, logout, clearAuth, isGuestMode, setGuestMode, refreshSession } from './api/AuthApi.js';
+import {
+  getStoredUser,
+  logout,
+  clearAuth,
+  isGuestMode,
+  setGuestMode,
+  refreshSession,
+} from './api/AuthApi.js';
 import { deleteAccount } from './api/UserApi.js';
 
 export type AppMode = 'home' | 'freeplay' | 'settings';
@@ -105,7 +119,12 @@ async function handleLogout(): Promise<void> {
  *  booting onto the auth screen also drops the in-memory Menu that holds
  *  this user's scores/loops. */
 async function handleDeleteAccount(): Promise<void> {
-  if (!confirm('Delete your account? This permanently destroys your account, your songs and all your progress — including other users\' bookmarks and loops copied from your songs. This cannot be undone.')) return;
+  if (
+    !confirm(
+      "Delete your account? This permanently destroys your account, your songs and all your progress — including other users' bookmarks and loops copied from your songs. This cannot be undone.",
+    )
+  )
+    return;
 
   try {
     await deleteAccount();
@@ -113,7 +132,11 @@ async function handleDeleteAccount(): Promise<void> {
     window.location.reload();
   } catch (err) {
     console.error('Failed to delete account:', err);
-    alert(err instanceof Error && err.message ? `Failed to delete account: ${err.message}` : 'Failed to delete account.');
+    alert(
+      err instanceof Error && err.message
+        ? `Failed to delete account: ${err.message}`
+        : 'Failed to delete account.',
+    );
   }
 }
 
@@ -177,7 +200,17 @@ function createAppContext(): AppContext {
   const categorySelect = new CategorySelect();
   const songInfoPopup = new SongInfoPopup(game, () => controls.updatePauseBtn());
 
-  return { canvas, game, controls, menu, keyboardInput, songInfoPopup, midiInput, trackSelect, categorySelect };
+  return {
+    canvas,
+    game,
+    controls,
+    menu,
+    keyboardInput,
+    songInfoPopup,
+    midiInput,
+    trackSelect,
+    categorySelect,
+  };
 }
 
 /** Load the user's library (own + bookmarked songs grouped by category) and
@@ -274,8 +307,11 @@ async function startSong(
   let fullSong = song;
 
   if (song.id !== undefined && song.notes.length === 0) {
-    try { fullSong = songFullToSong(await fetchFull(song.id)); }
-    catch (e) { console.warn('Failed to fetch full song:', e); }
+    try {
+      fullSong = songFullToSong(await fetchFull(song.id));
+    } catch (e) {
+      console.warn('Failed to fetch full song:', e);
+    }
   }
 
   if (fullSong.trackPreferences) {
@@ -333,9 +369,11 @@ function setupMenuCallbacks(ctx: AppContext): void {
     menu.onDelete = (song) => {
       if (song.id === undefined) return;
 
-      removeGuestSong(song.id).then((removed) => {
-        if (removed) menu.removeSong(song.id!);
-      }).catch((err) => console.error('Failed to remove guest song:', err));
+      removeGuestSong(song.id)
+        .then((removed) => {
+          if (removed) menu.removeSong(song.id!);
+        })
+        .catch((err) => console.error('Failed to remove guest song:', err));
     };
 
     return;
@@ -360,7 +398,11 @@ function setupMenuCallbacks(ctx: AppContext): void {
   });
   menu.onSetDifficulty = (song) => {
     if (song.id === undefined) return;
-    difficultyPopup.show({ id: song.id, difficulty: song.difficulty, ownerId: song.importedByUserId ?? null });
+    difficultyPopup.show({
+      id: song.id,
+      difficulty: song.difficulty,
+      ownerId: song.importedByUserId ?? null,
+    });
   };
 
   menu.onDelete = (song) => {
@@ -368,12 +410,14 @@ function setupMenuCallbacks(ctx: AppContext): void {
     const id = song.id;
 
     if (confirm(`Delete "${song.title}"? This cannot be undone.`)) {
-      deleteSong(id).then(() => {
-        menu.removeSong(id);
-      }).catch((err) => {
-        console.error('Failed to delete song:', err);
-        alert('Failed to delete song.');
-      });
+      deleteSong(id)
+        .then(() => {
+          menu.removeSong(id);
+        })
+        .catch((err) => {
+          console.error('Failed to delete song:', err);
+          alert('Failed to delete song.');
+        });
     }
   };
 
@@ -381,25 +425,29 @@ function setupMenuCallbacks(ctx: AppContext): void {
     if (song.id === undefined) return;
     const id = song.id;
     const newValue = !(song.publicCommunity === true);
-    setSongPublicCommunity(id, newValue).then((updated) => {
-      menu.updateSong(songFullToSong(updated));
-      menu.refreshAfterPublishChange(!newValue);
-    }).catch((err) => {
-      console.error('Failed to update community visibility:', err);
-      alert('Failed to update community visibility.');
-    });
+    setSongPublicCommunity(id, newValue)
+      .then((updated) => {
+        menu.updateSong(songFullToSong(updated));
+        menu.refreshAfterPublishChange(!newValue);
+      })
+      .catch((err) => {
+        console.error('Failed to update community visibility:', err);
+        alert('Failed to update community visibility.');
+      });
   };
 
   menu.onToggleGuestShowcase = (song) => {
     if (song.id === undefined) return;
     const id = song.id;
     const newValue = !(song.guestShowcase === true);
-    setSongGuestShowcase(id, newValue).then((updated) => {
-      menu.updateSong(songFullToSong(updated));
-    }).catch((err) => {
-      console.error('Failed to update guest showcase:', err);
-      alert('Failed to update guest showcase.');
-    });
+    setSongGuestShowcase(id, newValue)
+      .then((updated) => {
+        menu.updateSong(songFullToSong(updated));
+      })
+      .catch((err) => {
+        console.error('Failed to update guest showcase:', err);
+        alert('Failed to update guest showcase.');
+      });
   };
 
   menu.onCommunityStart = (song) => startSong(ctx, song, fetchCommunitySong);
@@ -408,11 +456,13 @@ function setupMenuCallbacks(ctx: AppContext): void {
     if (song.id === undefined) return;
     const id = song.id;
     const newValue = !(song.communityBookmarked === true);
-    toggleCommunityBookmark(id, newValue).then(() => {
-      menu.updateBookmarkState(id, newValue);
-    }).catch((err) => {
-      console.error('Failed to toggle bookmark:', err);
-    });
+    toggleCommunityBookmark(id, newValue)
+      .then(() => {
+        menu.updateBookmarkState(id, newValue);
+      })
+      .catch((err) => {
+        console.error('Failed to toggle bookmark:', err);
+      });
   };
 }
 
@@ -421,11 +471,20 @@ function setupMenuCallbacks(ctx: AppContext): void {
 async function setupMidiStatus(ctx: AppContext): Promise<void> {
   const { menu, midiInput } = ctx;
   await midiInput.start();
-  menu.setMidiStatus(midiInput.connected, midiInput.connected ? 'MIDI device connected' : 'No MIDI device - use keyboard');
-  _homeScreen?.updateMidiStatus(midiInput.connected, midiInput.connected ? 'MIDI device connected' : 'Computer keyboard (no MIDI keyboard detected)');
+  menu.setMidiStatus(
+    midiInput.connected,
+    midiInput.connected ? 'MIDI device connected' : 'No MIDI device - use keyboard',
+  );
+  _homeScreen?.updateMidiStatus(
+    midiInput.connected,
+    midiInput.connected ? 'MIDI device connected' : 'Computer keyboard (no MIDI keyboard detected)',
+  );
   midiInput.onConnectionChange = (connected, message) => {
     menu.setMidiStatus(connected, message);
-    _homeScreen?.updateMidiStatus(connected, connected ? message : 'Computer keyboard (no MIDI keyboard detected)');
+    _homeScreen?.updateMidiStatus(
+      connected,
+      connected ? message : 'Computer keyboard (no MIDI keyboard detected)',
+    );
   };
 }
 
@@ -433,7 +492,8 @@ async function setupMidiStatus(ctx: AppContext): Promise<void> {
  *  speed controls, MIDI import dialog, hover cursor, sheet view, and result
  *  buttons. These attach themselves to the game/canvas on construction. */
 function setupTrailingComponents(ctx: AppContext): void {
-  const { game, canvas, menu, midiInput, trackSelect, categorySelect, songInfoPopup, controls } = ctx;
+  const { game, canvas, menu, midiInput, trackSelect, categorySelect, songInfoPopup, controls } =
+    ctx;
 
   new BackgroundPanel(game);
   new SpeedControls(game);

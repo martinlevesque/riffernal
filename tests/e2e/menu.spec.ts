@@ -42,7 +42,9 @@ test.describe('Menu Screen', () => {
   });
 
   test('shows song list with imported song', async ({ request, page }) => {
-    const id = await seedSongWithNotes(request, 'E2E Menu Song', [{ time: 0.5, key: 'C4', duration: 1 }]);
+    const id = await seedSongWithNotes(request, 'E2E Menu Song', [
+      { time: 0.5, key: 'C4', duration: 1 },
+    ]);
     try {
       await goToSongList(page);
       await expect(page.locator('.song-item').first()).toBeVisible({ timeout: 5000 });
@@ -56,7 +58,12 @@ test.describe('Menu Screen', () => {
     const publisher = await registerUser(request, uniqueUsername('songlist_pub'));
     const publishedIds: number[] = [];
     const publishAs = async (title: string): Promise<void> => {
-      const id = await seedSongWithNotes(request, title, [{ time: 0.5, key: 'C4', duration: 1 }], publisher.token);
+      const id = await seedSongWithNotes(
+        request,
+        title,
+        [{ time: 0.5, key: 'C4', duration: 1 }],
+        publisher.token,
+      );
       publishedIds.push(id);
       const res = await request.put(`/api/songs/${id}/public-community`, {
         data: { publicCommunity: true },
@@ -72,7 +79,10 @@ test.describe('Menu Screen', () => {
       page.on('request', (req) => {
         const path = new URL(req.url()).pathname;
 
-        if (req.method() === 'GET' && (path === '/api/library' || path === '/api/community/songs')) {
+        if (
+          req.method() === 'GET' &&
+          (path === '/api/library' || path === '/api/community/songs')
+        ) {
           listPaths.push(path);
         }
       });
@@ -82,7 +92,9 @@ test.describe('Menu Screen', () => {
       await expectHomeScreenActive(page);
       // setupMidiStatus runs after app init settles, so waiting for it proves
       // any initial list load would have fired by now.
-      await page.waitForFunction(() => (document.getElementById('midi-status-home') as HTMLElement).textContent.length > 0);
+      await page.waitForFunction(
+        () => (document.getElementById('midi-status-home') as HTMLElement).textContent.length > 0,
+      );
       expect(listPaths).toEqual([]);
 
       await clickFreeplay(page);
@@ -130,7 +142,9 @@ test.describe('Menu Screen', () => {
     await page.goto('/');
     await openSettings(page);
     await expect(page.locator('#show-used-keys')).toBeVisible();
-    await expect(page.locator('.setting-toggle').first()).toContainText('Show only keys used in song');
+    await expect(page.locator('.setting-toggle').first()).toContainText(
+      'Show only keys used in song',
+    );
   });
 
   test('show used keys toggle can be toggled', async ({ page }) => {
@@ -148,10 +162,15 @@ test.describe('Menu Screen', () => {
     await page.goto('/');
     await openSettings(page);
     await expect(page.locator('#low-end-device-mode')).toBeVisible();
-    await expect(page.locator('.setting-toggle').nth(2)).toContainText('Low-end device mode (optimized graphics)');
+    await expect(page.locator('.setting-toggle').nth(2)).toContainText(
+      'Low-end device mode (optimized graphics)',
+    );
   });
 
-  test('low-end device mode toggle can be toggled and persists across reload', async ({ request, page }) => {
+  test('low-end device mode toggle can be toggled and persists across reload', async ({
+    request,
+    page,
+  }) => {
     await page.goto('/');
     await openSettings(page);
     const checkbox = page.locator('#low-end-device-mode');
@@ -161,10 +180,12 @@ test.describe('Menu Screen', () => {
 
     // The save is fire-and-forget, so wait for it to land before reloading.
     const headers = await authHeaders(request);
-    await expect.poll(async () => {
-      const res = await request.get('/api/user', { headers });
-      return (await res.json()).low_end_device_mode;
-    }).toBe(true);
+    await expect
+      .poll(async () => {
+        const res = await request.get('/api/user', { headers });
+        return (await res.json()).low_end_device_mode;
+      })
+      .toBe(true);
 
     await page.reload();
     await openSettings(page);
@@ -174,17 +195,23 @@ test.describe('Menu Screen', () => {
     await expect(page.locator('#low-end-device-mode')).not.toBeChecked();
   });
 
-  test('logout card logs out and shows auth screen with the guest option', async ({ request, page }) => {
+  test('logout card logs out and shows auth screen with the guest option', async ({
+    request,
+    page,
+  }) => {
     // Use a throwaway user so the shared e2e session is never invalidated.
     const username = uniqueUsername('logout_user');
     const { user, token } = await registerUser(request, username);
 
     // Boot the app as the throwaway user by seeding its credentials into localStorage.
     await page.goto('/');
-    await page.evaluate(([t, u]) => {
-      localStorage.setItem('riffernal_token', t);
-      localStorage.setItem('riffernal_user', u);
-    }, [token, JSON.stringify(user)]);
+    await page.evaluate(
+      ([t, u]) => {
+        localStorage.setItem('riffernal_token', t);
+        localStorage.setItem('riffernal_user', u);
+      },
+      [token, JSON.stringify(user)],
+    );
     await page.reload();
     await expectHomeScreenActive(page);
 
@@ -200,21 +227,27 @@ test.describe('Menu Screen', () => {
     await expect(page.locator('#btn-guest-signin')).toBeVisible();
   });
 
-  test('delete account in settings destroys the session and returns to the auth screen', async ({ request, page }) => {
+  test('delete account in settings destroys the session and returns to the auth screen', async ({
+    request,
+    page,
+  }) => {
     // Throwaway user: the shared e2e user is the setup admin, which is
     // protected from self-deletion, and its session must survive anyway.
     const username = uniqueUsername('delete_user');
     const { user, token } = await registerUser(request, username);
 
     await page.goto('/');
-    await page.evaluate(([t, u]) => {
-      localStorage.setItem('riffernal_token', t);
-      localStorage.setItem('riffernal_user', u);
-    }, [token, JSON.stringify(user)]);
+    await page.evaluate(
+      ([t, u]) => {
+        localStorage.setItem('riffernal_token', t);
+        localStorage.setItem('riffernal_user', u);
+      },
+      [token, JSON.stringify(user)],
+    );
     await page.reload();
     await expectHomeScreenActive(page);
 
-    page.on('dialog', async dialog => {
+    page.on('dialog', async (dialog) => {
       await dialog.accept();
     });
 

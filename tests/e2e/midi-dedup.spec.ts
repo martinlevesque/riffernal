@@ -5,12 +5,12 @@ import { makeSong } from '../helpers/index.js';
 // Track 0 = Janne (selected), Tracks 1-4 = background
 // Opening melody — notes are 144ms apart, each 144ms duration.
 const JANNE_MELODY = [
-  { time: 0.500, key: 'A4', duration: 0.144, track: 0 },
+  { time: 0.5, key: 'A4', duration: 0.144, track: 0 },
   { time: 0.644, key: 'F4', duration: 0.144, track: 0 },
   { time: 0.788, key: 'E4', duration: 0.144, track: 0 },
   { time: 0.932, key: 'D4', duration: 0.144, track: 0 },
   { time: 1.076, key: 'E4', duration: 0.144, track: 0 },
-  { time: 1.220, key: 'F4', duration: 0.144, track: 0 },
+  { time: 1.22, key: 'F4', duration: 0.144, track: 0 },
   { time: 1.364, key: 'G#4', duration: 0.144, track: 0 },
   { time: 1.508, key: 'F4', duration: 0.144, track: 0 },
   { time: 1.652, key: 'E4', duration: 0.144, track: 0 },
@@ -18,20 +18,24 @@ const JANNE_MELODY = [
 ];
 
 const BG_NOTES = [
-  { time: 0.500, key: 'E2', duration: 0.5, track: 1 },
+  { time: 0.5, key: 'E2', duration: 0.5, track: 1 },
   { time: 1, key: 'A2', duration: 0.5, track: 1 },
-  { time: 1.500, key: 'E2', duration: 0.5, track: 1 },
-  { time: 0.500, key: 'B2', duration: 0.25, track: 2 },
-  { time: 0.750, key: 'D3', duration: 0.25, track: 2 },
+  { time: 1.5, key: 'E2', duration: 0.5, track: 1 },
+  { time: 0.5, key: 'B2', duration: 0.25, track: 2 },
+  { time: 0.75, key: 'D3', duration: 0.25, track: 2 },
   { time: 1, key: 'B2', duration: 0.25, track: 2 },
-  { time: 1.250, key: 'D3', duration: 0.25, track: 2 },
-  { time: 1.500, key: 'B2', duration: 0.25, track: 2 },
-  { time: 0.500, key: 'E1', duration: 0.5, track: 3 },
+  { time: 1.25, key: 'D3', duration: 0.25, track: 2 },
+  { time: 1.5, key: 'B2', duration: 0.25, track: 2 },
+  { time: 0.5, key: 'E1', duration: 0.5, track: 3 },
   { time: 1, key: 'A1', duration: 0.5, track: 3 },
-  { time: 1.500, key: 'E1', duration: 0.5, track: 3 },
+  { time: 1.5, key: 'E1', duration: 0.5, track: 3 },
 ];
 
-const ALL_NOTES = [...JANNE_MELODY, ...BG_NOTES, { time: 5.0, key: 'C4', duration: 0.25, track: 0 }];
+const ALL_NOTES = [
+  ...JANNE_MELODY,
+  ...BG_NOTES,
+  { time: 5.0, key: 'C4', duration: 0.25, track: 0 },
+];
 
 test('Learn mode: duplicate MIDI Note On does not produce Wrong', async ({ page }) => {
   test.setTimeout(15000);
@@ -51,7 +55,7 @@ test('Learn mode: duplicate MIDI Note On does not produce Wrong', async ({ page 
 
   await page.goto('/');
 
-  const result = await page.evaluate(`(async () => {
+  const result = (await page.evaluate(`(async () => {
     const { Game } = await import('/js/game/Game.js');
     const { Synth } = await import('/js/audio/Synth.js');
     const { KeyboardInput } = await import('/js/input/KeyboardInput.js');
@@ -106,7 +110,7 @@ test('Learn mode: duplicate MIDI Note On does not produce Wrong', async ({ page 
       scoreDelta: game.noteManager.scoring.score - scoreBefore,
       notesHit: game.noteManager.notes.filter(n => n.selected && n.hit).length,
     };
-  })()`) as { frozenTime: number; wrongNotes: number; scoreDelta: number; notesHit: number };
+  })()`)) as { frozenTime: number; wrongNotes: number; scoreDelta: number; notesHit: number };
 
   expect(result.frozenTime).toBeGreaterThan(0.4);
   expect(result.notesHit).toBeGreaterThanOrEqual(1);

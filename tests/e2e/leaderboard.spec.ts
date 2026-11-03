@@ -26,9 +26,13 @@ test.describe('Home leaderboard', () => {
   });
 
   test('shows the top user and highlights the current user row', async ({ request, page }) => {
-    const id = await seedSongWithNotes(request, 'LB-UI-Song', [
-      { time: 2.0, key: 'C4', duration: 0.4 },
-    ], undefined, 'LB-UI-Artist');
+    const id = await seedSongWithNotes(
+      request,
+      'LB-UI-Song',
+      [{ time: 2.0, key: 'C4', duration: 0.4 }],
+      undefined,
+      'LB-UI-Artist',
+    );
 
     // No explicit token: the shared e2e user scores the run, matching the
     // logged-in browser session so the row is highlighted as "you".

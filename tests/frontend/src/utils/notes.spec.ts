@@ -1,16 +1,30 @@
 import { test, expect } from 'bun:test';
-import { NOTE_NAMES, getPianoKeyLayout, getVisibleRange, snapRangeToWhiteKeys } from '../../../../frontend/src/utils/notes.ts';
+import {
+  NOTE_NAMES,
+  getPianoKeyLayout,
+  getVisibleRange,
+  snapRangeToWhiteKeys,
+} from '../../../../frontend/src/utils/notes.ts';
 
 test('snapRangeToWhiteKeys expands black-key boundaries to their white neighbors', () => {
-  expect(snapRangeToWhiteKeys({ minNoteIdx: 16, maxNoteIdx: 73 })).toEqual({ minNoteIdx: 15, maxNoteIdx: 74 });
+  expect(snapRangeToWhiteKeys({ minNoteIdx: 16, maxNoteIdx: 73 })).toEqual({
+    minNoteIdx: 15,
+    maxNoteIdx: 74,
+  });
 });
 
 test('snapRangeToWhiteKeys leaves white-key boundaries unchanged', () => {
-  expect(snapRangeToWhiteKeys({ minNoteIdx: 15, maxNoteIdx: 74 })).toEqual({ minNoteIdx: 15, maxNoteIdx: 74 });
+  expect(snapRangeToWhiteKeys({ minNoteIdx: 15, maxNoteIdx: 74 })).toEqual({
+    minNoteIdx: 15,
+    maxNoteIdx: 74,
+  });
 });
 
 test('snapRangeToWhiteKeys clamps at the piano extremes', () => {
-  expect(snapRangeToWhiteKeys({ minNoteIdx: 1, maxNoteIdx: 87 })).toEqual({ minNoteIdx: 0, maxNoteIdx: 87 });
+  expect(snapRangeToWhiteKeys({ minNoteIdx: 1, maxNoteIdx: 87 })).toEqual({
+    minNoteIdx: 0,
+    maxNoteIdx: 87,
+  });
 });
 
 test('snapRangeToWhiteKeys expands a single black key on both sides', () => {

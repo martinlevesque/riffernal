@@ -4,7 +4,11 @@ import type { AppMode } from '../../main.js';
 import { LeaderboardPanel } from './LeaderboardPanel.js';
 import { type NavAction, runNavAction, setFocused } from '../navFocus.js';
 
-const KEY_TO_NAV_ACTION: Record<string, NavAction> = { ArrowUp: 'prev', ArrowDown: 'next', Enter: 'enter' };
+const KEY_TO_NAV_ACTION: Record<string, NavAction> = {
+  ArrowUp: 'prev',
+  ArrowDown: 'next',
+  Enter: 'enter',
+};
 
 interface Ember {
   x: number;

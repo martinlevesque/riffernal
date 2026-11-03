@@ -61,7 +61,9 @@ export class LoopsPanel {
 
     this._btnClearAll.addEventListener('click', () => this._onClearAllClick());
     cancelBtn.addEventListener('click', () => this._hideClearAllPopup());
-    okBtn.addEventListener('click', () => { void this._clearAll(); });
+    okBtn.addEventListener('click', () => {
+      void this._clearAll();
+    });
 
     this._clearAllPopup.addEventListener('click', (e) => {
       if (e.target === this._clearAllPopup) this._hideClearAllPopup();
@@ -75,12 +77,11 @@ export class LoopsPanel {
 
     // Enabled while loops exist or a draft/define flow is in progress: a
     // fresh draft (boundaries not yet picked) clears without confirmation.
-    this._btnClearAll.disabled = loops.length === 0
-      && !this._game.loop.hasDraft
-      && this._game.loopDefinitionState === LoopDefinitionState.Off;
-    this._loopsPanelCount.textContent = chain.length > 0
-      ? `${chain.length} enabled`
-      : '';
+    this._btnClearAll.disabled =
+      loops.length === 0 &&
+      !this._game.loop.hasDraft &&
+      this._game.loopDefinitionState === LoopDefinitionState.Off;
+    this._loopsPanelCount.textContent = chain.length > 0 ? `${chain.length} enabled` : '';
 
     if (loops.length === 0 && !this._game.loop.hasDraft) {
       const empty = document.createElement('li');
@@ -120,7 +121,8 @@ export class LoopsPanel {
           await updateLoop(loop.id, { enabled: next });
           this._game.setLoopProperties(loop.id, { enabled: next });
 
-          if (next && this._game.loopActive && !this._game.learningMode) this._callbacks.setMode(true);
+          if (next && this._game.loopActive && !this._game.learningMode)
+            this._callbacks.setMode(true);
           this._sync();
         } catch (e) {
           reportError('Failed to update loop', e);
@@ -169,9 +171,7 @@ export class LoopsPanel {
 
       const time = document.createElement('span');
       time.className = 'loop-row-time';
-      time.textContent = ds !== null
-        ? `${fmtBounds(ds, ds)} (picking end…)`
-        : '(picking start…)';
+      time.textContent = ds !== null ? `${fmtBounds(ds, ds)} (picking end…)` : '(picking start…)';
 
       const cancelBtn = rowBtn('loop-row-cancel', 'Cancel');
       cancelBtn.addEventListener('click', () => {
@@ -234,7 +234,11 @@ export class LoopsPanel {
   }
 
   /** Persist a new loop end (no-op when null), then sync panel + sheet. */
-  private async _updateLoopEnd(loop: SavedLoop, newEnd: number | null, errorText: string): Promise<void> {
+  private async _updateLoopEnd(
+    loop: SavedLoop,
+    newEnd: number | null,
+    errorText: string,
+  ): Promise<void> {
     if (newEnd === null) return;
 
     // The row's loop object is the live SavedLoop — snapshot the old end
@@ -302,7 +306,7 @@ export class LoopsPanel {
       done = true;
       this._editingId = null;
 
-      const name = save ? (input.value.trim().slice(0, LOOP_NAME_MAX_LENGTH) || null) : loop.name;
+      const name = save ? input.value.trim().slice(0, LOOP_NAME_MAX_LENGTH) || null : loop.name;
 
       if (save && name !== loop.name) {
         try {
@@ -320,10 +324,17 @@ export class LoopsPanel {
       // Gameplay keys (Space/N/R/arrows) are document-level listeners —
       // keep typing from leaking into them.
       e.stopPropagation();
-      if (e.key === 'Enter') { e.preventDefault(); void commit(true); }
-      else if (e.key === 'Escape') { e.preventDefault(); void commit(false); }
+      if (e.key === 'Enter') {
+        e.preventDefault();
+        void commit(true);
+      } else if (e.key === 'Escape') {
+        e.preventDefault();
+        void commit(false);
+      }
     });
-    input.addEventListener('blur', () => { void commit(true); });
+    input.addEventListener('blur', () => {
+      void commit(true);
+    });
 
     return input;
   }

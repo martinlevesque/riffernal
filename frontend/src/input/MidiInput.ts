@@ -44,8 +44,12 @@ export class MidiInput {
 
   private _logDevices(): void {
     if (!this._midiAccess) return;
-    const inputs = Array.from(this._midiAccess.inputs.values()).map(i => `${i.name} (${i.manufacturer ?? '?'})`);
-    const outputs = Array.from(this._midiAccess.outputs.values()).map(o => `${o.name} (${o.manufacturer ?? '?'})`);
+    const inputs = Array.from(this._midiAccess.inputs.values()).map(
+      (i) => `${i.name} (${i.manufacturer ?? '?'})`,
+    );
+    const outputs = Array.from(this._midiAccess.outputs.values()).map(
+      (o) => `${o.name} (${o.manufacturer ?? '?'})`,
+    );
     console.log('[MIDI] inputs:', inputs);
     console.log('[MIDI] outputs:', outputs);
   }
@@ -88,7 +92,7 @@ export class MidiInput {
       }
 
       this.connected = true;
-      const names = activeInputs.map(i => i.name);
+      const names = activeInputs.map((i) => i.name);
       this._updateStatus(true, `Connected: ${names.join(', ')}`);
     } else {
       this.connected = false;
@@ -127,7 +131,10 @@ export class MidiInput {
   }
 
   private _updateStatus(connected: boolean, message: string): void {
-    this.device.setType(connected ? InputDeviceType.Midi : InputDeviceType.ComputerKeyboard, message);
+    this.device.setType(
+      connected ? InputDeviceType.Midi : InputDeviceType.ComputerKeyboard,
+      message,
+    );
 
     if (this.onConnectionChange) {
       this.onConnectionChange(connected, message);

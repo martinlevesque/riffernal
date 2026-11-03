@@ -1,5 +1,9 @@
 import { test, expect } from '@playwright/test';
-import { seedUserWithScores, fetchLeaderboard, expectWellFormedBoard } from '../../helpers/index.js';
+import {
+  seedUserWithScores,
+  fetchLeaderboard,
+  expectWellFormedBoard,
+} from '../../helpers/index.js';
 
 test.describe('API: leaderboard', () => {
   test('GET /api/leaderboard requires auth', async ({ request }) => {

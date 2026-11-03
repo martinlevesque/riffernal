@@ -1,4 +1,4 @@
-import { parseError, apiFetch } from "./helpers.js";
+import { parseError, apiFetch } from './helpers.js';
 
 /** A shortcut binding: a single piano note or a chord (array of notes).
  *  null = unbound. */
@@ -16,15 +16,15 @@ export interface GameSettings {
 }
 
 export async function fetchUserSettings(): Promise<GameSettings> {
-  const res = await apiFetch("/api/user");
+  const res = await apiFetch('/api/user');
   if (!res.ok) throw new Error(await parseError(res));
   return res.json() as Promise<GameSettings>;
 }
 
 export async function updateUserSettings(settings: Partial<GameSettings>): Promise<GameSettings> {
-  const res = await apiFetch("/api/user/settings", {
-    method: "PUT",
-    headers: { "Content-Type": "application/json" },
+  const res = await apiFetch('/api/user/settings', {
+    method: 'PUT',
+    headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify(settings),
   });
   if (!res.ok) throw new Error(await parseError(res));
@@ -35,6 +35,6 @@ export async function updateUserSettings(settings: Partial<GameSettings>): Promi
  *  The server session dies with the account, so the caller must clearAuth()
  *  once this resolves. */
 export async function deleteAccount(): Promise<void> {
-  const res = await apiFetch("/api/user", { method: "DELETE" });
+  const res = await apiFetch('/api/user', { method: 'DELETE' });
   if (!res.ok) throw new Error(await parseError(res));
 }

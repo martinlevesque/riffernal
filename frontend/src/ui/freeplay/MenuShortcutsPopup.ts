@@ -1,5 +1,5 @@
-import { fetchUserSettings, updateUserSettings } from "../../api/UserApi.js";
-import { reportError } from "../../utils/helpers.js";
+import { fetchUserSettings, updateUserSettings } from '../../api/UserApi.js';
+import { reportError } from '../../utils/helpers.js';
 import {
   bindingId,
   formatBinding,
@@ -9,13 +9,13 @@ import {
   setSongListKeys,
   type NoteBinding,
   type ShortcutAction,
-} from "./songListKeys.js";
-import type { Menu } from "./Menu.js";
+} from './songListKeys.js';
+import type { Menu } from './Menu.js';
 
 const ACTIONS: Array<{ id: ShortcutAction; label: string }> = [
-  { id: "prev", label: "Left — previous song" },
-  { id: "next", label: "Right — next song" },
-  { id: "enter", label: "Enter" },
+  { id: 'prev', label: 'Left — previous song' },
+  { id: 'next', label: 'Right — next song' },
+  { id: 'enter', label: 'Enter' },
 ];
 
 /** Settings popup listing the song-list keyboard shortcuts. Clicking a row
@@ -32,17 +32,17 @@ export class MenuShortcutsPopup {
 
   constructor(menu: Menu) {
     this._menu = menu;
-    this._popup = document.getElementById("shortcuts-popup")!;
-    this._listEl = document.getElementById("shortcut-list")!;
+    this._popup = document.getElementById('shortcuts-popup')!;
+    this._listEl = document.getElementById('shortcut-list')!;
 
-    document.getElementById("btn-menu-shortcuts")!.addEventListener("click", () => this._open());
-    document.getElementById("btn-close-shortcuts")!.addEventListener("click", () => this._close());
-    this._popup.addEventListener("click", (e) => {
+    document.getElementById('btn-menu-shortcuts')!.addEventListener('click', () => this._open());
+    document.getElementById('btn-close-shortcuts')!.addEventListener('click', () => this._close());
+    this._popup.addEventListener('click', (e) => {
       if (e.target === this._popup) this._close();
     });
 
-    document.addEventListener("keydown", (e) => {
-      if (!this._popup.classList.contains("hidden") && e.key === "Escape") {
+    document.addEventListener('keydown', (e) => {
+      if (!this._popup.classList.contains('hidden') && e.key === 'Escape') {
         e.preventDefault();
         this._close();
       }
@@ -55,19 +55,19 @@ export class MenuShortcutsPopup {
     try {
       setSongListKeys(resolveSongListKeys(await fetchUserSettings()));
     } catch (err) {
-      reportError("Failed to load keyboard shortcuts", err);
+      reportError('Failed to load keyboard shortcuts', err);
     }
     this._render();
   }
 
   private _open(): void {
     this._render();
-    this._popup.classList.remove("hidden");
+    this._popup.classList.remove('hidden');
   }
 
   private _close(): void {
     this._stopListening();
-    this._popup.classList.add("hidden");
+    this._popup.classList.add('hidden');
   }
 
   private _stopListening(): void {
@@ -111,8 +111,9 @@ export class MenuShortcutsPopup {
       this._render();
 
       // Settings merge is shallow, so the whole shortcuts object is re-sent.
-      updateUserSettings({ keyboard_menu_shortcuts: { ...getSongListKeys() } })
-        .catch((err) => reportError("Failed to save shortcut", err));
+      updateUserSettings({ keyboard_menu_shortcuts: { ...getSongListKeys() } }).catch((err) =>
+        reportError('Failed to save shortcut', err),
+      );
       return;
     }
 
@@ -121,7 +122,7 @@ export class MenuShortcutsPopup {
 
   private _showHeld(held: string[]): void {
     const idx = ACTIONS.findIndex((a) => a.id === this._listening);
-    const keyEl = this._listEl.children[idx]?.querySelector(".shortcut-key");
+    const keyEl = this._listEl.children[idx]?.querySelector('.shortcut-key');
 
     if (keyEl) keyEl.textContent = formatBinding(normalizeBinding(held));
   }
@@ -138,37 +139,38 @@ export class MenuShortcutsPopup {
 
   private _flashConflict(action: ShortcutAction): void {
     const idx = ACTIONS.findIndex((a) => a.id === action);
-    const keyEl = this._listEl.children[idx]?.querySelector(".shortcut-key");
+    const keyEl = this._listEl.children[idx]?.querySelector('.shortcut-key');
 
     if (!keyEl) return;
 
     const original = keyEl.textContent;
-    keyEl.textContent = "Already bound";
-    setTimeout(() => { keyEl.textContent = original; }, 1200);
+    keyEl.textContent = 'Already bound';
+    setTimeout(() => {
+      keyEl.textContent = original;
+    }, 1200);
   }
 
   private _render(): void {
-    this._listEl.innerHTML = "";
+    this._listEl.innerHTML = '';
     const keys = getSongListKeys();
     this._lastHeld = null;
 
     for (const action of ACTIONS) {
-      const row = document.createElement("button");
-      row.type = "button";
-      row.className = `shortcut-row${this._listening === action.id ? " listening" : ""}`;
+      const row = document.createElement('button');
+      row.type = 'button';
+      row.className = `shortcut-row${this._listening === action.id ? ' listening' : ''}`;
 
-      const label = document.createElement("span");
+      const label = document.createElement('span');
       label.textContent = action.label;
 
-      const key = document.createElement("span");
-      key.className = "shortcut-key";
-      key.textContent = this._listening === action.id
-        ? "Play key(s)…"
-        : formatBinding(keys[action.id]);
+      const key = document.createElement('span');
+      key.className = 'shortcut-key';
+      key.textContent =
+        this._listening === action.id ? 'Play key(s)…' : formatBinding(keys[action.id]);
 
       row.appendChild(label);
       row.appendChild(key);
-      row.addEventListener("click", () => {
+      row.addEventListener('click', () => {
         if (this._listening === action.id) this._stopListening();
         else this._startListening(action.id);
       });

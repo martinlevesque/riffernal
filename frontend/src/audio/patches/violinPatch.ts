@@ -98,7 +98,22 @@ export const violinPatch: Patch = {
     lfo.start(startTime);
     cleanupOnEnded(
       [osc1, osc2, osc3, lfo],
-      [osc1, osc2, osc3, lfo, lfoGain, gain1, gain2, gain3, highpassNode, formant1, formant2, formant3, lowpassNode, gainNode],
+      [
+        osc1,
+        osc2,
+        osc3,
+        lfo,
+        lfoGain,
+        gain1,
+        gain2,
+        gain3,
+        highpassNode,
+        formant1,
+        formant2,
+        formant3,
+        lowpassNode,
+        gainNode,
+      ],
     );
 
     return {

@@ -1,5 +1,8 @@
 import { test, expect } from 'bun:test';
-import { Scoring, TIMING_OFFSET_DISPLAY_THRESHOLD_MS } from '../../../../frontend/src/game/scoring.ts';
+import {
+  Scoring,
+  TIMING_OFFSET_DISPLAY_THRESHOLD_MS,
+} from '../../../../frontend/src/game/scoring.ts';
 
 test('recordOffset accumulates signed and absolute offsets', () => {
   const s = new Scoring();

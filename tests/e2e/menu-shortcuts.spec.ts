@@ -41,8 +41,12 @@ test.describe('Song list keyboard shortcuts', () => {
   });
 
   test('navigates and starts songs with bound piano keys', async ({ request, page }) => {
-    const idA = await seedSongWithNotes(request, 'Key Nav A', [{ time: 0.5, key: 'C4', duration: 1 }]);
-    const idB = await seedSongWithNotes(request, 'Key Nav B', [{ time: 0.5, key: 'D4', duration: 1 }]);
+    const idA = await seedSongWithNotes(request, 'Key Nav A', [
+      { time: 0.5, key: 'C4', duration: 1 },
+    ]);
+    const idB = await seedSongWithNotes(request, 'Key Nav B', [
+      { time: 0.5, key: 'D4', duration: 1 },
+    ]);
 
     try {
       await bindShortcuts(request, { prev: 'C3', next: 'D3', enter: 'E3' });
@@ -75,8 +79,12 @@ test.describe('Song list keyboard shortcuts', () => {
   });
 
   test('rebinds a shortcut from the settings popup and persists it', async ({ request, page }) => {
-    const idA = await seedSongWithNotes(request, 'Rebind A', [{ time: 0.5, key: 'C4', duration: 1 }]);
-    const idB = await seedSongWithNotes(request, 'Rebind B', [{ time: 0.5, key: 'D4', duration: 1 }]);
+    const idA = await seedSongWithNotes(request, 'Rebind A', [
+      { time: 0.5, key: 'C4', duration: 1 },
+    ]);
+    const idB = await seedSongWithNotes(request, 'Rebind B', [
+      { time: 0.5, key: 'D4', duration: 1 },
+    ]);
 
     try {
       await page.goto('/');
@@ -131,8 +139,12 @@ test.describe('Song list keyboard shortcuts', () => {
   });
 
   test('binds and triggers a two-key chord shortcut', async ({ request, page }) => {
-    const idA = await seedSongWithNotes(request, 'Chord A', [{ time: 0.5, key: 'C4', duration: 1 }]);
-    const idB = await seedSongWithNotes(request, 'Chord B', [{ time: 0.5, key: 'D4', duration: 1 }]);
+    const idA = await seedSongWithNotes(request, 'Chord A', [
+      { time: 0.5, key: 'C4', duration: 1 },
+    ]);
+    const idB = await seedSongWithNotes(request, 'Chord B', [
+      { time: 0.5, key: 'D4', duration: 1 },
+    ]);
 
     try {
       await bindShortcuts(request, { next: ['C3', 'D3'] });

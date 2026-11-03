@@ -1,6 +1,6 @@
-import type { Note, TrackInfo, Song } from "../utils/MidiParser.js";
-import type { HandSide } from "../utils/notes.js";
-import { parseError, apiFetch } from "./helpers.js";
+import type { Note, TrackInfo, Song } from '../utils/MidiParser.js';
+import type { HandSide } from '../utils/notes.js';
+import { parseError, apiFetch } from './helpers.js';
 
 export interface SongSummary {
   id: number;
@@ -83,7 +83,7 @@ export interface SongMetadata {
 }
 
 export async function fetchSongs(): Promise<SongSummary[]> {
-  const res = await apiFetch("/api/songs");
+  const res = await apiFetch('/api/songs');
   if (!res.ok) throw new Error(await parseError(res));
   return res.json() as Promise<SongSummary[]>;
 }
@@ -95,15 +95,15 @@ export async function fetchSong(id: number): Promise<SongFull> {
 }
 
 export async function fetchCategories(): Promise<CategoryData[]> {
-  const res = await apiFetch("/api/categories");
+  const res = await apiFetch('/api/categories');
   if (!res.ok) throw new Error(await parseError(res));
   return res.json() as Promise<CategoryData[]>;
 }
 
 export async function createCategory(name: string): Promise<CategoryData> {
-  const res = await apiFetch("/api/categories", {
-    method: "POST",
-    headers: { "Content-Type": "application/json" },
+  const res = await apiFetch('/api/categories', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({ name }),
   });
   if (!res.ok) throw new Error(await parseError(res));
@@ -118,36 +118,40 @@ export interface UploadSongInput {
 
 export async function uploadSong(input: UploadSongInput): Promise<SongFull> {
   const form = new FormData();
-  form.set("title", input.metadata.title);
-  form.set("artist", input.metadata.artist);
-  form.set("bpm", String(input.metadata.bpm));
-  form.set("difficulty", input.metadata.difficulty);
-  form.set("notes", JSON.stringify(input.metadata.notes));
-  form.set("tracks", JSON.stringify(input.metadata.tracks ?? []));
-  form.set("selected_track_indices", JSON.stringify(input.metadata.selectedTrackIndices ?? []));
-  form.set("track_hands", JSON.stringify(input.metadata.trackHands ?? {}));
-  form.set("background_tracks", JSON.stringify(input.metadata.backgroundTracks ?? []));
-  form.set("category_id", input.categoryId === null ? "" : String(input.categoryId));
-  if (input.midiFile) form.set("midi", input.midiFile);
+  form.set('title', input.metadata.title);
+  form.set('artist', input.metadata.artist);
+  form.set('bpm', String(input.metadata.bpm));
+  form.set('difficulty', input.metadata.difficulty);
+  form.set('notes', JSON.stringify(input.metadata.notes));
+  form.set('tracks', JSON.stringify(input.metadata.tracks ?? []));
+  form.set('selected_track_indices', JSON.stringify(input.metadata.selectedTrackIndices ?? []));
+  form.set('track_hands', JSON.stringify(input.metadata.trackHands ?? {}));
+  form.set('background_tracks', JSON.stringify(input.metadata.backgroundTracks ?? []));
+  form.set('category_id', input.categoryId === null ? '' : String(input.categoryId));
+  if (input.midiFile) form.set('midi', input.midiFile);
 
-  const res = await apiFetch("/api/songs", { method: "POST", body: form });
+  const res = await apiFetch('/api/songs', { method: 'POST', body: form });
   if (!res.ok) throw new Error(await parseError(res));
   return res.json() as Promise<SongFull>;
 }
 
 export async function updateSongCategory(id: number, categoryId: number | null): Promise<void> {
   const res = await apiFetch(`/api/songs/${id}`, {
-    method: "PUT",
-    headers: { "Content-Type": "application/json" },
+    method: 'PUT',
+    headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({ categoryId }),
   });
   if (!res.ok) throw new Error(await parseError(res));
 }
 
-export async function updateSongTitle(id: number, title: string, artist: string): Promise<SongFull> {
+export async function updateSongTitle(
+  id: number,
+  title: string,
+  artist: string,
+): Promise<SongFull> {
   const res = await apiFetch(`/api/songs/${id}`, {
-    method: "PUT",
-    headers: { "Content-Type": "application/json" },
+    method: 'PUT',
+    headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({ title, artist }),
   });
   if (!res.ok) throw new Error(await parseError(res));
@@ -155,13 +159,10 @@ export async function updateSongTitle(id: number, title: string, artist: string)
 }
 
 /** Owner-only difficulty update; the backend returns the refreshed song. */
-export async function updateSongDifficulty(
-  id: number,
-  difficulty: string,
-): Promise<SongFull> {
+export async function updateSongDifficulty(id: number, difficulty: string): Promise<SongFull> {
   const res = await apiFetch(`/api/songs/${id}/difficulty`, {
-    method: "PUT",
-    headers: { "Content-Type": "application/json" },
+    method: 'PUT',
+    headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({ difficulty }),
   });
   if (!res.ok) throw new Error(await parseError(res));
@@ -169,12 +170,12 @@ export async function updateSongDifficulty(
 }
 
 export async function deleteSong(id: number): Promise<void> {
-  const res = await apiFetch(`/api/songs/${id}`, { method: "DELETE" });
+  const res = await apiFetch(`/api/songs/${id}`, { method: 'DELETE' });
   if (!res.ok) throw new Error(await parseError(res));
 }
 
 export async function markSongPlayed(id: number): Promise<void> {
-  const res = await apiFetch(`/api/songs/${id}/play`, { method: "PUT" });
+  const res = await apiFetch(`/api/songs/${id}/play`, { method: 'PUT' });
   if (!res.ok) throw new Error(await parseError(res));
 }
 
@@ -183,8 +184,8 @@ export async function recordBestScore(
   score: number,
 ): Promise<{ isNew: boolean; bestScore: number | null; lastScore: number }> {
   const res = await apiFetch(`/api/songs/${id}/best-score`, {
-    method: "PUT",
-    headers: { "Content-Type": "application/json" },
+    method: 'PUT',
+    headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({ score }),
   });
   if (!res.ok) throw new Error(await parseError(res));
@@ -196,8 +197,8 @@ export async function saveSongTrackPreferences(
   prefs: TrackPreferences,
 ): Promise<TrackPreferences> {
   const res = await apiFetch(`/api/songs/${id}/track-preferences`, {
-    method: "PUT",
-    headers: { "Content-Type": "application/json" },
+    method: 'PUT',
+    headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify(prefs),
   });
   if (!res.ok) throw new Error(await parseError(res));
@@ -209,7 +210,10 @@ export interface CommunitySongListResult {
   total: number;
 }
 
-export async function fetchCommunitySongs(limit = 10, offset = 0): Promise<CommunitySongListResult> {
+export async function fetchCommunitySongs(
+  limit = 10,
+  offset = 0,
+): Promise<CommunitySongListResult> {
   const res = await apiFetch(`/api/community/songs?limit=${limit}&offset=${offset}`);
   if (!res.ok) throw new Error(await parseError(res));
   return res.json() as Promise<CommunitySongListResult>;
@@ -219,7 +223,7 @@ export async function fetchCommunitySongs(limit = 10, offset = 0): Promise<Commu
  *  by category, sorted server-side. Replaces the separate own-songs and
  *  bookmarked-songs calls so the frontend renders the groups directly. */
 export async function fetchLibrary(): Promise<LibraryMenu> {
-  const res = await apiFetch("/api/library");
+  const res = await apiFetch('/api/library');
   if (!res.ok) throw new Error(await parseError(res));
   return res.json() as Promise<LibraryMenu>;
 }
@@ -238,8 +242,10 @@ export async function fetchLibraryCategorySongs(
   limit = 10,
   offset = 0,
 ): Promise<LibraryCategorySongsResult> {
-  const segment = categoryId === null ? "uncategorized" : String(categoryId);
-  const res = await apiFetch(`/api/library/categories/${segment}/songs?limit=${limit}&offset=${offset}`);
+  const segment = categoryId === null ? 'uncategorized' : String(categoryId);
+  const res = await apiFetch(
+    `/api/library/categories/${segment}/songs?limit=${limit}&offset=${offset}`,
+  );
   if (!res.ok) throw new Error(await parseError(res));
   return res.json() as Promise<LibraryCategorySongsResult>;
 }
@@ -252,8 +258,8 @@ export async function fetchCommunitySong(id: number): Promise<SongFull> {
 
 export async function setSongPublicCommunity(id: number, value: boolean): Promise<SongFull> {
   const res = await apiFetch(`/api/songs/${id}/public-community`, {
-    method: "PUT",
-    headers: { "Content-Type": "application/json" },
+    method: 'PUT',
+    headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({ publicCommunity: value }),
   });
   if (!res.ok) throw new Error(await parseError(res));
@@ -263,8 +269,8 @@ export async function setSongPublicCommunity(id: number, value: boolean): Promis
 /** Admin-only curation of the guest showcase. */
 export async function setSongGuestShowcase(id: number, value: boolean): Promise<SongFull> {
   const res = await apiFetch(`/api/songs/${id}/guest-showcase`, {
-    method: "PUT",
-    headers: { "Content-Type": "application/json" },
+    method: 'PUT',
+    headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({ guestShowcase: value }),
   });
   if (!res.ok) throw new Error(await parseError(res));
@@ -273,8 +279,8 @@ export async function setSongGuestShowcase(id: number, value: boolean): Promise<
 
 export async function toggleCommunityBookmark(id: number, value: boolean): Promise<void> {
   const res = await apiFetch(`/api/songs/${id}/community-bookmark`, {
-    method: "PUT",
-    headers: { "Content-Type": "application/json" },
+    method: 'PUT',
+    headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({ communityBookmarked: value }),
   });
   if (!res.ok) throw new Error(await parseError(res));
@@ -284,7 +290,7 @@ export function summaryToSong(s: SongSummary): Song {
   return {
     id: s.id,
     title: s.title,
-    artist: s.artist || "",
+    artist: s.artist || '',
     bpm: s.bpm,
     difficulty: s.difficulty,
     notes: [],

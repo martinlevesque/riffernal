@@ -82,7 +82,8 @@ export class TrackSelect {
       handBtn.textContent = this._hands[track.index] === HandSide.Left ? 'LEFT' : 'RIGHT';
       handBtn.disabled = true;
       handBtn.addEventListener('click', () => {
-        this._hands[track.index] = this._hands[track.index] === HandSide.Left ? HandSide.Right : HandSide.Left;
+        this._hands[track.index] =
+          this._hands[track.index] === HandSide.Left ? HandSide.Right : HandSide.Left;
         handBtn.textContent = this._hands[track.index] === HandSide.Left ? 'LEFT' : 'RIGHT';
       });
 
@@ -122,7 +123,9 @@ export class TrackSelect {
         this._backgroundTracks.add(first);
         const evictedLi = this._listEl.children[first] as HTMLElement | undefined;
         evictedLi?.classList.remove('selected');
-        const evictedHandBtn = evictedLi?.querySelector('.track-hand-btn') as HTMLButtonElement | null;
+        const evictedHandBtn = evictedLi?.querySelector(
+          '.track-hand-btn',
+        ) as HTMLButtonElement | null;
         if (evictedHandBtn) evictedHandBtn.disabled = true;
         const evictedBgBtn = evictedLi?.querySelector('.track-bg-btn') as HTMLButtonElement | null;
         if (evictedBgBtn) evictedBgBtn.textContent = '\u{1F50A}';
@@ -140,11 +143,12 @@ export class TrackSelect {
     bgBtn.textContent = this._backgroundTracks.has(index) ? '\u{1F50A}' : '\u{1F507}';
 
     this._confirmBtn.disabled = this._selected.size === 0;
-    this._hintEl.textContent = this._selected.size === 0
-      ? 'Select 1 or 2 tracks to play'
-      : this._selected.size === 1
-        ? 'Select 1 more track, or CONFIRM to play this track only'
-        : '2 tracks selected — CONFIRM to play';
+    this._hintEl.textContent =
+      this._selected.size === 0
+        ? 'Select 1 or 2 tracks to play'
+        : this._selected.size === 1
+          ? 'Select 1 more track, or CONFIRM to play this track only'
+          : '2 tracks selected — CONFIRM to play';
   }
 
   private _toggleBackground(index: number, btn: HTMLButtonElement): void {

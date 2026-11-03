@@ -343,7 +343,8 @@ function buildFrames(captures: Capture[]): KeptFrame[] {
   const frames: KeptFrame[] = [];
   const spans = new Array<number>(captures.length).fill(0);
 
-  for (let i = 0; i < captures.length - 1; i++) spans[i] = captures[i + 1]!.shown - captures[i]!.shown;
+  for (let i = 0; i < captures.length - 1; i++)
+    spans[i] = captures[i + 1]!.shown - captures[i]!.shown;
 
   if (captures.length > 1) spans[captures.length - 1] = spans[captures.length - 2]!;
 
@@ -422,7 +423,9 @@ async function main(): Promise<void> {
   const password = readFlag(args, '--password');
 
   if (!user || !password) {
-    console.error('usage: bun run scripts/make-readme-gif.ts --user <username> --password <password>');
+    console.error(
+      'usage: bun run scripts/make-readme-gif.ts --user <username> --password <password>',
+    );
     process.exit(1);
   }
 
@@ -488,7 +491,9 @@ async function main(): Promise<void> {
 
     await page.locator('[data-mode="freeplay"]').click();
     await page.locator('#freeplay-screen').waitFor({ state: 'visible' });
-    await songLocator(page, FIRST_SONG_MATCH).waitFor({ state: 'visible', timeout: 6000 }).catch(() => {});
+    await songLocator(page, FIRST_SONG_MATCH)
+      .waitFor({ state: 'visible', timeout: 6000 })
+      .catch(() => {});
     await sleep(MENU_HOLD_MS);
 
     await songLocator(page, FIRST_SONG_MATCH).dblclick();
@@ -505,7 +510,9 @@ async function main(): Promise<void> {
     // screen and make the demo look like it logs in twice.
     await page.evaluate(`window._game?.backToMenu()`);
     await page.locator('#freeplay-screen').waitFor({ state: 'visible' });
-    await songLocator(page, SECOND_SONG_MATCH).waitFor({ state: 'visible', timeout: 6000 }).catch(() => {});
+    await songLocator(page, SECOND_SONG_MATCH)
+      .waitFor({ state: 'visible', timeout: 6000 })
+      .catch(() => {});
     await sleep(BACH_MENU_SETTLE_MS);
 
     await songLocator(page, SECOND_SONG_MATCH).dblclick();

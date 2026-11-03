@@ -72,11 +72,19 @@ export class DifficultySelectPopup {
     }
 
     options.push(
-      ...DIFFICULTY_LEVELS.map((level) => ({ value: level, label: level, class: `difficulty-${level}` })),
+      ...DIFFICULTY_LEVELS.map((level) => ({
+        value: level,
+        label: level,
+        class: `difficulty-${level}`,
+      })),
     );
 
     if (this._adminCalculateAvailable) {
-      options.push({ value: AUTO_OPTION, label: 'CALCULATE', class: 'difficulty-auto difficulty-admin' });
+      options.push({
+        value: AUTO_OPTION,
+        label: 'CALCULATE',
+        class: 'difficulty-auto difficulty-admin',
+      });
     }
 
     for (const option of options) {

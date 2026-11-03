@@ -41,8 +41,9 @@ export function setupHoverCursor(
       const rect = targetCanvas.getBoundingClientRect();
       const x = e.clientX - rect.left;
       const y = e.clientY - rect.top;
-      const inLoopDefine = game.loopDefinitionState === LoopDefinitionState.Start
-        || game.loopDefinitionState === LoopDefinitionState.End;
+      const inLoopDefine =
+        game.loopDefinitionState === LoopDefinitionState.Start ||
+        game.loopDefinitionState === LoopDefinitionState.End;
       const radius = inLoopDefine ? 50 : 30;
       const note = game.noteManager.findNearestNoteByClick(x, y, targetRenderer, radius);
       targetCanvas.style.cursor = note ? 'pointer' : 'crosshair';

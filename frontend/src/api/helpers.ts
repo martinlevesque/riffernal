@@ -1,4 +1,4 @@
-import { getAuthToken, clearAuth } from "./AuthApi.js";
+import { getAuthToken, clearAuth } from './AuthApi.js';
 
 export async function parseError(res: Response): Promise<string> {
   try {
@@ -14,14 +14,11 @@ export async function parseError(res: Response): Promise<string> {
  *  the stored credentials and reload to drop the user back on the auth
  *  screen. The rejected request still propagates as a thrown Error to the
  *  caller via `parseError`. */
-export async function apiFetch(
-  input: RequestInfo | URL,
-  init?: RequestInit,
-): Promise<Response> {
+export async function apiFetch(input: RequestInfo | URL, init?: RequestInit): Promise<Response> {
   const token = getAuthToken();
   const headers = new Headers(init?.headers);
-  if (token && !headers.has("Authorization")) {
-    headers.set("Authorization", `Bearer ${token}`);
+  if (token && !headers.has('Authorization')) {
+    headers.set('Authorization', `Bearer ${token}`);
   }
   const res = await fetch(input, { ...init, headers });
 

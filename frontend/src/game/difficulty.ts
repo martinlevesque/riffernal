@@ -1,11 +1,11 @@
-export const DIFFICULTY_LEVELS = ["easy", "medium", "hard"] as const;
+export const DIFFICULTY_LEVELS = ['easy', 'medium', 'hard'] as const;
 
 export type Difficulty = (typeof DIFFICULTY_LEVELS)[number];
 
-export const DEFAULT_DIFFICULTY: Difficulty = "medium";
+export const DEFAULT_DIFFICULTY: Difficulty = 'medium';
 
 export function isDifficulty(value: unknown): value is Difficulty {
-  return typeof value === "string" && (DIFFICULTY_LEVELS as readonly string[]).includes(value);
+  return typeof value === 'string' && (DIFFICULTY_LEVELS as readonly string[]).includes(value);
 }
 
 /** Minimal note shape needed by the estimator (time/duration in seconds). */
@@ -56,7 +56,7 @@ export function estimateSongDifficulty(
 function estimateDifficulty(notes: readonly NoteTiming[]): Difficulty {
   const onsets = notes
     .map((note) => note?.time)
-    .filter((time) => typeof time === "number" && Number.isFinite(time))
+    .filter((time) => typeof time === 'number' && Number.isFinite(time))
     .sort((a, b) => a - b);
 
   if (onsets.length === 0) {
@@ -65,7 +65,7 @@ function estimateDifficulty(notes: readonly NoteTiming[]): Difficulty {
 
   const lastEnd = notes.reduce((latest, note) => {
     const end =
-      typeof note?.duration === "number" && Number.isFinite(note.duration)
+      typeof note?.duration === 'number' && Number.isFinite(note.duration)
         ? note.time + note.duration
         : note.time;
     return Number.isFinite(end) && end > latest ? end : latest;
@@ -79,10 +79,10 @@ function estimateDifficulty(notes: readonly NoteTiming[]): Difficulty {
   const pressure = PEAK_WEIGHT * peakNps + (1 - PEAK_WEIGHT) * meanNps;
 
   if (pressure < EASY_MAX_NPS) {
-    return "easy";
+    return 'easy';
   }
 
-  return pressure > HARD_MIN_NPS ? "hard" : "medium";
+  return pressure > HARD_MIN_NPS ? 'hard' : 'medium';
 }
 
 function clusterWeights(sortedOnsets: number[]): number[] {

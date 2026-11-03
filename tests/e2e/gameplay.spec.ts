@@ -30,7 +30,9 @@ test.describe('Gameplay', () => {
 
   test('pressing a key shows hit feedback', async ({ page }) => {
     await page.keyboard.press('KeyA');
-    await expect(page.locator('#hit-feedback')).toHaveText(/Miss|Wrong|Perfect|Great|Good/, { timeout: 1000 });
+    await expect(page.locator('#hit-feedback')).toHaveText(/Miss|Wrong|Perfect|Great|Good/, {
+      timeout: 1000,
+    });
   });
 
   test('speed controls change display value', async ({ page }) => {

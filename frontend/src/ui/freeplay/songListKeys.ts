@@ -1,4 +1,4 @@
-import type { GameSettings } from "../../api/UserApi.js";
+import type { GameSettings } from '../../api/UserApi.js';
 
 /** Piano note names (e.g. "C3", "F#4") bound to song-list menu actions.
  *  A binding is a set of notes played together as a chord; a single-note
@@ -31,7 +31,7 @@ export function resetSongListKeys(): void {
 
 /** Stable identity for a binding, used for equality between actions. */
 export function bindingId(binding: NoteBinding): string {
-  return [...(binding ?? [])].sort().join("+");
+  return [...(binding ?? [])].sort().join('+');
 }
 
 /** Deduplicate notes within one binding (sort order comes from bindingId). */
@@ -52,7 +52,7 @@ export function resolveSongListKeys(settings: GameSettings): SongListKeys {
   const shortcuts = settings.keyboard_menu_shortcuts;
 
   const resolve = (value: string | string[] | null | undefined): NoteBinding => {
-    if (typeof value === "string") return normalizeBinding([value]);
+    if (typeof value === 'string') return normalizeBinding([value]);
     if (Array.isArray(value)) return normalizeBinding(value);
     return null;
   };
@@ -64,10 +64,13 @@ export function resolveSongListKeys(settings: GameSettings): SongListKeys {
   };
 }
 
-const NOTE_ACTIONS: readonly ShortcutAction[] = ["prev", "next", "enter"];
+const NOTE_ACTIONS: readonly ShortcutAction[] = ['prev', 'next', 'enter'];
 
 /** Which shortcut action (if any) the held chord matches. Order-independent. */
-export function matchSongListAction(keys: SongListKeys, heldNotes: string[]): ShortcutAction | null {
+export function matchSongListAction(
+  keys: SongListKeys,
+  heldNotes: string[],
+): ShortcutAction | null {
   const chord = bindingId(heldNotes);
 
   for (const action of NOTE_ACTIONS) {
@@ -79,5 +82,5 @@ export function matchSongListAction(keys: SongListKeys, heldNotes: string[]): Sh
 
 /** Human-readable combo label, e.g. "C3 + D3" or "—" when unbound. */
 export function formatBinding(binding: NoteBinding): string {
-  return binding ? binding.join(" + ") : "—";
+  return binding ? binding.join(' + ') : '—';
 }
