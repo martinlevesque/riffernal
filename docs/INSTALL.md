@@ -137,20 +137,18 @@ default) generates and reuses a self-signed certificate in `certs/`;
 
 ### Firewall
 
-SSH needs inbound access, and HTTPS only from Cloudflare's edge (web MIDI
-needs the browser to get HTTPS from Cloudflare; the origin stays closed to
-direct traffic). With `ufw`:
+SSH needs inbound access, and HTTPS (web MIDI needs the browser to get HTTPS
+from Cloudflare). With `ufw`:
 
 ```bash
-curl -fsSL https://www.cloudflare.com/ips-v4 -o /tmp/cf-ips.txt
-for ip in $(cat /tmp/cf-ips.txt); do
-  ufw allow from "$ip" to any port 443 proto tcp comment cloudflare
-done
-ufw status verbose   # 22/tcp allowed, default deny (incoming)
+ufw allow 22/tcp
+ufw allow 443/tcp comment https
+ufw status verbose   # default deny (incoming)
 ```
 
-If the provider also has a cloud firewall, mirror the same rules there
-(vultr-cli's rule create accepts `--source cloudflare` for the 443 rule).
+If the provider also has a cloud firewall, restrict 443 to Cloudflare's
+routers there and leave `ufw` simple — vultr-cli's rule create accepts
+`--source cloudflare` for that rule.
 
 ### Cloudflare (edge TLS)
 
