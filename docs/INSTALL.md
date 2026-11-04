@@ -78,6 +78,105 @@ bun x playwright install --with-deps chromium
 bun run typecheck
 ```
 
+## Deploy on a VPS
+
+The self-hosted server runs as a plain Bun process under systemd — no
+containers, no database service. This documents the production setup: Ubuntu
+with `git`, `curl`, `openssl` and a firewall (`ufw`) already in place.
+
+### Install
+
+```bash
+curl -fsSL https://bun.sh/install | bash
+git clone https://github.com/martinlevesque/riffernal.git /opt/riffernal
+cd /opt/riffernal
+/root/.bun/bin/bun install
+/root/.bun/bin/bun run build
+```
+
+### Seed the database
+
+Restore a snapshot **before** the first boot: nothing is running yet, so a
+plain copy is safe, and accounts, songs and scores carry over (no SETUP prompt
+because the database is not empty).
+
+```bash
+mkdir -p data backups
+cp /path/to/riffernal-YYYYMMDD-HHMMSS.db data/riffernal.db
+```
+
+### The systemd service
+
+`/etc/systemd/system/riffernal.service`:
+
+```ini
+[Unit]
+Description=riffernal (Keyboard Hero - Metal Edition)
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+WorkingDirectory=/opt/riffernal
+ExecStart=/root/.bun/bin/bun run start
+Environment=PORT=443
+Restart=always
+RestartSec=3
+
+[Install]
+WantedBy=multi-user.target
+```
+
+```bash
+systemctl daemon-reload
+systemctl enable --now riffernal
+```
+
+`enable` boots the service automatically at every restart. `start` (HTTPS, the
+default) generates and reuses a self-signed certificate in `certs/`;
+`openssl` must be available. `start:http` serves plain HTTP instead.
+
+### Firewall
+
+SSH needs inbound access, and HTTPS only from Cloudflare's edge (web MIDI
+needs the browser to get HTTPS from Cloudflare; the origin stays closed to
+direct traffic). With `ufw`:
+
+```bash
+curl -fsSL https://www.cloudflare.com/ips-v4 -o /tmp/cf-ips.txt
+for ip in $(cat /tmp/cf-ips.txt); do
+  ufw allow from "$ip" to any port 443 proto tcp comment cloudflare
+done
+ufw status verbose   # 22/tcp allowed, default deny (incoming)
+```
+
+If the provider also has a cloud firewall, mirror the same rules there
+(vultr-cli's rule create accepts `--source cloudflare` for the 443 rule).
+
+### Cloudflare (edge TLS)
+
+Cloudflare terminates HTTPS for visitors, so the browser sees a valid
+certificate (a secure context — required for Web MIDI):
+
+1. Zone `riffernal.app` on Cloudflare (nameservers pointed there).
+2. DNS: proxied A record `riffernal.app` → server IP, plus a proxied CNAME
+   `www` → `riffernal.app`. Each hostname serves the app independently; no
+   redirect between them.
+3. SSL/TLS encryption mode `full`: visitor-facing HTTPS at the edge, HTTPS to
+   the origin, accepting the origin's self-signed certificate.
+4. Always Use HTTPS = on — upgrades `http://` to `https://` on the same
+   hostname so MIDI-capable visitors can't land on insecure HTTP.
+
+### Verify
+
+```bash
+curl -s https://<domain>/api/status   # {"status":"ok","db":"ok"}
+systemctl is-active riffernal
+```
+
+Finish with a real reboot test: `systemctl reboot`, and once SSH is back,
+check `https://<domain>/api/status` again — that proves the auto-boot path
+end to end.
+
 ## Backup & restore
 
 All state lives in a single SQLite file, `data/riffernal.db`. A backup is a
@@ -85,12 +184,10 @@ consistent snapshot of it taken with SQLite's `VACUUM INTO`, so it includes
 recent writes still in the WAL and is safe to take while the server is running.
 Snapshots are saved as `backups/riffernal-YYYYMMDD-HHMMSS.db` (gitignored).
 
-| | Local | Railway |
-| --- | --- | --- |
-| Backup | `make backup` | `make backup-railway` |
-| Restore | `make restore FILE=backups/<name>.db` | `make restore-railway FILE=backups/<name>.db` |
-
-### Local
+|                    |                                             |
+| ------------------ | ------------------------------------------- |
+| Backup             | `make backup`                               |
+| Restore            | `make restore FILE=backups/<name>.db`       |
 
 ```bash
 make backup
@@ -100,20 +197,20 @@ make restore FILE=backups/riffernal-20261005-193208.db
 # restore: replace the database with backups/riffernal-20261005-193208.db? [y/N]
 ```
 
-Stop the local server before restoring: it keeps the old file open and would
-not see the restored data.
+Stop the server before restoring: it keeps the old file open and would not see
+the restored data. On the local machine that is `bun run dev`; on the VPS,
+`systemctl stop riffernal` first.
 
 ### Notes
 
 - Every restore asks for a `y/N` confirmation and replaces the current
-  database. Take a fresh `make backup` / `make backup-railway` first if you
-  might want to go back.
+  database. Take a fresh `make backup` first if you might want to go back.
 - Restore rejects files that are not SQLite databases and leaves the current
   database untouched.
 - A restore also deletes the old database's `-wal` / `-shm` files; replaying
   them onto the restored file would corrupt it.
-- To restore a Railway snapshot locally (or the other way round), use the
-  matching target with the same `FILE`, e.g. `make restore FILE=backups/<name>.db`.
+- Snapshot files are portable: the same file restores locally with `make
+  restore` or into a fresh VPS install (see "Deploy on a VPS" above).
 
 ## The SQLite database
 

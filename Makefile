@@ -1,4 +1,4 @@
-.PHONY: build run deploy deploy-https dev dev-stop worktree clean logs backup backup-railway restore restore-railway
+.PHONY: build run deploy deploy-https dev dev-stop worktree clean logs backup restore
 
 IMAGE_NAME := riffernal
 CONTAINER_NAME := riffernal
@@ -47,22 +47,15 @@ logs:
 
 BACKUP_FILE := backups/riffernal-$(shell date +%Y%m%d-%H%M%S).db
 
-# Local: snapshot data/riffernal.db. Railway: snapshot the linked service's volume.
-backup: DB_RUN := bun run
-backup-railway: DB_RUN := railway ssh -- bun run
-backup backup-railway:
+# Snapshot data/riffernal.db. On the VPS, run it as root from /opt/riffernal.
+backup:
 	@mkdir -p backups
-	@$(DB_RUN) scripts/db-backup.ts > $(BACKUP_FILE) || { rm -f $(BACKUP_FILE); exit 1; }
+	@bun run scripts/db-backup.ts > $(BACKUP_FILE) || { rm -f $(BACKUP_FILE); exit 1; }
 	@echo "Backup written to $(BACKUP_FILE)"
 
 # Usage: make restore FILE=backups/<name>.db (stop the local server first).
-# The Railway server is restarted afterwards so it reopens the restored file.
-restore: DB_RUN := bun run
-restore: AFTER := true
-restore-railway: DB_RUN := railway ssh -- bun run
-restore-railway: AFTER := railway restart -y
-restore restore-railway:
+# On the VPS stop the service first: systemctl stop riffernal.
+restore:
 	@test -f "$(FILE)" || { echo "Usage: make $@ FILE=backups/<name>.db"; exit 1; }
 	@read -p "$@: replace the database with $(FILE)? [y/N] " answer && [ "$$answer" = y ] || { echo "Aborted."; exit 1; }
-	@$(DB_RUN) scripts/db-restore.ts < "$(FILE)"
-	@$(AFTER)
+	@bun run scripts/db-restore.ts < "$(FILE)"
