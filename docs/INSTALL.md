@@ -181,6 +181,25 @@ Finish with a real reboot test: `systemctl reboot`, and once SSH is back,
 check `https://$DOMAIN/api/status` again — that proves the auto-boot path
 end to end.
 
+### Update
+
+When a new riffernal version lands on GitHub, pull it in and restart. The
+database is never touched by this — `data/` is gitignored — and schema
+migrations apply automatically on the next boot:
+
+```bash
+cd /opt/riffernal
+make backup                        # safety net before the new version
+git pull
+/root/.bun/bin/bun install         # only needed if bun.lock changed
+/root/.bun/bin/bun run build
+systemctl restart riffernal
+curl -s https://$DOMAIN/api/status
+```
+
+If the new version misbehaves, go back in three steps: check out the previous
+commit (`git log --oneline -5` to find it), `bun run build` again, restart.
+
 ## Backup & restore
 
 All state lives in a single SQLite file, `data/riffernal.db`. A backup is a
