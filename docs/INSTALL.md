@@ -111,7 +111,7 @@ cp /path/to/riffernal-YYYYMMDD-HHMMSS.db data/riffernal.db
 
 ```ini
 [Unit]
-Description=riffernal (Keyboard Hero - Metal Edition)
+Description=riffernal
 After=network-online.target
 Wants=network-online.target
 
