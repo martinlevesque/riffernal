@@ -153,11 +153,17 @@ routers there and leave `ufw` simple — vultr-cli's rule create accepts
 ### Cloudflare (edge TLS)
 
 Cloudflare terminates HTTPS for visitors, so the browser sees a valid
-certificate (a secure context — required for Web MIDI):
+certificate (a secure context — required for Web MIDI). The examples use
+`$DOMAIN` standing in for the domain you own — every shell in this section
+assumes it is already set:
 
-1. Zone `riffernal.app` on Cloudflare (nameservers pointed there).
-2. DNS: proxied A record `riffernal.app` → server IP, plus a proxied CNAME
-   `www` → `riffernal.app`. Each hostname serves the app independently; no
+```bash
+DOMAIN=example.com   # your registered domain, on Cloudflare
+```
+
+1. Zone for `$DOMAIN` on Cloudflare (nameservers pointed there).
+2. DNS: proxied A record `$DOMAIN` → server IP, plus a proxied CNAME
+   `www` → the apex. Each hostname serves the app independently; no
    redirect between them.
 3. SSL/TLS encryption mode `full`: visitor-facing HTTPS at the edge, HTTPS to
    the origin, accepting the origin's self-signed certificate.
@@ -167,12 +173,12 @@ certificate (a secure context — required for Web MIDI):
 ### Verify
 
 ```bash
-curl -s https://<domain>/api/status   # {"status":"ok","db":"ok"}
+curl -s https://$DOMAIN/api/status   # {"status":"ok","db":"ok"}
 systemctl is-active riffernal
 ```
 
 Finish with a real reboot test: `systemctl reboot`, and once SSH is back,
-check `https://<domain>/api/status` again — that proves the auto-boot path
+check `https://$DOMAIN/api/status` again — that proves the auto-boot path
 end to end.
 
 ## Backup & restore
