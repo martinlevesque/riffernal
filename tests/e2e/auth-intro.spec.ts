@@ -37,7 +37,7 @@ test.describe('Auth screen introduction', () => {
 
     const github = page.locator('#auth-screen .home-github');
     await expect(github).toBeVisible();
-    await expect(github).toHaveAttribute('href', 'https://github.com/martinlevesque/riffernal');
+    await expect(github).toHaveAttribute('href', 'https://github.com/riffernal/riffernal');
 
     await page.locator('#auth-toggle-btn').click();
     await expectAuthScreenActive(page);

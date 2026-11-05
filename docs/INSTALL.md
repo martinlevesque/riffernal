@@ -19,7 +19,7 @@ state (accounts, songs, scores) lives in a single SQLite file.
 ## Setup
 
 ```bash
-git clone https://github.com/martinlevesque/riffernal.git
+git clone https://github.com/riffernal/riffernal.git
 cd riffernal
 bun install
 ```
@@ -88,7 +88,7 @@ with `git`, `curl`, `openssl` and a firewall (`ufw`) already in place.
 
 ```bash
 curl -fsSL https://bun.sh/install | bash
-git clone https://github.com/martinlevesque/riffernal.git /opt/riffernal
+git clone https://github.com/riffernal/riffernal.git /opt/riffernal
 cd /opt/riffernal
 /root/.bun/bin/bun install
 /root/.bun/bin/bun run build
