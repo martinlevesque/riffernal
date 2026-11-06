@@ -192,6 +192,19 @@ export async function recordBestScore(
   return res.json() as Promise<{ isNew: boolean; bestScore: number | null; lastScore: number }>;
 }
 
+export async function recordPracticeScore(
+  id: number,
+  score: number,
+): Promise<{ dailyTotal: number }> {
+  const res = await apiFetch(`/api/songs/${id}/practice-score`, {
+    method: 'PUT',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ score }),
+  });
+  if (!res.ok) throw new Error(await parseError(res));
+  return res.json() as Promise<{ dailyTotal: number }>;
+}
+
 export async function saveSongTrackPreferences(
   id: number,
   prefs: TrackPreferences,

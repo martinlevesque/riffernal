@@ -43,6 +43,7 @@ import type { KeyboardInput } from '../input/KeyboardInput.js';
 import type { MidiInput } from '../input/MidiInput.js';
 import { InputDeviceType } from '../input/types.js';
 import type { ScoreDisplay } from '../ui/play/ScoreDisplay.js';
+import { LoopScoreToast } from '../ui/play/LoopScoreToast.js';
 import type { Song } from '../utils/MidiParser.js';
 import { PlayMode } from '../api/SongApi.js';
 import { LoopService, type SavedLoop, type LoopUpdates } from './LoopService.js';
@@ -106,6 +107,7 @@ export class Game {
   /** Fired after the playback chain has advanced to another loop (wrap
    *  or gap jump), so the UI can refresh the loop status display. */
   onLoopAdvanced: (() => void) | null = null;
+  onLoopScore: ((score: number) => void) | null = null;
   readonly loop = new LoopService();
 
   // -- public accessors ---------------------------------------------------
@@ -115,6 +117,9 @@ export class Game {
   }
   get usedLearningMode(): boolean {
     return this._usedLearningMode;
+  }
+  get usedLoop(): boolean {
+    return this._usedLoop;
   }
   get paused(): boolean {
     return this._paused;
@@ -134,6 +139,7 @@ export class Game {
   private _animationId: number | null = null;
   private _pressedLanes = new Map<number, number>();
   private _usedLearningMode = false;
+  private _usedLoop = false;
   private _paused = false;
   private _resultsScreen = new ResultsScreen();
   private _playScreen: HTMLElement;
@@ -151,6 +157,7 @@ export class Game {
   private _frameCount = 0;
   private _autoScheduler: AutoVoiceScheduler;
   private _debugHud = new DebugHud();
+  private _loopScoreToast = new LoopScoreToast();
 
   constructor(
     canvas: HTMLCanvasElement,
@@ -301,13 +308,11 @@ export class Game {
   deactivateLoop(): void {
     this.loop.disengage();
     this.loopPlay = false;
-    this._applyScoringEnabled();
   }
   /** Fully reset loop state — used by `start()` on a fresh game. */
   clearLoop(): void {
     this.loop.clear();
     this.loopPlay = false;
-    this._applyScoringEnabled();
   }
 
   /** Engage the chain from the first enabled loop and seek to it with the
@@ -316,11 +321,11 @@ export class Game {
    *  this so it can preserve the user's engaged/disengaged state. */
   engageChain(): boolean {
     if (!this.loop.engage()) return false;
+    this._usedLoop = true;
     const first = this.loop.current;
     if (first && this.state === GameState.Playing) {
       this._seekWithBuffer(first.startTime, COUNTDOWN_SECONDS);
     }
-    this._applyScoringEnabled();
     return true;
   }
 
@@ -355,11 +360,11 @@ export class Game {
     this.loop.addLoop(loop);
     if (!this.loop.active && this.loop.chain.length > 0) {
       this.loop.engage();
+      this._usedLoop = true;
       const first = this.loop.current;
       if (first && this.state === GameState.Playing) {
         this._seekWithBuffer(first.startTime, LOOP_TRANSITION_SECONDS);
       }
-      this._applyScoringEnabled();
     }
   }
 
@@ -375,7 +380,6 @@ export class Game {
         this.loop.disengage();
         this.loopPlay = false;
       }
-      this._applyScoringEnabled();
       return;
     }
 
@@ -384,9 +388,9 @@ export class Game {
       this.loop.currentIndex === null || (updates.enabled === false && wasCurrent) || outOfBounds;
     if (needReengage && this.state === GameState.Playing) {
       this.loop.engage();
+      this._usedLoop = true;
       const first = this.loop.current;
       if (first) this._seekWithBuffer(first.startTime, LOOP_TRANSITION_SECONDS);
-      this._applyScoringEnabled();
     }
   }
 
@@ -399,7 +403,6 @@ export class Game {
     if (chainLen === 0) {
       this.loop.disengage();
       this.loopPlay = false;
-      this._applyScoringEnabled();
       return;
     }
     if (wasCurrent && this.state === GameState.Playing) {
@@ -409,7 +412,6 @@ export class Game {
       this.loop.currentIndex = Math.min(this.loop.currentIndex ?? 0, chainLen - 1);
       const current = this.loop.current;
       if (current) this._seekWithBuffer(current.startTime, LOOP_TRANSITION_SECONDS);
-      this._applyScoringEnabled();
     }
   }
 
@@ -476,6 +478,7 @@ export class Game {
    *  to an earlier one), seamlessly otherwise (adjacent loops, or a
    *  single loop wrapping back to itself). */
   private _advanceToNextLoop(current: SavedLoop): void {
+    this._bankLoopScore();
     const prevIndex = this.loop.currentIndex;
     this.noteManager.scoring.resetCombo();
     const next = this.loop.advance();
@@ -490,6 +493,23 @@ export class Game {
       this.seekTo(next.startTime);
     }
     this.onLoopAdvanced?.();
+  }
+
+  /** Bank the score accumulated during the loop pass that just finished:
+   *  reset the live score for the next pass, flash the amount, and hand it
+   *  to the app for the daily total. */
+  private _bankLoopScore(): void {
+    const score = this.noteManager.scoring.score;
+    this.noteManager.scoring.resetScore();
+    if (score <= 0) return;
+
+    this._loopScoreToast.show(score);
+    this.onLoopScore?.(score);
+  }
+
+  /** Upgrade the loop-score toast's caption with the confirmed daily total. */
+  updateLoopScoreDailyTotal(score: number, dailyTotal: number): void {
+    this._loopScoreToast.updateDailyTotal(score, dailyTotal);
   }
 
   /** Seek to `time` with a pre-roll `buffer` (seconds) so the player has a
@@ -580,6 +600,7 @@ export class Game {
     this._completionTime = null;
     this._paused = false;
     this._usedLearningMode = this.learningMode;
+    this._usedLoop = false;
     this.renderer.clearGrind();
     this._computeUsedNoteRange(song);
 
@@ -593,7 +614,6 @@ export class Game {
     this.loop.disengage();
     this.loop.cancelDraft();
     this.loopPlay = false;
-    this._applyScoringEnabled();
     this._setupInputHandlers();
     this._setupNoteCallbacks();
 
@@ -848,18 +868,18 @@ export class Game {
     // restart always goes back to the FIRST enabled loop (index 0) with
     // the pre-roll buffer — regardless of where playback was before. In
     // PLAY mode (or with zero enabled loops), the song restarts from the
-    // beginning normally, since loops disable scoring and a competitive
-    // PLAY run should not be looped. Callers (main.ts) call setMode()
-    // before retry(), so learningMode reflects the intended post-retry
-    // mode by the time we reach here.
+    // beginning normally, since a competitive PLAY run should not be
+    // looped. Callers (main.ts) call setMode() before retry(), so
+    // learningMode reflects the intended post-retry mode by the time we
+    // reach here.
     const savedLoops = this.loop.loops;
     this.start(this._currentSong);
     this.loop.setLoops(savedLoops);
     if (this.learningMode && this.loop.chain.length > 0) {
       this.loop.engage();
+      this._usedLoop = true;
       const first = this.loop.current;
       if (first) this._seekWithBuffer(first.startTime, LOOP_TRANSITION_SECONDS);
-      this._applyScoringEnabled();
     }
   }
 
@@ -881,10 +901,6 @@ export class Game {
       this._animationId = null;
     }
     this.onBackToMenu?.();
-  }
-
-  private _applyScoringEnabled(): void {
-    this.noteManager.scoring.enabled = !this.loop.active || !this.learningMode;
   }
 
   private _patchForNote(program: number, channel: number): Patch {

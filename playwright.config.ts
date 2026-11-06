@@ -88,6 +88,11 @@ export default defineConfig({
       use: { browserName: 'chromium', storageState: STORAGE_PATH },
     },
     {
+      name: 'browser',
+      testDir: './tests/browser',
+      use: { browserName: 'chromium', storageState: STORAGE_PATH },
+    },
+    {
       name: 'api',
       testDir: './tests/backend/api',
       testIgnore: ['**/helpers/**'],

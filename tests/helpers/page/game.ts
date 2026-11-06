@@ -190,7 +190,7 @@ export interface GameSnapshot {
   savedLoopCount: number;
   chainLen: number;
   currentIndex: number | null;
-  scoringEnabled: boolean;
+  usedLoop: boolean;
 }
 
 export async function gameState(page: Page): Promise<GameSnapshot> {
@@ -205,7 +205,7 @@ export async function gameState(page: Page): Promise<GameSnapshot> {
       savedLoopCount: g.loop.loops.length,
       chainLen: g.loop.chain.length,
       currentIndex: g.loop.currentIndex,
-      scoringEnabled: g.noteManager.scoring.enabled,
+      usedLoop: g.usedLoop,
     };
   });
 }

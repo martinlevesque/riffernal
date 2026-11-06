@@ -26,7 +26,7 @@ import {
   findAllScoreStats,
   touchUserSongPlayed,
 } from "../db/userSong.ts";
-import { addDailyScore } from "../db/leaderboard.ts";
+import { addDailyScore, findDailyScore } from "../db/leaderboard.ts";
 import { setCommunityBookmark, clearBookmarksForSong } from "../db/community.ts";
 import { copyLoopsToUser } from "../db/loop.ts";
 import { findAllCategories } from "../db/category.ts";
@@ -325,6 +325,22 @@ export function recordBestScore(songId: number, userId: number, score: unknown):
   addDailyScore(userId, songId, score, todayUTC());
   const bestScore = isBestScoreValid(raw.best_score) ? raw.best_score : null;
   return { bestScore, lastScore: raw.last_score, isNew: bestScore != null && raw.best_score === score };
+}
+
+export interface RecordPracticeScoreResult {
+  dailyTotal: number;
+}
+
+export function recordPracticeScore(
+  songId: number,
+  userId: number,
+  score: unknown,
+): RecordPracticeScoreResult | null {
+  validateScore(score);
+  if (!songExists(songId)) return null;
+  const day = todayUTC();
+  addDailyScore(userId, songId, score, day);
+  return { dailyTotal: findDailyScore(userId, day) };
 }
 
 export function saveTrackPreferences(

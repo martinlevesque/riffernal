@@ -1,4 +1,5 @@
 import { Game } from './game/Game.js';
+import { hasMeaningfulScore } from './game/scoring.js';
 import { Synth } from './audio/Synth.js';
 import { installUserGestureTracking } from './audio/userGesture.js';
 import { KeyboardInput } from './input/KeyboardInput.js';
@@ -27,6 +28,7 @@ import {
   songFullToSong,
   markSongPlayed,
   recordBestScore,
+  recordPracticeScore,
   updateSongTitle,
   deleteSong,
   updateSongDifficulty,
@@ -275,9 +277,29 @@ function setupGameCallbacks(ctx: AppContext): void {
 
   game.onResultsShown = () => wireMenuNoteInput(ctx);
 
+  // Loop wraps bank each pass's score immediately, so the results page must
+  // not add it a second time.
+  game.onLoopScore = (score) => {
+    const songId = game.song?.id;
+    if (songId === undefined || _guestMode) return;
+
+    recordPracticeScore(songId, score)
+      .then(({ dailyTotal }) => game.updateLoopScoreDailyTotal(score, dailyTotal))
+      .catch((e) => console.error('Failed to record loop score:', e));
+  };
+
   game.onResults = (scoring, song) => {
     // Guests keep their run's on-screen score but nothing is persisted.
-    if (!song.id || game.usedLearningMode || _guestMode) return;
+    if (!song.id || _guestMode || game.usedLoop) return;
+
+    if (game.usedLearningMode) {
+      if (!hasMeaningfulScore(scoring.score)) return;
+
+      recordPracticeScore(song.id, scoring.score).catch((e) =>
+        console.error('Failed to record practice score:', e),
+      );
+      return;
+    }
 
     recordBestScore(song.id, scoring.score)
       .then(({ bestScore, lastScore }) => {

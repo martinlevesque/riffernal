@@ -24,7 +24,7 @@ work uncommitted for user review is the safe default.
 
 ## Testing
 
-- **Framework**: Playwright (e2e + API) / bun:test (unit)
+- **Framework**: Playwright (e2e + browser + API) / bun:test (unit)
 - **Command**: `bun run test` (full Playwright suite)
 - **Config**: `playwright.config.ts`
 - **Unit tests**: `bun run test:unit`
@@ -51,9 +51,16 @@ tests/
 │   └── src/
 │       └── utils/
 │           └── *.spec.ts ← unit tests (bun:test)
-├── e2e/                  ← browser E2E tests (Playwright --project=e2e)
-│   └── *.spec.ts
-└── helpers/              ← shared test helpers (used by both api + e2e)
+├── e2e/                  ← real UI → API → persistence flows (--project=e2e)
+│   ├── auth/
+│   ├── home/
+│   ├── freeplay/
+│   ├── play/
+│   └── smoke/
+├── browser/              ← direct engine/canvas tests (--project=browser)
+│   ├── game/
+│   └── rendering/
+└── helpers/              ← shared test helpers (used by api, e2e + browser)
     ├── api.ts
     ├── page/
     └── ...
@@ -65,7 +72,10 @@ one spec file per source file: all tests exercising `<name>.ts` —
 however many feature areas they cover — belong in that single mirroring
 spec file (e.g. every NoteManager test, hit timing to loop queries, goes
 in `note-manager.spec.ts`), never split across feature-named files.
-E2E tests that don't target a specific source file go in `tests/e2e/`.
+E2E tests that don't target a specific source file go in `tests/e2e/`,
+grouped by user-facing area (auth, home, freeplay, play, smoke). Tests
+that construct engine/canvas modules directly rather than driving the
+normal user flow belong in `tests/browser/` under the matching area.
 Shared test utilities (auth helpers, page objects, seed functions) stay
 in `tests/helpers/`.
 
@@ -74,9 +84,10 @@ in `tests/helpers/`.
 | Project | `testDir` | Description |
 | --- | --- | --- |
 | `api` | `tests/backend/api` | API endpoint tests (excludes `helpers/`) |
-| `e2e` | `tests/e2e` | Browser-driven end-to-end tests |
+| `e2e` | `tests/e2e` | Real UI → API → persistence flows |
+| `browser` | `tests/browser` | Direct engine/render tests in Chromium |
 
-CI: GitHub Actions (`.github/workflows/e2e.yml`)
+CI: GitHub Actions (`.github/workflows/e2e.yml` runs `e2e` + `browser`)
 
 Tests start a local dev server automatically, no manual server startup needed.
 
@@ -100,8 +111,8 @@ bun run test                                                         # full suit
 | `backend/db/<name>.ts` | `tests/backend/db/<name>.spec.ts` if it exists, then `bun run test:unit` |
 | `tests/backend/api/<name>.spec.ts` | the `api` project (it includes the spec) |
 | `tests/backend/api/helpers/*.spec.ts`, `tests/backend/db/*.spec.ts`, `tests/frontend/**/*.spec.ts` | `bun run test:unit` |
-| `frontend/src/**` | the e2e specs covering the module (grep `tests/e2e/` for the feature) as a quick check, then the full suite |
-| `tests/e2e/<name>.spec.ts` | the full suite (it includes the spec) |
+| `frontend/src/**` | the e2e/browser specs covering the module (grep `tests/e2e/` + `tests/browser/` for the feature) as a quick check, then the full suite |
+| `tests/e2e/**/*.spec.ts`, `tests/browser/**/*.spec.ts` | the full suite (it includes the spec) |
 | `backend/api.ts`, `backend/api/router.ts`, `backend/api/middleware/**`, `backend/api/index.ts`, `backend/models/index.ts`, `backend/db/**`, `tests/helpers/**`, `tests/e2e/global-setup.mts`, `scripts/**`, `playwright.config.ts` | full suite |
 
 Comment-only changes need only `bun run lint` and `bun run typecheck`. When

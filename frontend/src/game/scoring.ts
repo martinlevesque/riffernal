@@ -121,9 +121,6 @@ export class Scoring {
   private _totalOffsetMs = 0;
   private _totalAbsOffsetMs = 0;
   private _offsetCount = 0;
-  /** When false, scoring mutations are skipped (loop/practice mode). Notes
-   *  still resolve and play feedback, but the score does not change. */
-  enabled = true;
 
   reset(totalNotes: number): void {
     this.score = 0;
@@ -140,31 +137,29 @@ export class Scoring {
     this._totalOffsetMs = 0;
     this._totalAbsOffsetMs = 0;
     this._offsetCount = 0;
-    this.enabled = true;
   }
 
   resetCombo(): void {
     this.combo = 0;
   }
 
+  resetScore(): void {
+    this.score = 0;
+  }
+
   recordNotePress(): void {
     this.combo++;
-    if (this.enabled) {
-      if (this.combo > this.maxCombo) this.maxCombo = this.combo;
-      this.score += comboBonus(this.combo);
-    }
+    if (this.combo > this.maxCombo) this.maxCombo = this.combo;
+    this.score += comboBonus(this.combo);
   }
 
   recordWrongPress(): void {
     this.resetCombo();
-    if (!this.enabled) return;
     this.wrongNotes++;
     this.score = Math.max(0, this.score - WRONG_PRESS_PENALTY);
   }
 
   recordOffset(offsetMs: number): void {
-    if (!this.enabled) return;
-
     this._totalOffsetMs += offsetMs;
     this._totalAbsOffsetMs += Math.abs(offsetMs);
     this._offsetCount++;
@@ -189,25 +184,21 @@ export class Scoring {
   finalizeNote(grade: NoteGrade | null, heldRatio: number, earlyMultiplier = 1): number {
     if (grade === null || heldRatio <= 0) {
       this.resetCombo();
-      if (this.enabled) {
-        this.misses++;
-      }
+      this.misses++;
       return 0;
     }
 
     const baseScore = SCORE_VALUES[grade];
     const earnedScore = Math.round(baseScore * heldRatio * earlyMultiplier);
-    if (this.enabled) {
-      this.score += earnedScore;
+    this.score += earnedScore;
 
-      if (heldRatio >= 1) {
-        if (grade === NoteGrade.PERFECT) this.perfects++;
-        else if (grade === NoteGrade.GREAT) this.greats++;
-        else this.goods++;
-      } else {
-        this.failures++;
-        this.failureWeight += heldRatio * earlyMultiplier * accuracyWeight(grade);
-      }
+    if (heldRatio >= 1) {
+      if (grade === NoteGrade.PERFECT) this.perfects++;
+      else if (grade === NoteGrade.GREAT) this.greats++;
+      else this.goods++;
+    } else {
+      this.failures++;
+      this.failureWeight += heldRatio * earlyMultiplier * accuracyWeight(grade);
     }
 
     return earnedScore;

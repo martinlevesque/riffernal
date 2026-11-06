@@ -242,6 +242,46 @@
   font-size: 0.85em;
 }
 
+/* Loop-wrap confirmation: banks the finished loop's score into the daily
+ * total, then fades. Sits above the hit feedback so the two never collide. */
+#loop-score-toast {
+  position: absolute;
+  top: 32%;
+  left: 50%;
+  transform: translate(-50%, -50%) scale(0.85);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 0.35rem;
+  padding: 0.7rem 1.4rem;
+  background: rgba(14, 14, 14, 0.92);
+  border: var(--pixel-border) solid var(--accent-yellow);
+  box-shadow: var(--pixel-shadow-offset) var(--pixel-shadow-offset) 0 var(--pixel-shadow-color);
+  font-family: var(--font-mono);
+  pointer-events: none;
+  opacity: 0;
+  transition: opacity 0.15s steps(2), transform 0.15s steps(2);
+}
+
+#loop-score-toast.show {
+  opacity: 1;
+  transform: translate(-50%, -50%) scale(1);
+}
+
+.loop-score-toast-value {
+  color: var(--accent-yellow);
+  font-size: var(--fs-xlarge);
+  font-weight: bold;
+}
+
+.loop-score-toast-caption {
+  color: var(--text-secondary);
+  font-family: var(--font-ui);
+  font-size: var(--fs-smallest);
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+}
+
 /* ============================================
    LOOP CONTROL
    ============================================ */
