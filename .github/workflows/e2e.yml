@@ -43,7 +43,7 @@ jobs:
         run: bunx playwright install-deps chromium
 
       - name: Run E2E tests
-        run: bun run test -- --project=e2e
+        run: bun run test -- --project=e2e --project=browser
 
       - name: Upload test report
         if: ${{ !cancelled() }}

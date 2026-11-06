@@ -9,6 +9,7 @@ import {
   removeSong,
   recordPlay,
   recordBestScore,
+  recordPracticeScore,
   saveTrackPreferences,
   setSongDifficulty,
   setSongGuestShowcase,
@@ -227,6 +228,17 @@ export const songRoutes = [
       return result
         ? json({ isNew: result.isNew, bestScore: result.bestScore, lastScore: result.lastScore })
         : notFound();
+    }) as Handler,
+  },
+  {
+    method: "PUT",
+    path: "/api/songs/:id/practice-score",
+    handler: (async (req: Request, { id }: Record<string, string>) => {
+      const auth = requireAuth(req);
+      if (auth instanceof Response) return auth;
+      const { score } = await parseJson<{ score: number }>(req);
+      const result = recordPracticeScore(Number(id), auth.id, score);
+      return result ? json(result) : notFound();
     }) as Handler,
   },
   {

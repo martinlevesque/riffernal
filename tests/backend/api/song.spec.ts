@@ -750,3 +750,83 @@ test.describe('API: guest showcase curation', () => {
     await cleanupSongs(request, PREFIX);
   });
 });
+
+test.describe('API: practice score', () => {
+  const ONE_NOTE = [{ time: 0, key: 'C4', duration: 1 }];
+
+  test('PUT /api/songs/:id/practice-score requires auth', async ({ request }) => {
+    const res = await request.put('/api/songs/1/practice-score', { data: { score: 100 } });
+    expect(res.status()).toBe(401);
+  });
+
+  test('adds to the daily total without touching best or last score', async ({ request }) => {
+    const session = await registerUser(request, uniqueUsername('practice'));
+    const headers = {
+      Authorization: `Bearer ${session.token}`,
+      'Content-Type': 'application/json',
+    };
+    const id = await seedSongWithNotes(request, 'E2E-Practice-Score', ONE_NOTE, session.token);
+
+    // A high total keeps this fresh user on the leaderboard regardless of
+    // scores other test files recorded earlier in the run.
+    const first = await request.put(`/api/songs/${id}/practice-score`, {
+      data: { score: 1_000_000 },
+      headers,
+    });
+    expect(first.ok()).toBeTruthy();
+    expect((await first.json()).dailyTotal).toBe(1_000_000);
+
+    const second = await request.put(`/api/songs/${id}/practice-score`, {
+      data: { score: 100 },
+      headers,
+    });
+    expect(second.ok()).toBeTruthy();
+    expect((await second.json()).dailyTotal).toBe(1_000_100);
+
+    const board = await request.get('/api/leaderboard', { headers });
+    expect(board.ok()).toBeTruthy();
+    const entries = (await board.json()) as Array<{ userId: number; totalScore: number }>;
+    const mine = entries.find((e) => e.userId === session.user.id);
+    expect(mine?.totalScore).toBe(1_000_100);
+
+    const songsRes = await request.get('/api/songs', { headers });
+    expect(songsRes.ok()).toBeTruthy();
+    const songs = (await songsRes.json()) as Array<{
+      id: number;
+      bestScore: number | null;
+      lastScore: number | null;
+    }>;
+    const song = songs.find((s) => s.id === id);
+    expect(song?.bestScore).toBeNull();
+    expect(song?.lastScore).toBeNull();
+  });
+
+  test('PUT /api/songs/:id/practice-score 400s for an invalid score', async ({ request }) => {
+    const session = await registerUser(request, uniqueUsername('practice_bad'));
+    const headers = {
+      Authorization: `Bearer ${session.token}`,
+      'Content-Type': 'application/json',
+    };
+    const id = await seedSongWithNotes(request, 'E2E-Practice-BadScore', ONE_NOTE, session.token);
+
+    const res = await request.put(`/api/songs/${id}/practice-score`, {
+      data: { score: -1 },
+      headers,
+    });
+    expect(res.status()).toBe(400);
+  });
+
+  test('PUT /api/songs/:id/practice-score 404s for unknown songs', async ({ request }) => {
+    const session = await registerUser(request, uniqueUsername('practice_404'));
+    const headers = {
+      Authorization: `Bearer ${session.token}`,
+      'Content-Type': 'application/json',
+    };
+
+    const res = await request.put('/api/songs/98887766/practice-score', {
+      data: { score: 100 },
+      headers,
+    });
+    expect(res.status()).toBe(404);
+  });
+});

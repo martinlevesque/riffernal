@@ -1,5 +1,6 @@
 import { test, expect } from 'bun:test';
 import {
+  NoteGrade,
   Scoring,
   TIMING_OFFSET_DISPLAY_THRESHOLD_MS,
 } from '../../../../frontend/src/game/scoring.ts';
@@ -47,13 +48,18 @@ test('getOffsetDirection reports early, late, and mixed', () => {
   expect(mixed.getAverageOffsetMs()).toBe(50);
 });
 
-test('recordOffset is skipped while scoring is disabled', () => {
+test('resetScore clears the running score and keeps accuracy stats', () => {
   const s = new Scoring();
   s.reset(10);
-  s.enabled = false;
-  s.recordOffset(100);
-  expect(s.getAverageOffsetMs()).toBe(0);
-  expect(s.getOffsetDirection()).toBe('on time');
+  s.finalizeNote(NoteGrade.PERFECT, 1);
+  s.resetCombo();
+  expect(s.score).toBe(300);
+  expect(s.perfects).toBe(1);
+
+  s.resetScore();
+  expect(s.score).toBe(0);
+  expect(s.perfects).toBe(1);
+  expect(s.getAccuracy()).toBe(100);
 });
 
 test('reset clears recorded offsets', () => {

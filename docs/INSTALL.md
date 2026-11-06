@@ -61,7 +61,7 @@ make dev           # docker-compose dev stack (:9876), make dev-stop stops it
 ## Test
 
 ```bash
-bun run test       # full Playwright suite (API + browser E2E)
+bun run test       # full Playwright suite (API + E2E + browser integration)
 bun run test:unit  # bun:test units (API helpers, db layer, frontend utils)
 ```
 

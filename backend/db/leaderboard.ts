@@ -21,6 +21,14 @@ export function addDailyScore(userId: number, songId: number, score: number, day
   ).run(userId, day, score, songId);
 }
 
+export function findDailyScore(userId: number, day: string): number {
+  const row = db
+    .query("SELECT total_score FROM user_daily_scores WHERE user_id = ? AND day = ?")
+    .get(userId, day) as { total_score: number } | null;
+
+  return row?.total_score ?? 0;
+}
+
 export interface LeaderboardScoreRow {
   user_id: number;
   username: string;
